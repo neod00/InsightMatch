@@ -5,13 +5,6 @@ import datetime
 from flask import Flask, request, jsonify, send_file, Response
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-import os
-import uuid
-import json
-import datetime
-from flask import Flask, request, jsonify, send_file, Response
-from flask_cors import CORS
-from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import google.generativeai as genai
 import requests
@@ -381,14 +374,17 @@ def robots():
     ]
     return Response('\n'.join(lines), mimetype='text/plain')
 
-# --- Seed Data function (called manually)
-def seed_data():
+# --- Initialize Database and Seed Data function
+def init_db():
     with app.app_context():
-        # Reset DB to ensure schema changes are applied
-        db.drop_all()
+        # Create tables only if they don't exist (don't drop existing data)
         db.create_all()
-        
-        # Seed Posts
+        print("✓ Database tables initialized")
+
+def seed_initial_data():
+    """Seed initial data only if tables are empty"""
+    with app.app_context():
+        # Seed Posts (if none exist)
         if Post.query.count() == 0:
             posts = [
                 {
@@ -414,8 +410,9 @@ def seed_data():
                 post = Post(**p_data)
                 db.session.add(post)
             db.session.commit()
+            print("✓ Seeded initial posts")
             
-        # Seed Consultants (Mock Data)
+        # Seed Consultants (only if none exist)
         if Consultant.query.count() == 0:
             consultants = [
                 {
@@ -467,8 +464,10 @@ def seed_data():
                 c = Consultant(user_id=u.id, **c_data)
                 db.session.add(c)
             db.session.commit()
+            print("✓ Seeded initial consultants")
 
 if __name__ == '__main__':
-    seed_data()
+    init_db()  # Create tables if they don't exist
+    seed_initial_data()  # Seed data only if tables are empty
     # Disable reloader to prevent Windows selector issues
     app.run(debug=True, use_reloader=False, port=5000)

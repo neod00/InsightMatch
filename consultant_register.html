@@ -97,7 +97,8 @@
                 </div>
             </a>
             
-            <div class="nav-actions">
+            <div class="nav-actions" id="nav-actions">
+                <!-- Will be populated by JavaScript based on login status -->
                 <a href="index.html" class="btn btn-ghost">
                     <i data-lucide="home" style="width: 18px; height: 18px;"></i>
                     홈으로
@@ -240,6 +241,47 @@
 
     <script>
         lucide.createIcons();
+        
+        // Check login status and update navigation
+        function updateNavigation() {
+            const user = JSON.parse(localStorage.getItem('user'));
+            const token = localStorage.getItem('token');
+            const navActions = document.getElementById('nav-actions');
+            
+            if (user && token) {
+                // User is logged in
+                navActions.innerHTML = `
+                    <a href="dashboard.html" class="btn btn-ghost">
+                        <i data-lucide="layout-dashboard" style="width: 18px; height: 18px;"></i>
+                        대시보드
+                    </a>
+                    <span style="color: var(--primary); font-weight: 500;">${user.name}님</span>
+                    <button onclick="logout()" class="btn btn-ghost">
+                        <i data-lucide="log-out" style="width: 18px; height: 18px;"></i>
+                        로그아웃
+                    </button>
+                `;
+                lucide.createIcons();
+            } else {
+                // User is not logged in
+                navActions.innerHTML = `
+                    <a href="index.html" class="btn btn-ghost">
+                        <i data-lucide="home" style="width: 18px; height: 18px;"></i>
+                        홈으로
+                    </a>
+                `;
+                lucide.createIcons();
+            }
+        }
+        
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            updateNavigation();
+        }
+        
+        // Initialize navigation on page load
+        updateNavigation();
         
         document.getElementById('consultant-register-form').addEventListener('submit', async (e) => {
             e.preventDefault();
