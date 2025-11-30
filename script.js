@@ -27,8 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Show form section
-        if (formSection) {
-            formSection.style.display = 'block';
+        if (intakeForm) {
+            intakeForm.style.display = 'block';
         }
         
         // Hide loading overlay
@@ -218,8 +218,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Hide form, show loading
-            if (formSection) {
-                formSection.style.display = 'none';
+            if (intakeForm) {
+                intakeForm.style.display = 'none';
             }
             if (loadingOverlay) {
                 loadingOverlay.classList.remove('hidden');
@@ -248,8 +248,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     loadingOverlay.classList.add('hidden');
                     loadingOverlay.style.display = 'none';
                 }
-                if (formSection) {
-                    formSection.style.display = 'block';
+                if (intakeForm) {
+                    intakeForm.style.display = 'block';
                 }
                 showStep(currentStep);
             }
