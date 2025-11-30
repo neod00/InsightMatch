@@ -176,6 +176,16 @@ a {
     font-size: 1.25rem;
 }
 
+.logo-image {
+    height: 40px;
+    width: auto;
+    object-fit: contain;
+}
+
+.footer-logo {
+    height: 36px;
+}
+
 .logo-icon {
     width: 36px;
     height: 36px;
