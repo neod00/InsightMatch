@@ -172,24 +172,13 @@
                     </div>
 
                     <div class="form-group mt-6">
-                        <label style="color: var(--text-muted); font-size: 0.9rem;">수행 가능한 프로젝트 유형</label>
-                        <div class="checkbox-list">
-                            <label><input type="checkbox" name="project_types" value="New"> 신규 인증</label>
-                            <label><input type="checkbox" name="project_types" value="Renewal"> 갱신 심사</label>
-                            <label><input type="checkbox" name="project_types" value="Transition"> 전환 심사</label>
-                            <label><input type="checkbox" name="project_types" value="Integration"> 통합 시스템 구축</label>
-                        </div>
+                        <label>주요 회사 경력 *</label>
+                        <textarea name="company_experience" rows="4" required placeholder="예: 삼성전자 품질관리팀 10년, ISO 컨설팅 회사 대표 5년&#10;주요 업무: 품질시스템 구축, 내부심사, 교육훈련"></textarea>
                     </div>
 
                     <div class="form-group mt-6">
-                        <label style="color: var(--text-muted); font-size: 0.9rem;">수행 가능한 역할</label>
-                        <div class="checkbox-list">
-                            <label><input type="checkbox" name="roles" value="Documentation"> 문서화 지원</label>
-                            <label><input type="checkbox" name="roles" value="Audit"> 내부 심사</label>
-                            <label><input type="checkbox" name="roles" value="Training"> 교육 훈련</label>
-                            <label><input type="checkbox" name="roles" value="RiskAssessment"> 위험성 평가</label>
-                            <label><input type="checkbox" name="roles" value="LegalReview"> 법규 검토</label>
-                        </div>
+                        <label>주요 프로젝트 이력 *</label>
+                        <textarea name="major_projects" rows="4" required placeholder="예: 현대자동차 ISO 9001/14001 통합 인증 프로젝트 (2023)&#10;LG화학 ISO 45001 구축 프로젝트 (2024)&#10;SK하이닉스 ISO 27001 인증 프로젝트 (2022)"></textarea>
                     </div>
                 </div>
 
@@ -274,10 +263,10 @@
                 match_reason: formData.get('match_reason'),
                 detailed_certifications: formData.get('detailed_certifications'),
                 recent_projects: formData.get('recent_projects'),
+                company_experience: formData.get('company_experience'),
+                major_projects: formData.get('major_projects'),
                 iso_experience: getAll('iso_experience'),
                 industry_experience: getAll('industry_experience'),
-                project_types: getAll('project_types'),
-                roles: getAll('roles'),
                 specialty: getAll('industry_experience').join(', '),
                 avatar: formData.get('name').charAt(0)
             };
