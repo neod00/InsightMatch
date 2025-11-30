@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InsightMatch Logo Concepts</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
+
+        :root {
+            --primary: #10b981;
+            --accent: #06b6d4;
+            --bg: #0a0a0f;
+            --card: #1e293b;
+            --text: #f8fafc;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p {
+            color: #94a3b8;
+            margin-bottom: 40px;
+        }
+
+        .logo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .logo-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .logo-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(16, 185, 129, 0.1);
+            border-color: var(--primary);
+        }
+
+        .logo-container {
+            width: 120px;
+            height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+
+        .logo-label {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: var(--text);
+        }
+
+        .logo-desc {
+            font-size: 0.9rem;
+            color: #64748b;
+            text-align: center;
+        }
+
+        /* SVG Styles */
+        svg {
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.3));
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>InsightMatch Logo Concepts</h1>
+    <p>Scalable Vector Graphics (SVG) - Ready for Web & Print</p>
+
+    <div class="logo-grid">
+        <!-- Concept 1: Abstract Connection -->
+        <div class="logo-card">
+            <div class="logo-container">
+                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#10b981" />
+                            <stop offset="100%" stop-color="#06b6d4" />
+                        </linearGradient>
+                    </defs>
+                    <path d="M30 50C30 38.9543 38.9543 30 50 30C61.0457 30 70 38.9543 70 50" stroke="url(#grad1)"
+                        stroke-width="8" stroke-linecap="round" />
+                    <path d="M70 50C70 61.0457 61.0457 70 50 70C38.9543 70 30 61.0457 30 50" stroke="url(#grad1)"
+                        stroke-width="8" stroke-linecap="round" opacity="0.5" />
+                    <circle cx="50" cy="50" r="12" fill="url(#grad1)" />
+                    <path d="M20 50H30M70 50H80" stroke="url(#grad1)" stroke-width="4" stroke-linecap="round" />
+                </svg>
+            </div>
+            <div class="logo-label">Concept 1: The Link</div>
+            <div class="logo-desc">Abstract representation of connecting two entities (Company & Consultant) with a
+                central core.</div>
+        </div>
+
+        <!-- Concept 2: AI Brain / Node -->
+        <div class="logo-card">
+            <div class="logo-container">
+                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#10b981" />
+                            <stop offset="100%" stop-color="#06b6d4" />
+                        </linearGradient>
+                    </defs>
+                    <circle cx="50" cy="50" r="8" fill="url(#grad2)" />
+                    <circle cx="50" cy="25" r="5" fill="url(#grad2)" opacity="0.8" />
+                    <circle cx="75" cy="65" r="5" fill="url(#grad2)" opacity="0.8" />
+                    <circle cx="25" cy="65" r="5" fill="url(#grad2)" opacity="0.8" />
+
+                    <line x1="50" y1="50" x2="50" y2="25" stroke="url(#grad2)" stroke-width="3" />
+                    <line x1="50" y1="50" x2="75" y2="65" stroke="url(#grad2)" stroke-width="3" />
+                    <line x1="50" y1="50" x2="25" y2="65" stroke="url(#grad2)" stroke-width="3" />
+                    <line x1="50" y1="25" x2="75" y2="65" stroke="url(#grad2)" stroke-width="1" opacity="0.5" />
+                    <line x1="25" y1="65" x2="50" y2="25" stroke="url(#grad2)" stroke-width="1" opacity="0.5" />
+                </svg>
+            </div>
+            <div class="logo-label">Concept 2: Neural Net</div>
+            <div class="logo-desc">Focuses on the AI/Analysis aspect, showing nodes connecting in a network.</div>
+        </div>
+
+        <!-- Concept 3: Monogram IM -->
+        <div class="logo-card">
+            <div class="logo-container">
+                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="grad3" x1="0%" y1="100%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#10b981" />
+                            <stop offset="100%" stop-color="#06b6d4" />
+                        </linearGradient>
+                    </defs>
+                    <path d="M25 25V75" stroke="url(#grad3)" stroke-width="10" stroke-linecap="round" />
+                    <path d="M45 25V75L65 45L85 75V25" stroke="url(#grad3)" stroke-width="8" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+            </div>
+            <div class="logo-label">Concept 3: Monogram</div>
+            <div class="logo-desc">A bold, modern typographic treatment of the initials 'IM'.</div>
+        </div>
+
+        <!-- Concept 4: Insight Chart -->
+        <div class="logo-card">
+            <div class="logo-container">
+                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="grad4" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#06b6d4" />
+                            <stop offset="100%" stop-color="#10b981" />
+                        </linearGradient>
+                    </defs>
+                    <rect x="20" y="40" width="15" height="40" rx="4" fill="url(#grad4)" opacity="0.6" />
+                    <rect x="42" y="25" width="15" height="55" rx="4" fill="url(#grad4)" opacity="0.8" />
+                    <rect x="64" y="10" width="15" height="70" rx="4" fill="url(#grad4)" />
+                    <path d="M20 85L40 85L80 20" stroke="#fff" stroke-width="4" stroke-linecap="round"
+                        stroke-linejoin="round" opacity="0.8" />
+                </svg>
+            </div>
+            <div class="logo-label">Concept 4: Growth Match</div>
+            <div class="logo-desc">Combines a bar chart (growth/analysis) with an upward trajectory.</div>
+        </div>
+
+        <!-- Concept 5: Eco Tech -->
+        <div class="logo-card">
+            <div class="logo-container">
+                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="grad5" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#10b981" />
+                            <stop offset="100%" stop-color="#22c55e" />
+                        </linearGradient>
+                    </defs>
+                    <path
+                        d="M50 15C50 15 80 30 80 60C80 76.5685 66.5685 90 50 90C33.4315 90 20 76.5685 20 60C20 30 50 15 50 15Z"
+                        fill="url(#grad5)" opacity="0.2" />
+                    <path d="M50 25V80" stroke="url(#grad5)" stroke-width="4" stroke-linecap="round" />
+                    <path d="M50 40L70 30" stroke="url(#grad5)" stroke-width="3" stroke-linecap="round" />
+                    <path d="M50 60L30 50" stroke="url(#grad5)" stroke-width="3" stroke-linecap="round" />
+                    <circle cx="70" cy="30" r="4" fill="#06b6d4" />
+                    <circle cx="30" cy="50" r="4" fill="#06b6d4" />
+                    <path d="M50 15C50 15 80 30 80 60C80 76.5685 66.5685 90 50 90" stroke="url(#grad5)" stroke-width="4"
+                        stroke-linecap="round" />
+                </svg>
+            </div>
+            <div class="logo-label">Concept 5: Eco Tech</div>
+            <div class="logo-desc">A leaf shape integrated with circuit nodes, symbolizing sustainable technology.</div>
+        </div>
+    </div>
+
+</body>
+
+</html>
