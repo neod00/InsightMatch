@@ -1,4 +1,11 @@
 import os
+import sys
+
+# Add current directory to path for imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
 import uuid
 import json
 import datetime
@@ -8,8 +15,8 @@ from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
-from api.models import db, AnalysisJob, Consultant, User, Project, Milestone, Post, Company
-from api.services import AIService, MatchingService, ProposalService
+from models import db, AnalysisJob, Consultant, User, Project, Milestone, Post, Company
+from services import AIService, MatchingService, ProposalService
 
 # Load environment variables
 load_dotenv()
@@ -452,6 +459,5 @@ def seed_data():
     
     return jsonify({'message': 'Seed data created successfully'})
 
-# Export for Vercel
-handler = app
+# Vercel automatically detects Flask app named 'app'
 
