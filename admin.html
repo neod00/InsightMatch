@@ -49,8 +49,28 @@
                     관리자
                 </span>
             </div>
+            
+            <!-- Mobile Menu Button -->
+            <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="메뉴 열기">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
         </div>
     </nav>
+    
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav" id="mobile-nav">
+        <span style="display: flex; align-items: center; gap: 8px; color: var(--warning); justify-content: center;">
+            <i data-lucide="crown" style="width: 18px; height: 18px;"></i>
+            관리자
+        </span>
+        <div class="nav-divider"></div>
+        <a href="index.html" onclick="closeMobileMenu()">
+            <i data-lucide="home" style="width: 16px; height: 16px; display: inline; vertical-align: middle; margin-right: 8px;"></i>
+            메인 사이트
+        </a>
+    </div>
 
     <!-- Admin Container -->
     <div class="container admin-container">
@@ -85,6 +105,30 @@
 
     <script>
         lucide.createIcons();
+        
+        // Mobile Menu Toggle
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const mobileNav = document.getElementById('mobile-nav');
+        
+        function toggleMobileMenu() {
+            mobileMenuBtn.classList.toggle('active');
+            mobileNav.classList.toggle('active');
+            document.body.style.overflow = mobileNav.classList.contains('active') ? 'hidden' : '';
+        }
+        
+        function closeMobileMenu() {
+            mobileMenuBtn.classList.remove('active');
+            mobileNav.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+        
+        mobileMenuBtn.addEventListener('click', toggleMobileMenu);
+        
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 768) {
+                closeMobileMenu();
+            }
+        });
         
         async function fetchJobs() {
             try {

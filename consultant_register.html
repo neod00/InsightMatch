@@ -76,6 +76,37 @@
             border-color: var(--primary);
             color: var(--text-primary);
         }
+        
+        /* Responsive Styles */
+        @media (max-width: 768px) {
+            .register-container {
+                padding-top: 80px;
+                padding-bottom: 40px;
+            }
+            
+            .register-container h1 {
+                font-size: 1.75rem !important;
+            }
+            
+            .checkbox-list {
+                grid-template-columns: 1fr;
+            }
+            
+            .form-section-title {
+                font-size: 1rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .register-container h1 {
+                font-size: 1.5rem !important;
+            }
+            
+            .checkbox-list label {
+                padding: 10px 14px;
+                font-size: 0.85rem;
+            }
+        }
     </style>
 </head>
 
@@ -104,8 +135,28 @@
                     홈으로
                 </a>
             </div>
+            
+            <!-- Mobile Menu Button -->
+            <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="메뉴 열기">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
         </div>
     </nav>
+    
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav" id="mobile-nav">
+        <a href="index.html" onclick="closeMobileMenu()">홈</a>
+        <a href="blog.html">블로그</a>
+        <div class="nav-divider"></div>
+        <div id="mobile-nav-actions">
+            <a href="index.html" class="btn btn-secondary" onclick="closeMobileMenu()">
+                <i data-lucide="home" style="width: 18px; height: 18px;"></i>
+                홈으로
+            </a>
+        </div>
+    </div>
 
     <!-- Register Container -->
     <div class="container register-container">
@@ -242,11 +293,36 @@
     <script>
         lucide.createIcons();
         
+        // Mobile Menu Toggle
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const mobileNav = document.getElementById('mobile-nav');
+        
+        function toggleMobileMenu() {
+            mobileMenuBtn.classList.toggle('active');
+            mobileNav.classList.toggle('active');
+            document.body.style.overflow = mobileNav.classList.contains('active') ? 'hidden' : '';
+        }
+        
+        function closeMobileMenu() {
+            mobileMenuBtn.classList.remove('active');
+            mobileNav.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+        
+        mobileMenuBtn.addEventListener('click', toggleMobileMenu);
+        
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 768) {
+                closeMobileMenu();
+            }
+        });
+        
         // Check login status and update navigation
         function updateNavigation() {
             const user = JSON.parse(localStorage.getItem('user'));
             const token = localStorage.getItem('token');
             const navActions = document.getElementById('nav-actions');
+            const mobileNavActions = document.getElementById('mobile-nav-actions');
             
             if (user && token) {
                 // User is logged in
@@ -261,11 +337,27 @@
                         로그아웃
                     </button>
                 `;
+                mobileNavActions.innerHTML = `
+                    <a href="dashboard.html" class="btn btn-secondary" onclick="closeMobileMenu()">
+                        <i data-lucide="layout-dashboard" style="width: 18px; height: 18px;"></i>
+                        대시보드
+                    </a>
+                    <button onclick="logout(); closeMobileMenu();" class="btn btn-ghost" style="width: 100%;">
+                        <i data-lucide="log-out" style="width: 18px; height: 18px;"></i>
+                        로그아웃
+                    </button>
+                `;
                 lucide.createIcons();
             } else {
                 // User is not logged in
                 navActions.innerHTML = `
                     <a href="index.html" class="btn btn-ghost">
+                        <i data-lucide="home" style="width: 18px; height: 18px;"></i>
+                        홈으로
+                    </a>
+                `;
+                mobileNavActions.innerHTML = `
+                    <a href="index.html" class="btn btn-secondary" onclick="closeMobileMenu()">
                         <i data-lucide="home" style="width: 18px; height: 18px;"></i>
                         홈으로
                     </a>

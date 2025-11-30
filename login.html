@@ -42,8 +42,26 @@
                     홈으로
                 </a>
             </div>
+            
+            <!-- Mobile Menu Button -->
+            <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="메뉴 열기">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
         </div>
     </nav>
+    
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav" id="mobile-nav">
+        <a href="index.html">홈</a>
+        <a href="signup.html">회원가입</a>
+        <div class="nav-divider"></div>
+        <a href="index.html" class="btn btn-secondary" onclick="closeMobileMenu()">
+            <i data-lucide="home" style="width: 18px; height: 18px;"></i>
+            홈으로
+        </a>
+    </div>
 
     <!-- Auth Container -->
     <div class="auth-container">
@@ -82,6 +100,30 @@
 
     <script>
         lucide.createIcons();
+        
+        // Mobile Menu Toggle
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const mobileNav = document.getElementById('mobile-nav');
+        
+        function toggleMobileMenu() {
+            mobileMenuBtn.classList.toggle('active');
+            mobileNav.classList.toggle('active');
+            document.body.style.overflow = mobileNav.classList.contains('active') ? 'hidden' : '';
+        }
+        
+        function closeMobileMenu() {
+            mobileMenuBtn.classList.remove('active');
+            mobileNav.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+        
+        mobileMenuBtn.addEventListener('click', toggleMobileMenu);
+        
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 768) {
+                closeMobileMenu();
+            }
+        });
         
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();

@@ -49,8 +49,28 @@
                     로그아웃
                 </button>
             </div>
+            
+            <!-- Mobile Menu Button -->
+            <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="메뉴 열기">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
         </div>
     </nav>
+    
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav" id="mobile-nav">
+        <a href="index.html">홈</a>
+        <a href="dashboard.html" class="active" style="color: var(--primary);">대시보드</a>
+        <a href="blog.html">블로그</a>
+        <div class="nav-divider"></div>
+        <span id="mobile-user-name" style="color: var(--primary); font-weight: 500; text-align: center; display: block;"></span>
+        <button onclick="logout(); closeMobileMenu();" class="btn btn-ghost" style="width: 100%; max-width: 400px;">
+            <i data-lucide="log-out" style="width: 18px; height: 18px;"></i>
+            로그아웃
+        </button>
+    </div>
 
     <!-- Dashboard Container -->
     <div class="container dashboard-container">
@@ -94,6 +114,30 @@
     <script>
         lucide.createIcons();
         
+        // Mobile Menu Toggle
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const mobileNav = document.getElementById('mobile-nav');
+        
+        function toggleMobileMenu() {
+            mobileMenuBtn.classList.toggle('active');
+            mobileNav.classList.toggle('active');
+            document.body.style.overflow = mobileNav.classList.contains('active') ? 'hidden' : '';
+        }
+        
+        function closeMobileMenu() {
+            mobileMenuBtn.classList.remove('active');
+            mobileNav.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+        
+        mobileMenuBtn.addEventListener('click', toggleMobileMenu);
+        
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 768) {
+                closeMobileMenu();
+            }
+        });
+        
         // Auth Check
         const user = JSON.parse(localStorage.getItem('user'));
         const token = localStorage.getItem('token');
@@ -103,6 +147,7 @@
         }
 
         document.getElementById('user-name').textContent = `${user.name}님`;
+        document.getElementById('mobile-user-name').textContent = `${user.name}님`;
 
         async function fetchProjects() {
             try {

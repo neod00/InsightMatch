@@ -49,8 +49,28 @@
                 <a href="login.html" class="btn btn-ghost">로그인</a>
                 <a href="index.html#diagnosis" class="btn btn-primary">무료 진단 시작</a>
             </div>
+            
+            <!-- Mobile Menu Button -->
+            <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="메뉴 열기">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
         </div>
     </nav>
+    
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav" id="mobile-nav">
+        <a href="index.html" onclick="closeMobileMenu()">홈</a>
+        <a href="index.html#how-it-works" onclick="closeMobileMenu()">프로세스</a>
+        <a href="index.html#diagnosis" onclick="closeMobileMenu()">AI 진단</a>
+        <a href="blog.html" style="color: var(--primary);">블로그</a>
+        <div class="nav-divider"></div>
+        <div id="mobile-nav-actions">
+            <a href="login.html" class="btn btn-secondary">로그인</a>
+            <a href="index.html#diagnosis" class="btn btn-primary" onclick="closeMobileMenu()">무료 진단 시작</a>
+        </div>
+    </div>
 
     <!-- Blog Header -->
     <section class="section blog-container">
@@ -127,11 +147,36 @@
     <script>
         lucide.createIcons();
         
+        // Mobile Menu Toggle
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const mobileNav = document.getElementById('mobile-nav');
+        
+        function toggleMobileMenu() {
+            mobileMenuBtn.classList.toggle('active');
+            mobileNav.classList.toggle('active');
+            document.body.style.overflow = mobileNav.classList.contains('active') ? 'hidden' : '';
+        }
+        
+        function closeMobileMenu() {
+            mobileMenuBtn.classList.remove('active');
+            mobileNav.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+        
+        mobileMenuBtn.addEventListener('click', toggleMobileMenu);
+        
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 768) {
+                closeMobileMenu();
+            }
+        });
+        
         // Check login status and update navigation
         function updateNavigation() {
             const user = JSON.parse(localStorage.getItem('user'));
             const token = localStorage.getItem('token');
             const navActions = document.getElementById('nav-actions');
+            const mobileNavActions = document.getElementById('mobile-nav-actions');
             
             if (user && token) {
                 // User is logged in
@@ -146,12 +191,27 @@
                         로그아웃
                     </button>
                 `;
+                // Update mobile nav
+                mobileNavActions.innerHTML = `
+                    <a href="dashboard.html" class="btn btn-secondary" onclick="closeMobileMenu()">
+                        <i data-lucide="layout-dashboard" style="width: 18px; height: 18px;"></i>
+                        대시보드
+                    </a>
+                    <button onclick="logout(); closeMobileMenu();" class="btn btn-ghost" style="width: 100%;">
+                        <i data-lucide="log-out" style="width: 18px; height: 18px;"></i>
+                        로그아웃
+                    </button>
+                `;
                 lucide.createIcons();
             } else {
                 // User is not logged in
                 navActions.innerHTML = `
                     <a href="login.html" class="btn btn-ghost">로그인</a>
                     <a href="index.html#diagnosis" class="btn btn-primary">무료 진단 시작</a>
+                `;
+                mobileNavActions.innerHTML = `
+                    <a href="login.html" class="btn btn-secondary">로그인</a>
+                    <a href="index.html#diagnosis" class="btn btn-primary" onclick="closeMobileMenu()">무료 진단 시작</a>
                 `;
             }
         }
