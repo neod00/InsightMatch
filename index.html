@@ -362,9 +362,61 @@
 
                 <!-- Loading State -->
                 <div id="loading-overlay" class="loading-overlay hidden">
-                    <div class="loading-spinner"></div>
-                    <p class="loading-text">AI가 기업 데이터를 분석 중입니다...</p>
-                    <p class="text-muted mt-4" style="font-size: 0.9rem;">잠시만 기다려주세요. 약 10초 정도 소요됩니다.</p>
+                    <div class="loading-container">
+                        <!-- Animated Icon -->
+                        <div class="loading-icon">
+                            <svg viewBox="0 0 100 100" class="loading-brain">
+                                <circle cx="50" cy="50" r="45" class="brain-circle" />
+                                <path class="brain-pulse" d="M20,50 Q35,30 50,50 T80,50" />
+                                <path class="brain-pulse delay-1" d="M20,50 Q35,70 50,50 T80,50" />
+                            </svg>
+                            <div class="loading-glow"></div>
+                        </div>
+                        
+                        <!-- Progress Bar -->
+                        <div class="progress-wrapper">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progress-fill"></div>
+                                <div class="progress-shimmer"></div>
+                            </div>
+                            <div class="progress-percentage" id="progress-percentage">0%</div>
+                        </div>
+                        
+                        <!-- Status Text -->
+                        <p class="loading-text" id="loading-status">AI가 기업 데이터를 분석 중입니다...</p>
+                        
+                        <!-- Steps -->
+                        <div class="loading-steps">
+                            <div class="loading-step active" id="step-1">
+                                <div class="step-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                    </svg>
+                                </div>
+                                <span>데이터 수집</span>
+                            </div>
+                            <div class="step-connector"><div class="connector-fill" id="connector-1"></div></div>
+                            <div class="loading-step" id="step-2">
+                                <div class="step-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                                    </svg>
+                                </div>
+                                <span>AI 분석</span>
+                            </div>
+                            <div class="step-connector"><div class="connector-fill" id="connector-2"></div></div>
+                            <div class="loading-step" id="step-3">
+                                <div class="step-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                </div>
+                                <span>결과 생성</span>
+                            </div>
+                        </div>
+                        
+                        <p class="loading-subtitle">잠시만 기다려주세요. 약 10초 정도 소요됩니다.</p>
+                    </div>
                 </div>
             </div>
         </div>

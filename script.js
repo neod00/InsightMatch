@@ -257,6 +257,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function pollForResults(jobId) {
+        let progress = 0;
+        let currentStep = 1;
+        const statusMessages = [
+            '기업 데이터를 수집하고 있습니다...',
+            '웹사이트 정보를 분석하고 있습니다...',
+            'AI가 리스크 요인을 평가하고 있습니다...',
+            '최적의 ISO 표준을 추천하고 있습니다...',
+            '분석 결과를 생성하고 있습니다...'
+        ];
+        
+        // Progress animation
+        const progressFill = document.getElementById('progress-fill');
+        const progressPercentage = document.getElementById('progress-percentage');
+        const loadingStatus = document.getElementById('loading-status');
+        
+        // Animate progress smoothly
+        const progressInterval = setInterval(() => {
+            if (progress < 90) {
+                progress += Math.random() * 8 + 2;
+                if (progress > 90) progress = 90;
+                
+                if (progressFill) progressFill.style.width = progress + '%';
+                if (progressPercentage) progressPercentage.textContent = Math.floor(progress) + '%';
+                
+                // Update status message
+                const messageIndex = Math.floor(progress / 20);
+                if (loadingStatus && statusMessages[messageIndex]) {
+                    loadingStatus.textContent = statusMessages[messageIndex];
+                }
+                
+                // Update steps
+                if (progress > 30 && currentStep === 1) {
+                    currentStep = 2;
+                    updateLoadingSteps(1, 2);
+                } else if (progress > 70 && currentStep === 2) {
+                    currentStep = 3;
+                    updateLoadingSteps(2, 3);
+                }
+            }
+        }, 300);
+        
         const pollInterval = setInterval(async () => {
             try {
                 const response = await fetch(`/api/analyze/${jobId}`);
@@ -264,21 +305,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (data.status === 'completed') {
                     clearInterval(pollInterval);
-                    displayResults(data.result);
+                    clearInterval(progressInterval);
                     
-                    // Hide loading
-                    if (loadingOverlay) {
-                        loadingOverlay.classList.add('hidden');
-                        loadingOverlay.style.display = 'none';
-                    }
+                    // Complete progress animation
+                    if (progressFill) progressFill.style.width = '100%';
+                    if (progressPercentage) progressPercentage.textContent = '100%';
+                    if (loadingStatus) loadingStatus.textContent = '분석이 완료되었습니다!';
+                    updateLoadingSteps(3, 3, true);
                     
-                    // Show results
-                    if (resultsSection) {
-                        resultsSection.classList.remove('hidden');
-                        resultsSection.scrollIntoView({ behavior: 'smooth' });
-                    }
+                    // Wait a moment to show completion
+                    setTimeout(() => {
+                        displayResults(data.result);
+                        
+                        // Hide loading
+                        if (loadingOverlay) {
+                            loadingOverlay.classList.add('hidden');
+                            loadingOverlay.style.display = 'none';
+                        }
+                        
+                        // Show results
+                        if (resultsSection) {
+                            resultsSection.classList.remove('hidden');
+                            resultsSection.scrollIntoView({ behavior: 'smooth' });
+                        }
+                    }, 500);
+                    
                 } else if (data.status === 'failed') {
                     clearInterval(pollInterval);
+                    clearInterval(progressInterval);
                     showNotification('분석에 실패했습니다. 다시 시도해주세요.', 'error');
                     if (loadingOverlay) {
                         loadingOverlay.classList.add('hidden');
@@ -293,6 +347,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Polling error:', error);
             }
         }, 2000);
+    }
+    
+    function updateLoadingSteps(completedStep, activeStep, allComplete = false) {
+        for (let i = 1; i <= 3; i++) {
+            const step = document.getElementById(`step-${i}`);
+            const connector = document.getElementById(`connector-${i - 1}`);
+            
+            if (step) {
+                step.classList.remove('active', 'completed');
+                if (allComplete || i < activeStep) {
+                    step.classList.add('completed');
+                } else if (i === activeStep) {
+                    step.classList.add('active');
+                }
+            }
+            
+            if (connector) {
+                connector.style.width = (i <= completedStep) ? '100%' : '0%';
+            }
+        }
     }
 
     function displayResults(result) {
