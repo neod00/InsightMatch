@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>전문가 등록 - InsightMatch</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .register-container {
+            padding-top: 120px;
+            padding-bottom: 80px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .form-section-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+            color: var(--primary);
+            font-size: 1.1rem;
+        }
+        
+        .form-section-title i {
+            width: 22px;
+            height: 22px;
+        }
+        
+        .checkbox-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 10px;
+        }
+        
+        .checkbox-list label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+        
+        .checkbox-list label:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border-hover);
+        }
+        
+        .checkbox-list input[type="checkbox"] {
+            accent-color: var(--primary);
+            width: 18px;
+            height: 18px;
+        }
+        
+        .checkbox-list label:has(input:checked) {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: var(--primary);
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Background Effects -->
+    <div class="bg-gradient"></div>
+    <div class="bg-grid"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container nav-content">
+            <a href="index.html" class="logo">
+                <div class="logo-icon">
+                    <i data-lucide="shield-check" style="width: 20px; height: 20px;"></i>
+                </div>
+                <div class="logo-text">
+                    <span>InsightMatch</span>
+                    <span>by OpenBrain</span>
+                </div>
+            </a>
+            
+            <div class="nav-actions">
+                <a href="index.html" class="btn btn-ghost">
+                    <i data-lucide="home" style="width: 18px; height: 18px;"></i>
+                    홈으로
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Register Container -->
+    <div class="container register-container">
+        <div class="section-header fade-in-up" style="margin-bottom: 40px;">
+            <h1 style="font-size: 2.5rem;">전문가(컨설턴트) 등록</h1>
+            <p>검증된 전문가 그룹에 합류하세요. AI가 최적의 프로젝트를 매칭해 드립니다.</p>
+        </div>
+        
+        <div class="form-section fade-in-up">
+            <form id="consultant-register-form">
+                <!-- 기본 정보 -->
+                <div style="margin-bottom: 40px;">
+                    <h3 class="form-section-title">
+                        <i data-lucide="user"></i>
+                        기본 정보
+                    </h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>이름 *</label>
+                            <input type="text" name="name" required placeholder="실명을 입력해주세요">
+                        </div>
+                        <div class="form-group">
+                            <label>이메일 *</label>
+                            <input type="email" name="email" required placeholder="contact@example.com">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ISO 규격 -->
+                <div style="margin-bottom: 40px;">
+                    <h3 class="form-section-title">
+                        <i data-lucide="award"></i>
+                        전문 분야 (ISO 규격)
+                    </h3>
+                    <label style="display: block; margin-bottom: 12px; color: var(--text-muted); font-size: 0.9rem;">가능한 규격을 모두 선택해주세요</label>
+                    <div class="checkbox-list">
+                        <label><input type="checkbox" name="iso_experience" value="9001"> ISO 9001 (품질)</label>
+                        <label><input type="checkbox" name="iso_experience" value="14001"> ISO 14001 (환경)</label>
+                        <label><input type="checkbox" name="iso_experience" value="45001"> ISO 45001 (안전보건)</label>
+                        <label><input type="checkbox" name="iso_experience" value="27001"> ISO 27001 (정보보안)</label>
+                        <label><input type="checkbox" name="iso_experience" value="13485"> ISO 13485 (의료기기)</label>
+                        <label><input type="checkbox" name="iso_experience" value="50001"> ISO 50001 (에너지)</label>
+                    </div>
+                </div>
+
+                <!-- 산업 경험 -->
+                <div style="margin-bottom: 40px;">
+                    <h3 class="form-section-title">
+                        <i data-lucide="building-2"></i>
+                        산업 및 프로젝트 경험
+                    </h3>
+                    
+                    <div class="form-group">
+                        <label style="color: var(--text-muted); font-size: 0.9rem;">경험 산업군</label>
+                        <div class="checkbox-list">
+                            <label><input type="checkbox" name="industry_experience" value="IT/Software"> IT/소프트웨어</label>
+                            <label><input type="checkbox" name="industry_experience" value="Manufacturing"> 제조/생산</label>
+                            <label><input type="checkbox" name="industry_experience" value="Construction"> 건설/토목</label>
+                            <label><input type="checkbox" name="industry_experience" value="Chemical"> 화학/에너지</label>
+                            <label><input type="checkbox" name="industry_experience" value="Automotive"> 자동차/부품</label>
+                            <label><input type="checkbox" name="industry_experience" value="Medical"> 의료/바이오</label>
+                            <label><input type="checkbox" name="industry_experience" value="Service"> 서비스/유통</label>
+                            <label><input type="checkbox" name="industry_experience" value="Public"> 공공기관</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group mt-6">
+                        <label style="color: var(--text-muted); font-size: 0.9rem;">수행 가능한 프로젝트 유형</label>
+                        <div class="checkbox-list">
+                            <label><input type="checkbox" name="project_types" value="New"> 신규 인증</label>
+                            <label><input type="checkbox" name="project_types" value="Renewal"> 갱신 심사</label>
+                            <label><input type="checkbox" name="project_types" value="Transition"> 전환 심사</label>
+                            <label><input type="checkbox" name="project_types" value="Integration"> 통합 시스템 구축</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group mt-6">
+                        <label style="color: var(--text-muted); font-size: 0.9rem;">수행 가능한 역할</label>
+                        <div class="checkbox-list">
+                            <label><input type="checkbox" name="roles" value="Documentation"> 문서화 지원</label>
+                            <label><input type="checkbox" name="roles" value="Audit"> 내부 심사</label>
+                            <label><input type="checkbox" name="roles" value="Training"> 교육 훈련</label>
+                            <label><input type="checkbox" name="roles" value="RiskAssessment"> 위험성 평가</label>
+                            <label><input type="checkbox" name="roles" value="LegalReview"> 법규 검토</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 자격 및 경력 -->
+                <div style="margin-bottom: 40px;">
+                    <h3 class="form-section-title">
+                        <i data-lucide="briefcase"></i>
+                        자격 및 경력
+                    </h3>
+                    
+                    <div class="form-group">
+                        <label>보유 자격 상세</label>
+                        <textarea name="detailed_certifications" rows="3" placeholder="예: ISO 9001 선임심사원 (KAR-12345), 기술사 자격 보유"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>최근 대표 프로젝트</label>
+                        <textarea name="recent_projects" rows="3" placeholder="예: A사(자동차 부품) ISO 9001/14001 통합 시스템 구축 완료 (2024.01)"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>총 경력 (년) *</label>
+                        <input type="number" name="experience" required placeholder="숫자만 입력 (예: 10)" min="0">
+                    </div>
+                </div>
+
+                <!-- 매칭 어필 -->
+                <div style="margin-bottom: 40px;">
+                    <h3 class="form-section-title">
+                        <i data-lucide="sparkles"></i>
+                        매칭 어필
+                    </h3>
+                    <div class="form-group">
+                        <label>한줄 소개 (매칭 시 고객에게 표시됩니다) *</label>
+                        <input type="text" name="match_reason" required placeholder="예: 자동차 업종 프로젝트 20+건 수행 전문가">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
+                    <i data-lucide="send" style="width: 20px; height: 20px;"></i>
+                    등록 신청하기
+                </button>
+                
+                <p style="text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-top: 16px;">
+                    등록 신청 후 관리자 검토를 거쳐 승인됩니다. 승인 완료 시 이메일로 안내드립니다.
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer" style="margin-top: 40px;">
+        <div class="container">
+            <div class="footer-bottom" style="border-top: none; margin-top: 0; padding-top: 0;">
+                <span>© 2024 InsightMatch. All rights reserved.</span>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+        
+        document.getElementById('consultant-register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+
+            // Helper to get all values for checkboxes
+            const getAll = (name) => {
+                const values = [];
+                document.querySelectorAll(`input[name="${name}"]:checked`).forEach(cb => {
+                    values.push(cb.value);
+                });
+                return values;
+            };
+
+            const data = {
+                name: formData.get('name'),
+                email: formData.get('email'),
+                experience: formData.get('experience'),
+                match_reason: formData.get('match_reason'),
+                detailed_certifications: formData.get('detailed_certifications'),
+                recent_projects: formData.get('recent_projects'),
+                iso_experience: getAll('iso_experience'),
+                industry_experience: getAll('industry_experience'),
+                project_types: getAll('project_types'),
+                roles: getAll('roles'),
+                specialty: getAll('industry_experience').join(', '),
+                avatar: formData.get('name').charAt(0)
+            };
+            
+            // Validation
+            if (data.iso_experience.length === 0) {
+                showNotification('최소 하나의 ISO 규격을 선택해주세요.', 'error');
+                return;
+            }
+            
+            // Loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="loading-spinner" style="width: 20px; height: 20px; border-width: 2px;"></span> 처리 중...';
+
+            try {
+                const response = await fetch('http://localhost:5000/api/consultants/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    showNotification('등록 신청이 완료되었습니다! 관리자 승인 후 활동이 가능합니다.', 'success');
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 2000);
+                } else {
+                    showNotification('등록에 실패했습니다. 다시 시도해주세요.', 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i data-lucide="send" style="width: 20px; height: 20px;"></i> 등록 신청하기';
+                    lucide.createIcons();
+                }
+            } catch (error) {
+                console.error(error);
+                showNotification('서버 연결에 실패했습니다.', 'error');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i data-lucide="send" style="width: 20px; height: 20px;"></i> 등록 신청하기';
+                lucide.createIcons();
+            }
+        });
+        
+        function showNotification(message, type) {
+            const existing = document.querySelector('.notification');
+            if (existing) existing.remove();
+            
+            const notification = document.createElement('div');
+            const bgColor = type === 'success' ? 'rgba(16, 185, 129, 0.9)' : 'rgba(239, 68, 68, 0.9)';
+            
+            notification.style.cssText = `
+                position: fixed;
+                top: 100px;
+                right: 24px;
+                padding: 16px 24px;
+                background: ${bgColor};
+                color: white;
+                border-radius: 12px;
+                z-index: 10000;
+                animation: slideIn 0.3s ease;
+                backdrop-filter: blur(10px);
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+                max-width: 400px;
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            if (type === 'error') {
+                setTimeout(() => notification.remove(), 5000);
+            }
+        }
+    </script>
+</body>
+
+</html>

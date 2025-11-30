@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>대시보드 - InsightMatch</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Background Effects -->
+    <div class="bg-gradient"></div>
+    <div class="bg-grid"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container nav-content">
+            <a href="index.html" class="logo">
+                <div class="logo-icon">
+                    <i data-lucide="shield-check" style="width: 20px; height: 20px;"></i>
+                </div>
+                <div class="logo-text">
+                    <span>InsightMatch</span>
+                    <span>by OpenBrain</span>
+                </div>
+            </a>
+            
+            <div class="nav-links">
+                <a href="index.html">홈</a>
+                <a href="dashboard.html" class="active" style="color: var(--primary);">대시보드</a>
+                <a href="blog.html">블로그</a>
+            </div>
+            
+            <div class="nav-actions">
+                <span id="user-name" style="color: var(--primary); font-weight: 500;"></span>
+                <button onclick="logout()" class="btn btn-ghost">
+                    <i data-lucide="log-out" style="width: 18px; height: 18px;"></i>
+                    로그아웃
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Dashboard Container -->
+    <div class="container dashboard-container">
+        <div class="dashboard-header fade-in-up">
+            <h1 style="font-size: 2rem; margin-bottom: 8px;">내 프로젝트</h1>
+            <p style="color: var(--text-muted);">진행 중인 ISO 인증 프로젝트를 관리하세요.</p>
+        </div>
+        
+        <div id="project-list">
+            <div class="card" style="text-align: center; padding: 60px;">
+                <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
+                <p style="color: var(--text-muted);">프로젝트를 불러오는 중...</p>
+            </div>
+        </div>
+        
+        <!-- Empty State -->
+        <div id="empty-state" class="hidden">
+            <div class="card" style="text-align: center; padding: 60px;">
+                <div style="width: 80px; height: 80px; margin: 0 auto 24px; background: var(--bg-card-hover); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <i data-lucide="folder-open" style="width: 40px; height: 40px; color: var(--text-muted);"></i>
+                </div>
+                <h3 style="margin-bottom: 12px;">진행 중인 프로젝트가 없습니다</h3>
+                <p style="color: var(--text-muted); margin-bottom: 24px;">AI 진단을 통해 새로운 프로젝트를 시작해보세요.</p>
+                <a href="index.html#diagnosis" class="btn btn-primary">
+                    <i data-lucide="plus" style="width: 18px; height: 18px;"></i>
+                    새 프로젝트 시작하기
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer" style="margin-top: 40px;">
+        <div class="container">
+            <div class="footer-bottom" style="border-top: none; margin-top: 0; padding-top: 0;">
+                <span>© 2024 InsightMatch. All rights reserved.</span>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+        
+        // Auth Check
+        const user = JSON.parse(localStorage.getItem('user'));
+        const token = localStorage.getItem('token');
+
+        if (!user || !token) {
+            window.location.href = 'login.html';
+        }
+
+        document.getElementById('user-name').textContent = `${user.name}님`;
+
+        async function fetchProjects() {
+            try {
+                const response = await fetch(`http://localhost:5000/api/projects?user_id=${user.id}`);
+                const projects = await response.json();
+                
+                if (projects.length === 0) {
+                    document.getElementById('project-list').classList.add('hidden');
+                    document.getElementById('empty-state').classList.remove('hidden');
+                } else {
+                    renderProjects(projects);
+                }
+            } catch (error) {
+                console.error(error);
+                document.getElementById('project-list').innerHTML = `
+                    <div class="card" style="text-align: center; padding: 40px;">
+                        <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: var(--error); margin-bottom: 16px;"></i>
+                        <p style="color: var(--text-muted);">프로젝트를 불러오지 못했습니다.</p>
+                    </div>
+                `;
+                lucide.createIcons();
+            }
+        }
+
+        function renderProjects(projects) {
+            const container = document.getElementById('project-list');
+            container.innerHTML = '';
+
+            projects.forEach((p, index) => {
+                const card = document.createElement('div');
+                card.className = 'project-card fade-in-up';
+                card.style.animationDelay = `${index * 0.1}s`;
+
+                let milestonesHtml = '';
+                const totalMilestones = p.milestones.length;
+                const completedMilestones = p.milestones.filter(m => m.status === 'completed').length;
+                const progress = totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0;
+                
+                p.milestones.forEach(m => {
+                    const isCompleted = m.status === 'completed' ? 'completed' : '';
+                    milestonesHtml += `
+                        <li class="milestone-item ${isCompleted}">
+                            <div class="milestone-status">
+                                ${m.status === 'completed' ? '<i data-lucide="check" style="width: 12px; height: 12px; color: white;"></i>' : ''}
+                            </div>
+                            <span>${m.title}</span>
+                        </li>
+                    `;
+                });
+
+                const statusConfig = {
+                    'planning': { text: '계획 중', class: 'status-planning' },
+                    'in_progress': { text: '진행 중', class: 'status-in_progress' },
+                    'completed': { text: '완료', class: 'status-completed' }
+                };
+                const status = statusConfig[p.status] || statusConfig['planning'];
+
+                card.innerHTML = `
+                    <div class="project-header">
+                        <div>
+                            <h3 style="font-size: 1.25rem; margin-bottom: 8px;">${p.title}</h3>
+                            <p style="color: var(--text-muted); font-size: 0.9rem;">
+                                <i data-lucide="user" style="width: 14px; height: 14px; display: inline; vertical-align: middle; margin-right: 4px;"></i>
+                                담당 컨설턴트: ${p.consultant_name}
+                            </p>
+                        </div>
+                        <span class="status-badge ${status.class}">${status.text}</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <div class="flex justify-between items-center" style="margin-bottom: 8px;">
+                            <span style="font-size: 0.9rem; color: var(--text-muted);">진행률</span>
+                            <span style="font-size: 0.9rem; color: var(--primary); font-weight: 600;">${progress}%</span>
+                        </div>
+                        <div class="trust-score-bar">
+                            <div class="trust-score-fill" style="width: ${progress}%;"></div>
+                        </div>
+                    </div>
+                    
+                    <ul class="milestone-list">
+                        ${milestonesHtml}
+                    </ul>
+                    
+                    <div class="flex justify-end gap-2" style="margin-top: 24px;">
+                        <button class="btn btn-secondary btn-sm" onclick="downloadProposal(${p.id})">
+                            <i data-lucide="file-text" style="width: 16px; height: 16px;"></i>
+                            제안서 다운로드
+                        </button>
+                        ${p.status === 'planning' ? `
+                            <button class="btn btn-primary btn-sm" onclick="signContract(${p.id})">
+                                <i data-lucide="pen-tool" style="width: 16px; height: 16px;"></i>
+                                계약 체결
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            
+            lucide.createIcons();
+        }
+
+        async function downloadProposal(projectId) {
+            window.location.href = `http://localhost:5000/api/projects/${projectId}/proposal`;
+        }
+
+        async function signContract(projectId) {
+            if (!confirm('계약을 체결하시겠습니까?\n프로젝트 상태가 "진행 중"으로 변경됩니다.')) return;
+
+            try {
+                const response = await fetch(`http://localhost:5000/api/projects/${projectId}/sign`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    showNotification('계약이 체결되었습니다.', 'success');
+                    fetchProjects();
+                } else {
+                    showNotification('처리에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                console.error(error);
+                showNotification('서버 연결에 실패했습니다.', 'error');
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = 'index.html';
+        }
+        
+        function showNotification(message, type) {
+            const existing = document.querySelector('.notification');
+            if (existing) existing.remove();
+            
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            
+            const bgColor = type === 'success' ? 'rgba(16, 185, 129, 0.9)' : 'rgba(239, 68, 68, 0.9)';
+            
+            notification.style.cssText = `
+                position: fixed;
+                top: 100px;
+                right: 24px;
+                padding: 16px 24px;
+                background: ${bgColor};
+                color: white;
+                border-radius: 12px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                z-index: 10000;
+                animation: slideIn 0.3s ease;
+                backdrop-filter: blur(10px);
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            `;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        fetchProjects();
+    </script>
+</body>
+
+</html>

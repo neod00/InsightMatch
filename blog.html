@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>블로그 - InsightMatch</title>
+    <meta name="description" content="ISO 인증, ESG 경영, 중대재해처벌법 등 기업 경영에 필요한 최신 정보와 인사이트를 확인하세요.">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Background Effects -->
+    <div class="bg-gradient"></div>
+    <div class="bg-grid"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="container nav-content">
+            <a href="index.html" class="logo">
+                <div class="logo-icon">
+                    <i data-lucide="shield-check" style="width: 20px; height: 20px;"></i>
+                </div>
+                <div class="logo-text">
+                    <span>InsightMatch</span>
+                    <span>by OpenBrain</span>
+                </div>
+            </a>
+            
+            <div class="nav-links">
+                <a href="index.html">홈</a>
+                <a href="index.html#how-it-works">프로세스</a>
+                <a href="index.html#diagnosis">AI 진단</a>
+                <a href="blog.html" style="color: var(--primary);">블로그</a>
+            </div>
+            
+            <div class="nav-actions">
+                <a href="login.html" class="btn btn-ghost">로그인</a>
+                <a href="index.html#diagnosis" class="btn btn-primary">무료 진단 시작</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Blog Header -->
+    <section class="section blog-container">
+        <div class="container">
+            <div class="section-header fade-in-up">
+                <h1>최신 인사이트</h1>
+                <p>ISO 인증, ESG 경영, 중대재해처벌법 등 기업 경영에 필요한 최신 정보를 확인하세요.</p>
+            </div>
+            
+            <div class="blog-grid" id="blog-grid">
+                <div style="grid-column: 1/-1; text-align: center; padding: 60px;">
+                    <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
+                    <p style="color: var(--text-muted);">게시글을 불러오는 중...</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="section">
+        <div class="container">
+            <div class="cta-section fade-in-up">
+                <div class="cta-content">
+                    <h2>ISO 인증 준비가 필요하신가요?</h2>
+                    <p>AI가 기업 리스크를 분석하고 최적의 컨설턴트를 추천해 드립니다.</p>
+                    <a href="index.html#diagnosis" class="btn btn-primary btn-lg">
+                        무료 진단 시작하기
+                        <i data-lucide="arrow-right" style="width: 20px; height: 20px;"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <div class="logo">
+                        <div class="logo-icon">
+                            <i data-lucide="shield-check" style="width: 20px; height: 20px;"></i>
+                        </div>
+                        <div class="logo-text">
+                            <span>InsightMatch</span>
+                            <span>by OpenBrain</span>
+                        </div>
+                    </div>
+                    <p>AI 기반 기업 리스크 진단 및 ISO 컨설턴트 매칭 플랫폼</p>
+                </div>
+                
+                <div class="footer-links">
+                    <div class="footer-column">
+                        <h4>서비스</h4>
+                        <a href="index.html#diagnosis">AI 리스크 진단</a>
+                        <a href="index.html#how-it-works">프로세스 안내</a>
+                        <a href="consultant_register.html">컨설턴트 등록</a>
+                    </div>
+                    <div class="footer-column">
+                        <h4>지원</h4>
+                        <a href="index.html#faq">자주 묻는 질문</a>
+                        <a href="blog.html">블로그</a>
+                        <a href="mailto:contact@insightmatch.com">문의하기</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <span>© 2024 InsightMatch. All rights reserved.</span>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+        
+        // Navbar scroll effect
+        window.addEventListener('scroll', () => {
+            const navbar = document.getElementById('navbar');
+            if (window.scrollY > 50) {
+                navbar.classList.add('scrolled');
+            } else {
+                navbar.classList.remove('scrolled');
+            }
+        });
+        
+        async function fetchPosts() {
+            try {
+                const response = await fetch('http://localhost:5000/api/posts');
+                const posts = await response.json();
+                renderPosts(posts);
+            } catch (error) {
+                console.error(error);
+                document.getElementById('blog-grid').innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 60px;">
+                        <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: var(--error); margin-bottom: 16px;"></i>
+                        <p style="color: var(--text-muted);">게시글을 불러오지 못했습니다.</p>
+                    </div>
+                `;
+                lucide.createIcons();
+            }
+        }
+
+        function renderPosts(posts) {
+            const container = document.getElementById('blog-grid');
+            container.innerHTML = '';
+            
+            if (posts.length === 0) {
+                container.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 60px;">
+                        <i data-lucide="file-text" style="width: 48px; height: 48px; color: var(--text-muted); margin-bottom: 16px;"></i>
+                        <p style="color: var(--text-muted);">아직 게시글이 없습니다.</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            posts.forEach((post, index) => {
+                const card = document.createElement('article');
+                card.className = 'blog-card fade-in-up';
+                card.style.animationDelay = `${index * 0.1}s`;
+                card.onclick = () => window.location.href = `blog_detail.html?id=${post.id}`;
+
+                const tagsHtml = post.tags.map(tag => `<span class="blog-tag">#${tag.trim()}</span>`).join('');
+
+                card.innerHTML = `
+                    <img src="${post.image_url || 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=1000'}" 
+                         alt="${post.title}" 
+                         class="blog-image"
+                         onerror="this.src='https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=1000'">
+                    <div class="blog-content">
+                        <div class="blog-tags">${tagsHtml}</div>
+                        <h3 class="blog-title">${post.title}</h3>
+                        <p class="blog-excerpt">${post.content}</p>
+                        <div class="blog-meta">
+                            <span>
+                                <i data-lucide="user" style="width: 14px; height: 14px; display: inline; vertical-align: middle; margin-right: 4px;"></i>
+                                ${post.author}
+                            </span>
+                            <span>
+                                <i data-lucide="calendar" style="width: 14px; height: 14px; display: inline; vertical-align: middle; margin-right: 4px;"></i>
+                                ${post.created_at}
+                            </span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            
+            lucide.createIcons();
+        }
+
+        fetchPosts();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>회원가입 - InsightMatch</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Background Effects -->
+    <div class="bg-gradient"></div>
+    <div class="bg-grid"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container nav-content">
+            <a href="index.html" class="logo">
+                <div class="logo-icon">
+                    <i data-lucide="shield-check" style="width: 20px; height: 20px;"></i>
+                </div>
+                <div class="logo-text">
+                    <span>InsightMatch</span>
+                    <span>by OpenBrain</span>
+                </div>
+            </a>
+            
+            <div class="nav-actions">
+                <a href="index.html" class="btn btn-ghost">
+                    <i data-lucide="home" style="width: 18px; height: 18px;"></i>
+                    홈으로
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Auth Container -->
+    <div class="auth-container">
+        <div class="auth-card fade-in-up" style="max-width: 480px;">
+            <div class="auth-header">
+                <div class="logo-icon" style="width: 56px; height: 56px; margin: 0 auto 16px;">
+                    <i data-lucide="user-plus" style="width: 28px; height: 28px;"></i>
+                </div>
+                <h2>회원가입</h2>
+                <p>InsightMatch에 오신 것을 환영합니다.</p>
+            </div>
+            
+            <form id="signup-form" class="auth-form">
+                <div class="form-group">
+                    <label>이름 / 회사명</label>
+                    <input type="text" id="name" required placeholder="홍길동 / (주)인사이트매치">
+                </div>
+                <div class="form-group">
+                    <label>이메일</label>
+                    <input type="email" id="email" required placeholder="name@company.com">
+                </div>
+                <div class="form-group">
+                    <label>비밀번호</label>
+                    <input type="password" id="password" required placeholder="8자 이상 입력해주세요" minlength="8">
+                </div>
+                <div class="form-group">
+                    <label>비밀번호 확인</label>
+                    <input type="password" id="confirmPassword" required placeholder="비밀번호를 다시 입력해주세요">
+                </div>
+                <div class="form-group">
+                    <label>계정 유형</label>
+                    <div class="checkbox-grid" style="grid-template-columns: 1fr 1fr;">
+                        <label class="checkbox-card">
+                            <input type="radio" name="role" value="company" checked>
+                            <span>기업 담당자<small>ISO 인증 상담 필요</small></span>
+                        </label>
+                        <label class="checkbox-card">
+                            <input type="radio" name="role" value="consultant">
+                            <span>컨설턴트<small>전문가로 등록</small></span>
+                        </label>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
+                    회원가입
+                </button>
+                
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 16px; text-align: center;">
+                    가입 시 <a href="#" style="color: var(--primary);">이용약관</a> 및 
+                    <a href="#" style="color: var(--primary);">개인정보처리방침</a>에 동의합니다.
+                </p>
+            </form>
+            
+            <div class="auth-footer">
+                <p style="color: var(--text-muted);">
+                    이미 계정이 있으신가요? 
+                    <a href="login.html">로그인</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        
+        document.getElementById('signup-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const role = document.querySelector('input[name="role"]:checked').value;
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            
+            // Validation
+            if (password !== confirmPassword) {
+                showError('비밀번호가 일치하지 않습니다.');
+                return;
+            }
+            
+            if (password.length < 8) {
+                showError('비밀번호는 8자 이상이어야 합니다.');
+                return;
+            }
+            
+            // Loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="loading-spinner" style="width: 20px; height: 20px; border-width: 2px;"></span> 가입 처리 중...';
+
+            try {
+                const response = await fetch('http://localhost:5000/api/auth/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password, role })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSuccess('회원가입이 완료되었습니다! 로그인 페이지로 이동합니다.');
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 2000);
+                } else {
+                    showError(data.message || '회원가입에 실패했습니다.');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '회원가입';
+                }
+            } catch (error) {
+                console.error(error);
+                showError('서버 연결에 실패했습니다.');
+                submitBtn.disabled = false;
+                submitBtn.textContent = '회원가입';
+            }
+        });
+        
+        function showError(message) {
+            showMessage(message, 'error');
+        }
+        
+        function showSuccess(message) {
+            showMessage(message, 'success');
+        }
+        
+        function showMessage(message, type) {
+            const existing = document.querySelector('.message-box');
+            if (existing) existing.remove();
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message-box';
+            
+            const isError = type === 'error';
+            const color = isError ? '#ef4444' : '#22c55e';
+            const bgColor = isError ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)';
+            const borderColor = isError ? 'rgba(239, 68, 68, 0.3)' : 'rgba(34, 197, 94, 0.3)';
+            const icon = isError ? 'alert-circle' : 'check-circle';
+            
+            messageDiv.style.cssText = `
+                background: ${bgColor};
+                border: 1px solid ${borderColor};
+                color: ${color};
+                padding: 12px 16px;
+                border-radius: 8px;
+                margin-bottom: 16px;
+                font-size: 0.9rem;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            `;
+            messageDiv.innerHTML = `<i data-lucide="${icon}" style="width: 18px; height: 18px;"></i> ${message}`;
+            
+            const form = document.getElementById('signup-form');
+            form.insertBefore(messageDiv, form.firstChild);
+            lucide.createIcons();
+            
+            if (isError) {
+                setTimeout(() => messageDiv.remove(), 5000);
+            }
+        }
+    </script>
+</body>
+
+</html>

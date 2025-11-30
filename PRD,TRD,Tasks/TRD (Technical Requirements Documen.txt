@@ -1,0 +1,240 @@
+TRD (Technical Requirements Document)
+1. 아키텍처 개요
+1.1 전체 구조
+
+클라이언트: 웹 프론트엔드(SPA 또는 SSR)
+
+서버:
+
+API 서버(REST/GraphQL)
+
+매칭·AI 서비스 연동 모듈
+
+데이터베이스: 관계형 DB (예: PostgreSQL)
+
+외부 서비스:
+
+LLM API (예: OpenAI)
+
+이메일 발송 서비스(SMTP 또는 트랜잭션 메일 서비스)
+
+향후: 공시/뉴스/웹 크롤러
+
+논리 구성:
+
+Web Client (기업/컨설턴트/관리자 UI)
+
+API Gateway / Backend
+
+Core Services
+
+Company Service
+
+Consultant Service
+
+Matching Service
+
+Proposal Service
+
+Admin Service
+
+AI Service Layer
+
+Risk Analysis Module
+
+Text Generation (제안서 문안)
+
+Data Layer
+
+RDB (PostgreSQL 등)
+
+로그/분석용 Storage
+
+2. 주요 모듈별 요구사항
+2.1 기업 Intake/온보딩 모듈
+
+기능:
+
+폼 데이터 수집 및 검증
+
+Company, Project 엔티티 생성
+
+기술 요구:
+
+서버 사이드 입력 검증(규격, 날짜, 인원수 등)
+
+XSS/CSRF 방어
+
+데이터:
+
+Company: 사업자명, 업종, 규모 등
+
+Project: 대상 규격, 현재 상태, 일정, 예산 범위 등
+
+2.2 컨설턴트 프로필/검증 모듈
+
+기능:
+
+Consultant 계정 생성, 로그인/인증
+
+프로필 작성, 수정
+
+관리자 승인/반려
+
+기술 요구:
+
+인증/인가(Consultant, Admin 롤 구분)
+
+파일 업로드(자격증 등) – Phase 1은 메타데이터/링크 수준으로 시작 가능
+
+데이터:
+
+Consultant, ConsultantExperience, ConsultantCredential 등의 서브 테이블
+
+2.3 매칭 서비스 (Matching Service)
+
+입력:
+
+Project(기업 요구)
+
+Consultant 프로필
+
+처리:
+
+규칙 기반 스코어 계산 (예: 업종 일치 +20, 규격 일치 +30, 규모 유사 +10 등)
+
+상위 N명(예: 5명) 후보 출력
+
+출력:
+
+MatchingCandidate 리스트(컨설턴트 ID, 점수, 사유 리스트)
+
+기술:
+
+초기에는 DB 쿼리 + 애플리케이션 레벨 점수 계산
+
+추후 추천 엔진/ML 모델 연동 고려
+
+2.4 AI 리스크 분석 / 제안서 생성 모듈
+
+리스크 분석:
+
+입력: 기업 소개 텍스트, 업종, 기본 정보
+
+출력: 요약, 잠재 리스크, 권장 규격(단일/통합)
+
+제안서 생성:
+
+입력: 기업 정보 + 컨설턴트 정보 + 매칭 결과
+
+출력: 섹션별 텍스트(개요, 리스크 요약, 범위, 장점)
+
+기술 요구:
+
+LLM API 호출 래퍼 모듈
+
+프롬프트 템플릿 관리 (버전 관리 필요)
+
+실패 시 재시도/백오프 정책
+
+2.5 관리자 대시보드 모듈
+
+기능:
+
+신규 Project 목록, 상태
+
+AI 추천 결과 보기
+
+후보 컨설턴트 리스트 수정/확정
+
+승인/거절 코멘트 저장
+
+기술:
+
+Admin 전용 인증/인가
+
+테이블/필터/검색 UI
+
+감사 로그(Log) 남기기
+
+2.6 제안서 PDF & 이메일 모듈
+
+기능:
+
+HTML 제안서 템플릿 → PDF 렌더링
+
+이메일 발송(기업 담당자, 컨설턴트)
+
+기술:
+
+서버 사이드 PDF 생성 라이브러리
+
+이메일 서비스 연동(API/SMTP)
+
+요구사항:
+
+인코딩/폰트(한글) 문제 없도록 설정
+
+재발송 기능(실패 시 재시도, 로그)
+
+3. 데이터 모델 개요
+
+(간단 개념 수준)
+
+3.1 핵심 엔티티
+
+Company
+
+id, name, industry, size_range, location, contact_name, contact_email, contact_phone
+
+Project
+
+id, company_id, target_standards(9001/14001/45001/통합), status, current_cert_status, num_sites, due_date, budget_range, readiness_level, created_at, updated_at
+
+Consultant
+
+id, name, organization, region, email, phone, is_verified, rating_avg, rating_count, bio
+
+ConsultantExperience
+
+id, consultant_id, standard_9001_exp_count, standard_14001_exp_count, standard_45001_exp_count, integrated_mss_exp, industries, company_size_ranges, project_types
+
+Credential
+
+id, consultant_id, type(IRCA/KAB/내부심사원 등), level, issuer, issue_date, expire_date
+
+Matching
+
+id, project_id, status(AI_SUGGESTED/ADMIN_CONFIRMED/REJECTED 등), admin_comment
+
+MatchingCandidate
+
+id, matching_id, consultant_id, score, reasons(json)
+
+Proposal
+
+id, project_id, consultant_id, content_structured(json), pdf_url, sent_at
+
+Review
+
+id, project_id, consultant_id, rating_overall, rating_expertise, rating_communication, comment
+
+4. 비기능 요구사항
+
+보안:
+
+HTTPS 전제, 비밀번호 해시, JWT 또는 세션 기반 인증
+
+역할 기반 접근 제어(RBAC: Company, Consultant, Admin)
+
+성능:
+
+초기 트래픽은 낮지만, DB 스키마/인덱스는 확장을 염두
+
+로깅/모니터링:
+
+API 요청/응답 로그, 실패한 LLM 호출, 이메일 실패 로그 등
+
+확장성:
+
+추후 다른 ISO 규격, 다른 국가, B2B 연동이 가능한 구조

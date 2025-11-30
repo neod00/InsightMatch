@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리자 대시보드 - InsightMatch</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Background Effects -->
+    <div class="bg-gradient"></div>
+    <div class="bg-grid"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container nav-content">
+            <a href="index.html" class="logo">
+                <div class="logo-icon" style="background: linear-gradient(135deg, #f59e0b, #ef4444);">
+                    <i data-lucide="shield" style="width: 20px; height: 20px;"></i>
+                </div>
+                <div class="logo-text">
+                    <span>InsightMatch</span>
+                    <span style="color: var(--warning);">Admin Panel</span>
+                </div>
+            </a>
+            
+            <div class="nav-links">
+                <a href="index.html">
+                    <i data-lucide="home" style="width: 16px; height: 16px;"></i>
+                    메인 사이트
+                </a>
+            </div>
+            
+            <div class="nav-actions">
+                <span style="display: flex; align-items: center; gap: 8px; color: var(--warning);">
+                    <i data-lucide="crown" style="width: 18px; height: 18px;"></i>
+                    관리자
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Admin Container -->
+    <div class="container admin-container">
+        <div class="fade-in-up" style="margin-bottom: 40px;">
+            <h1 style="font-size: 2rem; margin-bottom: 8px;">AI 분석 요청 관리</h1>
+            <p style="color: var(--text-muted);">Human-in-the-loop: AI 추천 결과를 검토하고 승인하세요.</p>
+        </div>
+        
+        <!-- Stats Cards -->
+        <div class="features-grid fade-in-up" style="margin-bottom: 40px;">
+            <div class="feature-card" style="text-align: center;">
+                <div id="stat-total" style="font-size: 2.5rem; font-weight: 800; color: var(--primary);">-</div>
+                <p style="color: var(--text-muted);">전체 요청</p>
+            </div>
+            <div class="feature-card" style="text-align: center;">
+                <div id="stat-pending" style="font-size: 2.5rem; font-weight: 800; color: var(--warning);">-</div>
+                <p style="color: var(--text-muted);">대기 중</p>
+            </div>
+            <div class="feature-card" style="text-align: center;">
+                <div id="stat-completed" style="font-size: 2.5rem; font-weight: 800; color: var(--success);">-</div>
+                <p style="color: var(--text-muted);">완료</p>
+            </div>
+        </div>
+        
+        <div id="job-list">
+            <div class="card" style="text-align: center; padding: 60px;">
+                <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
+                <p style="color: var(--text-muted);">분석 요청을 불러오는 중...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        
+        async function fetchJobs() {
+            try {
+                const response = await fetch('http://localhost:5000/api/admin/jobs');
+                const jobs = await response.json();
+                renderJobs(jobs);
+                updateStats(jobs);
+            } catch (error) {
+                console.error('Error fetching jobs:', error);
+                document.getElementById('job-list').innerHTML = `
+                    <div class="card" style="text-align: center; padding: 40px;">
+                        <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: var(--error); margin-bottom: 16px;"></i>
+                        <p style="color: var(--text-muted);">데이터를 불러오지 못했습니다.</p>
+                    </div>
+                `;
+                lucide.createIcons();
+            }
+        }
+        
+        function updateStats(jobs) {
+            document.getElementById('stat-total').textContent = jobs.length;
+            document.getElementById('stat-pending').textContent = jobs.filter(j => j.status === 'processing').length;
+            document.getElementById('stat-completed').textContent = jobs.filter(j => j.status === 'completed').length;
+        }
+
+        function renderJobs(jobs) {
+            const container = document.getElementById('job-list');
+            container.innerHTML = '';
+            
+            if (jobs.length === 0) {
+                container.innerHTML = `
+                    <div class="card" style="text-align: center; padding: 60px;">
+                        <i data-lucide="inbox" style="width: 48px; height: 48px; color: var(--text-muted); margin-bottom: 16px;"></i>
+                        <p style="color: var(--text-muted);">분석 요청이 없습니다.</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            jobs.forEach((job, index) => {
+                const card = document.createElement('div');
+                card.className = 'job-card fade-in-up';
+                card.style.animationDelay = `${index * 0.05}s`;
+
+                const date = new Date(job.created_at).toLocaleString('ko-KR');
+                
+                const statusConfig = {
+                    'processing': { text: '처리 중', class: 'status-planning', icon: 'loader' },
+                    'analyzing': { text: '분석 중', class: 'status-planning', icon: 'brain' },
+                    'completed': { text: '완료', class: 'status-completed', icon: 'check-circle' },
+                    'failed': { text: '실패', class: '', icon: 'x-circle', style: 'background: rgba(239, 68, 68, 0.15); color: var(--error);' }
+                };
+                const status = statusConfig[job.status] || statusConfig['processing'];
+
+                let resultHtml = '';
+                if (job.result) {
+                    const result = job.result;
+                    resultHtml = `
+                        <div class="detail-view" id="detail-${job.id}">
+                            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px;">
+                                <div>
+                                    <div class="card-glass" style="padding: 24px; text-align: center;">
+                                        <h4 style="margin-bottom: 16px; font-size: 0.9rem; color: var(--text-muted);">리스크 점수</h4>
+                                        <div style="font-size: 3rem; font-weight: 800; color: var(--primary);">${result.risk_score || 'N/A'}</div>
+                                        <div style="font-size: 0.9rem; color: var(--text-muted);">/ 100</div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h4 style="margin-bottom: 12px;">AI 분석 결과</h4>
+                                    <div class="json-dump">${JSON.stringify(result, null, 2)}</div>
+                                </div>
+                            </div>
+                            <div class="flex justify-end gap-2" style="margin-top: 20px;">
+                                <button class="btn btn-secondary btn-sm">
+                                    <i data-lucide="edit" style="width: 16px; height: 16px;"></i>
+                                    결과 수정
+                                </button>
+                                <button class="btn btn-primary btn-sm">
+                                    <i data-lucide="send" style="width: 16px; height: 16px;"></i>
+                                    승인 및 제안서 발송
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <div class="job-header" onclick="toggleDetail('${job.id}')">
+                        <div class="job-info">
+                            <h3 style="display: flex; align-items: center; gap: 8px;">
+                                <i data-lucide="building-2" style="width: 18px; height: 18px; color: var(--primary);"></i>
+                                ${job.company_name}
+                            </h3>
+                            <div class="job-meta" style="margin-top: 4px;">
+                                ${job.url ? `<span style="margin-right: 16px;"><i data-lucide="link" style="width: 12px; height: 12px; display: inline; vertical-align: middle;"></i> ${job.url}</span>` : ''}
+                                <span><i data-lucide="clock" style="width: 12px; height: 12px; display: inline; vertical-align: middle;"></i> ${date}</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span class="status-badge ${status.class}" ${status.style ? `style="${status.style}"` : ''}>
+                                <i data-lucide="${status.icon}" style="width: 14px; height: 14px;"></i>
+                                ${status.text}
+                            </span>
+                            <i data-lucide="chevron-down" style="width: 20px; height: 20px; color: var(--text-muted); transition: transform 0.3s;" id="chevron-${job.id}"></i>
+                        </div>
+                    </div>
+                    ${resultHtml}
+                `;
+                container.appendChild(card);
+            });
+            
+            lucide.createIcons();
+        }
+
+        function toggleDetail(id) {
+            const el = document.getElementById(`detail-${id}`);
+            const chevron = document.getElementById(`chevron-${id}`);
+            
+            if (el) {
+                const isActive = el.classList.contains('active');
+                
+                // Close all other details
+                document.querySelectorAll('.detail-view').forEach(d => d.classList.remove('active'));
+                document.querySelectorAll('[id^="chevron-"]').forEach(c => c.style.transform = 'rotate(0deg)');
+                
+                if (!isActive) {
+                    el.classList.add('active');
+                    if (chevron) chevron.style.transform = 'rotate(180deg)';
+                }
+            }
+        }
+
+        // Initial fetch and auto-refresh
+        fetchJobs();
+        setInterval(fetchJobs, 10000); // Refresh every 10 seconds
+    </script>
+</body>
+
+</html>
