@@ -484,7 +484,93 @@
                         <p id="ai-summary-text" style="line-height: 1.8; color: var(--text-secondary);">분석 결과가 여기에 표시됩니다.</p>
                     </div>
                     
-                    <h3 style="margin-bottom: 20px;">추천 컨설턴트</h3>
+                    <div class="consultant-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 16px;">
+                        <h3 style="margin: 0;">추천 컨설턴트</h3>
+                        <button id="toggle-filter-btn" class="btn btn-secondary btn-sm" onclick="toggleConsultantFilter()">
+                            <i data-lucide="filter" style="width: 16px; height: 16px;"></i>
+                            필터 열기
+                        </button>
+                    </div>
+                    
+                    <!-- Consultant Filter Panel -->
+                    <div id="consultant-filter-panel" class="filter-panel hidden">
+                        <div class="filter-grid">
+                            <!-- Verified Filter -->
+                            <div class="filter-group">
+                                <label class="filter-checkbox">
+                                    <input type="checkbox" id="filter-verified" onchange="applyConsultantFilter()">
+                                    <span class="checkmark"></span>
+                                    <span>검증된 전문가만</span>
+                                    <i data-lucide="badge-check" style="width: 16px; height: 16px; color: var(--primary);"></i>
+                                </label>
+                            </div>
+                            
+                            <!-- Rated Filter -->
+                            <div class="filter-group">
+                                <label class="filter-checkbox">
+                                    <input type="checkbox" id="filter-rated" onchange="applyConsultantFilter()">
+                                    <span class="checkmark"></span>
+                                    <span>평가가 있는 전문가만</span>
+                                    <i data-lucide="star" style="width: 16px; height: 16px; color: #f59e0b;"></i>
+                                </label>
+                            </div>
+                            
+                            <!-- ISO Standard Filter -->
+                            <div class="filter-group">
+                                <label class="filter-label">ISO 규격</label>
+                                <select id="filter-iso" onchange="applyConsultantFilter()">
+                                    <option value="">전체</option>
+                                    <option value="9001">ISO 9001 (품질)</option>
+                                    <option value="14001">ISO 14001 (환경)</option>
+                                    <option value="45001">ISO 45001 (안전보건)</option>
+                                    <option value="27001">ISO 27001 (정보보안)</option>
+                                    <option value="13485">ISO 13485 (의료기기)</option>
+                                    <option value="50001">ISO 50001 (에너지)</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Industry Filter -->
+                            <div class="filter-group">
+                                <label class="filter-label">산업 분야</label>
+                                <select id="filter-industry" onchange="applyConsultantFilter()">
+                                    <option value="">전체</option>
+                                    <option value="IT/Software">IT/소프트웨어</option>
+                                    <option value="Manufacturing">제조/생산</option>
+                                    <option value="Construction">건설/토목</option>
+                                    <option value="Chemical">화학/에너지</option>
+                                    <option value="Automotive">자동차/부품</option>
+                                    <option value="Medical">의료/바이오</option>
+                                    <option value="Service">서비스/유통</option>
+                                    <option value="Public">공공기관</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Region Filter -->
+                            <div class="filter-group">
+                                <label class="filter-label">지역</label>
+                                <input type="text" id="filter-region" placeholder="예: 서울, 경기" onkeyup="debounceFilter()">
+                            </div>
+                            
+                            <!-- Reset Button -->
+                            <div class="filter-group filter-actions">
+                                <button class="btn btn-ghost btn-sm" onclick="resetConsultantFilter()">
+                                    <i data-lucide="rotate-ccw" style="width: 14px; height: 14px;"></i>
+                                    필터 초기화
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Active Filters Display -->
+                        <div id="active-filters" class="active-filters hidden">
+                            <!-- Active filter tags will be shown here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Filter Results Count -->
+                    <div id="filter-result-count" class="filter-result-count hidden">
+                        <span id="result-count-text">0명의 전문가</span>
+                    </div>
+                    
                     <div id="consultant-list" class="consultant-grid">
                         <!-- Consultant cards will be injected here -->
                     </div>
@@ -599,6 +685,35 @@
             </div>
         </div>
     </section>
+
+    <!-- Selection Bar (Fixed Bottom) -->
+    <div id="selection-bar" class="selection-bar">
+        <div class="container selection-bar-content">
+            <div class="selection-info">
+                <div class="selection-count-badge">
+                    <i data-lucide="users" style="width: 18px; height: 18px;"></i>
+                    <span><strong id="selection-count">0</strong>명 선택</span>
+                </div>
+                <div class="selected-consultants">
+                    <span id="selected-names" class="selected-names"></span>
+                </div>
+            </div>
+            <div class="selection-actions">
+                <button class="btn btn-ghost btn-sm" onclick="selectAllVisibleConsultants()">
+                    <i data-lucide="check-square" style="width: 16px; height: 16px;"></i>
+                    모두 선택
+                </button>
+                <button class="btn btn-ghost btn-sm" onclick="clearConsultantSelection()">
+                    <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+                    선택 초기화
+                </button>
+                <button id="request-quotes-btn" class="btn btn-primary btn-lg" onclick="requestQuotes()" disabled>
+                    <i data-lucide="send" style="width: 18px; height: 18px;"></i>
+                    견적 요청하기
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Footer -->
     <footer class="footer">

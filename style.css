@@ -2528,3 +2528,884 @@ a {
         animation: none !important;
     }
 }
+
+/* ===================================
+   CONSULTANT FILTER PANEL
+   =================================== */
+
+.filter-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    margin-bottom: 24px;
+    transition: var(--transition-base);
+}
+
+.filter-panel.hidden {
+    display: none;
+}
+
+.filter-panel.active {
+    display: block;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    align-items: end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.filter-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.filter-group select,
+.filter-group input[type="text"] {
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    transition: var(--transition-fast);
+}
+
+.filter-group select:focus,
+.filter-group input[type="text"]:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.filter-group select option {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+/* Custom Checkbox Style */
+.filter-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: var(--transition-fast);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.filter-checkbox:hover {
+    border-color: var(--primary);
+    background: rgba(16, 185, 129, 0.05);
+}
+
+.filter-checkbox input[type="checkbox"] {
+    display: none;
+}
+
+.filter-checkbox .checkmark {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.filter-checkbox input[type="checkbox"]:checked + .checkmark {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+.filter-checkbox input[type="checkbox"]:checked + .checkmark::after {
+    content: '';
+    width: 5px;
+    height: 9px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    margin-bottom: 2px;
+}
+
+.filter-checkbox input[type="checkbox"]:checked ~ span:not(.checkmark) {
+    color: var(--text-primary);
+}
+
+.filter-actions {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+}
+
+/* Active Filters Tags */
+.active-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+}
+
+.active-filters.hidden {
+    display: none;
+}
+
+.filter-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid var(--primary);
+    border-radius: 20px;
+    font-size: 0.8rem;
+    color: var(--primary-light);
+}
+
+.filter-tag button {
+    background: none;
+    border: none;
+    color: var(--primary-light);
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    transition: var(--transition-fast);
+}
+
+.filter-tag button:hover {
+    color: white;
+}
+
+/* Filter Result Count */
+.filter-result-count {
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    background: rgba(16, 185, 129, 0.1);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    color: var(--primary-light);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-result-count.hidden {
+    display: none;
+}
+
+/* ===================================
+   ENHANCED VERIFIED BADGE
+   =================================== */
+
+.verified-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 182, 212, 0.2));
+    border: 1px solid var(--primary);
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--primary-light);
+    margin-left: 8px;
+    animation: verifiedGlow 2s ease-in-out infinite;
+}
+
+@keyframes verifiedGlow {
+    0%, 100% {
+        box-shadow: 0 0 5px rgba(16, 185, 129, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+    }
+}
+
+.verified-badge-large {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(6, 182, 212, 0.25));
+    border: 1px solid var(--primary);
+    border-radius: 24px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--primary-light);
+}
+
+.unverified-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: rgba(100, 116, 139, 0.2);
+    border: 1px solid var(--text-muted);
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-left: 8px;
+}
+
+/* Trust Score Tooltip */
+.trust-tooltip {
+    position: relative;
+    cursor: help;
+}
+
+.trust-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: var(--transition-fast);
+    z-index: 100;
+}
+
+.trust-tooltip:hover::after {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* ===================================
+   CONSULTANT PROFILE PAGE STYLES
+   =================================== */
+
+.profile-header {
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+    padding: 40px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: 32px;
+}
+
+.profile-avatar-large {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+}
+
+.profile-info {
+    flex: 1;
+}
+
+.profile-name {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.profile-specialty {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+}
+
+.profile-stats {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.profile-stat {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.profile-stat i {
+    color: var(--primary);
+}
+
+.profile-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 28px;
+    margin-bottom: 24px;
+}
+
+.profile-section-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-primary);
+}
+
+.profile-section-title i {
+    color: var(--primary);
+}
+
+.iso-badge-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.iso-badge {
+    padding: 8px 16px;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid var(--primary);
+    border-radius: 24px;
+    font-size: 0.9rem;
+    color: var(--primary-light);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.industry-tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.industry-tag {
+    padding: 6px 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.project-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.project-item {
+    padding: 16px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--primary);
+}
+
+.project-item h4 {
+    font-size: 1rem;
+    margin-bottom: 8px;
+}
+
+.project-item p {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+/* Contact CTA on Profile */
+.profile-contact-cta {
+    position: sticky;
+    top: 100px;
+    padding: 28px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.1));
+    border: 1px solid var(--primary);
+    border-radius: var(--radius-md);
+    text-align: center;
+}
+
+.profile-contact-cta h3 {
+    margin-bottom: 12px;
+    font-size: 1.2rem;
+}
+
+.profile-contact-cta p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+}
+
+/* Responsive for Profile */
+@media (max-width: 768px) {
+    .profile-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: 24px;
+    }
+    
+    .profile-name {
+        justify-content: center;
+    }
+    
+    .profile-stats {
+        justify-content: center;
+    }
+    
+    .filter-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .consultant-section-header {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+    
+    .consultant-section-header h3 {
+        text-align: center;
+    }
+}
+
+/* ===================================
+   ADMIN CONSULTANT MANAGEMENT
+   =================================== */
+
+.admin-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 32px;
+    background: var(--bg-card);
+    padding: 4px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+}
+
+.admin-tab {
+    flex: 1;
+    padding: 14px 24px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.admin-tab:hover {
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+}
+
+.admin-tab.active {
+    background: var(--primary);
+    color: white;
+}
+
+.admin-tab .badge-count {
+    padding: 2px 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.admin-tab.active .badge-count {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.consultant-approval-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    margin-bottom: 16px;
+    transition: var(--transition-fast);
+}
+
+.consultant-approval-card:hover {
+    border-color: var(--border-hover);
+}
+
+.consultant-approval-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+.consultant-approval-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.consultant-approval-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+}
+
+.consultant-approval-details h3 {
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+}
+
+.consultant-approval-details p {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.consultant-approval-status {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.consultant-approval-status.pending {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--warning);
+}
+
+.consultant-approval-status.verified {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--primary);
+}
+
+.consultant-approval-status.rejected {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--error);
+}
+
+.consultant-approval-body {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.approval-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.approval-info-item label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.approval-info-item span {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+}
+
+.consultant-approval-actions {
+    display: flex;
+    gap: 12px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+
+.btn-approve {
+    background: var(--success);
+    color: white;
+}
+
+.btn-approve:hover {
+    background: #16a34a;
+}
+
+.btn-reject {
+    background: var(--error);
+    color: white;
+}
+
+.btn-reject:hover {
+    background: #dc2626;
+}
+
+/* ===================================
+   CONSULTANT SELECTION & QUOTE REQUEST
+   =================================== */
+
+/* Selection Checkbox on Card */
+.consultant-select-checkbox {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.consultant-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: var(--transition-fast);
+}
+
+.consultant-checkbox:hover {
+    border-color: var(--primary);
+    background: rgba(16, 185, 129, 0.05);
+}
+
+.consultant-checkbox input[type="checkbox"] {
+    display: none;
+}
+
+.consultant-checkbox .checkbox-custom {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-fast);
+    background: var(--bg-card);
+    flex-shrink: 0;
+}
+
+.consultant-checkbox .checkbox-custom i {
+    opacity: 0;
+    transform: scale(0);
+    transition: var(--transition-fast);
+    color: white;
+}
+
+.consultant-checkbox input[type="checkbox"]:checked + .checkbox-custom {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+.consultant-checkbox input[type="checkbox"]:checked + .checkbox-custom i {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.consultant-checkbox .checkbox-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    transition: var(--transition-fast);
+}
+
+.consultant-checkbox input[type="checkbox"]:checked ~ .checkbox-label {
+    color: var(--primary);
+    font-weight: 500;
+}
+
+/* Selected Card State */
+.consultant-card.selected {
+    border-color: var(--primary);
+    background: rgba(16, 185, 129, 0.05);
+    box-shadow: 0 0 0 2px var(--primary-glow), var(--shadow-md);
+}
+
+.consultant-card.selected .consultant-checkbox {
+    border-color: transparent;
+}
+
+.consultant-card.selected .consultant-checkbox .consultant-checkbox-inner {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: var(--primary);
+}
+
+/* Selection Bar (Fixed Bottom) */
+.selection-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(15, 20, 25, 0.95);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--primary);
+    padding: 16px 0;
+    z-index: 1000;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+    box-shadow: 0 -8px 32px rgba(16, 185, 129, 0.2);
+}
+
+.selection-bar.active {
+    transform: translateY(0);
+}
+
+.selection-bar-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.selection-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+    min-width: 200px;
+}
+
+.selection-count-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 182, 212, 0.2));
+    border: 1px solid var(--primary);
+    border-radius: 24px;
+    color: var(--primary-light);
+    font-size: 0.95rem;
+    white-space: nowrap;
+}
+
+.selection-count-badge strong {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.selected-consultants {
+    flex: 1;
+    min-width: 0;
+}
+
+.selected-names {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 300px;
+}
+
+.selection-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.selection-actions .btn-ghost {
+    color: var(--text-muted);
+}
+
+.selection-actions .btn-ghost:hover {
+    color: var(--text-primary);
+}
+
+#request-quotes-btn {
+    min-width: 160px;
+}
+
+#request-quotes-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Responsive Selection Bar */
+@media (max-width: 768px) {
+    .selection-bar-content {
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    .selection-info {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .selection-actions {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .selected-names {
+        display: none;
+    }
+    
+    #request-quotes-btn {
+        width: 100%;
+    }
+}
+
+/* Animation for selection */
+@keyframes selectPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
+.consultant-card.selected {
+    animation: selectPulse 0.5s ease;
+}
+
+/* Adjust footer padding when selection bar is visible */
+body:has(.selection-bar.active) .footer {
+    padding-bottom: 100px;
+}

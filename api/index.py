@@ -307,6 +307,97 @@ def get_admin_jobs():
         })
     return jsonify(results)
 
+# --- Consultant Admin Endpoints ---
+@app.route('/api/admin/consultants/<int:consultant_id>/approve', methods=['POST'])
+def approve_consultant(consultant_id):
+    consultant = Consultant.query.get_or_404(consultant_id)
+    consultant.verified = True
+    consultant.trust_score = max(consultant.trust_score or 50, 70)
+    db.session.commit()
+    return jsonify({'message': 'Consultant approved successfully', 'verified': True})
+
+@app.route('/api/admin/consultants/<int:consultant_id>/reject', methods=['POST'])
+def reject_consultant(consultant_id):
+    data = request.json
+    reason = data.get('reason', 'No reason provided')
+    consultant = Consultant.query.get_or_404(consultant_id)
+    db.session.delete(consultant)
+    db.session.commit()
+    return jsonify({'message': f'Consultant rejected: {reason}'})
+
+@app.route('/api/admin/consultants/<int:consultant_id>/revoke', methods=['POST'])
+def revoke_consultant_verification(consultant_id):
+    consultant = Consultant.query.get_or_404(consultant_id)
+    consultant.verified = False
+    consultant.trust_score = min(consultant.trust_score or 50, 50)
+    db.session.commit()
+    return jsonify({'message': 'Consultant verification revoked', 'verified': False})
+
+# --- Consultant Detail Endpoint ---
+@app.route('/api/consultants/<int:consultant_id>', methods=['GET'])
+def get_consultant_detail(consultant_id):
+    consultant = Consultant.query.get_or_404(consultant_id)
+    
+    return jsonify({
+        'id': consultant.id,
+        'name': consultant.name,
+        'avatar': consultant.avatar,
+        'specialty': consultant.specialty,
+        'experience': consultant.experience,
+        'rating': consultant.rating,
+        'reviews': consultant.reviews,
+        'matchReason': consultant.match_reason,
+        'regions': consultant.regions,
+        'verified': consultant.verified,
+        'trustScore': consultant.trust_score,
+        'isoExperience': json.loads(consultant.iso_experience) if consultant.iso_experience else {},
+        'industryExperience': json.loads(consultant.industry_experience) if consultant.industry_experience else [],
+        'projectTypes': json.loads(consultant.project_types) if consultant.project_types else [],
+        'roles': json.loads(consultant.roles) if consultant.roles else [],
+        'detailedCertifications': json.loads(consultant.detailed_certifications) if consultant.detailed_certifications else [],
+        'recentProjects': json.loads(consultant.recent_projects) if consultant.recent_projects else []
+    })
+
+# --- Quote Request Endpoints ---
+@app.route('/api/quotes/request', methods=['POST'])
+def request_quotes():
+    data = request.json
+    consultant_ids = data.get('consultant_ids', [])
+    analysis_context = data.get('analysis_context', {})
+    
+    if not consultant_ids:
+        return jsonify({'message': 'No consultants selected'}), 400
+    
+    if len(consultant_ids) > 5:
+        return jsonify({'message': 'Maximum 5 consultants can be selected'}), 400
+    
+    consultants = Consultant.query.filter(Consultant.id.in_(consultant_ids)).all()
+    if len(consultants) != len(consultant_ids):
+        return jsonify({'message': 'Some consultants not found'}), 404
+    
+    user_id = request.args.get('user_id') or data.get('user_id')
+    
+    quote_request_id = str(uuid.uuid4())
+    created_requests = []
+    
+    for consultant in consultants:
+        created_requests.append({
+            'consultant_id': consultant.id,
+            'consultant_name': consultant.name,
+            'status': 'pending'
+        })
+    
+    return jsonify({
+        'message': f'Quote requested from {len(consultants)} consultants',
+        'quote_request_id': quote_request_id,
+        'requests': created_requests,
+        'analysis_context': {
+            'company_name': analysis_context.get('company_name'),
+            'industry': analysis_context.get('industry'),
+            'recommended_standards': analysis_context.get('recommended_standards', [])
+        }
+    }), 201
+
 # --- Blog Endpoints ---
 @app.route('/api/posts', methods=['GET', 'POST'])
 def handle_posts():
