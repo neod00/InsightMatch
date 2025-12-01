@@ -497,7 +497,8 @@ def seed_data():
         db.session.commit()
         
     # Seed Consultants
-    if Consultant.query.count() == 0:
+    consultant_count = Consultant.query.count()
+    if consultant_count < 8:
         consultants = [
             {
                 "name": "김철수",
@@ -537,9 +538,84 @@ def seed_data():
                 "iso_experience": json.dumps({"ISO 45001": "Lead Auditor"}),
                 "industry_experience": json.dumps(["Construction"]),
                 "avatar": "P"
+            },
+            {
+                "name": "최지은",
+                "specialty": "IT/정보보호",
+                "experience": "12년",
+                "rating": 4.7,
+                "reviews": 31,
+                "match_reason": "정보보안 및 개인정보보호 전문가",
+                "verified": True,
+                "trust_score": 90.5,
+                "iso_experience": json.dumps({"ISO 27001": "Lead Auditor", "ISO 9001": "Auditor"}),
+                "industry_experience": json.dumps(["IT", "Finance", "Service"]),
+                "avatar": "C"
+            },
+            {
+                "name": "정대현",
+                "specialty": "환경/ESG",
+                "experience": "18년",
+                "rating": 4.9,
+                "reviews": 38,
+                "match_reason": "ESG 경영 및 환경경영시스템 전문가",
+                "verified": True,
+                "trust_score": 94.0,
+                "iso_experience": json.dumps({"ISO 14001": "Lead Auditor", "ISO 9001": "Auditor"}),
+                "industry_experience": json.dumps(["Manufacturing", "Chemical", "Energy"]),
+                "avatar": "J"
+            },
+            {
+                "name": "한소영",
+                "specialty": "의료/바이오",
+                "experience": "10년",
+                "rating": 4.8,
+                "reviews": 22,
+                "match_reason": "의료기기 및 바이오 품질관리 전문가",
+                "verified": True,
+                "trust_score": 89.0,
+                "iso_experience": json.dumps({"ISO 9001": "Lead Auditor", "ISO 13485": "Auditor"}),
+                "industry_experience": json.dumps(["Medical", "Biotech", "Pharmaceutical"]),
+                "avatar": "H"
+            },
+            {
+                "name": "윤태호",
+                "specialty": "종합/통합",
+                "experience": "25년",
+                "rating": 5.0,
+                "reviews": 56,
+                "match_reason": "다중 ISO 통합 경영시스템 구축 전문가",
+                "verified": True,
+                "trust_score": 96.5,
+                "iso_experience": json.dumps({
+                    "ISO 9001": "Lead Auditor",
+                    "ISO 14001": "Lead Auditor",
+                    "ISO 45001": "Lead Auditor",
+                    "ISO 27001": "Auditor"
+                }),
+                "industry_experience": json.dumps(["Manufacturing", "IT", "Service", "Construction"]),
+                "avatar": "Y"
+            },
+            {
+                "name": "강미라",
+                "specialty": "자동차/부품",
+                "experience": "14년",
+                "rating": 4.9,
+                "reviews": 28,
+                "match_reason": "자동차 산업 IATF 16949 및 ISO 9001 전문가",
+                "verified": True,
+                "trust_score": 93.0,
+                "iso_experience": json.dumps({"ISO 9001": "Lead Auditor", "IATF 16949": "Lead Auditor"}),
+                "industry_experience": json.dumps(["Automotive", "Manufacturing", "Parts"]),
+                "avatar": "G"
             }
         ]
         for c_data in consultants:
+            # Check if consultant already exists
+            existing = Consultant.query.filter_by(name=c_data['name']).first()
+            if existing:
+                continue
+            
             u = User(email=f"{c_data['name']}@example.com", password_hash="dummy", role="consultant", name=c_data['name'])
             db.session.add(u)
             db.session.commit()
