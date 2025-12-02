@@ -371,26 +371,87 @@ def request_quotes():
     if len(consultant_ids) > 5:
         return jsonify({'message': 'Maximum 5 consultants can be selected'}), 400
     
+    # Verify all consultants exist
     consultants = Consultant.query.filter(Consultant.id.in_(consultant_ids)).all()
     if len(consultants) != len(consultant_ids):
         return jsonify({'message': 'Some consultants not found'}), 404
     
+    # Get user info (if logged in)
     user_id = request.args.get('user_id') or data.get('user_id')
     
+    if not user_id:
+        return jsonify({'message': 'User ID required. Please log in first.'}), 401
+    
+    # Generate project title from analysis context
+    company_name = analysis_context.get('company_name', '기업')
+    recommended_standards = analysis_context.get('recommended_standards', [])
+    if isinstance(recommended_standards, list) and len(recommended_standards) > 0:
+        # Extract ISO codes from recommended standards
+        iso_codes = []
+        for std in recommended_standards:
+            if isinstance(std, dict):
+                iso_codes.append(std.get('code', ''))
+            elif isinstance(std, str):
+                iso_codes.append(std)
+        iso_text = ', '.join(iso_codes) if iso_codes else 'ISO 인증'
+    else:
+        iso_text = 'ISO 인증'
+    
+    project_title = f"{iso_text} 인증 프로젝트"
+    
+    # Create quote requests and projects for each consultant
     quote_request_id = str(uuid.uuid4())
     created_requests = []
+    created_projects = []
     
     for consultant in consultants:
-        created_requests.append({
-            'consultant_id': consultant.id,
-            'consultant_name': consultant.name,
-            'status': 'pending'
-        })
+        # Create a project for each consultant
+        try:
+            new_project = Project(
+                company_id=user_id,
+                consultant_id=consultant.id,
+                title=project_title,
+                status='planning',
+                start_date=datetime.datetime.utcnow()
+            )
+            db.session.add(new_project)
+            db.session.flush()  # Get the project ID
+            
+            # Create default milestones
+            defaults = ["Kick-off Meeting", "Gap Analysis", "Documentation", "Internal Audit", "Final Certification"]
+            for title in defaults:
+                m = Milestone(project_id=new_project.id, title=title)
+                db.session.add(m)
+            
+            created_projects.append({
+                'project_id': new_project.id,
+                'consultant_id': consultant.id,
+                'consultant_name': consultant.name,
+                'title': project_title
+            })
+            
+            created_requests.append({
+                'consultant_id': consultant.id,
+                'consultant_name': consultant.name,
+                'status': 'pending',
+                'project_id': new_project.id
+            })
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'message': f'Failed to create project: {str(e)}'}), 500
+    
+    # Commit all projects and milestones
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': f'Failed to save projects: {str(e)}'}), 500
     
     return jsonify({
         'message': f'Quote requested from {len(consultants)} consultants',
         'quote_request_id': quote_request_id,
         'requests': created_requests,
+        'projects': created_projects,
         'analysis_context': {
             'company_name': analysis_context.get('company_name'),
             'industry': analysis_context.get('industry'),
