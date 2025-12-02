@@ -853,13 +853,22 @@ document.addEventListener('DOMContentLoaded', () => {
             requestBtn.innerHTML = '<span class="loading-spinner" style="width: 16px; height: 16px; border-width: 2px;"></span> 요청 중...';
         }
         
+        // Get user ID from localStorage
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user || !user.id) {
+            showNotification('로그인이 필요합니다. 먼저 로그인해주세요.', 'error');
+            window.location.href = 'login.html';
+            return;
+        }
+        
         try {
             const response = await fetch('/api/quotes/request', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     consultant_ids: selectedIds,
-                    analysis_context: analysisContext
+                    analysis_context: analysisContext,
+                    user_id: user.id
                 })
             });
             
