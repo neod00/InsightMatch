@@ -238,7 +238,15 @@
         
         async function fetchPosts() {
             try {
-                const response = await fetch('http://localhost:5000/api/posts');
+                // API Base URL 설정
+                const API_BASE_URL = (() => {
+                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                        return 'http://localhost:5000';
+                    }
+                    return '';
+                })();
+                
+                const response = await fetch(`${API_BASE_URL}/api/posts`);
                 const posts = await response.json();
                 renderPosts(posts);
             } catch (error) {

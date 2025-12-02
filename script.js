@@ -1,3 +1,13 @@
+// API Base URL 설정 (환경에 따라 자동 감지)
+const API_BASE_URL = (() => {
+    // 로컬 개발 환경인지 확인
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'http://localhost:5000';
+    }
+    // 배포 환경에서는 상대 경로 사용
+    return '';
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Elements ---
     const intakeForm = document.getElementById('intake-form');

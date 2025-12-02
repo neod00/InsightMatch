@@ -150,13 +150,21 @@
         document.getElementById('user-name').textContent = `${user.name}님`;
         document.getElementById('mobile-user-name').textContent = `${user.name}님`;
 
+        // API Base URL 설정
+        const API_BASE_URL = (() => {
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                return 'http://localhost:5000';
+            }
+            return '';
+        })();
+        
         // 디버깅 정보 출력
         console.log('사용자 정보:', user);
         console.log('사용자 ID:', user.id);
 
         async function fetchProjects() {
             try {
-                const apiUrl = `http://localhost:5000/api/projects?user_id=${user.id}`;
+                const apiUrl = `${API_BASE_URL}/api/projects?user_id=${user.id}`;
                 console.log('API 요청 URL:', apiUrl);
                 const response = await fetch(apiUrl);
                 
@@ -309,14 +317,14 @@
         }
 
         async function downloadProposal(projectId) {
-            window.location.href = `http://localhost:5000/api/projects/${projectId}/proposal`;
+            window.location.href = `${API_BASE_URL}/api/projects/${projectId}/proposal`;
         }
 
         async function signContract(projectId) {
             if (!confirm('계약을 체결하시겠습니까?\n프로젝트 상태가 "진행 중"으로 변경됩니다.')) return;
 
             try {
-                const response = await fetch(`http://localhost:5000/api/projects/${projectId}/sign`, {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/sign`, {
                     method: 'POST'
                 });
                 
