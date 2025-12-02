@@ -150,10 +150,59 @@
         document.getElementById('user-name').textContent = `${user.name}님`;
         document.getElementById('mobile-user-name').textContent = `${user.name}님`;
 
+        // 디버깅 정보 출력
+        console.log('사용자 정보:', user);
+        console.log('사용자 ID:', user.id);
+
         async function fetchProjects() {
             try {
-                const response = await fetch(`http://localhost:5000/api/projects?user_id=${user.id}`);
+                const apiUrl = `http://localhost:5000/api/projects?user_id=${user.id}`;
+                console.log('API 요청 URL:', apiUrl);
+                const response = await fetch(apiUrl);
+                
+                // HTTP 에러 응답 처리
+                if (!response.ok) {
+                    let errorMessage = '프로젝트를 불러오지 못했습니다.';
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.message || errorMessage;
+                    } catch (e) {
+                        // JSON 파싱 실패 시 기본 메시지 사용
+                        if (response.status === 400) {
+                            errorMessage = '잘못된 요청입니다. 사용자 정보를 확인해주세요.';
+                        } else if (response.status === 500) {
+                            errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+                        } else if (response.status === 0 || response.status >= 500) {
+                            errorMessage = '서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.';
+                        }
+                    }
+                    
+                    document.getElementById('project-list').innerHTML = `
+                        <div class="card" style="text-align: center; padding: 40px;">
+                            <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: var(--error); margin-bottom: 16px;"></i>
+                            <p style="color: var(--text-muted); margin-bottom: 8px;">${errorMessage}</p>
+                            <p style="color: var(--text-muted); font-size: 0.85rem;">상태 코드: ${response.status}</p>
+                        </div>
+                    `;
+                    lucide.createIcons();
+                    console.error('API 에러:', response.status, errorMessage);
+                    return;
+                }
+                
                 const projects = await response.json();
+                
+                // 응답이 배열이 아닌 경우 처리
+                if (!Array.isArray(projects)) {
+                    console.error('예상치 못한 응답 형식:', projects);
+                    document.getElementById('project-list').innerHTML = `
+                        <div class="card" style="text-align: center; padding: 40px;">
+                            <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: var(--error); margin-bottom: 16px;"></i>
+                            <p style="color: var(--text-muted);">서버 응답 형식이 올바르지 않습니다.</p>
+                        </div>
+                    `;
+                    lucide.createIcons();
+                    return;
+                }
                 
                 if (projects.length === 0) {
                     document.getElementById('project-list').classList.add('hidden');
@@ -162,11 +211,19 @@
                     renderProjects(projects);
                 }
             } catch (error) {
-                console.error(error);
+                console.error('프로젝트 로딩 에러:', error);
+                let errorMessage = '프로젝트를 불러오지 못했습니다.';
+                
+                // 네트워크 에러인 경우
+                if (error instanceof TypeError && error.message.includes('fetch')) {
+                    errorMessage = '서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.';
+                }
+                
                 document.getElementById('project-list').innerHTML = `
                     <div class="card" style="text-align: center; padding: 40px;">
                         <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: var(--error); margin-bottom: 16px;"></i>
-                        <p style="color: var(--text-muted);">프로젝트를 불러오지 못했습니다.</p>
+                        <p style="color: var(--text-muted); margin-bottom: 8px;">${errorMessage}</p>
+                        <p style="color: var(--text-muted); font-size: 0.85rem;">에러: ${error.message}</p>
                     </div>
                 `;
                 lucide.createIcons();

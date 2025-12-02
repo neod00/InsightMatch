@@ -1,4 +1,5 @@
 import os
+import sys
 import uuid
 import json
 import datetime
@@ -13,6 +14,13 @@ import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, AnalysisJob, Consultant, User, Project, Milestone, Post, Company
 from services import AIService, MatchingService, ProposalService
+
+# Windows 콘솔 인코딩 설정
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except:
+        pass
 
 # Load environment variables from .env file
 load_dotenv()
@@ -483,7 +491,7 @@ def init_db():
     with app.app_context():
         # Create tables only if they don't exist (don't drop existing data)
         db.create_all()
-        print("✓ Database tables initialized")
+        print("[OK] Database tables initialized")
 
 def seed_initial_data():
     """Seed initial data only if tables are empty"""
@@ -514,7 +522,7 @@ def seed_initial_data():
                 post = Post(**p_data)
                 db.session.add(post)
             db.session.commit()
-            print("✓ Seeded initial posts")
+            print("[OK] Seeded initial posts")
             
         # Seed Consultants (add if less than 8 exist)
         consultant_count = Consultant.query.count()
@@ -632,19 +640,26 @@ def seed_initial_data():
             ]
             for c_data in consultants:
                 # Check if consultant already exists
-                existing = Consultant.query.filter_by(name=c_data['name']).first()
-                if existing:
+                existing_consultant = Consultant.query.filter_by(name=c_data['name']).first()
+                if existing_consultant:
                     continue
                 
-                # Create dummy user for consultant
-                u = User(email=f"{c_data['name']}@example.com", password_hash="dummy", role="consultant", name=c_data['name'])
-                db.session.add(u)
-                db.session.commit()
+                # Check if user already exists
+                email = f"{c_data['name']}@example.com"
+                existing_user = User.query.filter_by(email=email).first()
+                if existing_user:
+                    # Use existing user
+                    u = existing_user
+                else:
+                    # Create dummy user for consultant
+                    u = User(email=email, password_hash="dummy", role="consultant", name=c_data['name'])
+                    db.session.add(u)
+                    db.session.commit()
                 
                 c = Consultant(user_id=u.id, **c_data)
                 db.session.add(c)
             db.session.commit()
-            print(f"✓ Seeded consultants (total: {Consultant.query.count()})")
+            print(f"[OK] Seeded consultants (total: {Consultant.query.count()})")
 
 if __name__ == '__main__':
     init_db()  # Create tables if they don't exist
