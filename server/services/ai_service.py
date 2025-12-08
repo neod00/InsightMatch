@@ -7,7 +7,7 @@ import json
 class AIService:
     def __init__(self):
         # API 키는 환경변수에서 가져오기
-        api_key = os.environ.get('GOOGLE_API_KEY', 'AIzaSyBJklgDCMH6qcLaia-Nsy34KJbO81X1SSA')
+        api_key = os.environ.get('GOOGLE_API_KEY')
         if api_key:
             genai.configure(api_key=api_key)
             self.model = genai.GenerativeModel('gemini-pro')
