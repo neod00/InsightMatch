@@ -50,9 +50,13 @@ class CorpInfoService:
         
         # 법인명 또는 법인등록번호로 검색
         if crno:
-            params['crno'] = crno
+            # 하이픈 제거 및 공백 제거
+            crno_clean = crno.replace('-', '').replace(' ', '')
+            params['crno'] = crno_clean
+            print(f"[API] 법인등록번호로 조회: {crno_clean}")
         if corp_name:
             params['corpNm'] = corp_name
+            print(f"[API] 법인명으로 조회: {corp_name}")
             
         try:
             response = requests.get(url, params=params, timeout=10)
@@ -60,10 +64,25 @@ class CorpInfoService:
             
             data = response.json()
             
-            # 응답 구조 확인
+            # API 에러 응답 확인
             if 'response' in data:
+                header = data['response'].get('header', {})
+                result_code = header.get('resultCode', '')
+                result_msg = header.get('resultMsg', '')
+                
+                if result_code != '00' and result_code != '':
+                    print(f"[API] 에러 응답: {result_code} - {result_msg}")
+                    return {
+                        'success': False,
+                        'message': f"API Error: {result_msg} (Code: {result_code})",
+                        'items': []
+                    }
+                
                 body = data['response'].get('body', {})
+                total_count = body.get('totalCount', 0)
                 items = body.get('items', {})
+                
+                print(f"[API] 응답: totalCount={total_count}, items 타입={type(items)}")
                 
                 if items and 'item' in items:
                     item_list = items['item']
@@ -71,15 +90,20 @@ class CorpInfoService:
                     if isinstance(item_list, dict):
                         item_list = [item_list]
                     
+                    print(f"[API] {len(item_list)}개 결과 발견")
                     return {
                         'success': True,
-                        'total_count': body.get('totalCount', 0),
+                        'total_count': total_count,
                         'items': item_list
                     }
+                elif total_count == 0:
+                    print(f"[API] 검색 결과 없음 (totalCount=0)")
+                else:
+                    print(f"[API] items 구조 이상: {items}")
             
             return {
                 'success': False,
-                'message': 'No data found',
+                'message': 'No data found in response',
                 'items': []
             }
             

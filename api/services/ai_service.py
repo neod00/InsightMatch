@@ -32,8 +32,8 @@ class AIService:
         """
         company_name = intake_data.get('companyName', 'Unknown Company')
         url = intake_data.get('companyUrl', '')
-        crno = intake_data.get('crno', '').strip()  # 법인등록번호 (옵션)
-        bzno = intake_data.get('bzno', '').strip()  # 사업자등록번호 (옵션)
+        crno = intake_data.get('crno', '').strip().replace('-', '')  # 법인등록번호 (옵션, 하이픈 제거)
+        bzno = intake_data.get('bzno', '').strip().replace('-', '')  # 사업자등록번호 (옵션, 하이픈 제거)
         industry = intake_data.get('industry', '')
         employees = intake_data.get('employees', '')
         standards = intake_data.get('standards', [])
@@ -92,11 +92,13 @@ class AIService:
                 """
                 print(f"✓ 공공데이터 API에서 '{company_name}' 기업정보 조회 성공")
             else:
-                gov_data_summary = "[공공데이터 API] 해당 기업 정보를 찾을 수 없습니다. 사용자 입력 데이터만 활용합니다."
-                print(f"✗ 공공데이터 API에서 '{company_name}' 기업정보를 찾지 못함")
+                gov_data_summary = f"[공공데이터 API] 해당 기업 정보를 찾을 수 없습니다. (회사명: {company_name}, 법인등록번호: {crno or '없음'}, 사업자등록번호: {bzno or '없음'}) 사용자 입력 데이터만 활용합니다."
+                print(f"✗ 공공데이터 API에서 '{company_name}' 기업정보를 찾지 못함 (crno: {crno}, bzno: {bzno})")
         except Exception as e:
+            import traceback
             gov_data_summary = f"[공공데이터 API] 조회 실패: {str(e)}"
             print(f"✗ 공공데이터 API 오류: {e}")
+            print(f"  상세 오류: {traceback.format_exc()}")
         
         # 1. Scrape Website Content (if URL provided)
         site_content = ""
