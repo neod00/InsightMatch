@@ -19,18 +19,33 @@ from models import db, AnalysisJob, Consultant, User, Project, Milestone, Post, 
 from services import AIService, MatchingService, ProposalService
 
 # Load environment variables
-load_dotenv()
+# Load from project root directory
+env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+load_dotenv(env_path)
+print(f"Loading .env from: {env_path}")
+print(f"GOOGLE_API_KEY exists: {os.environ.get('GOOGLE_API_KEY') is not None}")
+print(f"DATA_GO_KR_API_KEY exists: {os.environ.get('DATA_GO_KR_API_KEY') is not None}")
 
 # Configure Flask
 app = Flask(__name__)
 CORS(app)
 
-# Database Config - Supabase PostgreSQL
-database_url = os.environ.get('DATABASE_URL')
-if database_url and database_url.startswith("postgres://"):
-    database_url = database_url.replace("postgres://", "postgresql://", 1)
+# Database Config - Use SQLite for local development, PostgreSQL for production
+is_local_dev = not os.environ.get('VERCEL')  # Vercel sets this env var in production
 
-app.config['SQLALCHEMY_DATABASE_URI'] = database_url or os.environ.get('SUPABASE_DB_URL', 'sqlite:///insightmatch.db')
+if is_local_dev:
+    # Local development: use SQLite
+    db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'insightmatch.db')
+    database_url = f'sqlite:///{db_path}'
+    print(f"[LOCAL DEV] Using SQLite: {db_path}")
+else:
+    # Production: use Supabase PostgreSQL
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url and database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+    database_url = database_url or os.environ.get('SUPABASE_DB_URL', 'sqlite:///insightmatch.db')
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-123')
 
@@ -687,5 +702,23 @@ def seed_data():
     
     return jsonify({'message': 'Seed data created successfully'})
 
+# Serve static files for local development
+@app.route('/')
+def index():
+    return send_file('../index.html')
+
+@app.route('/<path:filename>')
+def serve_static(filename):
+    """Serve static files (HTML, CSS, JS, images)"""
+    file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), filename)
+    if os.path.exists(file_path):
+        return send_file(file_path)
+    else:
+        return jsonify({'error': 'File not found'}), 404
+
 # Vercel automatically detects Flask app named 'app'
+
+# For local development
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
 

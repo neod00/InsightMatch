@@ -17,7 +17,7 @@ class AIService:
         api_key = os.environ.get('GOOGLE_API_KEY')
         if api_key:
             genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel('gemini-pro')
+            self.model = genai.GenerativeModel('gemini-2.5-flash')
         else:
             self.model = None
             print("Warning: GOOGLE_API_KEY not found. AI Service will use mock data.")
@@ -187,19 +187,24 @@ class AIService:
         1. Assess the company's Risk Score (0-100, where 100 is safe, 0 is critical risk).
            - Use verified data when available to make score more accurate
            - Consider company age, audit status, and governance level
-        2. Identify 3-5 key Risk Factors based on industry, size, and verified data.
+        2. Identify 3-5 key Risk Factors in KOREAN (한국어) based on industry, size, and verified data.
+           - Each risk factor should be a clear, concise sentence in Korean
+           - Examples: "규모와 구조로 인한 구현 복잡성 (817명 직원, 10개 계열사)", "초기 준비 수준으로 인한 문화 및 절차적 변화 필요"
         3. Recommend the best ISO standards strategy (Single vs Integrated).
-        4. Write a professional summary (Korean) explaining why these standards are needed.
+        4. Write a professional summary in KOREAN (한국어) explaining why these standards are needed.
+           - Use proper paragraph breaks (\\n\\n) to separate different topics
+           - Format: First paragraph about company overview, second about ISO 9001, third about ISO 14001, etc.
            - Reference specific company data when available (설립연도, 직원수, 감사여부 등)
            - Cite specific ISO principles from the context
+           - Each paragraph should be 2-4 sentences
         
         Output Format (JSON only):
         {{
             "risk_score": 75,
-            "risk_factors": ["Risk 1", "Risk 2", "Risk 3"],
+            "risk_factors": ["한국어 리스크 요인 1", "한국어 리스크 요인 2", "한국어 리스크 요인 3"],
             "recommended_standards": ["ISO 9001", "ISO 14001"],
             "industry": "Refined Industry Name",
-            "summary": "Professional summary in Korean with specific company details..."
+            "summary": "첫 번째 문단 내용...\\n\\n두 번째 문단 내용...\\n\\n세 번째 문단 내용..."
         }}
         """
 
@@ -215,6 +220,18 @@ class AIService:
                 
                 result = json.loads(text)
                 result['company_name'] = company_name
+                
+                # Format summary with proper paragraph breaks
+                if 'summary' in result and result['summary']:
+                    summary = result['summary']
+                    # Handle both escaped (\n) and actual newlines
+                    # Replace escaped newlines with actual newlines first
+                    summary = summary.replace('\\n', '\n')
+                    # Split by double newlines for paragraphs
+                    paragraphs = summary.split('\n\n')
+                    # Wrap each paragraph in <p> tags, convert single newlines within paragraph to <br>
+                    formatted_summary = ''.join([f'<p>{p.strip().replace("\n", "<br>")}</p>' for p in paragraphs if p.strip()])
+                    result['summary'] = formatted_summary
                 
                 # Ensure risk_level exists
                 if 'risk_level' not in result and 'risk_score' in result:
