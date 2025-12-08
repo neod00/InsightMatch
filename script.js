@@ -290,6 +290,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = {
                 companyName: document.getElementById('companyName')?.value || '',
                 companyUrl: document.getElementById('companyUrl')?.value || '',
+                crno: document.getElementById('crno')?.value.replace(/-/g, '') || '', // 법인등록번호 (하이픈 제거)
+                bzno: document.getElementById('bzno')?.value.replace(/-/g, '') || '', // 사업자등록번호 (하이픈 제거)
                 industry: document.getElementById('industry')?.value || '',
                 employees: document.getElementById('employees')?.value || '',
                 standards: Array.from(document.querySelectorAll('input[name="standards"]:checked')).map(cb => cb.value),

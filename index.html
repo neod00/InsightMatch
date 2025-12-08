@@ -224,6 +224,22 @@
                                 <input type="url" id="companyUrl" placeholder="https://example.com">
                             </div>
                             <div class="form-group">
+                                <label>법인등록번호 (선택)</label>
+                                <input type="text" id="crno" placeholder="예: 1234567890123" maxlength="13">
+                                <small style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; display: block;">
+                                    <i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                                    입력 시 더 정확한 보고서를 제공할 수 있습니다
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label>사업자등록번호 (선택)</label>
+                                <input type="text" id="bzno" placeholder="예: 123-45-67890" maxlength="12">
+                                <small style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; display: block;">
+                                    <i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                                    입력 시 더 정확한 보고서를 제공할 수 있습니다
+                                </small>
+                            </div>
+                            <div class="form-group">
                                 <label>업종 *</label>
                                 <select id="industry" required>
                                     <option value="">선택하세요</option>

@@ -4,6 +4,13 @@ import requests
 from bs4 import BeautifulSoup
 import json
 
+# 기업정보 API 서비스 임포트
+try:
+    from .corp_info_service import CorpInfoService
+except ImportError:
+    from corp_info_service import CorpInfoService
+
+
 class AIService:
     def __init__(self):
         # API 키는 환경변수에서 가져오기
@@ -14,18 +21,82 @@ class AIService:
         else:
             self.model = None
             print("Warning: GOOGLE_API_KEY not found. AI Service will use mock data.")
+        
+        # 기업정보 API 서비스 초기화
+        self.corp_info_service = CorpInfoService()
 
     def analyze(self, intake_data):
         """
         Analyzes a company using Google Gemini based on intake data.
+        Enhanced with DATA.go.kr 금융위원회 기업기본정보 API.
         """
         company_name = intake_data.get('companyName', 'Unknown Company')
         url = intake_data.get('companyUrl', '')
+        crno = intake_data.get('crno', '').strip()  # 법인등록번호 (옵션)
+        bzno = intake_data.get('bzno', '').strip()  # 사업자등록번호 (옵션)
         industry = intake_data.get('industry', '')
         employees = intake_data.get('employees', '')
         standards = intake_data.get('standards', [])
         cert_status = intake_data.get('certStatus', '')
         readiness = intake_data.get('readiness', '')
+        
+        # 0. 공공데이터 API로 기업 정보 조회 (신뢰성 있는 외부 데이터)
+        # 법인등록번호 또는 사업자등록번호가 있으면 우선 사용 (더 정확함)
+        gov_corp_data = None
+        gov_data_summary = ""
+        try:
+            if crno:
+                # 법인등록번호로 우선 조회
+                gov_corp_data = self.corp_info_service.get_enhanced_company_info(
+                    company_name=company_name, 
+                    crno=crno
+                )
+            elif bzno:
+                # 사업자등록번호로 조회
+                gov_corp_data = self.corp_info_service.get_enhanced_company_info(
+                    company_name=company_name, 
+                    bzno=bzno
+                )
+            else:
+                # 회사명만으로 조회
+                gov_corp_data = self.corp_info_service.get_enhanced_company_info(company_name)
+            if gov_corp_data.get('found'):
+                basic_info = gov_corp_data.get('basic_info', {})
+                risk_indicators = gov_corp_data.get('risk_indicators', {})
+                
+                gov_data_summary = f"""
+                [공공데이터 기업정보 - 금융위원회 제공]
+                - 법인등록번호: {basic_info.get('crno', 'N/A')}
+                - 사업자등록번호: {basic_info.get('bzno', 'N/A')}
+                - 대표자: {basic_info.get('representative', 'N/A')}
+                - 설립일: {basic_info.get('established_date', 'N/A')}
+                - 종업원수: {basic_info.get('employee_count', 'N/A')}명
+                - 주요사업: {basic_info.get('main_business', 'N/A')}
+                - 주소: {basic_info.get('address', 'N/A')}
+                - 중소기업 여부: {'예' if basic_info.get('is_sme') else '아니오/미확인'}
+                - 상장시장: {basic_info.get('market_type', 'N/A')}
+                - 주거래은행: {basic_info.get('main_bank', 'N/A')}
+                - 감사인: {basic_info.get('auditor', 'N/A')}
+                - 감사의견: {basic_info.get('audit_opinion', 'N/A')}
+                
+                [리스크 지표]
+                - 기업연령: {risk_indicators.get('company_age_years', 0)}년
+                - 상장여부: {'예' if risk_indicators.get('is_listed') else '아니오'}
+                - 외부감사: {'있음' if risk_indicators.get('has_audit') else '없음'}
+                - 감사적정: {'예' if risk_indicators.get('audit_clean') else '아니오/미확인'}
+                - 기업규모: {risk_indicators.get('employee_scale', 'unknown')}
+                - 지배구조수준: {risk_indicators.get('governance_level', 'unknown')}
+                
+                [계열회사]: {len(gov_corp_data.get('affiliates', []))}개
+                [종속기업]: {len(gov_corp_data.get('subsidiaries', []))}개
+                """
+                print(f"✓ 공공데이터 API에서 '{company_name}' 기업정보 조회 성공")
+            else:
+                gov_data_summary = "[공공데이터 API] 해당 기업 정보를 찾을 수 없습니다. 사용자 입력 데이터만 활용합니다."
+                print(f"✗ 공공데이터 API에서 '{company_name}' 기업정보를 찾지 못함")
+        except Exception as e:
+            gov_data_summary = f"[공공데이터 API] 조회 실패: {str(e)}"
+            print(f"✗ 공공데이터 API 오류: {e}")
         
         # 1. Scrape Website Content (if URL provided)
         site_content = ""
@@ -83,13 +154,13 @@ class AIService:
         - Governance (지배구조): 이사회 다양성, 윤리 경영, 투명성
         """
 
-        # 3. Construct Prompt
+        # 3. Construct Prompt (공공데이터 정보 포함)
         prompt = f"""
         You are an expert ISO consultant. Analyze the following company profile and provide a risk assessment and certification strategy.
         
         {ISO_KNOWLEDGE}
         
-        Company Profile:
+        ===== Company Profile (사용자 입력) =====
         - Name: {company_name}
         - Industry: {industry}
         - Employees: {employees}
@@ -98,11 +169,27 @@ class AIService:
         - Readiness Level: {readiness}
         - Website Data: {site_content}
         
+        ===== Verified Company Data (금융위원회 공공데이터 API) =====
+        {gov_data_summary}
+        
+        ===== Analysis Instructions =====
+        IMPORTANT: If government verified data is available, use it to provide MORE ACCURATE risk assessment.
+        Consider these factors from verified data:
+        - Company age (older = more stable, but may have legacy issues)
+        - Listed status (listed companies have stricter compliance requirements)
+        - External audit status (audited companies have better governance)
+        - Employee scale (affects complexity of ISO implementation)
+        - Governance level (affects readiness for certification)
+        
         Task:
         1. Assess the company's Risk Score (0-100, where 100 is safe, 0 is critical risk).
-        2. Identify 3 key Risk Factors based on industry and size.
+           - Use verified data when available to make score more accurate
+           - Consider company age, audit status, and governance level
+        2. Identify 3-5 key Risk Factors based on industry, size, and verified data.
         3. Recommend the best ISO standards strategy (Single vs Integrated).
-        4. Write a professional summary (Korean) explaining why these standards are needed, citing specific ISO principles from the context if possible.
+        4. Write a professional summary (Korean) explaining why these standards are needed.
+           - Reference specific company data when available (설립연도, 직원수, 감사여부 등)
+           - Cite specific ISO principles from the context
         
         Output Format (JSON only):
         {{
@@ -110,7 +197,7 @@ class AIService:
             "risk_factors": ["Risk 1", "Risk 2", "Risk 3"],
             "recommended_standards": ["ISO 9001", "ISO 14001"],
             "industry": "Refined Industry Name",
-            "summary": "Professional summary in Korean..."
+            "summary": "Professional summary in Korean with specific company details..."
         }}
         """
 
@@ -136,6 +223,14 @@ class AIService:
                         result['risk_level'] = "주의 (Moderate Risk)"
                     else:
                         result['risk_level'] = "위험 (High Risk)"
+                
+                # 공공데이터 API 조회 결과 추가
+                if gov_corp_data and gov_corp_data.get('found'):
+                    result['verified_data'] = True
+                    result['gov_data'] = gov_corp_data.get('basic_info', {})
+                    result['risk_indicators'] = gov_corp_data.get('risk_indicators', {})
+                else:
+                    result['verified_data'] = False
                         
                 return result
             except Exception as e:

@@ -1,0 +1,183 @@
+
+
+
+
+
+공공데이터 오픈API 활용가이드
+금융위원회_기업기본정보
+
+
+
+
+
+
+
+
+
+
+
+
+
+1. 서비스 명세	3
+1.1 금융위원회_기업기본정보	3
+가. API 서비스 개요	3
+나. 상세기능 목록	4
+다. 상세기능내역	4
+1) 기업개요조회 상세기능명세	4
+2) 계열회사조회 상세기능명세	5
+3) 연결대상종속기업조회 상세기능명세	6
+2. OpenAPI 에러 코드정리	10
+
+
+
+1. 서비스 명세
+1.1 금융위원회_기업기본정보
+가. API 서비스 개요
+API 서비스 정보API명(영문)GetCorpBasicInfoService_V2API명(국문)금융위원회_기업기본정보API 설명법인등록번호, 법인명, 계열회사명, 종속기업명을 조회하여 기업개요, 계열회사, 연결대상종속기업을 제공하는 금융위원회_기업기본정보API 서비스
+보안적용
+기술 수준서비스 인증/권한[O] serviceKey    [ ] 인증서 (GPKI/NPKI)
+[ ] Basic (ID/PW)  [ ] 없음메시지 레벨
+암호화[ ] 전자서명   [ ] 암호화   [O] 없음전송 레벨 암호화[ ] SSL   [O] 없음인터페이스 표준[ ] SOAP 1.2
+(RPC-Encoded, Document Literal, Document Literal Wrapped)
+[O] REST (GET)
+[ ] RSS 1.0   [ ] RSS 2.0   [ ] Atom 1.0   [ ] 기타교환 데이터 표준
+(중복선택가능)[O] XML   [O] JSON   [ ] MIME   [ ] MTOMAPI 서비스
+배포정보서비스 URLhttp://apis.data.go.kr/1160100/service/GetCorpBasicInfoService_V2서비스 명세 URL
+(WSDL 또는 WADL)N/A서비스 버전1.0서비스 시작일2020-04-01서비스 배포일2023-03-15서비스 이력2020-04-01 : 서비스 시작메시지 교환유형[O] Request-Response   [ ] Publish-Subscribe
+[ ] Fire-and-Forgot   [ ] Notification서비스 제공자데이터 갱신주기일 1회
+나. 상세기능 목록
+번호API명(국문)상세기능명(영문)상세기능명(국문)1금융위원회_기업기본정보getCorpOutline_V2기업개요조회2금융위원회_기업기본정보getAffiliate_V2계열회사조회3금융위원회_기업기본정보getConsSubsComp_V2연결대상종속기업조회
+다. 상세기능내역
+1) 기업개요조회 상세기능명세
+a) 상세기능정보
+상세기능 번호1상세기능 유형조회 (목록)상세기능명(국문)기업개요조회상세기능 설명기준일자, 법인등록번호, 법인명을 통하여 기업기본주소, 기업전화번호, 기업설립일자, 기업종업원수등을 조회하는 기업개요조회 기능Call Back URLhttp://apis.data.go.kr/1160100/service/GetCorpBasicInfoService_V2/getCorpOutline_V2최대 메시지 사이즈[4000] byte평균 응답 시간[500] ms초당 최대 트랙잭션[30] tpsb) 요청 메시지 명세 
+항목명(영문)항목명(국문)항목크기항목구분샘플데이터항목설명numOfRows한 페이지 결과 수411한 페이지 결과 수pageNo페이지 번호411페이지 번호resultType결과형식41xml결과형식(xml/json)serviceKey서비스키4001공공데이터포털에서 받은 인증키공공데이터포털에서 받은 인증키crno법인등록번호1301101113892240법인등록번호corpNm법인명10000메리츠자산운용법인(法人)의 명칭※ 항목구분 : 필수(1), 옵션(0) 
+c) 응답 메시지 명세
+항목명(영문)항목명(국문)항목크기항목구분샘플데이터항목설명resultCode결과코드2100결과코드resultMsg결과메시지501NORMAL SERVICE.결과메시지numOfRows한 페이지 결과 수411한 페이지 결과 수pageNo페이지 번호411페이지 번호totalCount전체 결과 수1011전체 결과 수crno법인등록번호1311101113892240법인등록번호corpNm법인명10001메리츠자산운용법인(法人)의 명칭corpEnsnNm법인영문명10000Meritz Asset Management법인(法人)의 영문 표기 명enpPbanCmpyNm기업공시회사명10000메리츠자산운용기업 공시 회사의 이름enpRprFnm기업대표자성명1500John Lee(이정복)기업 대표자의 이름corpRegMrktDcd법인등록시장구분코드10법인이 어느 시장에 등록되었는지를 관리하는 코드corpRegMrktDcdNm법인등록시장구분코드명1000기타법인이 어느 시장에 등록되었는지를 관리하는 코드의 명칭corpDcd법인구분코드2013법인등록번호(5,6 자리)내 법인종류별분류번호(5,6 자리)corpDcdNm법인구분코드명1000주식회사법인등록번호(5,6 자리)내 법인종류별분류번호의 명칭(5,6 자리)bzno사업자등록번호1001078708658세무에서, 신규로 개업하는 사업자에게 부여하는 사업체의 고유번호enpOzpno기업구우편번호6003051기업의 소재지 구우편번호 (6자리)enpBsadr기업기본주소5000서울특별시 종로구 북촌로 104 계동빌딩기업의 소재지로 우편번호에 대응되는 기본주소enpDtadr기업상세주소5000서울특별시 종로구 북촌로 104 계동빌딩기업의 소재지로 우편번호에 대응되는 기본주소외의 상세주소enpHmpgUrl기업홈페이지URL3000https://www.meritzam.com기업의 홈페이지 주소enpTlno기업전화번호100002-6320-3000기업의 전화번호enpFxno기업팩스번호100002-6320-3009기업의 팩스 번호sicNm표준산업분류명1000064201산업 주체들이 모든 산업활동을 그 성질에 따라 유형화한 분류 이름enpEstbDt기업설립일자8020080506기업의 설립일자enpStacMm기업결산월2012기업의 결산 월enpXchgLstgDt기업거래소상장일자8020081110기업의 거래소 상장 일자enpXchgLstgAbolDt기업거래소상장폐지일자8020051010기업의 거래소 상장 폐지 일자enpKosdaqLstgDt기업코스닥상장일자8020161214기업의 주식이 코스닥 시장에 상장 등록된 일자enpKosdaqLstgAbolDt기업코스닥상장폐지일자8020171017기업의 주식이 코스닥 시장에 상장 페지된 일자enpKrxLstgDt기업KONEX상장일자8020051021기업의 KONEX(자본시장을 통한 초기 중소기업 지원을 강화하여 창조경제 생태계 기반을 조성하기 위해 개설된 중소기업전용 주식시장) 상장 일자enpKrxLstgAbolDt기업KONEX상장폐지일자8020041117기업의 KONEX(자본시장을 통한 초기 중소기업 지원을 강화하여 창조경제 생태계 기반을 조성하기 위해 개설된 중소기업전용 주식시장) 상장 폐지 일자smenpYn중소기업여부10N해당 기업이 중소기업인지를 관리하는 여부enpMntrBnkNm기업주거래은행명1000기업은행기업의 주거래 은행 명칭enpEmpeCnt기업종업원수900기업의 종업원 인원수empeAvgCnwkTermCtt종업원평균근속기간내용100010기업의 종업원의 평균 근속 년수enpPn1AvgSlryAmt기업1인평균급여금액22,302144.913기업의 1인 평균 급여 금액actnAudpnNm회계감사인명10000김장수회계 감사를 실시한 감사인의 명칭audtRptOpnnCtt감사보고서의견내용1000예외사항없음회계감사에 대한 감사인의 의견enpMainBizNm기업주요사업명10000공제기금운영, 아파트건설,주택매매 임대기업이 영위하고 있는 주요 사업의 명칭fssCorpUnqNo금융감독원법인고유번호8000685935금융감독원에서 관리하는 법인의 고유번호fssCorpChgDtm금융감독원법인변경일시802019/03/25금융감독원에서 관리하는 법인 정보의 변경일시fstOpegDt최초개방일자8020230320최초개방일자lastOpegDt최종개방일자8020230406최종개방일자※ 항목구분 : 필수(1), 옵션(0)
+d) 요청/응답 메시지 예제
+요청메시지http://apis.data.go.kr/1160100/service/GetCorpBasicInfoService_V2/getCorpOutline_V2?pageNo=1&numOfRows=1&resultType=xml&fnccmpNm=%EA%B9%80%EC%B2%9C%EC%A0%80%EC%B6%95%EC%9D%80%ED%96%89&serviceKey=인증키응답메시지<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<response>
+<header>
+<resultCode>00</resultCode>
+<resultMsg>NORMAL SERVICE.</resultMsg>
+</header>
+<body>
+<numOfRows>10</numOfRows>
+<pageNo>1</pageNo>
+<totalCount>2</totalCount>
+<items>
+<item>
+<actnAudpnNm/>
+<audtRptOpnnCtt/>
+<bzno>1078708658</bzno>
+<corpDcd/>
+<corpDcdNm/>
+<corpEnsnNm>Meritz Asset Management</corpEnsnNm>
+<corpNm>메리츠자산운용</corpNm>
+<corpRegMrktDcd>E</corpRegMrktDcd>
+<corpRegMrktDcdNm>기타</corpRegMrktDcdNm>
+<crno>1101113892240</crno>
+<empeAvgCnwkTermCtt/>
+<enpBsadr>서울특별시 종로구 북촌로 104 계동빌딩</enpBsadr>
+<enpDtadr/>
+<enpEmpeCnt>0</enpEmpeCnt>
+<enpEstbDt>20080506</enpEstbDt>
+<enpFxno>02-6320-3009</enpFxno>
+<enpHmpgUrl/>
+<enpKosdaqLstgAbolDt/>
+<enpKosdaqLstgDt/>
+<enpKrxLstgAbolDt/>
+<enpKrxLstgDt/>
+<enpMainBizNm/>
+<enpMntrBnkNm/>
+<enpOzpno>03051</enpOzpno>
+<enpPbanCmpyNm>메리츠자산운용</enpPbanCmpyNm>
+<enpPn1AvgSlryAmt>0</enpPn1AvgSlryAmt>
+<enpRprFnm>이동진</enpRprFnm>
+<enpStacMm>12</enpStacMm>
+<enpTlno>02-6320-3000</enpTlno>
+<enpXchgLstgAbolDt/>
+<enpXchgLstgDt/>
+<fssCorpChgDtm>2023/03/20</fssCorpChgDtm>
+<fssCorpUnqNo>00685935</fssCorpUnqNo>
+<fstOpegDt>20230320</fstOpegDt>
+<lastOpegDt>20230406</lastOpegDt>
+<sicNm>64201</sicNm>
+<smenpYn/>
+</item>
+</items>
+</body>
+</response>2) 계열회사조회 상세기능명세
+a) 상세기능정보
+상세기능 번호2상세기능 유형조회 (목록)상세기능명(국문)계열회사조회상세기능 설명기준일자, 법인등록번호, 계열회사명을 통하여 계열회사법인등록번호, 상장여부를 조회하는 계열회사조회 기능Call Back URLhttp://apis.data.go.kr/1160100/service/GetCorpBasicInfoService_V2/getAffiliate_V2최대 메시지 사이즈[4000] byte평균 응답 시간[500] ms초당 최대 트랙잭션[30] tpsb) 요청 메시지 명세 
+항목명(영문)항목명(국문)항목크기항목구분샘플데이터항목설명numOfRows한 페이지 결과 수411한 페이지 결과 수pageNo페이지 번호411페이지 번호resultType결과형식41xml결과형식(xml/json)serviceKey서비스키4001공공데이터포털에서 받은 인증키공공데이터포털에서 받은 인증키basDt기준일자8020200423작업 또는 거래의 기준이 되는 일자(년월일)crno법인등록번호1301353110003920법인등록번호afilCmpyNm계열회사명10000코오롱베니트(주)계열 회사의 이름※ 항목구분 : 필수(1), 옵션(0) 
+c) 응답 메시지 명세
+항목명(영문)항목명(국문)항목크기항목구분샘플데이터항목설명resultCode결과코드2100결과코드resultMsg결과메시지501NORMAL SERVICE.결과메시지numOfRows한 페이지 결과 수411한 페이지 결과 수pageNo페이지 번호411페이지 번호totalCount전체 결과 수1011전체 결과 수basDt기준일자8120200423작업 또는 거래의 기준이 되는 일자(년월일)crno법인등록번호1311353110003920법인등록번호afilCmpyNm계열회사명10001코오롱베니트(주)계열 회사의 이름afilCmpyCrno계열회사법인등록번호1301353110003920계열 회사의 법인등록번호lstgYn상장여부10비상장법인의 상장여부※ 항목구분 : 필수(1), 옵션(0)
+d) 요청/응답 메시지 예제
+요청메시지http://apis.data.go.kr/1160100/service/GetCorpBasicInfoService_V2/getAffiliate_V2?pageNo=1&numOfRows=1&resultType=xml&fnccmpNm=%EA%B9%80%EC%B2%9C%EC%A0%80%EC%B6%95%EC%9D%80%ED%96%89&serviceKey=인증키응답메시지
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<response>
+    <header>
+        <resultCode>00</resultCode>
+        <resultMsg>NORMAL SERVICE.</resultMsg>
+    </header>
+    <body>
+        <numOfRows>1</numOfRows>
+        <pageNo>1</pageNo>
+        <totalCount>1</totalCount>
+        <items>
+            <item>
+                <afilCmpyCrno>1353110003920</afilCmpyCrno>
+                <afilCmpyNm>코오롱베니트(주)</afilCmpyNm>
+                <basDt>20200423</basDt>
+                <crno>1353110003920</crno>
+                <lstgYn>비상장</lstgYn>
+            </item>
+        </items>
+    </body>
+</response>
+3) 연결대상종속기업조회 상세기능명세
+a) 상세기능정보
+상세기능 번호3상세기능 유형조회 (목록)상세기능명(국문)연결대상종속기업조회상세기능 설명기준일자, 법인등록번호, 종속기업명을 통하여 종속기업설립일자, 종속기업주소, 종속기업주요사업내용등을 조회하는 연결대상종속기업조회 기능Call Back URLhttp://apis.data.go.kr/1160100/service/GetCorpBasicInfoService_V2/getConsSubsComp_V2최대 메시지 사이즈[4000] byte평균 응답 시간[500] ms초당 최대 트랙잭션[30] tpsb) 요청 메시지 명세 
+항목명(영문)항목명(국문)항목크기항목구분샘플데이터항목설명numOfRows한 페이지 결과 수411한 페이지 결과 수pageNo페이지 번호411페이지 번호resultType결과형식41xml결과형식(xml/json)serviceKey서비스키4001공공데이터포털에서 받은 인증키공공데이터포털에서 받은 인증키basDt기준일자8020200420작업 또는 거래의 기준이 되는 일자(년월일)crno법인등록번호1301101110035835법인등록번호sbrdEnpNm종속기업명1500Saudi-Taihan Co. Ltd.종속기업(법인과 자본, 계약, 정관 등에 따라 지배를 받는 기업)의 명칭※ 항목구분 : 필수(1), 옵션(0) 
+c) 응답 메시지 명세
+항목명(영문)항목명(국문)항목크기항목구분샘플데이터항목설명resultCode결과코드2100결과코드resultMsg결과메시지501NORMAL SERVICE.결과메시지numOfRows한 페이지 결과 수411한 페이지 결과 수pageNo페이지 번호411페이지 번호totalCount전체 결과 수1013전체 결과 수basDt기준일자8120200420작업 또는 거래의 기준이 되는 일자(년월일)crno법인등록번호1311101110035835법인등록번호sbrdEnpNm종속기업명1501Saudi-Taihan Co. Ltd.종속기업(법인과 자본, 계약, 정관 등에 따라 지배를 받는 기업)의 명칭sbrdEnpEstbDt종속기업설립일자802017년0종속기업(법인과 자본, 계약, 정관 등에 따라 지배를 받는 기업) 설립일자(년월일)sbrdEnpAdr종속기업주소5000Riyadh Saudi종속기업의 주소sbrdEnpMainBizCtt종속기업주요사업내용5000케이블장치 제조 및 판매업종속기업의 주요사업내용sbrdEnpLtstEbzyrTastAmt종속기업최근사업연도말총자산금액1802681종속기업최근사업연도말총자산금액dntRltBsisCtt지배관계근거내용5000의결권 50% 초과종속기업의 지배관계근거내용mainSbrdEnpYnCtt주요종속기업여부내용5000미해당주요종속기업여부내용※ 항목구분 : 필수(1), 옵션(0)
+
+
+
+d) 요청/응답 메시지 예제
+요청메시지http://apis.data.go.kr/1160100/service/GetCorpBasicInfoService_V2/getConsSubsComp_V2?pageNo=1&numOfRows=1&resultType=xml&fnccmpNm=%EA%B9%80%EC%B2%9C%EC%A0%80%EC%B6%95%EC%9D%80%ED%96%89&serviceKey=인증키응답메시지
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<response>
+    <header>
+        <resultCode>00</resultCode>
+        <resultMsg>NORMAL SERVICE.</resultMsg>
+    </header>
+    <body>
+        <numOfRows>1</numOfRows>
+        <pageNo>1</pageNo>
+        <totalCount>3</totalCount>
+        <items>
+            <item>
+                <basDt>20200420</basDt>
+                <crno>1101110035835</crno>
+                <dntRltBsisCtt>의결권 50% 초과</dntRltBsisCtt>
+                <mainSbrdEnpYnCtt>미해당</mainSbrdEnpYnCtt>
+                <sbrdEnpEstbDt>2017년0</sbrdEnpEstbDt>
+                <sbrdEnpLtstEbzyrTastAmt>2681</sbrdEnpLtstEbzyrTastAmt>
+                <sbrdEnpMainBizCtt>케이블장치 제조 및 판매업</sbrdEnpMainBizCtt>
+                <sbrdEnpNm>Saudi-Taihan Co. Ltd.</sbrdEnpNm>
+                <sbrdEnpadr>Riyadh Saudi</sbrdEnpadr>
+            </item>
+        </items>
+    </body>
+</response>
+2. OpenAPI 에러 코드정리
+에러코드에러메시지설명1APPLICATION_ERROR어플리케이션 에러10INVALID_REQUEST_PARAMETER_ERROR잘못된 요청 파라메터 에러12NO_OPENAPI_SERVICE_ERROR해당 오픈API서비스가 없거나 폐기됨20SERVICE_ACCESS_DENIED_ERROR서비스 접근거부22LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR서비스 요청제한횟수 초과에러30SERVICE_KEY_IS_NOT_REGISTERED_ERROR등록되지 않은 서비스키31DEADLINE_HAS_EXPIRED_ERROR기한만료된 서비스키32UNREGISTERED_IP_ERROR등록되지 않은 IP99UNKNOWN_ERROR기타에러
+
+
+- 16 -
+
+
+
+
