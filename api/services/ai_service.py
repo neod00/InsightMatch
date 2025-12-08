@@ -17,7 +17,9 @@ class AIService:
         api_key = os.environ.get('GOOGLE_API_KEY')
         if api_key:
             genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel('gemini-2.5-flash')
+            # Tools 설정: Google Search Retrieval 활성화 (Grounding)
+            # gemini-2.5-flash -> gemini-2.0-flash (Available & Supports Grounding)
+            self.model = genai.GenerativeModel('gemini-2.0-flash', tools='google_search_retrieval')
         else:
             self.model = None
             print("Warning: GOOGLE_API_KEY not found. AI Service will use mock data.")
@@ -156,13 +158,26 @@ class AIService:
         - Governance (지배구조): 이사회 다양성, 윤리 경영, 투명성
         """
 
-        # 3. Construct Prompt (공공데이터 정보 포함)
+        # 3. Construct Prompt (Fact-Based: Public Data + Google Search)
         prompt = f"""
-        You are an expert ISO consultant. Analyze the following company profile and provide a risk assessment and certification strategy.
+        You are an expert ISO consultant. 
         
+        **Step 1: Analyze Verified Government Data**
+        Review the 'Verified Company Data' section below. This is the source of truth for corporate structure, size, and history.
+
+        **Step 2: Google Search Grounding**
+        Use Google Search to find additional *latest* factual information about "{company_name}" (Industry: {industry}).
+        Search for:
+        1. Official website content ("About Us", "Certifications").
+        2. Any public records of ISO certifications (ISO 9001, 14001, etc.).
+        3. Recent news or ESG reports.
+
+        **Step 3: Synthesis**
+        Combine the Government Data (Structure/Size) with Search Data (Certifications/Activities) to provide a precise risk assessment.
+
         {ISO_KNOWLEDGE}
         
-        ===== Company Profile (사용자 입력) =====
+        ===== Company Profile (User Input) =====
         - Name: {company_name}
         - Industry: {industry}
         - Employees: {employees}
@@ -175,36 +190,55 @@ class AIService:
         {gov_data_summary}
         
         ===== Analysis Instructions =====
-        IMPORTANT: If government verified data is available, use it to provide MORE ACCURATE risk assessment.
-        Consider these factors from verified data:
-        - Company age (older = more stable, but may have legacy issues)
-        - Listed status (listed companies have stricter compliance requirements)
-        - External audit status (audited companies have better governance)
-        - Employee scale (affects complexity of ISO implementation)
-        - Governance level (affects readiness for certification)
+        
+        **CRITICAL: You MUST use the Verified Company Data from the government API in your analysis.**
+        
+        ISO 인증 현황에 대한 현실적 가정:
+        - 상장기업(유가증권시장/코스닥): ISO 9001은 거의 100% 보유, ISO 14001도 대부분 보유
+        - 외부감사 대상 기업: ISO 9001 보유 가능성 매우 높음 (80% 이상)
+        - 설립 10년 이상 + 직원 100명 이상: 기본 ISO 인증 보유 추정
+        - 자동차/화학/제조업: ISO 9001, ISO 14001 필수 보유 (거래처 요구사항)
+        - 따라서 "인증 부재"보다는 "갱신", "통합 인증 전환", "고도화", "ESG 연계 강화" 등의 표현 사용
+        
+        분석 시 고려사항:
+        - 기업연령: 오래된 기업 = 안정적이나 레거시 시스템 개선 필요
+        - 상장여부: 상장기업은 더 엄격한 컴플라이언스 요구
+        - 외부감사: 감사받는 기업은 지배구조가 우수
+        - 직원규모: 대규모 = 구현 복잡성 증가하나 자원도 풍부
+        - 계열사/종속기업: 그룹사 통합 인증 전략 필요
         
         Task:
-        1. Assess the company's Risk Score (0-100, where 100 is safe, 0 is critical risk).
-           - Use verified data when available to make score more accurate
-           - Consider company age, audit status, and governance level
-        2. Identify 3-5 key Risk Factors in KOREAN (한국어) based on industry, size, and verified data.
-           - Each risk factor should be a clear, concise sentence in Korean
-           - Examples: "규모와 구조로 인한 구현 복잡성 (817명 직원, 10개 계열사)", "초기 준비 수준으로 인한 문화 및 절차적 변화 필요"
-        3. Recommend the best ISO standards strategy (Single vs Integrated).
-        4. Write a professional summary in KOREAN (한국어) explaining why these standards are needed.
-           - Use proper paragraph breaks (\\n\\n) to separate different topics
-           - Format: First paragraph about company overview, second about ISO 9001, third about ISO 14001, etc.
-           - Reference specific company data when available (설립연도, 직원수, 감사여부 등)
-           - Cite specific ISO principles from the context
-           - Each paragraph should be 2-4 sentences
+        1. **Fact Check (Certifications)**: 
+           - Verify ISO certifications via Google Search.
+           - If found: List them and mark source as "Verified via Search".
+           - If not found but user claims yes: Mark as "Self-reported (Not verified online)".
+           - If not found and user says no: Mark as "None found".
+        
+        2. **Risk Score (0-100)**: 
+           - Base score on Public Data (Stability, Audits).
+           - Adjust based on Search findings (e.g., if ISO 9001 is found, score +10).
+           - 100=Safe, 0=Risky.
+        
+        3. **Risk Factors (Korean)**: 
+           - Use specific numbers from Public Data (e.g., "Since 2006", "817 employees").
+           - Cite missing certifications confirmed by Search.
+        
+        4. **Recommended Standards**: Based on gaps found.
+        
+        5. **Summary (Korean, 3 paragraphs)**:
+           - Para 1: **Company Overview** using Public Data (Years, Employees, Listed status).
+           - Para 2: **Certification Status** (Search results) vs Gaps.
+           - Para 3: **Strategic Roadmap** (ESG, Integrated Certs).
+           - **Must use specific numbers/names from the data.**
         
         Output Format (JSON only):
         {{
-            "risk_score": 75,
-            "risk_factors": ["한국어 리스크 요인 1", "한국어 리스크 요인 2", "한국어 리스크 요인 3"],
+            "risk_score": 80,
+            "risk_factors": ["대규모 조직(817명, 10개 계열사) 통합 관리 복잡성", "자동차 산업 특성상 품질/환경 이중 요구사항", "상장기업으로서 ESG 공시 의무 강화 대응 필요"],
             "recommended_standards": ["ISO 9001", "ISO 14001"],
-            "industry": "Refined Industry Name",
-            "summary": "첫 번째 문단 내용...\\n\\n두 번째 문단 내용...\\n\\n세 번째 문단 내용..."
+            "industry": "자동차/자동차부품",
+            "summary": "2006년 설립되어 19년의 업력을 보유한 평화산업(주)는 817명의 직원과 10개 계열사를 거느린 유가증권시장 상장기업입니다. 삼일회계법인의 외부감사를 받고 있어 재무 투명성이 확보되어 있습니다.\\n\\nGoogle 검색 결과, 현재 ISO 9001 인증을 보유하고 있는 것으로 확인됩니다. (출처: KAB). 현 시점에서는 기존 인증의 갱신 및 ISO 14001 환경경영시스템과의 통합인증(IMS) 전환이 효과적입니다.\\n\\nESG 경영 강화 추세에 따라 ISO 14001을 중심으로 탄소중립 로드맵과 연계한 환경경영 고도화를 권장합니다.",
+            "evidence_links": ["https://www.company.com/cert", "https://kab.or.kr/result"]
         }}
         """
 
