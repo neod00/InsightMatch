@@ -15,7 +15,8 @@ class AIService:
             genai.configure(api_key=api_key)
             # Tools 설정: Google Search Retrieval 활성화 (Grounding)
             # gemini-2.5-flash -> gemini-2.0-flash (Available & Supports Grounding)
-            self.model = genai.GenerativeModel('gemini-2.5-flash-lite')
+            search_tool = protos.Tool(google_search=protos.GoogleSearch())
+            self.model = genai.GenerativeModel('gemini-2.5-flash-lite', tools=[search_tool])
         else:
             self.model = None
             print("Warning: GOOGLE_API_KEY not found. AI Service will use mock data.")
