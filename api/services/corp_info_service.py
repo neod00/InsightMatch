@@ -288,7 +288,8 @@ class CorpInfoService:
             corp_data = self.get_corp_outline(corp_name=company_name)
         
         if corp_data['success'] and corp_data['items']:
-            item = corp_data['items'][0]  # 첫 번째 결과 사용
+            # 여러 결과 중 가장 정확한 항목 선택
+            item = self._select_best_match(corp_data['items'], company_name)
             result['found'] = True
             
             # 기본 정보 추출
@@ -336,6 +337,105 @@ class CorpInfoService:
                     result['subsidiaries'] = subsidiary_data['items']
         
         return result
+    
+    def _select_best_match(self, items: list, company_name: str = None) -> dict:
+        """
+        여러 검색 결과 중에서 가장 정확한 항목을 선택합니다.
+        
+        우선순위:
+        1. 회사명 정확 일치 (대소문자 무시)
+        2. "(주)" 포함 항목
+        3. 상장기업
+        4. 종업원수가 많은 항목
+        5. 설립일이 있는 항목
+        
+        Args:
+            items: 검색 결과 항목 리스트
+            company_name: 검색한 회사명
+            
+        Returns:
+            선택된 항목 딕셔너리
+        """
+        if not items:
+            return None
+        
+        if len(items) == 1:
+            return items[0]
+        
+        # 회사명 정규화 (공백, 괄호 제거)
+        def normalize_name(name):
+            if not name:
+                return ""
+            name = name.replace(" ", "").replace("　", "")
+            # (주), (유), (합) 등 제거
+            import re
+            name = re.sub(r'\([^)]*\)', '', name)
+            return name.lower()
+        
+        normalized_search = normalize_name(company_name) if company_name else ""
+        
+        # 각 항목에 점수 부여
+        scored_items = []
+        for item in items:
+            score = 0
+            corp_name = item.get('corpNm', '')
+            normalized_corp = normalize_name(corp_name)
+            
+            # 1. 정확 일치 (가장 높은 점수) - 원본 이름 기준
+            if company_name and corp_name:
+                # 원본 이름 정확 일치 (공백 제거 후 비교)
+                if company_name.replace(' ', '') == corp_name.replace(' ', ''):
+                    score += 2000
+                # "(주)" 추가/제거 후 비교
+                elif company_name.replace('(주)', '').replace(' ', '') == corp_name.replace('(주)', '').replace(' ', ''):
+                    score += 1500
+            
+            # 2. 정규화된 이름 정확 일치
+            if normalized_search and normalized_corp == normalized_search:
+                score += 1000
+            
+            # 3. "(주)" 포함 (주식회사는 더 정확할 가능성) - 높은 가중치
+            if '(주)' in corp_name:
+                score += 200  # 가중치 증가
+            elif '(유)' in corp_name:
+                score += 150
+            
+            # 4. 부분 일치 (하지만 정확 일치가 아닐 때만)
+            if normalized_search and normalized_search in normalized_corp:
+                # 검색어가 회사명의 시작 부분인 경우 더 높은 점수
+                if normalized_corp.startswith(normalized_search):
+                    score += 50
+                else:
+                    score += 20  # 부분 일치 점수 낮춤
+            
+            # 5. 상장기업 (유가, 코스피, 코스닥 등)
+            market_type = item.get('corpRegMrktDcdNm', '')
+            if market_type and market_type not in ['', '기타']:
+                score += 40  # 가중치 증가
+            
+            # 6. 종업원수 (많을수록 본사일 가능성)
+            try:
+                emp_count = int(item.get('enpEmpeCnt', 0) or 0)
+                if emp_count > 0:
+                    score += min(emp_count // 100, 30)  # 최대 30점으로 증가
+            except:
+                pass
+            
+            # 7. 설립일이 있는 항목
+            if item.get('enpEstbDt'):
+                score += 15  # 가중치 증가
+            
+            # 8. 감사인이 있는 항목 (대기업일 가능성)
+            if item.get('actnAudpnNm'):
+                score += 10  # 가중치 증가
+            
+            scored_items.append((score, item))
+        
+        # 점수 순으로 정렬 (높은 점수 우선)
+        scored_items.sort(key=lambda x: x[0], reverse=True)
+        
+        # 가장 높은 점수의 항목 반환
+        return scored_items[0][1]
     
     def _calculate_risk_indicators(self, basic_info: dict) -> dict:
         """
