@@ -1,6 +1,6 @@
 import os
 import re
-from google.generativeai import protos
+import google.generativeai as genai
 import requests
 from bs4 import BeautifulSoup
 import json
