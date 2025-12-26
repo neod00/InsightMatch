@@ -183,13 +183,15 @@ class AIService:
         3. **Recommendations**: If safety news found -> ISO 45001. If environment news -> ISO 14001.
         4. **Summary**: 3 paragraphs (Korean). Quote verified facts and news headlines.
         
+        **IMPORTANT**: ALL OUTPUT MUST BE IN KOREAN except for standard names (ISO 9001, etc.)
+        
         Output Format (JSON only):
         {{
             "risk_score": 80,
-            "risk_factors": ["Fact 1 from Gov Data", "News: Safety incident found", "Discrepancy: User claimed X but News shows Y"],
+            "risk_factors": ["공공데이터: 종업원수 754명으로 사용자 주장(1-10명)과 큰 차이", "공공데이터: 코스닥 상장기업으로 규제 요구사항 높음", "뉴스: 안전사고 관련 기사 발견"],
             "recommended_standards": ["ISO 9001", "ISO 45001"],
-            "industry": "Industry",
-            "summary": "Para 1 (Facts)...\\n\\nPara 2 (News Findings)...\\n\\nPara 3 (Recommendations)...",
+            "industry": "업종명 (한글)",
+            "summary": "1단락 (팩트)...\\n\\n2단락 (뉴스 발견)...\\n\\n3단락 (권고사항)...",
             "evidence_links": ["URL 1"],
             "news_risk_level": "HIGH/MEDIUM/LOW"
         }}
