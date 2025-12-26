@@ -6,15 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>블로그 - InsightMatch</title>
     <meta name="description" content="ISO 인증, ESG 경영, 중대재해처벌법 등 기업 경영에 필요한 최신 정보와 인사이트를 확인하세요.">
-    
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    
+
     <!-- Styles -->
     <link rel="stylesheet" href="style.css">
 </head>
@@ -36,20 +38,20 @@
                     <span>by OpenBrain</span>
                 </div>
             </a>
-            
+
             <div class="nav-links">
                 <a href="index.html">홈</a>
                 <a href="index.html#how-it-works">프로세스</a>
                 <a href="index.html#diagnosis">AI 진단</a>
                 <a href="blog.html" style="color: var(--primary);">블로그</a>
             </div>
-            
+
             <div class="nav-actions" id="nav-actions">
                 <!-- Will be populated by JavaScript based on login status -->
                 <a href="login.html" class="btn btn-ghost">로그인</a>
                 <a href="index.html#diagnosis" class="btn btn-primary">무료 진단 시작</a>
             </div>
-            
+
             <!-- Mobile Menu Button -->
             <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="메뉴 열기">
                 <span></span>
@@ -58,7 +60,7 @@
             </button>
         </div>
     </nav>
-    
+
     <!-- Mobile Navigation -->
     <div class="mobile-nav" id="mobile-nav">
         <a href="index.html" onclick="closeMobileMenu()">홈</a>
@@ -79,7 +81,7 @@
                 <h1>최신 인사이트</h1>
                 <p>ISO 인증, ESG 경영, 중대재해처벌법 등 기업 경영에 필요한 최신 정보를 확인하세요.</p>
             </div>
-            
+
             <div class="blog-grid" id="blog-grid">
                 <div style="grid-column: 1/-1; text-align: center; padding: 60px;">
                     <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
@@ -121,7 +123,7 @@
                     </div>
                     <p>AI 기반 기업 리스크 진단 및 ISO 컨설턴트 매칭 플랫폼</p>
                 </div>
-                
+
                 <div class="footer-links">
                     <div class="footer-column">
                         <h4>서비스</h4>
@@ -133,11 +135,11 @@
                         <h4>지원</h4>
                         <a href="index.html#faq">자주 묻는 질문</a>
                         <a href="blog.html">블로그</a>
-                        <a href="mailto:contact@insightmatch.com">문의하기</a>
+                        <a href="mailto:openbrain.main@gmail.com">문의하기</a>
                     </div>
                 </div>
             </div>
-            
+
             <div class="footer-bottom">
                 <span>© 2025 OpenBrain Limited. All rights reserved.</span>
                 <span>InsightMatch - AI-Powered ISO Consultant Matching</span>
@@ -147,38 +149,38 @@
 
     <script>
         lucide.createIcons();
-        
+
         // Mobile Menu Toggle
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
         const mobileNav = document.getElementById('mobile-nav');
-        
+
         function toggleMobileMenu() {
             mobileMenuBtn.classList.toggle('active');
             mobileNav.classList.toggle('active');
             document.body.style.overflow = mobileNav.classList.contains('active') ? 'hidden' : '';
         }
-        
+
         function closeMobileMenu() {
             mobileMenuBtn.classList.remove('active');
             mobileNav.classList.remove('active');
             document.body.style.overflow = '';
         }
-        
+
         mobileMenuBtn.addEventListener('click', toggleMobileMenu);
-        
+
         window.addEventListener('resize', () => {
             if (window.innerWidth > 768) {
                 closeMobileMenu();
             }
         });
-        
+
         // Check login status and update navigation
         function updateNavigation() {
             const user = JSON.parse(localStorage.getItem('user'));
             const token = localStorage.getItem('token');
             const navActions = document.getElementById('nav-actions');
             const mobileNavActions = document.getElementById('mobile-nav-actions');
-            
+
             if (user && token) {
                 // User is logged in
                 navActions.innerHTML = `
@@ -216,16 +218,16 @@
                 `;
             }
         }
-        
+
         function logout() {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             updateNavigation();
         }
-        
+
         // Initialize navigation on page load
         updateNavigation();
-        
+
         // Navbar scroll effect
         window.addEventListener('scroll', () => {
             const navbar = document.getElementById('navbar');
@@ -235,7 +237,7 @@
                 navbar.classList.remove('scrolled');
             }
         });
-        
+
         async function fetchPosts() {
             try {
                 // API Base URL 설정
@@ -245,7 +247,7 @@
                     }
                     return '';
                 })();
-                
+
                 const response = await fetch(`${API_BASE_URL}/api/posts`);
                 const posts = await response.json();
                 renderPosts(posts);
@@ -264,7 +266,7 @@
         function renderPosts(posts) {
             const container = document.getElementById('blog-grid');
             container.innerHTML = '';
-            
+
             if (posts.length === 0) {
                 container.innerHTML = `
                     <div style="grid-column: 1/-1; text-align: center; padding: 60px;">
@@ -307,7 +309,7 @@
                 `;
                 container.appendChild(card);
             });
-            
+
             lucide.createIcons();
         }
 
