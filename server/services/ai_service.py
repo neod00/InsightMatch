@@ -18,6 +18,14 @@ except ImportError as e:
     NEWS_SCANNER_AVAILABLE = False
     print(f"[AIService] Warning: NewsRiskScanner not available: {e}")
 
+# Import SNSSentimentScanner for social media sentiment analysis
+try:
+    from sns_scanner import SNSSentimentScanner
+    SNS_SCANNER_AVAILABLE = True
+except ImportError as e:
+    SNS_SCANNER_AVAILABLE = False
+    print(f"[AIService] Warning: SNSSentimentScanner not available: {e}")
+
 class AIService:
     def __init__(self):
         # API 키는 환경변수에서 가져오기
@@ -42,6 +50,12 @@ class AIService:
             self.news_scanner = NewsRiskScanner()
         else:
             self.news_scanner = None
+        
+        # SNS 여론 스캐너 초기화 (네이버 블로그/카페)
+        if SNS_SCANNER_AVAILABLE:
+            self.sns_scanner = SNSSentimentScanner()
+        else:
+            self.sns_scanner = None
 
     def analyze(self, intake_data):
         """
@@ -133,6 +147,40 @@ class AIService:
             except Exception as e:
                 print(f"✗ 뉴스 리스크 스캔 오류: {e}")
         
+        # 0.6 SNS 여론 스캔 (네이버 블로그/카페)
+        sns_data = None
+        sns_summary = ""
+        if self.sns_scanner:
+            try:
+                sns_data = asyncio.run(self.sns_scanner.scan_company(company_name))
+                
+                if sns_data and sns_data.get('total_mentions', 0) > 0:
+                    top_negative = sns_data.get('top_negative_mentions', [])[:3]
+                    negative_text = "\n".join([
+                        f"- [{m.get('source', 'blog')}] {m.get('title', '')[:60]}..."
+                        for m in top_negative
+                    ]) if top_negative else "없음"
+                    
+                    sns_summary = f"""
+                    [SNS/커뮤니티 여론 분석 - 네이버 블로그/카페]
+                    - 총 언급량: {sns_data.get('total_mentions', 0)}건
+                    - 부정 비율: {sns_data.get('negative_ratio', 0)}%
+                    - 여론 리스크 레벨: {sns_data.get('risk_level', 'N/A')}
+                    
+                    [감성 분포]
+                    - 긍정: {sns_data.get('sentiment_breakdown', {}).get('positive', 0)}건
+                    - 중립: {sns_data.get('sentiment_breakdown', {}).get('neutral', 0)}건
+                    - 부정: {sns_data.get('sentiment_breakdown', {}).get('negative', 0)}건
+                    
+                    [주요 부정적 언급]
+                    {negative_text}
+                    """
+                    print(f"✓ SNS 여론 스캔 완료: {sns_data.get('total_mentions', 0)}건 분석")
+                else:
+                    print(f"✓ SNS 여론 스캔 완료: 언급 없음")
+            except Exception as e:
+                print(f"✗ SNS 여론 스캔 오류: {e}")
+        
         # 1. Scrape Website Content
         site_content = ""
         if url:
@@ -181,10 +229,14 @@ class AIService:
         ===== External News Risk Signals (Google News Analysis) =====
         {news_summary if news_summary else "[No Negative News Signals Detected]"}
         
+        ===== SNS/Community Sentiment (Naver Blog/Cafe) =====
+        {sns_summary if sns_summary else "[No SNS Sentiment Data Available]"}
+        
         **Task**:
-        1. **Cross-Reference Check**: Compare User claims vs Government Data vs News.
-        2. **Risk Score**: Base on ALL three sources. News incidents increase risk significantly.
+        1. **Cross-Reference Check**: Compare User claims vs Government Data vs News vs SNS Sentiment.
+        2. **Risk Score**: Base on ALL sources. News incidents and high negative SNS ratio increase risk.
         3. **Recommendations**: If safety news found -> ISO 45001. If environment news -> ISO 14001.
+        4. **SNS Insight**: If SNS shows high negative ratio, mention brand reputation risk.
         4. **Summary**: 3 paragraphs (Korean). Quote verified facts and news headlines.
         
         **IMPORTANT**: ALL OUTPUT MUST BE IN KOREAN except for standard names (ISO 9001, etc.)
@@ -245,6 +297,15 @@ class AIService:
                         'risk_level': news_data.get('risk_level', 'UNKNOWN'),
                         'weighted_score': news_data.get('weighted_score', 0),
                         'top_signals': news_data.get('top_signals', [])[:3]
+                    }
+                
+                # Add SNS Sentiment Data Props
+                if sns_data and sns_data.get('total_mentions', 0) > 0:
+                    result['sns_data'] = {
+                        'total_mentions': sns_data.get('total_mentions', 0),
+                        'negative_ratio': sns_data.get('negative_ratio', 0),
+                        'risk_level': sns_data.get('risk_level', 'UNKNOWN'),
+                        'sentiment_breakdown': sns_data.get('sentiment_breakdown', {})
                     }
                     
                 return result
