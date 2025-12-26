@@ -3,9 +3,20 @@ import google.generativeai as genai
 import requests
 from bs4 import BeautifulSoup
 import json
+import asyncio
 
 # Import CorpInfoService
 from .corp_info_service import CorpInfoService
+
+# Import NewsRiskScanner for external signal detection
+try:
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
+    from news_scanner import NewsRiskScanner
+    NEWS_SCANNER_AVAILABLE = True
+except ImportError as e:
+    NEWS_SCANNER_AVAILABLE = False
+    print(f"[AIService] Warning: NewsRiskScanner not available: {e}")
 
 class AIService:
     def __init__(self):
@@ -22,6 +33,12 @@ class AIService:
         
         # 기업정보 API 서비스 초기화
         self.corp_info_service = CorpInfoService()
+        
+        # 뉴스 리스크 스캐너 초기화 (외부 시그널 탐지용)
+        if NEWS_SCANNER_AVAILABLE:
+            self.news_scanner = NewsRiskScanner()
+        else:
+            self.news_scanner = None
 
     def analyze(self, intake_data):
         """
@@ -80,6 +97,39 @@ class AIService:
         except Exception as e:
             print(f"✗ 공공데이터 API 오류: {e}")
         
+        # 0.5 뉴스 리스크 스캔 (외부 시그널 탐지)
+        news_data = None
+        news_summary = ""
+        if self.news_scanner:
+            try:
+                # Run async scanner in sync context
+                news_data = asyncio.run(self.news_scanner.scan_company(company_name))
+                
+                if news_data and news_data.get('total_signals', 0) > 0:
+                    top_headlines = news_data.get('top_signals', [])[:5]
+                    headlines_text = "\n".join([
+                        f"- [{sig['category']}] {sig['headline'][:80]}... (관련: {sig['related_iso']})"
+                        for sig in top_headlines
+                    ])
+                    
+                    news_summary = f"""
+                    [외부 뉴스 시그널 분석 - Google News 기반]
+                    - 탐지된 리스크 시그널: {news_data.get('total_signals', 0)}건
+                    - 뉴스 기반 리스크 레벨: {news_data.get('risk_level', 'N/A')}
+                    - 가중치 점수: {news_data.get('weighted_score', 0)}
+                    
+                    [주요 부정적 뉴스 헤드라인]
+                    {headlines_text}
+                    
+                    [카테고리별 분포]
+                    {json.dumps(news_data.get('category_breakdown', {}), ensure_ascii=False)}
+                    """
+                    print(f"✓ 뉴스 리스크 스캔 완료: {news_data.get('total_signals', 0)}건 탐지")
+                else:
+                    print(f"✓ 뉴스 리스크 스캔 완료: 부정적 시그널 없음")
+            except Exception as e:
+                print(f"✗ 뉴스 리스크 스캔 오류: {e}")
+        
         # 1. Scrape Website Content
         site_content = ""
         if url:
@@ -98,17 +148,20 @@ class AIService:
         # 2. ISO Knowledge Base
         ISO_KNOWLEDGE = "ISO 9001, 14001, 45001, 27001, ESG context provided."
 
-        # 3. Construct Prompt with Explicit "No Hallucination" instruction
+        # 3. Construct Prompt with Triangulated Verification (Government Data + News Signals)
         prompt = f"""
-        You are an expert ISO consultant. 
+        You are an expert ISO consultant performing TRIANGULATED VERIFICATION.
         
-        **SOURCE OF TRUTH**:
-        1. Verified Government Data (Below) -> PRIORITY 1
-        2. Google Search Results (Your Tool) -> PRIORITY 2
+        **SOURCE OF TRUTH (Priority Order)**:
+        1. Verified Government Data (금융위원회 API) -> PRIORITY 1 (Factual)
+        2. External News Signals (Google News) -> PRIORITY 2 (Risk Indicators)
+        3. User Input -> PRIORITY 3 (Subjective Claims)
         
-        **INSTRUCTION**:
+        **CRITICAL INSTRUCTION**:
+        - CROSS-REFERENCE all sources. If NEWS shows safety incidents but USER claims "High Readiness", FLAG THIS DISCREPANCY.
+        - If NEWS shows 산재(safety) issues, STRONGLY RECOMMEND ISO 45001.
+        - Use specific numbers from Government Data (Date, Employees).
         - Do NOT make up facts. If data is missing, state "Information not found".
-        - Use the specific numbers from Government Data (Date, Employees).
         
         ===== Company Profile (User Input) =====
         - Name: {company_name}
@@ -119,21 +172,26 @@ class AIService:
         - Website Data: {site_content}
         
         ===== Verified Company Data (Financial Services Commission API) =====
-        {gov_data_summary}
+        {gov_data_summary if gov_data_summary else "[No Government Data Available]"}
         
-        Task:
-        1. **Fact Check**: Verify ISO status via Google Search.
-        2. **Risk Score**: Based on verified data.
-        3. **Summary**: 3 paragraphs (Korean). Quote verified data.
+        ===== External News Risk Signals (Google News Analysis) =====
+        {news_summary if news_summary else "[No Negative News Signals Detected]"}
+        
+        **Task**:
+        1. **Cross-Reference Check**: Compare User claims vs Government Data vs News.
+        2. **Risk Score**: Base on ALL three sources. News incidents increase risk significantly.
+        3. **Recommendations**: If safety news found -> ISO 45001. If environment news -> ISO 14001.
+        4. **Summary**: 3 paragraphs (Korean). Quote verified facts and news headlines.
         
         Output Format (JSON only):
         {{
             "risk_score": 80,
-            "risk_factors": ["Fact 1", "Fact 2"],
-            "recommended_standards": ["ISO 9001"],
+            "risk_factors": ["Fact 1 from Gov Data", "News: Safety incident found", "Discrepancy: User claimed X but News shows Y"],
+            "recommended_standards": ["ISO 9001", "ISO 45001"],
             "industry": "Industry",
-            "summary": "Para 1...\\n\\nPara 2...\\n\\nPara 3...",
-            "evidence_links": ["URL 1"]
+            "summary": "Para 1 (Facts)...\\n\\nPara 2 (News Findings)...\\n\\nPara 3 (Recommendations)...",
+            "evidence_links": ["URL 1"],
+            "news_risk_level": "HIGH/MEDIUM/LOW"
         }}
         """
 
@@ -173,6 +231,15 @@ class AIService:
                     result['gov_data'] = gov_corp_data.get('basic_info', {})
                 else:
                     result['verified_data'] = False
+                
+                # Add News Data Props
+                if news_data and news_data.get('total_signals', 0) > 0:
+                    result['news_data'] = {
+                        'total_signals': news_data.get('total_signals', 0),
+                        'risk_level': news_data.get('risk_level', 'UNKNOWN'),
+                        'weighted_score': news_data.get('weighted_score', 0),
+                        'top_signals': news_data.get('top_signals', [])[:3]
+                    }
                     
                 return result
 
