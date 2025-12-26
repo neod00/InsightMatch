@@ -8,4 +8,4 @@ requests
 beautifulsoup4
 pyjwt
 reportlab
-
+playwright

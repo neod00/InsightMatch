@@ -155,7 +155,13 @@ class NewsRiskScanner:
             await apply_stealth(page)
             
             # 샘플링: 전체 쿼리 중 카테고리별 대표 키워드만 검색 (속도 최적화)
-            sampled_queries = self._sample_queries(queries, max_per_category=2)
+            # Vercel(Browserless) 환경에서는 타임아웃 방지를 위해 더 강력하게 제한
+            max_q = 1 if browserless_url else 2
+            sampled_queries = self._sample_queries(queries, max_per_category=max_q)
+            
+            # 전체 쿼리 수도 제한 (타임아웃 방지)
+            if browserless_url:
+                sampled_queries = sampled_queries[:3] # 상위 3개 카테고리만
             
             for q in sampled_queries:
                 try:
@@ -172,8 +178,9 @@ class NewsRiskScanner:
                                 "related_iso": q["related_iso"]
                             })
                     
-                    # 자연스러운 딜레이
-                    await asyncio.sleep(random.uniform(1.5, 3.0))
+                    # 자연스러운 딜레이 (Browserless 환경에서는 대기 시간 축소)
+                    delay = random.uniform(0.5, 1.0) if browserless_url else random.uniform(1.5, 3.0)
+                    await asyncio.sleep(delay)
                     
                 except Exception as e:
                     print(f"[NewsScanner] Query failed: {q['query']} - {e}")

@@ -25,8 +25,11 @@ class AIService:
         if api_key:
             genai.configure(api_key=api_key)
             # Tools 설정: Google Search Retrieval 활성화 (Grounding)
-            # gemini-2.5-flash -> gemini-2.0-flash (Available & Supports Grounding)
-            self.model = genai.GenerativeModel('gemini-2.5-flash-lite')
+            # gemini-1.5-flash supports Google Search Grounding
+            self.model = genai.GenerativeModel(
+                model_name='gemini-1.5-flash',
+                tools=[{ "google_search_retrieval": {} }]
+            )
         else:
             self.model = None
             print("Warning: GOOGLE_API_KEY not found. AI Service will use mock data.")
@@ -161,7 +164,8 @@ class AIService:
         - CROSS-REFERENCE all sources. If NEWS shows safety incidents but USER claims "High Readiness", FLAG THIS DISCREPANCY.
         - If NEWS shows 산재(safety) issues, STRONGLY RECOMMEND ISO 45001.
         - Use specific numbers from Government Data (Date, Employees).
-        - Do NOT make up facts. If data is missing, state "Information not found".
+        - **If the "External News Risk Signals" section below is empty or insufficient, USE YOUR SEARCH TOOL** to find recent (last 1 year) corporate risk signals (safety, environment, ethics) for "{company_name}".
+        - Do NOT make up facts. If data is missing after searching, state "Information not found".
         
         ===== Company Profile (User Input) =====
         - Name: {company_name}
