@@ -13,6 +13,7 @@ Usage:
 import asyncio
 import random
 import json
+import os
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from urllib.parse import quote_plus
@@ -122,20 +123,33 @@ class NewsRiskScanner:
         queries = self._generate_queries(company_name)
         
         async with async_playwright() as p:
-            # 브라우저 설정 (Stealth Mode)
-            browser = await p.chromium.launch(
-                headless=True,
-                args=[
-                    '--disable-blink-features=AutomationControlled',
-                    '--no-sandbox'
-                ]
-            )
+            # Browserless 원격 브라우저 또는 로컬 브라우저 선택
+            browserless_url = os.environ.get('BROWSERLESS_URL')
             
-            context = await browser.new_context(
-                viewport={'width': 1920, 'height': 1080},
-                user_agent=self._random_user_agent(),
-                locale='ko-KR'
-            )
+            if browserless_url:
+                # Browserless.io 원격 브라우저 연결
+                print(f"[NewsScanner] Connecting to Browserless remote browser...")
+                browser = await p.chromium.connect_over_cdp(browserless_url)
+                context = browser.contexts[0] if browser.contexts else await browser.new_context(
+                    viewport={'width': 1920, 'height': 1080},
+                    user_agent=self._random_user_agent(),
+                    locale='ko-KR'
+                )
+            else:
+                # 로컬 브라우저 (개발 환경용)
+                print(f"[NewsScanner] Launching local browser...")
+                browser = await p.chromium.launch(
+                    headless=True,
+                    args=[
+                        '--disable-blink-features=AutomationControlled',
+                        '--no-sandbox'
+                    ]
+                )
+                context = await browser.new_context(
+                    viewport={'width': 1920, 'height': 1080},
+                    user_agent=self._random_user_agent(),
+                    locale='ko-KR'
+                )
             
             page = await context.new_page()
             await apply_stealth(page)
