@@ -209,11 +209,12 @@ class AIService:
         3. User Input -> PRIORITY 3 (Subjective Claims)
         
         **CRITICAL INSTRUCTION (MUST FOLLOW)**:
-        - CROSS-REFERENCE all sources. If NEWS shows safety incidents but USER claims "High Readiness", FLAG THIS DISCREPANCY.
-        - If NEWS shows 산재(safety) issues, STRONGLY RECOMMEND ISO 45001.
+        - CROSS-REFERENCE all sources. Compare USER claims vs Government Data vs News vs SNS Sentiment.
+        - **ESG ASSESSMENT**: Evaluate the company across Environmental (E), Social (S - Human Rights, Labor, Safety), and Governance (G - Ethics, Transparency) dimensions based on all provided signals.
+        - **BALANCED RECOMMENDATION**: Do NOT over-emphasize one category (e.g., Safety) unless the data clearly shows it is the dominant risk. Recommend ISO standards (9001, 14001, 45001, 27001, 37001) that best address the identified ESG gaps.
         - Use specific numbers from Government Data (Date, Employees).
-        - **CITATION RULE**: When mentioning any risk from news, you MUST include the EXACT headline text in your summary. Example: "뉴스 분석 결과, '[헤드라인 일부]' 기사가 발견되어..."
-        - **NO UNVERIFIABLE CLAIMS**: Do NOT claim "뉴스에서 리스크가 발견되었습니다" without citing the specific headline. If no relevant news exists in the provided data, clearly state "관련 뉴스 시그널이 발견되지 않았습니다".
+        - **CITATION RULE**: When mentioning any risk from news or SNS, you MUST include the EXACT headline or title in your summary. Example: "뉴스/SNS 분석 결과, '[헤드라인/제목 일부]' 내용이 발견되어..."
+        - **NO UNVERIFIABLE CLAIMS**: Do NOT claim "리스크가 발견되었습니다" without citing specific evidence. If no relevant signals exist, state "관련 분석 시그널이 발견되지 않았습니다".
         - Do NOT make up facts. If data is missing, state "Information not found".
         
         ===== Company Profile (User Input) =====

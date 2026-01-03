@@ -30,16 +30,14 @@ except ImportError as e:
 # 감성 분석용 키워드 (부정/긍정)
 # =============================================================================
 NEGATIVE_KEYWORDS = [
-    # 불만/피해
-    "불만", "최악", "사기", "피해", "후회", "실망", "짜증", "화남", "열받",
-    # 품질 문제
-    "하자", "불량", "고장", "망가", "결함", "리콜",
-    # 서비스 문제
-    "불친절", "무시", "응대", "A/S", "환불", "교환 거부",
-    # 안전/사고
-    "사고", "위험", "다침", "부상", "폭발",
-    # 노동/윤리
-    "갑질", "야근", "퇴사", "해고", "부당"
+    # 품질 및 서비스 문제
+    "하자", "불량", "고장", "결함", "리콜", "불친절", "최악", "실망", "짜증",
+    # 안전 및 사고 (S - Social)
+    "사고", "위험", "부상", "폭발", "화재", "산업재해",
+    # 노동 및 조직문화 (S - Social)
+    "갑질", "야근", "퇴사", "해고", "부당", "괴롭힘", "꼰대", "블라인드", "잡플래닛",
+    # 윤리 및 지배구조 (G - Governance)
+    "논란", "횡령", "배임", "비리", "독과점", "담합", "수사"
 ]
 
 POSITIVE_KEYWORDS = [
@@ -65,14 +63,16 @@ class SNSSentimentScanner:
         self.results_limit = 10
         
     def _generate_queries(self, company_name: str) -> List[str]:
-        """기업명 기반 검색 쿼리 생성"""
-        # 부정적 여론 탐지 쿼리
+        """기업명 기반 ESG 및 평판 검색 쿼리 생성"""
+        # 포괄적 여론 탐지를 위해 따옴표 제거 및 주제 확장
         queries = [
-            f'"{company_name}" 불만',
-            f'"{company_name}" 후회',
-            f'"{company_name}" 피해',
-            f'"{company_name}" 사고',
-            f'"{company_name}" 품질',
+            f'{company_name} 조직문화',
+            f'{company_name} 뉴스',
+            f'{company_name} 논란',
+            f'{company_name} 근무환경',
+            f'{company_name} 품질',
+            f'{company_name} ESG',
+            f'{company_name} 서비스 불만'
         ]
         return queries
     
@@ -116,9 +116,9 @@ class SNSSentimentScanner:
             page = await context.new_page()
             await apply_stealth(page)
             
-            # Vercel 환경에서는 쿼리 수 제한
+            # Vercel 환경에서도 최소한의 다양성 확보
             if browserless_url:
-                queries = queries[:2]
+                queries = queries[:4]
             
             for query in queries:
                 try:

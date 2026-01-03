@@ -56,30 +56,30 @@ async def apply_stealth(page):
 # 확장된 리스크 키워드 체계 (ISO 인증별 분류)
 # =============================================================================
 RISK_KEYWORDS = {
-    "quality": {  # ISO 9001 관련
-        "keywords": ["하자", "리콜", "품질 결함", "불량", "납기 지연", "허위 표시", "소비자 불만"],
-        "weight": 1.0,
-        "related_iso": "ISO 9001"
-    },
-    "environment": {  # ISO 14001 관련
-        "keywords": ["폐수 방류", "환경 오염", "유해 물질", "탄소 배출", "환경부 과징금", "ESG 등급"],
-        "weight": 1.2,
+    "environment": {  # E - Environmental
+        "keywords": ["환경 오염", "탄소 배출", "폐기물", "에너지 효율", "RE100", "녹색 경영", "기후 위기"],
+        "weight": 1.1,
         "related_iso": "ISO 14001"
     },
-    "safety": {  # ISO 45001 관련
-        "keywords": ["산재", "사망 사고", "추락", "질식", "중대재해", "산업안전", "근로감독", "안전사고"],
-        "weight": 1.5,  # 안전 이슈는 가중치 높음
-        "related_iso": "ISO 45001"
+    "social": {  # S - Social (Safety, Labor, Human Rights)
+        "keywords": [
+            "산재", "중대재해", "안전 사고",  # Safety
+            "직장 내 괴롭힘", "임금 체불", "부당 해고", "노동 조합", # Labor
+            "인권 침해", "다양성", "차별", # Human Rights
+            "개인정보 유출", "보안 사고", "소비자 보호" # Product/Social
+        ],
+        "weight": 1.1,
+        "related_iso": "ISO 45001/27001"
     },
-    "ethics": {  # ISO 37001/27001 관련
-        "keywords": ["뇌물", "리베이트", "횡령", "배임", "정보 유출", "해킹", "갑질", "직장 내 괴롭힘"],
-        "weight": 1.3,
-        "related_iso": "ISO 37001/27001"
+    "governance": {  # G - Governance (Ethics, Transparency)
+        "keywords": ["횡령", "배임", "비리", "이사회", "배당", "불공정 거래", "독점", "담합", "수사"],
+        "weight": 1.1,
+        "related_iso": "ISO 37001"
     },
-    "regulatory": {  # 공통 규제 리스크
-        "keywords": ["영업 정지", "허가 취소", "행정 처분", "과태료", "소송", "분쟁", "세무 조사", "파업"],
+    "quality": {  # Operational Quality
+        "keywords": ["하자", "리콜", "품질 결함", "불량", "납기 지연"],
         "weight": 1.0,
-        "related_iso": "Common"
+        "related_iso": "ISO 9001"
     }
 }
 
