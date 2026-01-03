@@ -32,11 +32,16 @@ class AIService:
         api_key = os.environ.get('GOOGLE_API_KEY')
         if api_key:
             genai.configure(api_key=api_key)
-            # Use stable gemini-2.0-flash model (grounding removed due to API compatibility)
-            self.model = genai.GenerativeModel('gemini-2.0-flash')
+            # Use 'gemini-flash-latest' for better quota availability in Free Tier
+            # Fallback models list in case of 429 errors
+            self.model_names = ['gemini-flash-latest', 'gemini-2.0-flash', 'gemini-1.5-flash-8b']
+            self.primary_model_name = self.model_names[0]
+            self.model = genai.GenerativeModel(self.primary_model_name)
+            print(f"[AIService] Initialized with model: {self.primary_model_name}")
         else:
             self.model = None
-            print("Warning: GOOGLE_API_KEY not found. AI Service will use mock data.")
+            self.model_names = []
+            print("[AIService] Warning: GOOGLE_API_KEY not found. AI Service will use mock data.")
         
         # 기업정보 API 서비스 초기화
         self.corp_info_service = CorpInfoService()
@@ -249,17 +254,48 @@ class AIService:
         }}
         """
 
-        # 4. Call Gemini API
+        # 4. Call Gemini API with Fallback Logic
         if self.model:
             try:
-                response = self.model.generate_content(prompt)
-                text = response.text
+                response_text = None
+                used_model = self.primary_model_name
+                
+                for model_name in self.model_names:
+                    try:
+                        print(f"[AIService] Attempting analysis with {model_name}...")
+                        temp_model = genai.GenerativeModel(model_name)
+                        response = temp_model.generate_content(prompt)
+                        response_text = response.text
+                        used_model = model_name
+                        print(f"✓ Analysis succeeded with {model_name}")
+                        break
+                    except Exception as api_err:
+                        err_msg = str(api_err)
+                        if "429" in err_msg or "quota" in err_msg.lower():
+                            print(f"⚠ {model_name} quota exceeded (429). Trying next model...")
+                            continue
+                        else:
+                            print(f"✗ {model_name} failed: {err_msg}")
+                            raise api_err
+                
+                if not response_text:
+                    raise Exception("All attempted models failed or exceeded quota.")
+
+                text = response_text
                 if text.startswith("```json"):
                     text = text[7:]
                 if text.endswith("```"):
                     text = text[:-3]
                 
+                # Sanitize text - remove potential markdown or trailing garbage
+                text = text.strip()
+                if not text.startswith("{") and "{" in text:
+                    text = text[text.find("{"):]
+                if not text.endswith("}") and "}" in text:
+                    text = text[:text.rfind("}")+1]
+
                 result = json.loads(text)
+                result['ai_model_used'] = used_model
                 
                 # Format summary
                 if 'summary' in result and result['summary']:
