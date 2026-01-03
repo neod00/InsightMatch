@@ -32,9 +32,8 @@ class AIService:
         api_key = os.environ.get('GOOGLE_API_KEY')
         if api_key:
             genai.configure(api_key=api_key)
-            # Use 'gemini-flash-latest' for better quota availability in Free Tier
-            # Fallback models list in case of 429 errors
-            self.model_names = ['gemini-flash-latest', 'gemini-2.0-flash', 'gemini-1.5-flash-8b']
+            # Priority order: 2.0-flash (primary) -> 1.5-flash -> 1.5-flash-8b
+            self.model_names = ['gemini-2.0-flash', 'gemini-flash-latest', 'gemini-1.5-flash-8b']
             self.primary_model_name = self.model_names[0]
             self.model = genai.GenerativeModel(self.primary_model_name)
             print(f"[AIService] Initialized with model: {self.primary_model_name}")
