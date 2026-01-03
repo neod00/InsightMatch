@@ -208,12 +208,13 @@ class AIService:
         2. External News Signals (Google News) -> PRIORITY 2 (Risk Indicators)
         3. User Input -> PRIORITY 3 (Subjective Claims)
         
-        **CRITICAL INSTRUCTION**:
+        **CRITICAL INSTRUCTION (MUST FOLLOW)**:
         - CROSS-REFERENCE all sources. If NEWS shows safety incidents but USER claims "High Readiness", FLAG THIS DISCREPANCY.
         - If NEWS shows 산재(safety) issues, STRONGLY RECOMMEND ISO 45001.
         - Use specific numbers from Government Data (Date, Employees).
-        - **If the "External News Risk Signals" section below is empty or insufficient, USE YOUR SEARCH TOOL** to find recent (last 1 year) corporate risk signals (safety, environment, ethics) for "{company_name}".
-        - Do NOT make up facts. If data is missing after searching, state "Information not found".
+        - **CITATION RULE**: When mentioning any risk from news, you MUST include the EXACT headline text in your summary. Example: "뉴스 분석 결과, '[헤드라인 일부]' 기사가 발견되어..."
+        - **NO UNVERIFIABLE CLAIMS**: Do NOT claim "뉴스에서 리스크가 발견되었습니다" without citing the specific headline. If no relevant news exists in the provided data, clearly state "관련 뉴스 시그널이 발견되지 않았습니다".
+        - Do NOT make up facts. If data is missing, state "Information not found".
         
         ===== Company Profile (User Input) =====
         - Name: {company_name}
@@ -227,7 +228,7 @@ class AIService:
         {gov_data_summary if gov_data_summary else "[No Government Data Available]"}
         
         ===== External News Risk Signals (Google News Analysis) =====
-        {news_summary if news_summary else "[No Negative News Signals Detected]"}
+        {news_summary if news_summary else "[No Negative News Signals Detected - State this clearly in summary]"}
         
         ===== SNS/Community Sentiment (Naver Blog/Cafe) =====
         {sns_summary if sns_summary else "[No SNS Sentiment Data Available]"}
@@ -237,17 +238,17 @@ class AIService:
         2. **Risk Score**: Base on ALL sources. News incidents and high negative SNS ratio increase risk.
         3. **Recommendations**: If safety news found -> ISO 45001. If environment news -> ISO 14001.
         4. **SNS Insight**: If SNS shows high negative ratio, mention brand reputation risk.
-        4. **Summary**: 3 paragraphs (Korean). Quote verified facts and news headlines.
+        5. **Summary**: 3 paragraphs (Korean). MUST quote at least 1 specific news headline if news signals exist.
         
         **IMPORTANT**: ALL OUTPUT MUST BE IN KOREAN except for standard names (ISO 9001, etc.)
         
         Output Format (JSON only):
         {{
             "risk_score": 80,
-            "risk_factors": ["공공데이터: 종업원수 754명으로 사용자 주장(1-10명)과 큰 차이", "공공데이터: 코스닥 상장기업으로 규제 요구사항 높음", "뉴스: 안전사고 관련 기사 발견"],
+            "risk_factors": ["공공데이터: 종업원수 754명으로 사용자 주장(1-10명)과 큰 차이", "뉴스: '[헤드라인 일부]' 기사 발견 (안전 리스크)"],
             "recommended_standards": ["ISO 9001", "ISO 45001"],
             "industry": "업종명 (한글)",
-            "summary": "1단락 (팩트)...\\n\\n2단락 (뉴스 발견)...\\n\\n3단락 (권고사항)...",
+            "summary": "1단락 (팩트)...\\n\\n2단락 (뉴스 인용: '[헤드라인]' 기사에서...)...\\n\\n3단락 (권고사항)...",
             "evidence_links": ["URL 1"],
             "news_risk_level": "HIGH/MEDIUM/LOW"
         }}
@@ -321,22 +322,45 @@ class AIService:
                 else:
                     result['verified_data'] = False
                 
-                # Add News Data Props
+                # Add News Data Props - Include full evidence for frontend display
                 if news_data and news_data.get('total_signals', 0) > 0:
+                    # Build full evidence list with headlines and URLs
+                    evidence_list = []
+                    for sig in news_data.get('top_signals', [])[:5]:
+                        evidence_list.append({
+                            'headline': sig.get('headline', '')[:100],
+                            'url': sig.get('url', ''),
+                            'category': sig.get('category', ''),
+                            'keyword': sig.get('keyword', ''),
+                            'related_iso': sig.get('related_iso', '')
+                        })
+                    
                     result['news_data'] = {
                         'total_signals': news_data.get('total_signals', 0),
                         'risk_level': news_data.get('risk_level', 'UNKNOWN'),
                         'weighted_score': news_data.get('weighted_score', 0),
-                        'top_signals': news_data.get('top_signals', [])[:3]
+                        'category_breakdown': news_data.get('category_breakdown', {}),
+                        'evidence': evidence_list
                     }
                 
-                # Add SNS Sentiment Data Props
+                # Add SNS Sentiment Data Props - Include full breakdown
                 if sns_data and sns_data.get('total_mentions', 0) > 0:
+                    # Build SNS evidence list
+                    sns_evidence = []
+                    for mention in sns_data.get('top_negative_mentions', [])[:3]:
+                        sns_evidence.append({
+                            'title': mention.get('title', '')[:80],
+                            'url': mention.get('url', ''),
+                            'source': mention.get('source', 'blog')
+                        })
+                    
                     result['sns_data'] = {
                         'total_mentions': sns_data.get('total_mentions', 0),
                         'negative_ratio': sns_data.get('negative_ratio', 0),
                         'risk_level': sns_data.get('risk_level', 'UNKNOWN'),
-                        'sentiment_breakdown': sns_data.get('sentiment_breakdown', {})
+                        'sentiment_breakdown': sns_data.get('sentiment_breakdown', {}),
+                        'top_keywords': sns_data.get('top_keywords', [])[:5],
+                        'evidence': sns_evidence
                     }
                     
                 return result

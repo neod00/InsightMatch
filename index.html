@@ -503,6 +503,76 @@
 
                 <!-- Analysis Summary & Consultants -->
                 <div class="fade-in-up delay-2">
+                    <!-- NEW: Data Collection Dashboard -->
+                    <div id="data-dashboard" class="card-glass hidden"
+                        style="padding: 24px; margin-bottom: 24px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%);">
+                        <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="database" style="width: 20px; height: 20px; color: var(--primary);"></i>
+                            데이터 수집 현황
+                        </h3>
+                        <div class="data-stats-grid"
+                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px;">
+                            <!-- News Stats -->
+                            <div id="news-stats" class="stat-card"
+                                style="background: rgba(0,0,0,0.2); padding: 16px; border-radius: 12px; text-align: center;">
+                                <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px;">📰 뉴스 시그널
+                                </div>
+                                <div id="news-signal-count"
+                                    style="font-size: 1.8rem; font-weight: 700; color: var(--primary);">-</div>
+                                <div id="news-risk-badge"
+                                    style="font-size: 0.75rem; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-top: 4px;">
+                                    -</div>
+                            </div>
+                            <!-- SNS Stats -->
+                            <div id="sns-stats" class="stat-card"
+                                style="background: rgba(0,0,0,0.2); padding: 16px; border-radius: 12px; text-align: center;">
+                                <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px;">💬 SNS 언급
+                                </div>
+                                <div id="sns-mention-count"
+                                    style="font-size: 1.8rem; font-weight: 700; color: #06b6d4;">-</div>
+                                <div id="sns-negative-ratio" style="font-size: 0.75rem; color: var(--text-secondary);">
+                                    부정 비율: -</div>
+                            </div>
+                            <!-- Government Data Stats -->
+                            <div id="gov-stats" class="stat-card"
+                                style="background: rgba(0,0,0,0.2); padding: 16px; border-radius: 12px; text-align: center;">
+                                <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px;">🏛️ 공공데이터
+                                </div>
+                                <div id="gov-data-status"
+                                    style="font-size: 1.2rem; font-weight: 600; color: #22c55e; margin-top: 8px;">-
+                                </div>
+                            </div>
+                        </div>
+                        <!-- SNS Keywords -->
+                        <div id="sns-keywords-section" class="hidden"
+                            style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);">
+                            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">주요 부정 키워드:
+                            </div>
+                            <div id="sns-keywords" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- NEW: Evidence Sources Section -->
+                    <div id="evidence-section" class="card-glass hidden" style="padding: 24px; margin-bottom: 24px;">
+                        <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="link" style="width: 20px; height: 20px; color: #f59e0b;"></i>
+                            분석 근거 자료
+                            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">(클릭하여 원문
+                                확인)</span>
+                        </h3>
+                        <div id="news-evidence-list" style="margin-bottom: 16px;">
+                            <h4 style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 8px;">📰 뉴스 기사
+                            </h4>
+                            <div id="news-evidence-items" style="display: flex; flex-direction: column; gap: 8px;">
+                            </div>
+                        </div>
+                        <div id="sns-evidence-list" class="hidden">
+                            <h4 style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 8px;">💬 SNS 언급
+                            </h4>
+                            <div id="sns-evidence-items" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                        </div>
+                    </div>
+
                     <div class="card-glass" style="padding: 28px; margin-bottom: 24px;">
                         <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
                             <i data-lucide="sparkles" style="width: 20px; height: 20px; color: var(--primary);"></i>

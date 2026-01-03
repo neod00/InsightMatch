@@ -23,11 +23,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let filteredConsultants = [];
     let currentConsultantIndex = 0;
     const CONSULTANTS_PER_PAGE = 3;
-    
+
     // --- Selection State for Quote Request ---
     let selectedConsultants = new Map(); // Map of id -> consultant object
     const MAX_SELECTIONS = 5;
-    
+
     // --- Filter State ---
     let filterDebounceTimer = null;
 
@@ -35,29 +35,29 @@ document.addEventListener('DOMContentLoaded', () => {
     function checkForPreviousResults() {
         const urlParams = new URLSearchParams(window.location.search);
         const action = urlParams.get('action');
-        
+
         if (action === 'find-others') {
             // User clicked "AI로 다른 전문가 찾기" from consultant profile
             const savedResult = localStorage.getItem('lastAnalysisResult');
             const savedTime = localStorage.getItem('lastAnalysisTime');
-            
+
             if (savedResult) {
                 try {
                     const result = JSON.parse(savedResult);
                     const savedDate = new Date(savedTime);
                     const now = new Date();
                     const hoursDiff = (now - savedDate) / (1000 * 60 * 60);
-                    
+
                     // Only use saved results if less than 24 hours old
                     if (hoursDiff < 24) {
                         // Hide form, show results
                         if (intakeForm) intakeForm.style.display = 'none';
                         if (resultsSection) {
                             resultsSection.classList.remove('hidden');
-                            
+
                             // Display results without animation
                             displayResults(result, true);
-                            
+
                             // Show next batch of consultants (cycle through)
                             setTimeout(() => {
                                 if (allConsultants.length > CONSULTANTS_PER_PAGE) {
@@ -66,22 +66,22 @@ document.addEventListener('DOMContentLoaded', () => {
                                         currentConsultantIndex = 0;
                                     }
                                     renderConsultants();
-                                    
+
                                     // Open filter panel automatically
                                     const filterPanel = document.getElementById('consultant-filter-panel');
                                     if (filterPanel && filterPanel.classList.contains('hidden')) {
                                         window.toggleConsultantFilter();
                                     }
                                 }
-                                
+
                                 // Scroll to results
                                 resultsSection.scrollIntoView({ behavior: 'smooth' });
-                                
+
                                 // Show notification
                                 showNotification('이전 분석 결과를 불러왔습니다. 필터를 조정하여 다른 전문가를 찾아보세요.', 'info');
                             }, 300);
                         }
-                        
+
                         // Clean up URL
                         window.history.replaceState({}, document.title, window.location.pathname);
                         return true;
@@ -90,14 +90,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.warn('Could not restore previous results:', e);
                 }
             }
-            
+
             // If no valid saved results, show notification and proceed to form
             showNotification('이전 분석 결과가 만료되었습니다. 새로 진단을 시작해주세요.', 'info');
             window.history.replaceState({}, document.title, window.location.pathname);
         }
         return false;
     }
-    
+
     // Check on page load
     const hasRestoredResults = checkForPreviousResults();
 
@@ -113,30 +113,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if (resultsSection) {
             resultsSection.classList.add('hidden');
         }
-        
+
         // Show form section
         if (intakeForm) {
             intakeForm.style.display = 'block';
         }
-        
+
         // Hide loading overlay
         if (loadingOverlay) {
             loadingOverlay.classList.add('hidden');
         }
-        
+
         // Reset form values
         if (intakeForm) {
             intakeForm.reset();
         }
-        
+
         // Reset all checkboxes
         document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
             cb.checked = false;
         });
-        
+
         // Show step 1, hide others
         showStep(1);
-        
+
         // Reset consultants
         allConsultants = [];
         currentConsultantIndex = 0;
@@ -146,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (refreshContainer) {
             refreshContainer.classList.add('hidden');
         }
-        
+
         // Scroll to diagnosis section
         const diagnosisSection = document.getElementById('diagnosis');
         if (diagnosisSection) {
@@ -203,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function validateStep(step) {
         const currentStepEl = document.querySelector(`.form-step[data-step="${step}"]`);
         if (!currentStepEl) return true;
-        
+
         const inputs = currentStepEl.querySelectorAll('input[required], select[required]');
         let isValid = true;
 
@@ -212,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 isValid = false;
                 input.style.borderColor = 'var(--error)';
                 input.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.2)';
-                
+
                 const resetStyle = () => {
                     input.style.borderColor = '';
                     input.style.boxShadow = '';
@@ -233,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Remove existing notifications
         const existing = document.querySelector('.notification');
         if (existing) existing.remove();
-        
+
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
         notification.innerHTML = `
@@ -256,7 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
             backdrop-filter: blur(10px);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         `;
-        
+
         // Add animation keyframes if not exists
         if (!document.querySelector('#notification-styles')) {
             const style = document.createElement('style');
@@ -269,9 +269,9 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             document.head.appendChild(style);
         }
-        
+
         document.body.appendChild(notification);
-        
+
         // Auto-remove after 4 seconds
         setTimeout(() => {
             if (notification.parentElement) {
@@ -356,27 +356,27 @@ document.addEventListener('DOMContentLoaded', () => {
             '최적의 ISO 표준을 추천하고 있습니다...',
             '분석 결과를 생성하고 있습니다...'
         ];
-        
+
         // Progress animation
         const progressFill = document.getElementById('progress-fill');
         const progressPercentage = document.getElementById('progress-percentage');
         const loadingStatus = document.getElementById('loading-status');
-        
+
         // Animate progress smoothly
         const progressInterval = setInterval(() => {
             if (progress < 90) {
                 progress += Math.random() * 8 + 2;
                 if (progress > 90) progress = 90;
-                
+
                 if (progressFill) progressFill.style.width = progress + '%';
                 if (progressPercentage) progressPercentage.textContent = Math.floor(progress) + '%';
-                
+
                 // Update status message
                 const messageIndex = Math.floor(progress / 20);
                 if (loadingStatus && statusMessages[messageIndex]) {
                     loadingStatus.textContent = statusMessages[messageIndex];
                 }
-                
+
                 // Update steps
                 if (progress > 30 && currentStep === 1) {
                     currentStep = 2;
@@ -387,7 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }, 300);
-        
+
         const pollInterval = setInterval(async () => {
             try {
                 const response = await fetch(`/api/analyze/${jobId}`);
@@ -396,30 +396,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.status === 'completed') {
                     clearInterval(pollInterval);
                     clearInterval(progressInterval);
-                    
+
                     // Complete progress animation
                     if (progressFill) progressFill.style.width = '100%';
                     if (progressPercentage) progressPercentage.textContent = '100%';
                     if (loadingStatus) loadingStatus.textContent = '분석이 완료되었습니다!';
                     updateLoadingSteps(3, 3, true);
-                    
+
                     // Wait a moment to show completion
                     setTimeout(() => {
                         displayResults(data.result);
-                        
+
                         // Hide loading
                         if (loadingOverlay) {
                             loadingOverlay.classList.add('hidden');
                             loadingOverlay.style.display = 'none';
                         }
-                        
+
                         // Show results
                         if (resultsSection) {
                             resultsSection.classList.remove('hidden');
                             resultsSection.scrollIntoView({ behavior: 'smooth' });
                         }
                     }, 500);
-                    
+
                 } else if (data.status === 'failed') {
                     clearInterval(pollInterval);
                     clearInterval(progressInterval);
@@ -438,12 +438,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }, 2000);
     }
-    
+
     function updateLoadingSteps(completedStep, activeStep, allComplete = false) {
         for (let i = 1; i <= 3; i++) {
             const step = document.getElementById(`step-${i}`);
             const connector = document.getElementById(`connector-${i - 1}`);
-            
+
             if (step) {
                 step.classList.remove('active', 'completed');
                 if (allComplete || i < activeStep) {
@@ -452,7 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     step.classList.add('active');
                 }
             }
-            
+
             if (connector) {
                 connector.style.width = (i <= completedStep) ? '100%' : '0%';
             }
@@ -467,12 +467,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             console.warn('Could not save analysis result to localStorage:', e);
         }
-        
+
         // Update Risk Score with animation
         const score = result.risk_score || 75;
         const scoreEl = document.getElementById('risk-score');
         const circleBar = document.getElementById('score-circle-bar');
-        
+
         if (scoreEl) {
             if (skipAnimation) {
                 // Skip animation - show score immediately
@@ -491,12 +491,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 30);
             }
         }
-        
+
         if (circleBar) {
             const circumference = 2 * Math.PI * 85;
             const offset = circumference - (score / 100) * circumference;
             circleBar.style.strokeDasharray = circumference;
-            
+
             if (skipAnimation) {
                 // Skip animation - show immediately
                 circleBar.style.strokeDashoffset = offset;
@@ -506,12 +506,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     circleBar.style.strokeDashoffset = offset;
                 }, 100);
             }
-            
+
             // Update color based on score
             let color = '#ef4444'; // Red (High Risk)
             if (score >= 80) color = '#22c55e'; // Green (Safe)
             else if (score >= 60) color = '#f59e0b'; // Orange (Caution)
-            
+
             circleBar.style.stroke = color;
             if (scoreEl) scoreEl.style.color = color;
         }
@@ -527,7 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (score >= 60) level = '주의 (Moderate Risk)';
                 riskLevelText.textContent = level;
             }
-            
+
             // Set color
             let color = '#ef4444';
             if (score >= 80) color = '#22c55e';
@@ -560,10 +560,175 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
                 tagsContainer.appendChild(item);
             });
-            
+
             // Re-initialize Lucide icons
             if (typeof lucide !== 'undefined') {
                 lucide.createIcons();
+            }
+        }
+
+        // ===== NEW: Populate Data Dashboard =====
+        const dataDashboard = document.getElementById('data-dashboard');
+        const evidenceSection = document.getElementById('evidence-section');
+
+        // Check if we have any external data to show (Backend scanner OR AI grounding)
+        const newsEvidenceLinks = result.evidence_links || [];
+        const hasNewsData = (result.news_data && result.news_data.total_signals > 0) || newsEvidenceLinks.length > 0;
+        const hasSnsData = result.sns_data && result.sns_data.total_mentions > 0;
+        const hasGovData = result.verified_data;
+
+        if (hasNewsData || hasSnsData || hasGovData) {
+            dataDashboard.classList.remove('hidden');
+
+            // News Stats
+            if (hasNewsData) {
+                // If backend found signals, use that, otherwise use count of AI evidence links
+                const signalCount = result.news_data?.total_signals || newsEvidenceLinks.length;
+                document.getElementById('news-signal-count').textContent = signalCount + '건';
+
+                const newsRiskBadge = document.getElementById('news-risk-badge');
+                // Use AI-provided risk level if available, fallback to backend
+                const riskLevel = result.news_risk_level || result.news_data?.risk_level || 'UNKNOWN';
+
+                newsRiskBadge.textContent = riskLevel;
+                if (riskLevel === 'HIGH') {
+                    newsRiskBadge.style.background = 'rgba(239, 68, 68, 0.2)';
+                    newsRiskBadge.style.color = '#ef4444';
+                } else if (riskLevel === 'MEDIUM') {
+                    newsRiskBadge.style.background = 'rgba(245, 158, 11, 0.2)';
+                    newsRiskBadge.style.color = '#f59e0b';
+                } else {
+                    newsRiskBadge.style.background = 'rgba(34, 197, 94, 0.2)';
+                    newsRiskBadge.style.color = '#22c55e';
+                }
+            } else {
+                document.getElementById('news-signal-count').textContent = '0건';
+                document.getElementById('news-risk-badge').textContent = '없음';
+            }
+
+            // SNS Stats
+            if (hasSnsData) {
+                document.getElementById('sns-mention-count').textContent = result.sns_data.total_mentions + '건';
+                document.getElementById('sns-negative-ratio').textContent = `부정 비율: ${result.sns_data.negative_ratio}%`;
+
+                // SNS Keywords
+                const keywords = result.sns_data.top_keywords || [];
+                if (keywords.length > 0) {
+                    document.getElementById('sns-keywords-section').classList.remove('hidden');
+                    const keywordsContainer = document.getElementById('sns-keywords');
+                    keywordsContainer.innerHTML = '';
+                    keywords.forEach(kw => {
+                        const tag = document.createElement('span');
+                        tag.style.cssText = 'background: rgba(239,68,68,0.15); color: #f87171; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem;';
+                        tag.textContent = `"${kw}"`;
+                        keywordsContainer.appendChild(tag);
+                    });
+                }
+            } else {
+                document.getElementById('sns-mention-count').textContent = '0건';
+                document.getElementById('sns-negative-ratio').textContent = '데이터 없음';
+            }
+
+            // Government Data Status
+            if (hasGovData) {
+                document.getElementById('gov-data-status').textContent = '✓ 검증됨';
+                document.getElementById('gov-data-status').style.color = '#22c55e';
+            } else {
+                document.getElementById('gov-data-status').textContent = '✗ 미확인';
+                document.getElementById('gov-data-status').style.color = '#f87171';
+            }
+        }
+
+        // ===== NEW: Populate Evidence Section =====
+        let newsEvidence = result.news_data?.evidence || result.news_data?.top_signals || [];
+
+        // If newsEvidence is empty but we have AI evidence links, create entries for them
+        if (newsEvidence.length === 0 && newsEvidenceLinks.length > 0) {
+            newsEvidence = newsEvidenceLinks.map(link => ({
+                headline: 'AI 분석 기반 수집된 근거 자료 (Grounding)',
+                url: link,
+                category: 'AI 탐지',
+                related_iso: '분석 요약 참고'
+            }));
+        }
+
+        const snsEvidence = result.sns_data?.evidence || result.sns_data?.top_negative_mentions || [];
+
+        if (newsEvidence.length > 0 || snsEvidence.length > 0) {
+            evidenceSection.classList.remove('hidden');
+            evidenceSection.style.display = 'block'; // Ensure visibility
+
+            // News Evidence
+            const newsEvidenceItems = document.getElementById('news-evidence-items');
+            newsEvidenceItems.innerHTML = '';
+            if (newsEvidence.length > 0) {
+                newsEvidence.forEach(item => {
+                    const link = document.createElement('a');
+                    link.href = item.url || '#';
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.style.cssText = 'display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; background: rgba(0,0,0,0.2); border-radius: 8px; text-decoration: none; transition: background 0.2s;';
+                    link.onmouseover = () => link.style.background = 'rgba(0,0,0,0.35)';
+                    link.onmouseout = () => link.style.background = 'rgba(0,0,0,0.2)';
+
+                    const categoryBadge = item.category ? `<span style="font-size: 0.7rem; background: rgba(16,185,129,0.2); color: #10b981; padding: 2px 6px; border-radius: 4px; white-space: nowrap;">${item.category}</span>` : '';
+
+                    link.innerHTML = `
+                        <i data-lucide="external-link" style="width: 14px; height: 14px; color: var(--text-muted); flex-shrink: 0; margin-top: 2px;"></i>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="color: var(--text-primary); font-size: 0.9rem; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${item.headline || item.title || '제목 없음'}</div>
+                            <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
+                                ${categoryBadge}
+                                ${item.related_iso ? `<span style="font-size: 0.7rem; color: var(--text-muted);">관련: ${item.related_iso}</span>` : ''}
+                            </div>
+                        </div>
+                    `;
+                    newsEvidenceItems.appendChild(link);
+                });
+            } else {
+                newsEvidenceItems.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">수집된 뉴스 기사가 없습니다.</p>';
+            }
+
+            // SNS Evidence
+            const snsEvidenceList = document.getElementById('sns-evidence-list');
+            const snsEvidenceItems = document.getElementById('sns-evidence-items');
+            if (snsEvidence.length > 0) {
+                snsEvidenceList.classList.remove('hidden');
+                snsEvidenceItems.innerHTML = '';
+                snsEvidence.forEach(item => {
+                    const link = document.createElement('a');
+                    link.href = item.url || '#';
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: rgba(0,0,0,0.2); border-radius: 8px; text-decoration: none; transition: background 0.2s;';
+                    link.onmouseover = () => link.style.background = 'rgba(0,0,0,0.35)';
+                    link.onmouseout = () => link.style.background = 'rgba(0,0,0,0.2)';
+
+                    const sourceIcon = item.source === 'cafe' ? '☕' : '📝';
+                    link.innerHTML = `
+                        <span style="font-size: 1.1rem;">${sourceIcon}</span>
+                        <span style="color: var(--text-primary); font-size: 0.9rem; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.title || '제목 없음'}</span>
+                        <i data-lucide="external-link" style="width: 14px; height: 14px; color: var(--text-muted);"></i>
+                    `;
+                    snsEvidenceItems.appendChild(link);
+                });
+            }
+
+            // Re-initialize Lucide icons for evidence section
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+
+        // Show AI Model Used
+        if (result.ai_model_used) {
+            const aiTitle = document.querySelector('#ai-summary-text').parentElement.querySelector('h3');
+            if (aiTitle && !document.getElementById('ai-model-badge')) {
+                const badge = document.createElement('span');
+                badge.id = 'ai-model-badge';
+                badge.style.cssText = 'font-size: 0.65rem; background: rgba(255,255,255,0.1); color: var(--text-muted); padding: 2px 6px; border-radius: 4px; margin-left: auto; font-weight: normal;';
+                badge.textContent = `Model: ${result.ai_model_used}`;
+                aiTitle.appendChild(badge);
             }
         }
 
@@ -574,11 +739,11 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchConsultants(analysisResult) {
         try {
             const params = new URLSearchParams();
-            
+
             // Use recommended_standards from AI or the input standards
             const standards = analysisResult.recommended_standards || [];
             standards.forEach(s => params.append('iso', s));
-            
+
             if (analysisResult.industry) {
                 params.append('industry', analysisResult.industry);
             }
@@ -607,9 +772,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderConsultants() {
         if (!consultantList) return;
-        
+
         consultantList.innerHTML = '';
-        
+
         // Use filtered consultants if filters are active, otherwise use all
         const displayConsultants = filteredConsultants.length > 0 || isFilterActive() ? filteredConsultants : allConsultants;
 
@@ -618,7 +783,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateFilterResultCount(0);
             return;
         }
-        
+
         if (displayConsultants.length === 0) {
             consultantList.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">조건에 맞는 전문가를 찾고 있습니다...</div>';
             return;
@@ -631,7 +796,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderConsultants();
             return;
         }
-        
+
         // Update result count
         updateFilterResultCount(displayConsultants.length);
 
@@ -640,24 +805,24 @@ document.addEventListener('DOMContentLoaded', () => {
             card.className = 'consultant-card fade-in-up';
             card.style.animationDelay = `${index * 0.1}s`;
             card.dataset.consultantId = c.id;
-            
+
             const trustScore = c.trustScore || 85;
             const isSelected = selectedConsultants.has(c.id);
-            
+
             // Enhanced verified badge
-            const verifiedBadge = c.verified 
+            const verifiedBadge = c.verified
                 ? `<span class="verified-badge" title="InsightMatch에서 검증된 전문가입니다">
                      <i data-lucide="badge-check" style="width: 12px; height: 12px;"></i> 검증됨
                    </span>`
                 : `<span class="unverified-badge" title="검증 대기 중">
                      <i data-lucide="clock" style="width: 10px; height: 10px;"></i> 검토중
                    </span>`;
-            
+
             // Add selected class if consultant is selected
             if (isSelected) {
                 card.classList.add('selected');
             }
-            
+
             card.innerHTML = `
                 <div class="consultant-select-checkbox">
                     <label class="consultant-checkbox" onclick="event.preventDefault(); toggleConsultantSelection(${c.id}, event)">
@@ -709,25 +874,25 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             consultantList.appendChild(card);
         });
-        
+
         // Update selection bar
         updateSelectionBar();
-        
+
         // Re-initialize Lucide icons
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
     }
-    
+
     // --- Consultant Selection Functions ---
-    window.toggleConsultantSelection = function(consultantId, event) {
+    window.toggleConsultantSelection = function (consultantId, event) {
         if (event) {
             event.stopPropagation();
         }
-        
+
         const consultant = allConsultants.find(c => c.id === consultantId);
         if (!consultant) return;
-        
+
         if (selectedConsultants.has(consultantId)) {
             // Deselect
             selectedConsultants.delete(consultantId);
@@ -740,19 +905,19 @@ document.addEventListener('DOMContentLoaded', () => {
             // Select
             selectedConsultants.set(consultantId, consultant);
         }
-        
+
         // Update UI
         updateConsultantCardSelection(consultantId);
         updateSelectionBar();
     };
-    
+
     function updateConsultantCardSelection(consultantId) {
         const card = document.querySelector(`.consultant-card[data-consultant-id="${consultantId}"]`);
         if (!card) return;
-        
+
         const checkbox = card.querySelector('input[type="checkbox"]');
         const isSelected = selectedConsultants.has(consultantId);
-        
+
         if (isSelected) {
             card.classList.add('selected');
             if (checkbox) checkbox.checked = true;
@@ -761,21 +926,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (checkbox) checkbox.checked = false;
         }
     }
-    
+
     function updateSelectionBar() {
         const selectionBar = document.getElementById('selection-bar');
         const selectionCount = document.getElementById('selection-count');
         const selectedNames = document.getElementById('selected-names');
         const requestBtn = document.getElementById('request-quotes-btn');
-        
+
         if (!selectionBar) return;
-        
+
         const count = selectedConsultants.size;
-        
+
         if (count > 0) {
             selectionBar.classList.add('active');
             if (selectionCount) selectionCount.textContent = count;
-            
+
             // Update selected names
             if (selectedNames) {
                 const names = Array.from(selectedConsultants.values())
@@ -783,7 +948,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     .join(', ');
                 selectedNames.textContent = names;
             }
-            
+
             // Enable/disable request button
             if (requestBtn) {
                 requestBtn.disabled = false;
@@ -794,30 +959,30 @@ document.addEventListener('DOMContentLoaded', () => {
             if (selectedNames) selectedNames.textContent = '';
             if (requestBtn) requestBtn.disabled = true;
         }
-        
+
         // Re-initialize icons
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
     }
-    
-    window.clearConsultantSelection = function() {
+
+    window.clearConsultantSelection = function () {
         selectedConsultants.clear();
-        
+
         // Update all cards
         document.querySelectorAll('.consultant-card').forEach(card => {
             card.classList.remove('selected');
             const checkbox = card.querySelector('input[type="checkbox"]');
             if (checkbox) checkbox.checked = false;
         });
-        
+
         updateSelectionBar();
     };
-    
-    window.selectAllVisibleConsultants = function() {
+
+    window.selectAllVisibleConsultants = function () {
         const displayConsultants = filteredConsultants.length > 0 || isFilterActive() ? filteredConsultants : allConsultants;
         const batch = displayConsultants.slice(currentConsultantIndex, currentConsultantIndex + CONSULTANTS_PER_PAGE);
-        
+
         let addedCount = 0;
         batch.forEach(c => {
             if (!selectedConsultants.has(c.id) && selectedConsultants.size < MAX_SELECTIONS) {
@@ -826,23 +991,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 addedCount++;
             }
         });
-        
+
         if (addedCount === 0 && selectedConsultants.size >= MAX_SELECTIONS) {
             showNotification(`최대 ${MAX_SELECTIONS}명까지만 선택할 수 있습니다.`, 'error');
         }
-        
+
         updateSelectionBar();
     };
-    
-    window.requestQuotes = async function() {
+
+    window.requestQuotes = async function () {
         if (selectedConsultants.size === 0) {
             showNotification('견적을 요청할 컨설턴트를 선택해주세요.', 'error');
             return;
         }
-        
+
         const selectedIds = Array.from(selectedConsultants.keys());
         const selectedList = Array.from(selectedConsultants.values());
-        
+
         // Get last analysis result for context
         const savedResult = localStorage.getItem('lastAnalysisResult');
         let analysisContext = null;
@@ -851,20 +1016,20 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             console.warn('Could not parse analysis result:', e);
         }
-        
+
         // Show confirmation modal
         const names = selectedList.map(c => c.name).join(', ');
         const confirmed = confirm(`다음 ${selectedConsultants.size}명의 전문가에게 견적을 요청합니다:\n\n${names}\n\n진행하시겠습니까?`);
-        
+
         if (!confirmed) return;
-        
+
         // Show loading state
         const requestBtn = document.getElementById('request-quotes-btn');
         if (requestBtn) {
             requestBtn.disabled = true;
             requestBtn.innerHTML = '<span class="loading-spinner" style="width: 16px; height: 16px; border-width: 2px;"></span> 요청 중...';
         }
-        
+
         // Get user ID from localStorage
         const user = JSON.parse(localStorage.getItem('user'));
         if (!user || !user.id) {
@@ -872,7 +1037,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.href = 'login.html';
             return;
         }
-        
+
         try {
             const response = await fetch('/api/quotes/request', {
                 method: 'POST',
@@ -883,14 +1048,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     user_id: user.id
                 })
             });
-            
+
             if (response.ok) {
                 const result = await response.json();
                 showNotification(`${selectedConsultants.size}명의 전문가에게 견적을 요청했습니다. 대시보드에서 확인하세요.`, 'success');
-                
+
                 // Clear selection
                 window.clearConsultantSelection();
-                
+
                 // Optionally redirect to dashboard
                 setTimeout(() => {
                     const goToDashboard = confirm('견적 요청이 완료되었습니다.\n대시보드에서 확인하시겠습니까?');
@@ -916,7 +1081,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     };
-    
+
     // --- Filter Functions ---
     function isFilterActive() {
         const verifiedFilter = document.getElementById('filter-verified');
@@ -924,18 +1089,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const isoFilter = document.getElementById('filter-iso');
         const industryFilter = document.getElementById('filter-industry');
         const regionFilter = document.getElementById('filter-region');
-        
+
         return (verifiedFilter && verifiedFilter.checked) ||
-               (ratedFilter && ratedFilter.checked) ||
-               (isoFilter && isoFilter.value) ||
-               (industryFilter && industryFilter.value) ||
-               (regionFilter && regionFilter.value.trim());
+            (ratedFilter && ratedFilter.checked) ||
+            (isoFilter && isoFilter.value) ||
+            (industryFilter && industryFilter.value) ||
+            (regionFilter && regionFilter.value.trim());
     }
-    
+
     function updateFilterResultCount(count) {
         const resultCountEl = document.getElementById('filter-result-count');
         const resultCountText = document.getElementById('result-count-text');
-        
+
         if (resultCountEl && resultCountText) {
             if (isFilterActive()) {
                 resultCountEl.classList.remove('hidden');
@@ -945,100 +1110,100 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
-    
+
     // Global filter functions
-    window.toggleConsultantFilter = function() {
+    window.toggleConsultantFilter = function () {
         const filterPanel = document.getElementById('consultant-filter-panel');
         const toggleBtn = document.getElementById('toggle-filter-btn');
-        
+
         if (filterPanel) {
             const isHidden = filterPanel.classList.contains('hidden');
             filterPanel.classList.toggle('hidden');
             filterPanel.classList.toggle('active');
-            
+
             if (toggleBtn) {
-                toggleBtn.innerHTML = isHidden 
+                toggleBtn.innerHTML = isHidden
                     ? '<i data-lucide="filter-x" style="width: 16px; height: 16px;"></i> 필터 닫기'
                     : '<i data-lucide="filter" style="width: 16px; height: 16px;"></i> 필터 열기';
                 lucide.createIcons();
             }
         }
     };
-    
-    window.applyConsultantFilter = function() {
+
+    window.applyConsultantFilter = function () {
         const verifiedFilter = document.getElementById('filter-verified');
         const ratedFilter = document.getElementById('filter-rated');
         const isoFilter = document.getElementById('filter-iso');
         const industryFilter = document.getElementById('filter-industry');
         const regionFilter = document.getElementById('filter-region');
-        
+
         filteredConsultants = allConsultants.filter(c => {
             // Verified filter
             if (verifiedFilter && verifiedFilter.checked && !c.verified) {
                 return false;
             }
-            
+
             // Rated filter (has reviews)
             if (ratedFilter && ratedFilter.checked && (!c.reviews || c.reviews === 0)) {
                 return false;
             }
-            
+
             // ISO filter
             if (isoFilter && isoFilter.value) {
                 const isoExp = c.isoExperience || {};
                 const hasIso = Object.keys(isoExp).some(key => key.includes(isoFilter.value));
                 if (!hasIso) return false;
             }
-            
+
             // Industry filter
             if (industryFilter && industryFilter.value) {
                 const industries = c.industryExperience || [];
                 const specialties = (c.specialty || '').toLowerCase();
-                const hasIndustry = industries.some(ind => 
+                const hasIndustry = industries.some(ind =>
                     ind.toLowerCase().includes(industryFilter.value.toLowerCase())
                 ) || specialties.includes(industryFilter.value.toLowerCase());
                 if (!hasIndustry) return false;
             }
-            
+
             // Region filter
             if (regionFilter && regionFilter.value.trim()) {
                 const regionSearch = regionFilter.value.trim().toLowerCase();
                 const consultantRegion = (c.regions || '').toLowerCase();
                 if (!consultantRegion.includes(regionSearch)) return false;
             }
-            
+
             return true;
         });
-        
+
         // Update active filters display
         updateActiveFilters();
-        
+
         // Reset to first page and re-render
         currentConsultantIndex = 0;
         renderConsultants();
     };
-    
-    window.resetConsultantFilter = function() {
+
+    window.resetConsultantFilter = function () {
         const verifiedFilter = document.getElementById('filter-verified');
         const ratedFilter = document.getElementById('filter-rated');
         const isoFilter = document.getElementById('filter-iso');
         const industryFilter = document.getElementById('filter-industry');
         const regionFilter = document.getElementById('filter-region');
-        
+
         if (verifiedFilter) verifiedFilter.checked = false;
         if (ratedFilter) ratedFilter.checked = false;
         if (isoFilter) isoFilter.value = '';
         if (industryFilter) industryFilter.value = '';
         if (regionFilter) regionFilter.value = '';
-        
+
         filteredConsultants = [];
         currentConsultantIndex = 0;
-        
+
         updateActiveFilters();
         renderConsultants();
     };
-    
-    window.debounceFilter = function() {
+
+    window.debounceFilter = function () {
         if (filterDebounceTimer) {
             clearTimeout(filterDebounceTimer);
         }
@@ -1046,19 +1211,19 @@ document.addEventListener('DOMContentLoaded', () => {
             window.applyConsultantFilter();
         }, 300);
     };
-    
+
     function updateActiveFilters() {
         const activeFiltersEl = document.getElementById('active-filters');
         if (!activeFiltersEl) return;
-        
+
         const verifiedFilter = document.getElementById('filter-verified');
         const ratedFilter = document.getElementById('filter-rated');
         const isoFilter = document.getElementById('filter-iso');
         const industryFilter = document.getElementById('filter-industry');
         const regionFilter = document.getElementById('filter-region');
-        
+
         const tags = [];
-        
+
         if (verifiedFilter && verifiedFilter.checked) {
             tags.push({ label: '검증된 전문가', type: 'verified' });
         }
@@ -1076,13 +1241,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (regionFilter && regionFilter.value.trim()) {
             tags.push({ label: `지역: ${regionFilter.value.trim()}`, type: 'region' });
         }
-        
+
         if (tags.length === 0) {
             activeFiltersEl.classList.add('hidden');
             activeFiltersEl.innerHTML = '';
             return;
         }
-        
+
         activeFiltersEl.classList.remove('hidden');
         activeFiltersEl.innerHTML = tags.map(tag => `
             <span class="filter-tag">
@@ -1092,12 +1257,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 </button>
             </span>
         `).join('');
-        
+
         lucide.createIcons();
     }
-    
-    window.removeFilter = function(type) {
-        switch(type) {
+
+    window.removeFilter = function (type) {
+        switch (type) {
             case 'verified':
                 const verifiedFilter = document.getElementById('filter-verified');
                 if (verifiedFilter) verifiedFilter.checked = false;
@@ -1133,7 +1298,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (consultantList) {
                 consultantList.style.opacity = '0';
                 consultantList.style.transform = 'translateY(10px)';
-                
+
                 setTimeout(() => {
                     renderConsultants();
                     consultantList.style.opacity = '1';
@@ -1148,13 +1313,13 @@ document.addEventListener('DOMContentLoaded', () => {
         anchor.addEventListener('click', function (e) {
             const href = this.getAttribute('href');
             if (href === '#') return;
-            
+
             e.preventDefault();
             const target = document.querySelector(href);
             if (target) {
                 const navbarHeight = 80;
                 const targetPosition = target.getBoundingClientRect().top + window.pageYOffset - navbarHeight;
-                
+
                 window.scrollTo({
                     top: targetPosition,
                     behavior: 'smooth'
@@ -1165,39 +1330,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Expose reset function globally for use in HTML ---
     window.resetDiagnosisForm = resetForm;
-    
+
     // --- Test function to load consultants directly (for development/testing) ---
-    window.testLoadConsultants = async function() {
+    window.testLoadConsultants = async function () {
         try {
             const response = await fetch('/api/consultants');
             const consultants = await response.json();
-            
+
             // Store in allConsultants
             allConsultants = consultants;
             currentConsultantIndex = 0;
-            
+
             // Show results section and hide diagnosis section
             const diagnosisSection = document.getElementById('diagnosis');
             const resultsSection = document.getElementById('results-section');
-            
+
             if (diagnosisSection) diagnosisSection.classList.add('hidden');
             if (resultsSection) resultsSection.classList.remove('hidden');
-            
+
             // Scroll to results
             if (resultsSection) {
                 resultsSection.scrollIntoView({ behavior: 'smooth' });
             }
-            
+
             // Render consultants
             renderConsultants();
-            
+
             console.log('Loaded', consultants.length, 'consultants for testing');
             return consultants;
         } catch (error) {
             console.error('Failed to load consultants:', error);
         }
     };
-    
+
     // Auto-load consultants in test mode (URL parameter: ?test=consultants)
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('test') === 'consultants') {
