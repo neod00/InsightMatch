@@ -182,6 +182,100 @@ def get_analysis_status(job_id):
         'result': job.get_result()
     })
 
+# --- Direct Matching Endpoint (Survey-Based, No AI) ---
+@app.route('/api/match', methods=['POST'])
+def direct_match():
+    """
+    Direct consultant matching based on survey data.
+    No AI analysis - just rule-based matching.
+    """
+    data = request.json
+    
+    company_name = data.get('companyName', '기업')
+    contact_email = data.get('contactEmail', '')
+    industry = data.get('industry', '')
+    employees = data.get('employees', '')
+    region = data.get('region', '')
+    selected_standards = data.get('standards', [])
+    issues = data.get('issues', [])  # [{id: 'safety_incident', relatedISO: ['ISO 45001:2018']}]
+    reasons = data.get('reasons', [])
+    cert_status = data.get('certStatus', 'None')
+    timeline = data.get('timeline', 'flexible')
+    budget = data.get('budget', 'unknown')
+    additional_notes = data.get('additionalNotes', '')
+    
+    # Extract recommended ISO from issues
+    recommended_iso_set = set()
+    for issue in issues:
+        related = issue.get('relatedISO', [])
+        for iso in related:
+            if iso and iso not in selected_standards:
+                recommended_iso_set.add(iso)
+    
+    recommended_standards = list(recommended_iso_set)
+    
+    # Combine selected + recommended for matching
+    all_standards = list(set(selected_standards + recommended_standards))
+    
+    # Build criteria for matching
+    criteria = {
+        'industry': industry,
+        'recommended_iso': [{'code': std} for std in all_standards],
+        'region': region,
+        'budget': budget,
+        'timeline': timeline
+    }
+    
+    # Get matched consultants
+    matched_consultants = matching_service.match_consultants(criteria)
+    
+    # Build issues summary
+    issue_names = {
+        'quality_defect': '품질 불량',
+        'customer_complaint': '고객 클레임',
+        'process_inefficiency': '프로세스 비효율',
+        'supplier_quality': '공급업체 품질',
+        'safety_incident': '안전사고',
+        'env_regulation': '환경 규제',
+        'energy_cost': '에너지 비용',
+        'work_condition': '작업환경',
+        'esg_demand': 'ESG 요구',
+        'carbon_report': '탄소 보고',
+        'carbon_neutral': '탄소중립',
+        'esg_disclosure': 'ESG 공시',
+        'security_incident': '정보보안',
+        'privacy_need': '개인정보',
+        'cloud_security': '클라우드 보안',
+        'ai_risk': 'AI 리스크',
+        'supply_unstable': '공급망 불안정',
+        'crisis_response': '위기 대응',
+        'compliance_risk': '컴플라이언스',
+        'corruption_prevent': '부패 방지',
+        'turnover': '이직률',
+        'burnout': '번아웃',
+        'knowledge_loss': '지식 유실'
+    }
+    
+    issues_summary = ', '.join([issue_names.get(issue.get('id'), issue.get('id', '')) for issue in issues[:5]])
+    
+    # Build result
+    result = {
+        'company_name': company_name,
+        'contact_email': contact_email,
+        'industry': industry,
+        'selected_standards': selected_standards,
+        'recommended_standards': recommended_standards,
+        'all_standards': all_standards,
+        'issues_summary': issues_summary if issues_summary else None,
+        'reasons': reasons,
+        'cert_status': cert_status,
+        'timeline': timeline,
+        'budget': budget,
+        'consultants': matched_consultants
+    }
+    
+    return jsonify(result)
+
 # --- Consultant Endpoints ---
 @app.route('/api/consultants', methods=['GET'])
 def get_consultants():
