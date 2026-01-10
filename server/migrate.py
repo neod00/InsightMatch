@@ -45,6 +45,11 @@ migrations = [
     ALTER TABLE project 
     ADD COLUMN IF NOT EXISTS request_data TEXT;
     """,
+    # 세션 기반 그룹화를 위한 session_id 컬럼 추가
+    """
+    ALTER TABLE project 
+    ADD COLUMN IF NOT EXISTS session_id VARCHAR(36);
+    """,
 ]
 
 print("Running migrations...")

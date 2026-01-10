@@ -349,6 +349,7 @@ def handle_projects():
             results.append({
                 'id': p.id,
                 'title': p.title,
+                'session_id': p.session_id,
                 'status': p.status,
                 'proposal_status': getattr(p, 'proposal_status', 'pending'),
                 'proposal_data': p.proposal_data if hasattr(p, 'proposal_data') else None,
@@ -365,6 +366,7 @@ def handle_projects():
             company_id=data.get('company_id'),
             consultant_id=data.get('consultant_id'),
             title=data.get('title'),
+            session_id=data.get('session_id'),
             status='planning',
             start_date=datetime.datetime.utcnow()
         )
@@ -636,20 +638,35 @@ def request_quotes():
     
     # Generate project title from analysis context
     company_name = analysis_context.get('company_name', '기업')
-    recommended_standards = analysis_context.get('recommended_standards', [])
+    
+    # Check multiple possible keys for standards
+    recommended_standards = (
+        analysis_context.get('selected_standards') or 
+        analysis_context.get('all_standards') or 
+        analysis_context.get('recommended_standards') or 
+        []
+    )
+    
+    iso_codes = []
     if isinstance(recommended_standards, list) and len(recommended_standards) > 0:
         # Extract ISO codes from recommended standards
-        iso_codes = []
         for std in recommended_standards:
             if isinstance(std, dict):
-                iso_codes.append(std.get('code', ''))
-            elif isinstance(std, str):
+                code = std.get('code', '')
+                if code:
+                    iso_codes.append(code)
+            elif isinstance(std, str) and std:
                 iso_codes.append(std)
-        iso_text = ', '.join(iso_codes) if iso_codes else 'ISO 인증'
-    else:
-        iso_text = 'ISO 인증'
     
-    project_title = f"{iso_text} 인증 프로젝트"
+    # Build title without duplication
+    if iso_codes:
+        iso_text = ', '.join(iso_codes)
+        project_title = f"{iso_text} 인증 프로젝트"
+    else:
+        project_title = "ISO 인증 프로젝트"
+    
+    # Get session_id from frontend (for grouping projects from same diagnosis session)
+    session_id = data.get('session_id') or str(uuid.uuid4())
     
     # Create quote requests and projects for each consultant
     quote_request_id = str(uuid.uuid4())
@@ -663,6 +680,7 @@ def request_quotes():
                 company_id=user_id,
                 consultant_id=consultant.id,
                 title=project_title,
+                session_id=session_id,  # Same session_id for all consultants in this request
                 status='proposal_pending',  # 계약 전 상태
                 proposal_status='pending'   # 제안서 대기 중
             )

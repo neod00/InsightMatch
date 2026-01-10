@@ -591,18 +591,25 @@
         function groupProjectsByTitle(projects) {
             const groups = {};
             projects.forEach(p => {
-                // title을 키로 사용하여 그룹화
-                const key = p.title || 'Unknown';
+                // session_id를 우선으로 사용, 없으면 title + 생성일자 조합으로 그룹화
+                // 이렇게 하면 같은 진단 세션에서 선택한 컨설턴트들만 그룹으로 묶임
+                const key = p.session_id || `${p.title}_${p.start_date?.split('T')[0] || 'unknown'}`;
                 if (!groups[key]) {
                     groups[key] = {
-                        title: key,
+                        title: p.title || 'Unknown',
+                        session_id: p.session_id,
                         created_at: p.start_date,
                         projects: []
                     };
                 }
                 groups[key].projects.push(p);
             });
-            return Object.values(groups);
+            // 최신순으로 정렬
+            return Object.values(groups).sort((a, b) => {
+                const dateA = new Date(a.created_at || 0);
+                const dateB = new Date(b.created_at || 0);
+                return dateB - dateA;
+            });
         }
 
         function renderGroupedProjects(groups) {
@@ -673,11 +680,11 @@
                     ` : `
                     <!-- Project Actions (제안서 대기 상태에서만) -->
                     <div class="project-actions" style="padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                        <button class="btn btn-secondary btn-sm" onclick="openAddConsultantModal('${group.title.replace(/'/g, "\\'")}')">
+                        <button class="btn btn-secondary btn-sm" onclick="event.preventDefault(); event.stopPropagation(); openAddConsultantModal('${group.title.replace(/'/g, "\\'")}', '${group.session_id || ''}')">
                             <i data-lucide="user-plus" style="width: 14px; height: 14px;"></i>
                             다른 전문가에게도 요청
                         </button>
-                        <button class="btn btn-ghost btn-sm delete-all-btn" style="color: var(--error);" data-title="${group.title.replace(/"/g, '&quot;')}" onclick="deleteQuoteRequestGroup(this)">
+                        <button class="btn btn-ghost btn-sm delete-all-btn" style="color: var(--error);" data-title="${group.title.replace(/"/g, '&quot;')}" data-session-id="${group.session_id || ''}" onclick="event.preventDefault(); event.stopPropagation(); deleteQuoteRequestGroup(this, event)">
                             <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
                             전체 삭제
                         </button>
@@ -791,7 +798,7 @@
                         </button>
                         ` : ''}
                         ${isPending ? `
-                        <button class="btn btn-ghost btn-sm" style="color: var(--text-muted);" onclick="cancelConsultantRequest(${project.id}, '${project.consultant_name?.replace(/'/g, "\\'")}')">
+                        <button class="btn btn-ghost btn-sm" style="color: var(--text-muted);" onclick="event.preventDefault(); event.stopPropagation(); cancelConsultantRequest(${project.id}, '${project.consultant_name?.replace(/'/g, "\\'")}', event)">
                             <i data-lucide="x" style="width: 14px; height: 14px;"></i>
                             요청 취소
                         </button>
@@ -984,17 +991,110 @@
         `;
         document.head.appendChild(modalStyles);
 
-        // ===== Phase 2: Delete Quote Request Group =====
-        async function deleteQuoteRequestGroup(buttonElement) {
-            // Get title from data attribute
-            const title = buttonElement.getAttribute('data-title');
+        // ===== Custom Confirm Modal =====
+        function showConfirmModal(title, message) {
+            return new Promise((resolve) => {
+                // Remove any existing confirm modal
+                const existingModal = document.getElementById('custom-confirm-modal');
+                if (existingModal) existingModal.remove();
 
-            if (!confirm(`"${title}" 요청을 전체 삭제하시겠습니까?\n\n모든 컨설턴트에 대한 요청이 삭제됩니다.`)) {
-                return;
+                const modal = document.createElement('div');
+                modal.id = 'custom-confirm-modal';
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.7);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10000;
+                `;
+
+                modal.innerHTML = `
+                    <div style="
+                        background: var(--card-bg, #1a1a2e);
+                        border-radius: 16px;
+                        padding: 24px;
+                        max-width: 400px;
+                        width: 90%;
+                        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+                        border: 1px solid var(--border, #333);
+                    ">
+                        <h3 style="margin: 0 0 16px 0; color: var(--text-primary, #fff); font-size: 1.2rem;">
+                            ${title}
+                        </h3>
+                        <p style="margin: 0 0 24px 0; color: var(--text-muted, #aaa); line-height: 1.6;">
+                            ${message}
+                        </p>
+                        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                            <button id="confirm-cancel-btn" class="btn btn-secondary" style="padding: 10px 20px;">
+                                취소
+                            </button>
+                            <button id="confirm-ok-btn" class="btn btn-primary" style="padding: 10px 20px; background: var(--error, #ef4444);">
+                                삭제
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+
+                // Button handlers
+                document.getElementById('confirm-cancel-btn').onclick = () => {
+                    modal.remove();
+                    resolve(false);
+                };
+
+                document.getElementById('confirm-ok-btn').onclick = () => {
+                    modal.remove();
+                    resolve(true);
+                };
+
+                // Close on background click
+                modal.onclick = (e) => {
+                    if (e.target === modal) {
+                        modal.remove();
+                        resolve(false);
+                    }
+                };
+            });
+        }
+
+        // ===== Phase 2: Delete Quote Request Group =====
+        window.deleteQuoteRequestGroup = async function (buttonElement, event) {
+            // Prevent any event propagation issues
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            console.log('[DEBUG] deleteQuoteRequestGroup called', buttonElement);
+
+            // Get title and session_id from data attributes
+            const title = buttonElement.getAttribute('data-title');
+            const sessionId = buttonElement.getAttribute('data-session-id');
+            console.log('[DEBUG] title:', title, 'sessionId:', sessionId);
+
+            // Use custom confirm modal instead of native confirm
+            const confirmResult = await showConfirmModal(
+                '요청 삭제 확인',
+                `"${title}" 요청을 전체 삭제하시겠습니까?<br><br>모든 컨설턴트에 대한 요청이 삭제됩니다.`
+            );
+            console.log('[DEBUG] confirm result:', confirmResult);
+
+            if (!confirmResult) {
+                return false;
             }
 
             const user = JSON.parse(localStorage.getItem('user'));
-            if (!user) return;
+            if (!user) {
+                showNotification('로그인이 필요합니다. 로그인 페이지로 이동합니다.', 'error');
+                setTimeout(() => { window.location.href = 'login.html'; }, 1500);
+                return;
+            }
 
             // Show loading state on the button immediately
             const originalButtonContent = buttonElement.innerHTML;
@@ -1005,12 +1105,17 @@
             `;
 
             try {
-                // 해당 title을 가진 모든 프로젝트 조회
+                // 해당 세션 또는 title을 가진 모든 프로젝트 조회
                 const response = await fetch(`${API_BASE_URL}/api/projects?user_id=${user.id}`);
                 const projects = await response.json();
 
-                const projectsToDelete = projects.filter(p => p.title === title &&
-                    !['contracted', 'in_progress', 'completed'].includes(p.status));
+                // session_id가 있으면 해당 세션의 프로젝트만, 없으면 title 기반으로 필터링
+                const projectsToDelete = projects.filter(p => {
+                    const matchesGroup = sessionId
+                        ? (p.session_id === sessionId)  // 세션 기반 매칭
+                        : (p.title === title);  // 기존 title 기반 매칭 (하위 호환성)
+                    return matchesGroup && !['contracted', 'in_progress', 'completed'].includes(p.status);
+                });
 
                 if (projectsToDelete.length === 0) {
                     showNotification('삭제할 수 있는 프로젝트가 없습니다.', 'error');
@@ -1050,9 +1155,23 @@
         }
 
         // ===== Phase 3: Cancel single consultant request =====
-        async function cancelConsultantRequest(projectId, consultantName) {
-            if (!confirm(`${consultantName}에게 보낸 요청을 취소하시겠습니까?`)) {
-                return;
+        window.cancelConsultantRequest = async function (projectId, consultantName, event) {
+            // Prevent any event propagation issues
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            console.log('[DEBUG] cancelConsultantRequest called', projectId, consultantName);
+
+            // Use custom confirm modal instead of native confirm
+            const confirmResult = await showConfirmModal(
+                '요청 취소 확인',
+                `<strong>${consultantName}</strong>에게 보낸 요청을 취소하시겠습니까?`
+            );
+
+            if (!confirmResult) {
+                return false;
             }
 
             try {
@@ -1075,11 +1194,18 @@
 
         // ===== Phase 3: Add consultant modal =====
         let currentAddTitle = '';
+        let currentAddSessionId = '';
 
-        async function openAddConsultantModal(title) {
+        window.openAddConsultantModal = async function (title, sessionId) {
+            console.log('[DEBUG] openAddConsultantModal called', title, sessionId);
             currentAddTitle = title;
+            currentAddSessionId = sessionId || '';
             const user = JSON.parse(localStorage.getItem('user'));
-            if (!user) return;
+            if (!user) {
+                showNotification('로그인이 필요합니다. 로그인 페이지로 이동합니다.', 'error');
+                setTimeout(() => { window.location.href = 'login.html'; }, 1500);
+                return;
+            }
 
             // 사용 가능한 컨설턴트 조회
             try {

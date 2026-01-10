@@ -69,6 +69,7 @@ class Project(db.Model):
     company_id = db.Column(db.Integer, db.ForeignKey('user.id')) # Using User ID for simplicity in MVP
     consultant_id = db.Column(db.Integer, db.ForeignKey('consultant.id'))
     title = db.Column(db.String(200), nullable=False)
+    session_id = db.Column(db.String(36))  # UUID: 같은 진단 세션에서 생성된 프로젝트 그룹화용
     
     # 프로젝트 상태: proposal_pending -> reviewing -> contracted -> in_progress -> completed
     # proposal_pending: 컨설턴트가 제안서를 작성 중

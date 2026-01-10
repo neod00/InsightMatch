@@ -28,6 +28,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedConsultants = new Map(); // Map of id -> consultant object
     const MAX_SELECTIONS = 5;
 
+    // --- Session ID for grouping projects ---
+    let currentSessionId = null;
+
     // --- Filter State ---
     let filterDebounceTimer = null;
 
@@ -401,6 +404,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 showStep(2); // Go back to step 2 (standards selection)
                 return;
             }
+
+            // Generate new session ID for this diagnosis (UUID v4 format)
+            currentSessionId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+            console.log('New diagnosis session started:', currentSessionId);
 
             // Hide form, show simple loading
             if (intakeForm) {
@@ -1241,7 +1251,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({
                     consultant_ids: selectedIds,
                     analysis_context: analysisContext,
-                    user_id: user.id
+                    user_id: user.id,
+                    session_id: currentSessionId  // Include session ID for grouping
                 })
             });
 
