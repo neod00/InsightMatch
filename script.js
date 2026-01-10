@@ -1201,13 +1201,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedIds = Array.from(selectedConsultants.keys());
         const selectedList = Array.from(selectedConsultants.values());
 
-        // Get last analysis result for context
-        const savedResult = localStorage.getItem('lastAnalysisResult');
+        // Get last match/analysis result for context (check both keys for different flows)
+        const savedMatchResult = localStorage.getItem('lastMatchResult');
+        const savedAnalysisResult = localStorage.getItem('lastAnalysisResult');
+        const savedResult = savedMatchResult || savedAnalysisResult;
         let analysisContext = null;
         try {
-            analysisContext = savedResult ? JSON.parse(savedResult) : null;
+            analysisContext = savedResult ? JSON.parse(savedResult) : {};
         } catch (e) {
-            console.warn('Could not parse analysis result:', e);
+            console.warn('Could not parse result:', e);
+            analysisContext = {};
         }
 
         // Get user ID from localStorage

@@ -472,7 +472,11 @@ def get_consultant_detail(consultant_id):
 def request_quotes():
     data = request.json
     consultant_ids = data.get('consultant_ids', [])
-    analysis_context = data.get('analysis_context', {})
+    analysis_context = data.get('analysis_context') or {}  # Ensure it's not None
+    
+    # Ensure analysis_context is a dict
+    if not isinstance(analysis_context, dict):
+        analysis_context = {}
     
     if not consultant_ids:
         return jsonify({'message': 'No consultants selected'}), 400
