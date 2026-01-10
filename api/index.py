@@ -377,6 +377,25 @@ def handle_projects():
         
         return jsonify({'message': 'Project created', 'id': new_project.id}), 201
 
+# --- Project Delete Endpoint ---
+@app.route('/api/projects/<int:project_id>', methods=['DELETE'])
+def delete_project(project_id):
+    """Delete a project (only if not contracted)"""
+    project = Project.query.get_or_404(project_id)
+    
+    # Cannot delete contracted projects
+    if project.status in ['contracted', 'in_progress', 'completed']:
+        return jsonify({'message': '계약된 프로젝트는 삭제할 수 없습니다.'}), 400
+    
+    # Delete related milestones
+    Milestone.query.filter_by(project_id=project_id).delete()
+    
+    # Delete project
+    db.session.delete(project)
+    db.session.commit()
+    
+    return jsonify({'message': '프로젝트가 삭제되었습니다.'})
+
 @app.route('/api/projects/<int:project_id>/proposal', methods=['GET'])
 def download_proposal(project_id):
     project = Project.query.get_or_404(project_id)

@@ -980,6 +980,35 @@
             const user = JSON.parse(localStorage.getItem('user'));
             if (!user) return;
 
+            // Find and update the delete button to show loading state
+            const deleteButtons = document.querySelectorAll('button[onclick*="deleteQuoteRequestGroup"]');
+            let targetButton = null;
+            deleteButtons.forEach(btn => {
+                if (btn.onclick && btn.onclick.toString().includes(title.replace(/'/g, "\\'"))) {
+                    targetButton = btn;
+                }
+            });
+
+            // If we can't find the exact button, find any delete button in the same card
+            if (!targetButton && deleteButtons.length > 0) {
+                deleteButtons.forEach(btn => {
+                    const card = btn.closest('.quote-request-card');
+                    if (card && card.querySelector('.quote-request-title')?.textContent === title) {
+                        targetButton = btn;
+                    }
+                });
+            }
+
+            const originalButtonContent = targetButton ? targetButton.innerHTML : '';
+
+            if (targetButton) {
+                targetButton.disabled = true;
+                targetButton.innerHTML = `
+                    <span class="loading-spinner" style="width: 14px; height: 14px; border-width: 2px;"></span>
+                    삭제 중...
+                `;
+            }
+
             try {
                 // 해당 title을 가진 모든 프로젝트 조회
                 const response = await fetch(`${API_BASE_URL}/api/projects?user_id=${user.id}`);
@@ -990,21 +1019,41 @@
 
                 if (projectsToDelete.length === 0) {
                     showNotification('삭제할 수 있는 프로젝트가 없습니다.', 'error');
+                    if (targetButton) {
+                        targetButton.disabled = false;
+                        targetButton.innerHTML = originalButtonContent;
+                    }
                     return;
                 }
 
                 // 모든 프로젝트 삭제
+                let successCount = 0;
                 for (const project of projectsToDelete) {
-                    await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
+                    const deleteResponse = await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
                         method: 'DELETE'
                     });
+                    if (deleteResponse.ok) {
+                        successCount++;
+                    }
                 }
 
-                showNotification('요청이 삭제되었습니다.', 'success');
-                fetchProjects(); // 새로고침
+                if (successCount > 0) {
+                    showNotification(`${successCount}개의 요청이 삭제되었습니다.`, 'success');
+                    fetchProjects(); // 새로고침
+                } else {
+                    showNotification('삭제에 실패했습니다. 다시 시도해주세요.', 'error');
+                    if (targetButton) {
+                        targetButton.disabled = false;
+                        targetButton.innerHTML = originalButtonContent;
+                    }
+                }
             } catch (error) {
                 console.error('Delete error:', error);
                 showNotification('삭제 중 오류가 발생했습니다.', 'error');
+                if (targetButton) {
+                    targetButton.disabled = false;
+                    targetButton.innerHTML = originalButtonContent;
+                }
             }
         }
 
