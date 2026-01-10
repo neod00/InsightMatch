@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InsightMatch - AI 기반 ISO 컨설턴트 매칭 플랫폼</title>
-    <meta name="description" content="AI가 기업의 리스크를 진단하고 최적의 ISO 인증 컨설턴트를 매칭해 드립니다. ISO 9001, 14001, 45001 전문가를 만나보세요.">
+    <title>InsightMatch - ISO 컨설턴트 매칭 플랫폼</title>
+    <meta name="description" content="기업 맞춤형 ISO 인증 컨설턴트를 무료로 매칭해 드립니다. 간단한 설문으로 ISO 9001, 14001, 45001 전문가를 만나보세요.">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -39,7 +39,7 @@
 
             <div class="nav-links">
                 <a href="#how-it-works">프로세스</a>
-                <a href="#diagnosis">AI 진단</a>
+                <a href="#diagnosis">맞춤 진단</a>
                 <a href="#faq">FAQ</a>
                 <a href="blog.html">블로그</a>
             </div>
@@ -62,7 +62,7 @@
     <!-- Mobile Navigation -->
     <div class="mobile-nav" id="mobile-nav">
         <a href="#how-it-works" onclick="closeMobileMenu()">프로세스</a>
-        <a href="#diagnosis" onclick="closeMobileMenu()">AI 진단</a>
+        <a href="#diagnosis" onclick="closeMobileMenu()">맞춤 진단</a>
         <a href="#faq" onclick="closeMobileMenu()">FAQ</a>
         <a href="blog.html">블로그</a>
         <div class="nav-divider"></div>
@@ -81,18 +81,18 @@
 
         <div class="hero-content fade-in-up">
             <div class="hero-badge">
-                <span>AI-Powered Matching</span>
+                <span>Smart Matching</span>
             </div>
 
             <h1>
                 ISO 인증 준비,<br>
-                <span class="highlight">AI가 최적의 전문가를</span><br>
+                <span class="highlight">최적의 전문가를</span><br>
                 찾아드립니다
             </h1>
 
             <p class="hero-subtitle">
                 복잡한 ISO 인증 준비, 어디서부터 시작해야 할지 막막하셨나요?<br>
-                AI가 기업 리스크를 분석하고 검증된 전문가를 매칭해 드립니다.
+                간단한 설문으로 기업 필요를 분석하고 검증된 전문가를 매칭해 드립니다.
             </p>
 
             <div class="hero-actions">
@@ -168,8 +168,8 @@
 
                 <div class="process-card fade-in-up delay-2">
                     <div class="process-number">02</div>
-                    <h3>AI 리스크 분석</h3>
-                    <p>AI가 기업 데이터를 분석하여 잠재 리스크와 필요한 인증을 추천합니다.</p>
+                    <h3>맞춤형 분석</h3>
+                    <p>설문 답변을 바탕으로 기업에 필요한 인증을 추천합니다.</p>
                 </div>
 
                 <div class="process-card fade-in-up delay-3">
@@ -191,8 +191,8 @@
     <section id="diagnosis" class="section">
         <div class="container">
             <div class="section-header fade-in-up">
-                <h2>AI 기업 리스크 무료 진단</h2>
-                <p>아래 정보를 입력하시면 AI가 즉시 분석을 시작합니다.</p>
+                <h2>무료 컨설턴트 매칭</h2>
+                <p>간단한 설문을 통해 우리 회사에 맞는 ISO 인증과 전문가를 추천받으세요.</p>
             </div>
 
             <div class="form-section form-container fade-in-up">
@@ -207,12 +207,17 @@
                             <div class="step-line"></div>
                             <div class="step-item">
                                 <div class="step-dot">2</div>
-                                <span>인증 현황</span>
+                                <span>관심 인증</span>
                             </div>
                             <div class="step-line"></div>
                             <div class="step-item">
                                 <div class="step-dot">3</div>
-                                <span>일정/예산</span>
+                                <span>경영 현황</span>
+                            </div>
+                            <div class="step-line"></div>
+                            <div class="step-item">
+                                <div class="step-dot">4</div>
+                                <span>추가 정보</span>
                             </div>
                         </div>
 
@@ -222,53 +227,62 @@
                                 <input type="text" id="companyName" required placeholder="예: (주)인사이트매치">
                             </div>
                             <div class="form-group">
-                                <label>웹사이트 URL (선택)</label>
-                                <input type="url" id="companyUrl" placeholder="https://example.com">
-                            </div>
-                            <div class="form-group">
-                                <label>법인등록번호 (선택)</label>
-                                <input type="text" id="crno" placeholder="예: 1234567890123" maxlength="13">
-                                <small
-                                    style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; display: block;">
-                                    <i data-lucide="info"
-                                        style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                                    입력 시 더 정확한 보고서를 제공할 수 있습니다
-                                </small>
-                            </div>
-                            <div class="form-group">
-                                <label>사업자등록번호 (선택)</label>
-                                <input type="text" id="bzno" placeholder="예: 123-45-67890" maxlength="12">
-                                <small
-                                    style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; display: block;">
-                                    <i data-lucide="info"
-                                        style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                                    입력 시 더 정확한 보고서를 제공할 수 있습니다
-                                </small>
+                                <label>담당자 이메일 *</label>
+                                <input type="email" id="contactEmail" required placeholder="example@company.com">
                             </div>
                             <div class="form-group">
                                 <label>업종 *</label>
                                 <select id="industry" required>
                                     <option value="">선택하세요</option>
                                     <option value="IT/Software">IT/소프트웨어</option>
-                                    <option value="Manufacturing">제조업</option>
-                                    <option value="Construction">건설업</option>
-                                    <option value="Chemical">화학/소재</option>
+                                    <option value="Manufacturing">제조업 (일반)</option>
                                     <option value="Automotive">자동차/부품</option>
-                                    <option value="Service">서비스업</option>
+                                    <option value="Electronics">전자/반도체</option>
+                                    <option value="Chemical">화학/소재</option>
+                                    <option value="Medical">의료기기/바이오</option>
+                                    <option value="Food">식품/음료</option>
+                                    <option value="Construction">건설/토목</option>
+                                    <option value="Energy">에너지/발전</option>
+                                    <option value="Nuclear">원자력</option>
                                     <option value="Logistics">물류/유통</option>
-                                    <option value="Medical">의료/바이오</option>
+                                    <option value="Finance">금융/보험</option>
+                                    <option value="Service">서비스업</option>
+                                    <option value="Public">공공기관</option>
                                     <option value="Other">기타</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label>직원 수 *</label>
+                                <label>기업 규모 *</label>
                                 <select id="employees" required>
                                     <option value="">선택하세요</option>
-                                    <option value="1-10">1~10명</option>
-                                    <option value="11-50">11~50명</option>
-                                    <option value="51-200">51~200명</option>
-                                    <option value="201-500">201~500명</option>
-                                    <option value="500+">500명 이상</option>
+                                    <option value="1-10">소기업 (1~10명)</option>
+                                    <option value="11-50">소기업 (11~50명)</option>
+                                    <option value="51-200">중소기업 (51~200명)</option>
+                                    <option value="201-500">중견기업 (201~500명)</option>
+                                    <option value="500+">대기업 (500명 이상)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>희망 지역 (선택)</label>
+                                <select id="region">
+                                    <option value="">전국</option>
+                                    <option value="서울">서울</option>
+                                    <option value="경기">경기</option>
+                                    <option value="인천">인천</option>
+                                    <option value="부산">부산</option>
+                                    <option value="대구">대구</option>
+                                    <option value="광주">광주</option>
+                                    <option value="대전">대전</option>
+                                    <option value="울산">울산</option>
+                                    <option value="세종">세종</option>
+                                    <option value="강원">강원</option>
+                                    <option value="충북">충북</option>
+                                    <option value="충남">충남</option>
+                                    <option value="전북">전북</option>
+                                    <option value="전남">전남</option>
+                                    <option value="경북">경북</option>
+                                    <option value="경남">경남</option>
+                                    <option value="제주">제주</option>
                                 </select>
                             </div>
                         </div>
@@ -281,7 +295,7 @@
                         </div>
                     </div>
 
-                    <!-- Step 2: Certification Needs -->
+                    <!-- Step 2: ISO Standards Selection -->
                     <div class="form-step hidden" data-step="2">
                         <div class="step-indicator">
                             <div class="step-item completed">
@@ -293,54 +307,208 @@
                             <div class="step-line active"></div>
                             <div class="step-item active">
                                 <div class="step-dot">2</div>
-                                <span>인증 현황</span>
+                                <span>관심 인증</span>
                             </div>
                             <div class="step-line"></div>
                             <div class="step-item">
                                 <div class="step-dot">3</div>
-                                <span>일정/예산</span>
+                                <span>경영 현황</span>
+                            </div>
+                            <div class="step-line"></div>
+                            <div class="step-item">
+                                <div class="step-dot">4</div>
+                                <span>추가 정보</span>
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label>관심 인증 (중복 선택 가능)</label>
-                            <div class="checkbox-grid">
-                                <label class="checkbox-card">
-                                    <input type="checkbox" name="standards" value="ISO 9001">
+                        <p style="text-align: center; color: var(--text-muted); margin-bottom: 24px;">관심 있는 인증 분야를
+                            선택해주세요 (복수 선택 가능)</p>
+
+                        <!-- Category: Management Systems -->
+                        <div class="iso-category">
+                            <div class="iso-category-header">
+                                <span class="iso-category-icon">🏢</span>
+                                <div class="iso-category-title">
+                                    <strong>경영·운영 시스템</strong>
+                                    <small>가장 기본적인 경영시스템 인증</small>
+                                </div>
+                            </div>
+                            <div class="checkbox-grid checkbox-grid-compact">
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 9001:2015">
                                     <span>ISO 9001<small>품질경영</small></span>
                                 </label>
-                                <label class="checkbox-card">
-                                    <input type="checkbox" name="standards" value="ISO 14001">
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 14001:2015">
                                     <span>ISO 14001<small>환경경영</small></span>
                                 </label>
-                                <label class="checkbox-card">
-                                    <input type="checkbox" name="standards" value="ISO 45001">
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 45001:2018">
                                     <span>ISO 45001<small>안전보건</small></span>
                                 </label>
-                                <label class="checkbox-card">
-                                    <input type="checkbox" name="standards" value="ISO 27001">
-                                    <span>ISO 27001<small>정보보호</small></span>
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 50001:2018">
+                                    <span>ISO 50001<small>에너지</small></span>
                                 </label>
                             </div>
                         </div>
 
-                        <div class="form-grid mt-6">
-                            <div class="form-group">
-                                <label>현재 인증 보유 여부</label>
-                                <select id="certStatus">
-                                    <option value="None">없음 (신규)</option>
-                                    <option value="Expired">만료됨 (갱신 필요)</option>
-                                    <option value="Active">보유중 (추가 인증 필요)</option>
-                                </select>
+                        <!-- Category: ESG -->
+                        <div class="iso-category">
+                            <div class="iso-category-header">
+                                <span class="iso-category-icon">🌍</span>
+                                <div class="iso-category-title">
+                                    <strong>ESG·지속가능성·기후변화</strong>
+                                    <small>ESG 경영 및 탄소중립 관련</small>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label>현재 준비 상태</label>
-                                <select id="readiness">
-                                    <option value="Initial">초기 단계 (정보 수집 중)</option>
-                                    <option value="Planning">계획 수립 중</option>
-                                    <option value="Ready">준비 완료 (컨설턴트 필요)</option>
-                                </select>
+                            <div class="checkbox-grid checkbox-grid-compact">
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 14064-1:2018">
+                                    <span>ISO 14064-1<small>탄소배출</small></span>
+                                </label>
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 14067:2018">
+                                    <span>ISO 14067<small>탄소발자국</small></span>
+                                </label>
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 14068-1:2023">
+                                    <span>ISO 14068-1<small>탄소중립</small></span>
+                                </label>
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 26000:2010">
+                                    <span>ISO 26000<small>사회적책임</small></span>
+                                </label>
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 20400:2017">
+                                    <span>ISO 20400<small>지속가능조달</small></span>
+                                </label>
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 14090:2019">
+                                    <span>ISO 14090<small>기후적응</small></span>
+                                </label>
                             </div>
+                        </div>
+
+                        <!-- Category: Security & AI -->
+                        <div class="iso-category">
+                            <div class="iso-category-header">
+                                <span class="iso-category-icon">🔒</span>
+                                <div class="iso-category-title">
+                                    <strong>정보보안·디지털·AI</strong>
+                                    <small>정보보안 및 AI 거버넌스</small>
+                                </div>
+                            </div>
+                            <div class="checkbox-grid checkbox-grid-compact">
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO/IEC 27001:2022">
+                                    <span>ISO 27001<small>정보보안</small></span>
+                                </label>
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO/IEC 27701:2019">
+                                    <span>ISO 27701<small>개인정보</small></span>
+                                </label>
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO/IEC 27017:2015">
+                                    <span>ISO 27017<small>클라우드보안</small></span>
+                                </label>
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO/IEC 42001:2023">
+                                    <span>ISO 42001<small>AI경영</small></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Category: Supply Chain -->
+                        <div class="iso-category">
+                            <div class="iso-category-header">
+                                <span class="iso-category-icon">🔗</span>
+                                <div class="iso-category-title">
+                                    <strong>공급망·리스크·연속성</strong>
+                                    <small>비즈니스 연속성 및 리스크 관리</small>
+                                </div>
+                            </div>
+                            <div class="checkbox-grid checkbox-grid-compact">
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 22301:2019">
+                                    <span>ISO 22301<small>비즈니스연속성</small></span>
+                                </label>
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 31000:2018">
+                                    <span>ISO 31000<small>리스크관리</small></span>
+                                </label>
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 28000:2022">
+                                    <span>ISO 28000<small>공급망보안</small></span>
+                                </label>
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 37301:2021">
+                                    <span>ISO 37301<small>컴플라이언스</small></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Category: Industry Specific -->
+                        <div class="iso-category">
+                            <div class="iso-category-header">
+                                <span class="iso-category-icon">🏭</span>
+                                <div class="iso-category-title">
+                                    <strong>산업·특수 목적</strong>
+                                    <small>특정 산업 맞춤 인증</small>
+                                </div>
+                            </div>
+                            <div class="checkbox-grid checkbox-grid-compact">
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 13485:2016">
+                                    <span>ISO 13485<small>의료기기</small></span>
+                                </label>
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 22000:2018">
+                                    <span>ISO 22000<small>식품안전</small></span>
+                                </label>
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="IATF 16949:2016">
+                                    <span>IATF 16949<small>자동차</small></span>
+                                </label>
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 19443:2018">
+                                    <span>ISO 19443<small>원자력</small></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Category: HR & Ethics -->
+                        <div class="iso-category">
+                            <div class="iso-category-header">
+                                <span class="iso-category-icon">👥</span>
+                                <div class="iso-category-title">
+                                    <strong>인사·조직·윤리</strong>
+                                    <small>인적자원 및 윤리경영</small>
+                                </div>
+                            </div>
+                            <div class="checkbox-grid checkbox-grid-compact">
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 30401:2018">
+                                    <span>ISO 30401<small>지식경영</small></span>
+                                </label>
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 30414:2018">
+                                    <span>ISO 30414<small>인적자본</small></span>
+                                </label>
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 37001:2016">
+                                    <span>ISO 37001<small>부패방지</small></span>
+                                </label>
+                                <label class="checkbox-card compact">
+                                    <input type="checkbox" name="standards" value="ISO 45003:2021">
+                                    <span>ISO 45003<small>심리안전</small></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="selected-standards-preview" class="selected-preview hidden">
+                            <span class="preview-label">선택됨:</span>
+                            <span id="selected-standards-text"></span>
                         </div>
 
                         <div class="flex justify-center gap-4 mt-8">
@@ -352,7 +520,7 @@
                         </div>
                     </div>
 
-                    <!-- Step 3: Project Details -->
+                    <!-- Step 3: Business Issues -->
                     <div class="form-step hidden" data-step="3">
                         <div class="step-indicator">
                             <div class="step-item completed">
@@ -366,24 +534,303 @@
                                 <div class="step-dot">
                                     <i data-lucide="check" style="width: 14px; height: 14px;"></i>
                                 </div>
-                                <span>인증 현황</span>
+                                <span>관심 인증</span>
                             </div>
                             <div class="step-line active"></div>
                             <div class="step-item active">
                                 <div class="step-dot">3</div>
-                                <span>일정/예산</span>
+                                <span>경영 현황</span>
+                            </div>
+                            <div class="step-line"></div>
+                            <div class="step-item">
+                                <div class="step-dot">4</div>
+                                <span>추가 정보</span>
                             </div>
                         </div>
 
+                        <p style="text-align: center; color: var(--text-muted); margin-bottom: 24px;">현재 회사가 직면한 주요 이슈가
+                            있다면 선택해주세요 (컨설턴트가 맞춤 제안을 드립니다)</p>
+
+                        <!-- Business Issues Categories -->
+                        <div class="issues-section">
+                            <!-- Quality & Operations -->
+                            <div class="issue-category">
+                                <div class="issue-category-header">
+                                    <span>📊 품질·운영</span>
+                                </div>
+                                <div class="issue-list">
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="quality_defect"
+                                            data-iso="ISO 9001:2015">
+                                        <span>제품/서비스 품질 불량 이슈</span>
+                                    </label>
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="customer_complaint"
+                                            data-iso="ISO 9001:2015">
+                                        <span>고객 클레임 증가</span>
+                                    </label>
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="process_inefficiency"
+                                            data-iso="ISO 9001:2015">
+                                        <span>내부 프로세스 비효율</span>
+                                    </label>
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="supplier_quality"
+                                            data-iso="ISO 9001:2015,ISO 28000:2022">
+                                        <span>공급업체 품질 관리 어려움</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Safety & Environment -->
+                            <div class="issue-category">
+                                <div class="issue-category-header">
+                                    <span>⚠️ 안전·환경</span>
+                                </div>
+                                <div class="issue-list">
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="safety_incident"
+                                            data-iso="ISO 45001:2018">
+                                        <span>산업재해/안전사고 발생 또는 우려</span>
+                                    </label>
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="env_regulation"
+                                            data-iso="ISO 14001:2015">
+                                        <span>환경 규제 대응 필요 (배출, 폐기물 등)</span>
+                                    </label>
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="energy_cost"
+                                            data-iso="ISO 50001:2018">
+                                        <span>에너지 비용 절감 필요</span>
+                                    </label>
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="work_condition"
+                                            data-iso="ISO 45001:2018,ISO 45003:2021">
+                                        <span>작업환경/근로조건 개선 요구</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- ESG -->
+                            <div class="issue-category">
+                                <div class="issue-category-header">
+                                    <span>🌍 ESG·지속가능성</span>
+                                </div>
+                                <div class="issue-list">
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="esg_demand"
+                                            data-iso="ISO 26000:2010,ISO 14064-1:2018">
+                                        <span>고객사/투자자 ESG 요구 증가</span>
+                                    </label>
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="carbon_report"
+                                            data-iso="ISO 14064-1:2018">
+                                        <span>탄소배출량 산정/보고 필요</span>
+                                    </label>
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="carbon_neutral"
+                                            data-iso="ISO 14068-1:2023,ISO 14067:2018">
+                                        <span>탄소중립 로드맵 수립 필요</span>
+                                    </label>
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="esg_disclosure"
+                                            data-iso="ISO 26000:2010,ISO 30414:2018">
+                                        <span>ESG 공시/평가 대응 필요</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Security -->
+                            <div class="issue-category">
+                                <div class="issue-category-header">
+                                    <span>🔒 정보보안·개인정보</span>
+                                </div>
+                                <div class="issue-list">
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="security_incident"
+                                            data-iso="ISO/IEC 27001:2022">
+                                        <span>정보보안 사고 발생/우려</span>
+                                    </label>
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="privacy_need"
+                                            data-iso="ISO/IEC 27701:2019">
+                                        <span>개인정보 보호 강화 필요</span>
+                                    </label>
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="cloud_security"
+                                            data-iso="ISO/IEC 27017:2015,ISO/IEC 27018:2019">
+                                        <span>클라우드 보안 체계 구축 필요</span>
+                                    </label>
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="ai_risk"
+                                            data-iso="ISO/IEC 42001:2023">
+                                        <span>AI 도입에 따른 리스크 관리 필요</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Business Continuity -->
+                            <div class="issue-category">
+                                <div class="issue-category-header">
+                                    <span>🔗 비즈니스 연속성·리스크</span>
+                                </div>
+                                <div class="issue-list">
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="supply_unstable"
+                                            data-iso="ISO 28000:2022,ISO 22301:2019">
+                                        <span>공급망 불안정 (납기 지연, 원자재 이슈 등)</span>
+                                    </label>
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="crisis_response"
+                                            data-iso="ISO 22301:2019">
+                                        <span>재해/위기 상황 대응 체계 미흡</span>
+                                    </label>
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="compliance_risk"
+                                            data-iso="ISO 37301:2021">
+                                        <span>법규/컴플라이언스 위반 리스크</span>
+                                    </label>
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="corruption_prevent"
+                                            data-iso="ISO 37001:2016">
+                                        <span>부패/비리 예방 체계 필요</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- HR -->
+                            <div class="issue-category">
+                                <div class="issue-category-header">
+                                    <span>👥 조직·인력</span>
+                                </div>
+                                <div class="issue-list">
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="turnover" data-iso="ISO 30414:2018">
+                                        <span>직원 이직률 높음/조직문화 이슈</span>
+                                    </label>
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="burnout" data-iso="ISO 45003:2021">
+                                        <span>직원 스트레스/번아웃 이슈</span>
+                                    </label>
+                                    <label class="issue-checkbox">
+                                        <input type="checkbox" name="issues" value="knowledge_loss"
+                                            data-iso="ISO 30401:2018">
+                                        <span>지식/노하우 유실 우려</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Certification Reasons -->
+                        <div class="form-group mt-6">
+                            <label style="font-size: 1rem; font-weight: 600; margin-bottom: 12px; display: block;">인증 추진
+                                배경 (복수 선택 가능)</label>
+                            <div class="reason-list">
+                                <label class="reason-checkbox">
+                                    <input type="checkbox" name="reasons" value="customer_demand">
+                                    <span>고객사/발주처가 인증을 요구함</span>
+                                </label>
+                                <label class="reason-checkbox">
+                                    <input type="checkbox" name="reasons" value="public_bid">
+                                    <span>공공조달/입찰 참여 시 필요</span>
+                                </label>
+                                <label class="reason-checkbox">
+                                    <input type="checkbox" name="reasons" value="export">
+                                    <span>해외 바이어/수출 요건</span>
+                                </label>
+                                <label class="reason-checkbox">
+                                    <input type="checkbox" name="reasons" value="investment">
+                                    <span>투자 유치/기업 가치 제고</span>
+                                </label>
+                                <label class="reason-checkbox">
+                                    <input type="checkbox" name="reasons" value="internal">
+                                    <span>내부 경영 시스템 체계화 목적</span>
+                                </label>
+                                <label class="reason-checkbox">
+                                    <input type="checkbox" name="reasons" value="regulation">
+                                    <span>법규/규제 대응 (의무사항)</span>
+                                </label>
+                                <label class="reason-checkbox">
+                                    <input type="checkbox" name="reasons" value="competition">
+                                    <span>경쟁사 대비 차별화</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="recommended-iso-preview" class="recommended-preview hidden">
+                            <div class="recommended-header">
+                                <i data-lucide="lightbulb" style="width: 18px; height: 18px;"></i>
+                                <span>이슈 기반 추천 인증</span>
+                            </div>
+                            <div id="recommended-iso-list"></div>
+                        </div>
+
+                        <div class="flex justify-center gap-4 mt-8">
+                            <button type="button" class="btn btn-secondary prev-step">이전</button>
+                            <button type="button" class="btn btn-primary next-step">
+                                다음 단계
+                                <i data-lucide="arrow-right" style="width: 18px; height: 18px;"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Additional Info (Optional) -->
+                    <div class="form-step hidden" data-step="4">
+                        <div class="step-indicator">
+                            <div class="step-item completed">
+                                <div class="step-dot">
+                                    <i data-lucide="check" style="width: 14px; height: 14px;"></i>
+                                </div>
+                                <span>기본 정보</span>
+                            </div>
+                            <div class="step-line active"></div>
+                            <div class="step-item completed">
+                                <div class="step-dot">
+                                    <i data-lucide="check" style="width: 14px; height: 14px;"></i>
+                                </div>
+                                <span>관심 인증</span>
+                            </div>
+                            <div class="step-line active"></div>
+                            <div class="step-item completed">
+                                <div class="step-dot">
+                                    <i data-lucide="check" style="width: 14px; height: 14px;"></i>
+                                </div>
+                                <span>경영 현황</span>
+                            </div>
+                            <div class="step-line active"></div>
+                            <div class="step-item active">
+                                <div class="step-dot">4</div>
+                                <span>추가 정보</span>
+                            </div>
+                        </div>
+
+                        <p style="text-align: center; color: var(--text-muted); margin-bottom: 24px;">
+                            더 정확한 컨설턴트 매칭을 위한 추가 정보입니다 (선택사항)
+                        </p>
+
                         <div class="form-grid">
                             <div class="form-group">
-                                <label>목표 인증 취득일</label>
-                                <input type="date" id="targetDate">
+                                <label>현재 인증 보유 여부</label>
+                                <select id="certStatus">
+                                    <option value="None">없음 (신규)</option>
+                                    <option value="Expired">만료됨 (갱신 필요)</option>
+                                    <option value="Active">보유중 (추가 인증 필요)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>희망 일정</label>
+                                <select id="timeline">
+                                    <option value="flexible">여유 있음</option>
+                                    <option value="6months">6개월 이내</option>
+                                    <option value="3months">3개월 이내</option>
+                                    <option value="1month">1개월 이내 (긴급)</option>
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label>예산 범위</label>
                                 <select id="budget">
-                                    <option value="Undecided">미정</option>
+                                    <option value="unknown">잘 모르겠음</option>
+                                    <option value="under500">500만원 미만</option>
                                     <option value="500-1000">500만원 ~ 1,000만원</option>
                                     <option value="1000-2000">1,000만원 ~ 2,000만원</option>
                                     <option value="2000+">2,000만원 이상</option>
@@ -391,11 +838,18 @@
                             </div>
                         </div>
 
+                        <div class="form-group mt-4">
+                            <label>특별히 전달하고 싶은 요청사항 (선택)</label>
+                            <textarea id="additionalNotes" rows="3"
+                                placeholder="예: 삼성전자 협력사 등록을 위해 3개월 내 인증 완료가 필요합니다..."
+                                style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary); resize: vertical;"></textarea>
+                        </div>
+
                         <div class="flex justify-center gap-4 mt-8">
                             <button type="button" class="btn btn-secondary prev-step">이전</button>
                             <button type="submit" class="btn btn-primary btn-lg">
-                                <i data-lucide="sparkles" style="width: 20px; height: 20px;"></i>
-                                AI 무료 진단 시작
+                                <i data-lucide="users" style="width: 20px; height: 20px;"></i>
+                                전문가 추천받기
                             </button>
                         </div>
                     </div>
@@ -424,7 +878,7 @@
                         </div>
 
                         <!-- Status Text -->
-                        <p class="loading-text" id="loading-status">AI가 기업 데이터를 분석 중입니다...</p>
+                        <p class="loading-text" id="loading-status">전문가를 매칭 중입니다...</p>
 
                         <!-- Steps -->
                         <div class="loading-steps">
@@ -446,7 +900,7 @@
                                             d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                                     </svg>
                                 </div>
-                                <span>AI 분석</span>
+                                <span>매칭 분석</span>
                             </div>
                             <div class="step-connector">
                                 <div class="connector-fill" id="connector-2"></div>
@@ -473,7 +927,7 @@
         <div class="container">
             <div class="section-header fade-in-up">
                 <h2 id="result-company-title">분석 결과</h2>
-                <p>AI가 진단한 리스크 점수와 추천 솔루션입니다.</p>
+                <p>분석된 리스크 점수와 추천 솔루션입니다.</p>
             </div>
 
             <div class="results-grid">
@@ -576,7 +1030,7 @@
                     <div class="card-glass" style="padding: 28px; margin-bottom: 24px;">
                         <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
                             <i data-lucide="sparkles" style="width: 20px; height: 20px; color: var(--primary);"></i>
-                            AI 분석 요약
+                            분석 요약
                         </h3>
                         <p id="ai-summary-text" style="line-height: 1.8; color: var(--text-secondary);">분석 결과가 여기에
                             표시됩니다.</p>
@@ -712,7 +1166,7 @@
                     </div>
                     <div class="faq-answer">
                         <div class="faq-answer-content">
-                            네, 기업 사용자는 모든 서비스를 완전 무료로 이용하실 수 있습니다. AI 기반 리스크 진단, 컨설턴트 추천, 그리고 실제 컨설팅 계약 체결 후에도 기업에게는 별도의
+                            네, 기업 사용자는 모든 서비스를 완전 무료로 이용하실 수 있습니다. 맞춤형 진단, 컨설턴트 추천, 그리고 실제 컨설팅 계약 체결 후에도 기업에게는 별도의
                             플랫폼 이용료가 없습니다.
                         </div>
                     </div>
@@ -746,12 +1200,12 @@
 
                 <div class="faq-item">
                     <div class="faq-question" onclick="toggleFaq(this)">
-                        <span>AI 매칭의 정확도는 어떤가요?</span>
+                        <span>매칭의 정확도는 어떤가요?</span>
                         <i data-lucide="chevron-down" class="faq-icon"></i>
                     </div>
                     <div class="faq-answer">
                         <div class="faq-answer-content">
-                            AI는 업종, 규모, 필요 인증, 지역 등 다양한 요소를 분석하여 최적의 컨설턴트를 추천합니다. 또한 관리자(Human-in-the-loop)가 AI 추천 결과를
+                            시스템이 업종, 규모, 필요 인증, 지역 등 다양한 요소를 분석하여 최적의 컨설턴트를 추천합니다. 또한 관리자가 추천 결과를
                             검토하여 품질을 보장합니다.
                         </div>
                     </div>
@@ -778,7 +1232,7 @@
             <div class="cta-section fade-in-up">
                 <div class="cta-content">
                     <h2>전문가 상담이 필요하신가요?</h2>
-                    <p>AI 진단 결과를 바탕으로 더 자세한 상담을 받아보세요.<br>ISO 인증 전문가가 맞춤형 솔루션을 제안해 드립니다.</p>
+                    <p>진단 결과를 바탕으로 더 자세한 상담을 받아보세요.<br>ISO 인증 전문가가 맞춤형 솔루션을 제안해 드립니다.</p>
                     <div class="flex justify-center gap-4">
                         <a href="#diagnosis" class="btn btn-primary btn-lg">
                             무료 진단 시작하기
@@ -833,13 +1287,13 @@
                             <span>by OpenBrain</span>
                         </div>
                     </div>
-                    <p>AI 기반 기업 리스크 진단 및 ISO 컨설턴트 매칭 플랫폼. 복잡한 인증 준비를 쉽고 빠르게.</p>
+                    <p>기업 맞춤형 ISO 컨설턴트 매칭 플랫폼. 복잡한 인증 준비를 쉽고 빠르게.</p>
                 </div>
 
                 <div class="footer-links">
                     <div class="footer-column">
                         <h4>서비스</h4>
-                        <a href="#diagnosis">AI 리스크 진단</a>
+                        <a href="#diagnosis">맞춤형 진단</a>
                         <a href="#how-it-works">프로세스 안내</a>
                         <a href="consultant_register.html">컨설턴트 등록</a>
                     </div>
@@ -859,7 +1313,7 @@
 
             <div class="footer-bottom">
                 <span>© 2025 OpenBrain Limited. All rights reserved.</span>
-                <span>InsightMatch - AI-Powered ISO Consultant Matching</span>
+                <span>InsightMatch - ISO Consultant Matching Platform</span>
             </div>
         </div>
     </footer>

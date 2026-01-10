@@ -69,12 +69,40 @@ class Project(db.Model):
     company_id = db.Column(db.Integer, db.ForeignKey('user.id')) # Using User ID for simplicity in MVP
     consultant_id = db.Column(db.Integer, db.ForeignKey('consultant.id'))
     title = db.Column(db.String(200), nullable=False)
-    status = db.Column(db.String(50), default='planning') # planning, in_progress, review, completed
+    
+    # 프로젝트 상태: proposal_pending -> reviewing -> contracted -> in_progress -> completed
+    # proposal_pending: 컨설턴트가 제안서를 작성 중
+    # reviewing: 기업이 제안서를 검토 중
+    # contracted: 계약 체결됨
+    # in_progress: 프로젝트 진행 중
+    # completed: 완료
+    status = db.Column(db.String(50), default='proposal_pending')
+    
+    # 제안서 관련 필드
+    proposal_status = db.Column(db.String(50), default='pending')  # pending, submitted, accepted, rejected
+    proposal_data = db.Column(db.Text)  # JSON: 제안서 내용 (견적, 일정 등)
+    proposal_submitted_at = db.Column(db.DateTime)
+    
+    # 요청 정보 저장 (기업이 입력한 설문 데이터)
+    request_data = db.Column(db.Text)  # JSON: 설문 데이터
+    
     start_date = db.Column(db.DateTime)
     end_date = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     milestones = db.relationship('Milestone', backref='project', lazy=True)
+    
+    def set_proposal_data(self, data_dict):
+        self.proposal_data = json.dumps(data_dict)
+    
+    def get_proposal_data(self):
+        return json.loads(self.proposal_data) if self.proposal_data else None
+    
+    def set_request_data(self, data_dict):
+        self.request_data = json.dumps(data_dict)
+    
+    def get_request_data(self):
+        return json.loads(self.request_data) if self.request_data else None
 
 class Milestone(db.Model):
     id = db.Column(db.Integer, primary_key=True)

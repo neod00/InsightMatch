@@ -5,17 +5,364 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>대시보드 - InsightMatch</title>
-    
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    
+
     <!-- Styles -->
     <link rel="stylesheet" href="style.css">
+    <style>
+        .dashboard-container {
+            padding-top: 120px;
+            padding-bottom: 60px;
+        }
+
+        /* Quote Request Card */
+        .quote-request-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .quote-request-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .quote-request-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .quote-request-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .quote-request-meta span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Stage Indicator */
+        .stage-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 20px 24px;
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .stage-step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .stage-step.active {
+            color: var(--primary);
+        }
+
+        .stage-step.completed {
+            color: var(--text-secondary);
+        }
+
+        .stage-dot {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+
+        .stage-step.active .stage-dot {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .stage-step.completed .stage-dot {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .stage-line {
+            flex: 1;
+            height: 2px;
+            background: var(--border);
+            max-width: 60px;
+        }
+
+        .stage-line.completed {
+            background: var(--primary);
+        }
+
+        /* Consultant Response Cards */
+        .consultant-responses {
+            padding: 24px;
+        }
+
+        .response-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .response-count {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .response-count strong {
+            color: var(--primary);
+        }
+
+        .consultant-response-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            margin-bottom: 12px;
+            transition: var(--transition-fast);
+        }
+
+        .consultant-response-card:hover {
+            border-color: var(--border-hover);
+        }
+
+        .consultant-response-card.pending {
+            opacity: 0.7;
+        }
+
+        .consultant-response-card.selected {
+            border-color: var(--primary);
+            background: rgba(16, 185, 129, 0.05);
+        }
+
+        .response-card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .consultant-avatar-large {
+            width: 56px;
+            height: 56px;
+            border-radius: var(--radius-md);
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+
+        .consultant-info-main {
+            flex: 1;
+        }
+
+        .consultant-name-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .consultant-name-row h4 {
+            font-size: 1.1rem;
+            margin: 0;
+        }
+
+        .verified-badge-small {
+            width: 18px;
+            height: 18px;
+            color: #3b82f6;
+        }
+
+        .consultant-specialty {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+        }
+
+        .consultant-stats {
+            display: flex;
+            gap: 16px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .consultant-stats span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .response-status {
+            padding: 6px 12px;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .response-status.pending {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+
+        .response-status.submitted {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--primary);
+        }
+
+        /* Proposal Preview */
+        .proposal-preview {
+            background: var(--bg-card);
+            border-radius: var(--radius-sm);
+            padding: 16px;
+            margin-top: 12px;
+        }
+
+        .proposal-preview-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .proposal-preview-row:last-child {
+            border-bottom: none;
+        }
+
+        .proposal-label {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .proposal-value {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .proposal-value.highlight {
+            color: var(--primary);
+        }
+
+        /* Response Actions */
+        .response-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        /* Contract Section */
+        .contract-section {
+            padding: 20px 24px;
+            background: rgba(16, 185, 129, 0.05);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .contract-info {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Project Progress (계약 후) */
+        .project-progress-section {
+            padding: 24px;
+        }
+
+        .milestone-compact {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .milestone-compact:last-child {
+            border-bottom: none;
+        }
+
+        .milestone-compact-status {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .milestone-compact-status.completed {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .milestone-compact-title {
+            flex: 1;
+            font-size: 0.95rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .stage-indicator {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .stage-step span {
+                display: none;
+            }
+
+            .response-card-header {
+                flex-direction: column;
+            }
+
+            .contract-section {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
 </head>
 
 <body>
@@ -35,13 +382,13 @@
                     <span>by OpenBrain</span>
                 </div>
             </a>
-            
+
             <div class="nav-links">
                 <a href="index.html">홈</a>
                 <a href="dashboard.html" class="active" style="color: var(--primary);">대시보드</a>
                 <a href="blog.html">블로그</a>
             </div>
-            
+
             <div class="nav-actions">
                 <span id="user-name" style="color: var(--primary); font-weight: 500;"></span>
                 <button onclick="logout()" class="btn btn-ghost">
@@ -49,7 +396,7 @@
                     로그아웃
                 </button>
             </div>
-            
+
             <!-- Mobile Menu Button -->
             <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="메뉴 열기">
                 <span></span>
@@ -58,14 +405,15 @@
             </button>
         </div>
     </nav>
-    
+
     <!-- Mobile Navigation -->
     <div class="mobile-nav" id="mobile-nav">
         <a href="index.html">홈</a>
         <a href="dashboard.html" class="active" style="color: var(--primary);">대시보드</a>
         <a href="blog.html">블로그</a>
         <div class="nav-divider"></div>
-        <span id="mobile-user-name" style="color: var(--primary); font-weight: 500; text-align: center; display: block;"></span>
+        <span id="mobile-user-name"
+            style="color: var(--primary); font-weight: 500; text-align: center; display: block;"></span>
         <button onclick="logout(); closeMobileMenu();" class="btn btn-ghost" style="width: 100%; max-width: 400px;">
             <i data-lucide="log-out" style="width: 18px; height: 18px;"></i>
             로그아웃
@@ -74,30 +422,56 @@
 
     <!-- Dashboard Container -->
     <div class="container dashboard-container">
-        <div class="dashboard-header fade-in-up">
-            <h1 style="font-size: 2rem; margin-bottom: 8px;">내 프로젝트</h1>
-            <p style="color: var(--text-muted);">진행 중인 ISO 인증 프로젝트를 관리하세요.</p>
+        <div class="dashboard-header fade-in-up"
+            style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+            <div>
+                <h1 style="font-size: 2rem; margin-bottom: 8px;">내 견적 요청</h1>
+                <p style="color: var(--text-muted);">전문가에게 요청한 견적 현황을 확인하세요.</p>
+            </div>
+            <a href="index.html#diagnosis" class="btn btn-primary"
+                onclick="localStorage.removeItem('lastAnalysisResult');">
+                <i data-lucide="plus" style="width: 18px; height: 18px;"></i>
+                새 진단 시작하기
+            </a>
         </div>
-        
+
         <div id="project-list">
             <div class="card" style="text-align: center; padding: 60px;">
                 <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
-                <p style="color: var(--text-muted);">프로젝트를 불러오는 중...</p>
+                <p style="color: var(--text-muted);">견적 요청을 불러오는 중...</p>
             </div>
         </div>
-        
+
         <!-- Empty State -->
         <div id="empty-state" class="hidden">
             <div class="card" style="text-align: center; padding: 60px;">
-                <div style="width: 80px; height: 80px; margin: 0 auto 24px; background: var(--bg-card-hover); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                <div
+                    style="width: 80px; height: 80px; margin: 0 auto 24px; background: var(--bg-card-hover); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
                     <i data-lucide="folder-open" style="width: 40px; height: 40px; color: var(--text-muted);"></i>
                 </div>
-                <h3 style="margin-bottom: 12px;">진행 중인 프로젝트가 없습니다</h3>
-                <p style="color: var(--text-muted); margin-bottom: 24px;">AI 진단을 통해 새로운 프로젝트를 시작해보세요.</p>
+                <h3 style="margin-bottom: 12px;">진행 중인 견적 요청이 없습니다</h3>
+                <p style="color: var(--text-muted); margin-bottom: 24px;">전문가 추천을 받고 견적을 요청해보세요.</p>
                 <a href="index.html#diagnosis" class="btn btn-primary">
                     <i data-lucide="plus" style="width: 18px; height: 18px;"></i>
-                    새 프로젝트 시작하기
+                    전문가 추천받기
                 </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Consultant Profile Modal -->
+    <div id="consultant-modal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeModal()"></div>
+        <div class="modal-content card" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
+            <div class="modal-header"
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h3 style="margin: 0;">컨설턴트 프로필</h3>
+                <button onclick="closeModal()" class="btn btn-ghost" style="padding: 8px;">
+                    <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+                </button>
+            </div>
+            <div id="modal-body">
+                <!-- Dynamic content -->
             </div>
         </div>
     </div>
@@ -114,31 +488,31 @@
 
     <script>
         lucide.createIcons();
-        
+
         // Mobile Menu Toggle
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
         const mobileNav = document.getElementById('mobile-nav');
-        
+
         function toggleMobileMenu() {
             mobileMenuBtn.classList.toggle('active');
             mobileNav.classList.toggle('active');
             document.body.style.overflow = mobileNav.classList.contains('active') ? 'hidden' : '';
         }
-        
+
         function closeMobileMenu() {
             mobileMenuBtn.classList.remove('active');
             mobileNav.classList.remove('active');
             document.body.style.overflow = '';
         }
-        
+
         mobileMenuBtn.addEventListener('click', toggleMobileMenu);
-        
+
         window.addEventListener('resize', () => {
             if (window.innerWidth > 768) {
                 closeMobileMenu();
             }
         });
-        
+
         // Auth Check
         const user = JSON.parse(localStorage.getItem('user'));
         const token = localStorage.getItem('token');
@@ -150,186 +524,364 @@
         document.getElementById('user-name').textContent = `${user.name}님`;
         document.getElementById('mobile-user-name').textContent = `${user.name}님`;
 
-        // API Base URL 설정
+        // API Base URL
         const API_BASE_URL = (() => {
             if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                 return 'http://localhost:5000';
             }
             return '';
         })();
-        
-        // 디버깅 정보 출력
-        console.log('사용자 정보:', user);
-        console.log('사용자 ID:', user.id);
+
+        // 프로젝트 상태 설정
+        const STATUS_CONFIG = {
+            'proposal_pending': { text: '제안서 대기', stage: 1, stageText: '제안서 대기' },
+            'reviewing': { text: '검토 중', stage: 2, stageText: '검토 중' },
+            'contracted': { text: '계약 완료', stage: 3, stageText: '계약 체결' },
+            'in_progress': { text: '진행 중', stage: 3, stageText: '계약 체결' },
+            'completed': { text: '완료', stage: 3, stageText: '계약 체결' },
+            'planning': { text: '제안서 대기', stage: 1, stageText: '제안서 대기' } // 기존 호환
+        };
 
         async function fetchProjects() {
             try {
                 const apiUrl = `${API_BASE_URL}/api/projects?user_id=${user.id}`;
-                console.log('API 요청 URL:', apiUrl);
                 const response = await fetch(apiUrl);
-                
-                // HTTP 에러 응답 처리
+
                 if (!response.ok) {
-                    let errorMessage = '프로젝트를 불러오지 못했습니다.';
-                    try {
-                        const errorData = await response.json();
-                        errorMessage = errorData.message || errorMessage;
-                    } catch (e) {
-                        // JSON 파싱 실패 시 기본 메시지 사용
-                        if (response.status === 400) {
-                            errorMessage = '잘못된 요청입니다. 사용자 정보를 확인해주세요.';
-                        } else if (response.status === 500) {
-                            errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
-                        } else if (response.status === 0 || response.status >= 500) {
-                            errorMessage = '서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.';
-                        }
-                    }
-                    
-                    document.getElementById('project-list').innerHTML = `
-                        <div class="card" style="text-align: center; padding: 40px;">
-                            <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: var(--error); margin-bottom: 16px;"></i>
-                            <p style="color: var(--text-muted); margin-bottom: 8px;">${errorMessage}</p>
-                            <p style="color: var(--text-muted); font-size: 0.85rem;">상태 코드: ${response.status}</p>
-                        </div>
-                    `;
-                    lucide.createIcons();
-                    console.error('API 에러:', response.status, errorMessage);
-                    return;
+                    throw new Error('Failed to fetch projects');
                 }
-                
+
                 const projects = await response.json();
-                
-                // 응답이 배열이 아닌 경우 처리
-                if (!Array.isArray(projects)) {
-                    console.error('예상치 못한 응답 형식:', projects);
-                    document.getElementById('project-list').innerHTML = `
-                        <div class="card" style="text-align: center; padding: 40px;">
-                            <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: var(--error); margin-bottom: 16px;"></i>
-                            <p style="color: var(--text-muted);">서버 응답 형식이 올바르지 않습니다.</p>
-                        </div>
-                    `;
-                    lucide.createIcons();
-                    return;
-                }
-                
-                if (projects.length === 0) {
+
+                if (!Array.isArray(projects) || projects.length === 0) {
                     document.getElementById('project-list').classList.add('hidden');
                     document.getElementById('empty-state').classList.remove('hidden');
-                } else {
-                    renderProjects(projects);
+                    return;
                 }
+
+                // 같은 title로 그룹화 (같은 견적 요청에서 온 프로젝트들)
+                const grouped = groupProjectsByTitle(projects);
+                renderGroupedProjects(grouped);
+
             } catch (error) {
                 console.error('프로젝트 로딩 에러:', error);
-                let errorMessage = '프로젝트를 불러오지 못했습니다.';
-                
-                // 네트워크 에러인 경우
-                if (error instanceof TypeError && error.message.includes('fetch')) {
-                    errorMessage = '서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.';
-                }
-                
                 document.getElementById('project-list').innerHTML = `
                     <div class="card" style="text-align: center; padding: 40px;">
                         <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: var(--error); margin-bottom: 16px;"></i>
-                        <p style="color: var(--text-muted); margin-bottom: 8px;">${errorMessage}</p>
-                        <p style="color: var(--text-muted); font-size: 0.85rem;">에러: ${error.message}</p>
+                        <p style="color: var(--text-muted);">프로젝트를 불러오지 못했습니다.</p>
                     </div>
                 `;
                 lucide.createIcons();
             }
         }
 
-        function renderProjects(projects) {
+        function groupProjectsByTitle(projects) {
+            const groups = {};
+            projects.forEach(p => {
+                // title을 키로 사용하여 그룹화
+                const key = p.title || 'Unknown';
+                if (!groups[key]) {
+                    groups[key] = {
+                        title: key,
+                        created_at: p.start_date,
+                        projects: []
+                    };
+                }
+                groups[key].projects.push(p);
+            });
+            return Object.values(groups);
+        }
+
+        function renderGroupedProjects(groups) {
             const container = document.getElementById('project-list');
             container.innerHTML = '';
 
-            projects.forEach((p, index) => {
+            groups.forEach((group, index) => {
                 const card = document.createElement('div');
-                card.className = 'project-card fade-in-up';
+                card.className = 'quote-request-card fade-in-up';
                 card.style.animationDelay = `${index * 0.1}s`;
 
-                let milestonesHtml = '';
-                const totalMilestones = p.milestones.length;
-                const completedMilestones = p.milestones.filter(m => m.status === 'completed').length;
-                const progress = totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0;
-                
-                p.milestones.forEach(m => {
-                    const isCompleted = m.status === 'completed' ? 'completed' : '';
-                    milestonesHtml += `
-                        <li class="milestone-item ${isCompleted}">
-                            <div class="milestone-status">
-                                ${m.status === 'completed' ? '<i data-lucide="check" style="width: 12px; height: 12px; color: white;"></i>' : ''}
-                            </div>
-                            <span>${m.title}</span>
-                        </li>
-                    `;
-                });
+                // 첫 번째 프로젝트의 상태를 기준으로 전체 상태 결정
+                const firstProject = group.projects[0];
+                const overallStatus = firstProject.status || 'proposal_pending';
+                const statusInfo = STATUS_CONFIG[overallStatus] || STATUS_CONFIG['proposal_pending'];
 
-                const statusConfig = {
-                    'planning': { text: '계획 중', class: 'status-planning' },
-                    'in_progress': { text: '진행 중', class: 'status-in_progress' },
-                    'completed': { text: '완료', class: 'status-completed' }
-                };
-                const status = statusConfig[p.status] || statusConfig['planning'];
+                // 응답 현황 계산
+                const totalConsultants = group.projects.length;
+                const respondedConsultants = group.projects.filter(p =>
+                    p.proposal_status === 'submitted' || p.status === 'contracted' || p.status === 'in_progress'
+                ).length;
+
+                // Stage indicator HTML 생성
+                const stageHtml = generateStageIndicator(statusInfo.stage);
+
+                // 컨설턴트 응답 카드 HTML 생성
+                const responsesHtml = group.projects.map(p => generateConsultantResponseCard(p)).join('');
 
                 card.innerHTML = `
-                    <div class="project-header">
+                    <!-- Header -->
+                    <div class="quote-request-header">
                         <div>
-                            <h3 style="font-size: 1.25rem; margin-bottom: 8px;">${p.title}</h3>
-                            <p style="color: var(--text-muted); font-size: 0.9rem;">
-                                <i data-lucide="user" style="width: 14px; height: 14px; display: inline; vertical-align: middle; margin-right: 4px;"></i>
-                                담당 컨설턴트: ${p.consultant_name}
-                            </p>
+                            <div class="quote-request-title">${group.title}</div>
+                            <div class="quote-request-meta">
+                                <span>
+                                    <i data-lucide="calendar" style="width: 14px; height: 14px;"></i>
+                                    요청일: ${formatDate(group.created_at)}
+                                </span>
+                                <span>
+                                    <i data-lucide="users" style="width: 14px; height: 14px;"></i>
+                                    전문가 ${totalConsultants}명에게 요청
+                                </span>
+                            </div>
                         </div>
-                        <span class="status-badge ${status.class}">${status.text}</span>
+                        <span class="status-badge status-${overallStatus}">${statusInfo.text}</span>
                     </div>
                     
-                    <div style="margin-bottom: 20px;">
-                        <div class="flex justify-between items-center" style="margin-bottom: 8px;">
-                            <span style="font-size: 0.9rem; color: var(--text-muted);">진행률</span>
-                            <span style="font-size: 0.9rem; color: var(--primary); font-weight: 600;">${progress}%</span>
+                    <!-- Stage Indicator -->
+                    ${stageHtml}
+                    
+                    <!-- Consultant Responses -->
+                    <div class="consultant-responses">
+                        <div class="response-header">
+                            <h4 style="margin: 0; font-size: 1rem;">전문가 응답 현황</h4>
+                            <span class="response-count"><strong>${respondedConsultants}</strong>/${totalConsultants}명 응답</span>
                         </div>
-                        <div class="trust-score-bar">
-                            <div class="trust-score-fill" style="width: ${progress}%;"></div>
-                        </div>
+                        ${responsesHtml}
                     </div>
                     
-                    <ul class="milestone-list">
-                        ${milestonesHtml}
-                    </ul>
-                    
-                    <div class="flex justify-end gap-2" style="margin-top: 24px;">
-                        <button class="btn btn-secondary btn-sm" onclick="downloadProposal(${p.id})">
-                            <i data-lucide="file-text" style="width: 16px; height: 16px;"></i>
-                            제안서 다운로드
+                    ${overallStatus === 'contracted' || overallStatus === 'in_progress' ? `
+                    <!-- Contract Section -->
+                    <div class="contract-section">
+                        <div class="contract-info">
+                            <i data-lucide="check-circle" style="width: 18px; height: 18px; color: var(--primary); vertical-align: middle;"></i>
+                            계약이 체결되었습니다. 프로젝트가 진행 중입니다.
+                        </div>
+                    </div>
+                    ` : `
+                    <!-- Project Actions (제안서 대기 상태에서만) -->
+                    <div class="project-actions" style="padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                        <button class="btn btn-secondary btn-sm" onclick="openAddConsultantModal('${group.title.replace(/'/g, "\\'")}')">
+                            <i data-lucide="user-plus" style="width: 14px; height: 14px;"></i>
+                            다른 전문가에게도 요청
                         </button>
-                        ${p.status === 'planning' ? `
-                            <button class="btn btn-primary btn-sm" onclick="signContract(${p.id})">
-                                <i data-lucide="pen-tool" style="width: 16px; height: 16px;"></i>
-                                계약 체결
-                            </button>
-                        ` : ''}
+                        <button class="btn btn-ghost btn-sm" style="color: var(--error);" onclick="deleteQuoteRequestGroup('${group.title.replace(/'/g, "\\'")}')">
+                            <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                            전체 삭제
+                        </button>
                     </div>
+                    `}
                 `;
+
                 container.appendChild(card);
             });
-            
+
             lucide.createIcons();
+        }
+
+        function generateStageIndicator(currentStage) {
+            const stages = [
+                { num: 1, text: '제안서 대기' },
+                { num: 2, text: '검토 중' },
+                { num: 3, text: '계약 체결' }
+            ];
+
+            let html = '<div class="stage-indicator">';
+
+            stages.forEach((stage, index) => {
+                const isActive = stage.num === currentStage;
+                const isCompleted = stage.num < currentStage;
+                const stageClass = isActive ? 'active' : (isCompleted ? 'completed' : '');
+
+                html += `
+                    <div class="stage-step ${stageClass}">
+                        <div class="stage-dot">
+                            ${isCompleted ? '<i data-lucide="check" style="width: 14px; height: 14px;"></i>' : stage.num}
+                        </div>
+                        <span>${stage.text}</span>
+                    </div>
+                `;
+
+                if (index < stages.length - 1) {
+                    const lineClass = isCompleted || isActive ? 'completed' : '';
+                    html += `<div class="stage-line ${lineClass}"></div>`;
+                }
+            });
+
+            html += '</div>';
+            return html;
+        }
+
+        function generateConsultantResponseCard(project) {
+            const isSubmitted = project.proposal_status === 'submitted';
+            const isContracted = project.status === 'contracted' || project.status === 'in_progress';
+            const isPending = !isSubmitted && !isContracted;
+
+            const cardClass = isContracted ? 'selected' : (isPending ? 'pending' : '');
+            const statusClass = isSubmitted ? 'submitted' : 'pending';
+            const statusText = isContracted ? '계약 완료' : (isSubmitted ? '제안서 도착' : '응답 대기');
+
+            // 견적 정보 (임시 데이터 - 실제로는 proposal_data에서 가져옴)
+            const proposalData = project.proposal_data ? JSON.parse(project.proposal_data) : null;
+            const estimatedCost = proposalData?.cost || '협의 필요';
+            const estimatedDuration = proposalData?.duration || '협의 필요';
+
+            return `
+                <div class="consultant-response-card ${cardClass}">
+                    <div class="response-card-header">
+                        <div class="consultant-avatar-large">${project.consultant_name?.charAt(0) || '?'}</div>
+                        <div class="consultant-info-main">
+                            <div class="consultant-name-row">
+                                <h4>${project.consultant_name || '컨설턴트'}</h4>
+                                <i data-lucide="badge-check" class="verified-badge-small"></i>
+                            </div>
+                            <div class="consultant-specialty">ISO 인증 전문가</div>
+                            <div class="consultant-stats">
+                                <span>
+                                    <i data-lucide="star" style="width: 14px; height: 14px; color: #f59e0b;"></i>
+                                    4.9
+                                </span>
+                                <span>
+                                    <i data-lucide="briefcase" style="width: 14px; height: 14px;"></i>
+                                    15년 경력
+                                </span>
+                            </div>
+                        </div>
+                        <span class="response-status ${statusClass}">${statusText}</span>
+                    </div>
+                    
+                    ${isSubmitted && !isContracted ? `
+                    <div class="proposal-preview">
+                        <div class="proposal-preview-row">
+                            <span class="proposal-label">예상 비용</span>
+                            <span class="proposal-value highlight">${estimatedCost}</span>
+                        </div>
+                        <div class="proposal-preview-row">
+                            <span class="proposal-label">예상 기간</span>
+                            <span class="proposal-value">${estimatedDuration}</span>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <div class="response-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="viewConsultantProfile(${project.consultant_id})">
+                            <i data-lucide="user" style="width: 14px; height: 14px;"></i>
+                            프로필 보기
+                        </button>
+                        ${isSubmitted && !isContracted ? `
+                        <button class="btn btn-secondary btn-sm" onclick="downloadProposal(${project.id})">
+                            <i data-lucide="file-text" style="width: 14px; height: 14px;"></i>
+                            제안서 보기
+                        </button>
+                        <button class="btn btn-primary btn-sm" onclick="selectConsultant(${project.id})">
+                            <i data-lucide="check" style="width: 14px; height: 14px;"></i>
+                            이 전문가 선택
+                        </button>
+                        ` : ''}
+                        ${isPending ? `
+                        <button class="btn btn-ghost btn-sm" style="color: var(--text-muted);" onclick="cancelConsultantRequest(${project.id}, '${project.consultant_name?.replace(/'/g, "\\'")}')">
+                            <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+                            요청 취소
+                        </button>
+                        ` : ''}
+                        ${isContracted ? `
+                        <button class="btn btn-primary btn-sm" onclick="viewProjectProgress(${project.id})">
+                            <i data-lucide="activity" style="width: 14px; height: 14px;"></i>
+                            진행 현황 보기
+                        </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+        }
+
+        async function viewConsultantProfile(consultantId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/consultants/${consultantId}`);
+                if (!response.ok) throw new Error('Failed to fetch consultant');
+
+                const consultant = await response.json();
+
+                document.getElementById('modal-body').innerHTML = `
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <div class="consultant-avatar-large" style="width: 80px; height: 80px; font-size: 2rem; margin: 0 auto 16px;">
+                            ${consultant.avatar || consultant.name?.charAt(0) || '?'}
+                        </div>
+                        <h3 style="margin: 0 0 4px;">${consultant.name}</h3>
+                        <p style="color: var(--text-muted); margin: 0;">${consultant.specialty || '컨설턴트'}</p>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
+                        <div style="text-align: center; padding: 16px; background: var(--bg-card); border-radius: var(--radius-md);">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">${consultant.rating || 5.0}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">평점</div>
+                        </div>
+                        <div style="text-align: center; padding: 16px; background: var(--bg-card); border-radius: var(--radius-md);">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">${consultant.experience || '10년'}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">경력</div>
+                        </div>
+                        <div style="text-align: center; padding: 16px; background: var(--bg-card); border-radius: var(--radius-md);">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">${consultant.reviews || 0}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">리뷰</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 16px;">
+                        <h4 style="font-size: 0.95rem; margin-bottom: 8px;">전문 분야</h4>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem;">${consultant.matchReason || '다양한 ISO 인증 경험 보유'}</p>
+                    </div>
+                    
+                    ${consultant.isoExperience && Object.keys(consultant.isoExperience).length > 0 ? `
+                    <div style="margin-bottom: 16px;">
+                        <h4 style="font-size: 0.95rem; margin-bottom: 8px;">ISO 경험</h4>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            ${Object.entries(consultant.isoExperience).map(([iso, role]) => `
+                                <span style="padding: 4px 10px; background: rgba(16, 185, 129, 0.1); color: var(--primary); border-radius: 100px; font-size: 0.8rem;">${iso}</span>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    ${consultant.verified ? `
+                    <div style="background: rgba(16, 185, 129, 0.1); padding: 12px 16px; border-radius: var(--radius-md); display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="badge-check" style="width: 20px; height: 20px; color: var(--primary);"></i>
+                        <span style="color: var(--primary); font-weight: 500;">인증된 전문가</span>
+                    </div>
+                    ` : ''}
+                `;
+
+                document.getElementById('consultant-modal').classList.remove('hidden');
+                lucide.createIcons();
+
+            } catch (error) {
+                console.error('컨설턴트 정보 로딩 실패:', error);
+                showNotification('컨설턴트 정보를 불러올 수 없습니다.', 'error');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('consultant-modal').classList.add('hidden');
         }
 
         async function downloadProposal(projectId) {
             window.location.href = `${API_BASE_URL}/api/projects/${projectId}/proposal`;
         }
 
-        async function signContract(projectId) {
-            if (!confirm('계약을 체결하시겠습니까?\n프로젝트 상태가 "진행 중"으로 변경됩니다.')) return;
+        async function selectConsultant(projectId) {
+            if (!confirm('이 전문가를 선택하고 계약을 진행하시겠습니까?')) return;
 
             try {
                 const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/sign`, {
                     method: 'POST'
                 });
-                
+
                 if (response.ok) {
-                    showNotification('계약이 체결되었습니다.', 'success');
+                    showNotification('계약이 체결되었습니다! 프로젝트가 시작됩니다.', 'success');
                     fetchProjects();
                 } else {
                     showNotification('처리에 실패했습니다.', 'error');
@@ -340,21 +892,28 @@
             }
         }
 
+        function viewProjectProgress(projectId) {
+            // TODO: 프로젝트 상세 페이지로 이동
+            showNotification('프로젝트 상세 페이지는 준비 중입니다.', 'info');
+        }
+
         function logout() {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.href = 'index.html';
         }
-        
+
         function showNotification(message, type) {
             const existing = document.querySelector('.notification');
             if (existing) existing.remove();
-            
+
             const notification = document.createElement('div');
             notification.className = 'notification';
-            
-            const bgColor = type === 'success' ? 'rgba(16, 185, 129, 0.9)' : 'rgba(239, 68, 68, 0.9)';
-            
+
+            const bgColor = type === 'success' ? 'rgba(16, 185, 129, 0.9)' :
+                type === 'error' ? 'rgba(239, 68, 68, 0.9)' :
+                    'rgba(59, 130, 246, 0.9)';
+
             notification.style.cssText = `
                 position: fixed;
                 top: 100px;
@@ -372,9 +931,191 @@
                 box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             `;
             notification.textContent = message;
-            
+
             document.body.appendChild(notification);
             setTimeout(() => notification.remove(), 3000);
+        }
+
+        // Modal styles
+        const modalStyles = document.createElement('style');
+        modalStyles.textContent = `
+            .modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 9999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 24px;
+            }
+            .modal.hidden {
+                display: none;
+            }
+            .modal-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.7);
+                backdrop-filter: blur(4px);
+            }
+            .modal-content {
+                position: relative;
+                z-index: 1;
+                width: 100%;
+            }
+        `;
+        document.head.appendChild(modalStyles);
+
+        // ===== Phase 2: Delete Quote Request Group =====
+        async function deleteQuoteRequestGroup(title) {
+            if (!confirm(`"${title}" 요청을 전체 삭제하시겠습니까?\n\n모든 컨설턴트에 대한 요청이 삭제됩니다.`)) {
+                return;
+            }
+
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (!user) return;
+
+            try {
+                // 해당 title을 가진 모든 프로젝트 조회
+                const response = await fetch(`${API_BASE_URL}/api/projects?user_id=${user.id}`);
+                const projects = await response.json();
+
+                const projectsToDelete = projects.filter(p => p.title === title &&
+                    !['contracted', 'in_progress', 'completed'].includes(p.status));
+
+                if (projectsToDelete.length === 0) {
+                    showNotification('삭제할 수 있는 프로젝트가 없습니다.', 'error');
+                    return;
+                }
+
+                // 모든 프로젝트 삭제
+                for (const project of projectsToDelete) {
+                    await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
+                        method: 'DELETE'
+                    });
+                }
+
+                showNotification('요청이 삭제되었습니다.', 'success');
+                fetchProjects(); // 새로고침
+            } catch (error) {
+                console.error('Delete error:', error);
+                showNotification('삭제 중 오류가 발생했습니다.', 'error');
+            }
+        }
+
+        // ===== Phase 3: Cancel single consultant request =====
+        async function cancelConsultantRequest(projectId, consultantName) {
+            if (!confirm(`${consultantName}에게 보낸 요청을 취소하시겠습니까?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showNotification(`${consultantName}에 대한 요청이 취소되었습니다.`, 'success');
+                    fetchProjects();
+                } else {
+                    const error = await response.json();
+                    showNotification(error.message || '취소에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                console.error('Cancel error:', error);
+                showNotification('취소 중 오류가 발생했습니다.', 'error');
+            }
+        }
+
+        // ===== Phase 3: Add consultant modal =====
+        let currentAddTitle = '';
+
+        async function openAddConsultantModal(title) {
+            currentAddTitle = title;
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (!user) return;
+
+            // 사용 가능한 컨설턴트 조회
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(title)}/available-consultants?user_id=${user.id}`);
+                const consultants = await response.json();
+
+                if (!Array.isArray(consultants) || consultants.length === 0) {
+                    showNotification('추가로 요청할 수 있는 전문가가 없습니다.', 'info');
+                    return;
+                }
+
+                // 모달 내용 생성
+                const consultantCards = consultants.map(c => `
+                    <div class="add-consultant-item" style="display: flex; align-items: center; justify-content: space-between; padding: 16px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="consultant-avatar-large" style="width: 48px; height: 48px; font-size: 1.2rem;">${c.name?.charAt(0) || '?'}</div>
+                            <div>
+                                <div style="font-weight: 600;">${c.name}</div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted);">${c.specialty || 'ISO 전문가'}</div>
+                                <div style="display: flex; gap: 8px; margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary);">
+                                    <span>⭐ ${c.rating || '-'}</span>
+                                    <span>경력 ${c.experience || '-'}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary btn-sm" onclick="addConsultant(${c.id}, '${c.name?.replace(/'/g, "\\'")}')">
+                            <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+                            요청
+                        </button>
+                    </div>
+                `).join('');
+
+                document.getElementById('modal-body').innerHTML = `
+                    <h3 style="margin-bottom: 16px;">다른 전문가에게도 요청</h3>
+                    <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.9rem;">
+                        "${title}" 프로젝트에 추가로 전문가를 요청합니다.
+                    </p>
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        ${consultantCards}
+                    </div>
+                `;
+
+                document.getElementById('consultant-modal').classList.remove('hidden');
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Error loading consultants:', error);
+                showNotification('전문가 목록을 불러오는데 실패했습니다.', 'error');
+            }
+        }
+
+        async function addConsultant(consultantId, consultantName) {
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (!user) return;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/add-consultant`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: user.id,
+                        consultant_id: consultantId,
+                        title: currentAddTitle
+                    })
+                });
+
+                if (response.ok) {
+                    showNotification(`${consultantName}에게 견적 요청을 추가했습니다.`, 'success');
+                    closeModal();
+                    fetchProjects();
+                } else {
+                    const error = await response.json();
+                    showNotification(error.message || '추가에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                console.error('Add consultant error:', error);
+                showNotification('추가 중 오류가 발생했습니다.', 'error');
+            }
         }
 
         fetchProjects();

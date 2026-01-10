@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const action = urlParams.get('action');
 
         if (action === 'find-others') {
-            // User clicked "AI로 다른 전문가 찾기" from consultant profile
+            // User clicked "다른 전문가 찾기" from consultant profile
             const savedResult = localStorage.getItem('lastAnalysisResult');
             const savedTime = localStorage.getItem('lastAnalysisTime');
 
@@ -147,6 +147,9 @@ document.addEventListener('DOMContentLoaded', () => {
             refreshContainer.classList.add('hidden');
         }
 
+        // ===== Auto-fill user info =====
+        prefillUserInfo();
+
         // Scroll to diagnosis section
         const diagnosisSection = document.getElementById('diagnosis');
         if (diagnosisSection) {
@@ -155,6 +158,25 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 100);
         }
     }
+
+    // ===== Prefill user info from localStorage =====
+    function prefillUserInfo() {
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (user) {
+            const companyNameInput = document.getElementById('companyName');
+            const contactEmailInput = document.getElementById('contactEmail');
+
+            if (companyNameInput && user.name) {
+                companyNameInput.value = user.name;
+            }
+            if (contactEmailInput && user.email) {
+                contactEmailInput.value = user.email;
+            }
+        }
+    }
+
+    // Call prefillUserInfo on initial page load as well
+    prefillUserInfo();
 
     // --- Bind Reset to Navigation Links ---
     document.querySelectorAll('a[href="#diagnosis"]').forEach(link => {
@@ -228,6 +250,74 @@ document.addEventListener('DOMContentLoaded', () => {
         return isValid;
     }
 
+    // --- Selected Standards Preview ---
+    function updateSelectedStandardsPreview() {
+        const selectedCheckboxes = document.querySelectorAll('input[name="standards"]:checked');
+        const previewContainer = document.getElementById('selected-standards-preview');
+        const previewText = document.getElementById('selected-standards-text');
+
+        if (!previewContainer || !previewText) return;
+
+        if (selectedCheckboxes.length === 0) {
+            previewContainer.classList.add('hidden');
+        } else {
+            previewContainer.classList.remove('hidden');
+            const standardNames = Array.from(selectedCheckboxes).map(cb => {
+                // Extract short name from value (e.g., "ISO 9001:2015" -> "ISO 9001")
+                return cb.value.split(':')[0];
+            });
+            previewText.textContent = standardNames.join(', ');
+        }
+    }
+
+    // --- Issue-Based ISO Recommendations ---
+    function updateRecommendedISO() {
+        const selectedIssues = document.querySelectorAll('input[name="issues"]:checked');
+        const previewContainer = document.getElementById('recommended-iso-preview');
+        const listContainer = document.getElementById('recommended-iso-list');
+
+        if (!previewContainer || !listContainer) return;
+
+        // Collect all related ISO from selected issues
+        const recommendedSet = new Set();
+        selectedIssues.forEach(checkbox => {
+            const relatedISO = checkbox.dataset.iso;
+            if (relatedISO) {
+                relatedISO.split(',').forEach(iso => recommendedSet.add(iso.trim()));
+            }
+        });
+
+        // Filter out already selected standards
+        const selectedStandards = new Set(
+            Array.from(document.querySelectorAll('input[name="standards"]:checked')).map(cb => cb.value)
+        );
+
+        const newRecommendations = Array.from(recommendedSet).filter(iso => !selectedStandards.has(iso));
+
+        if (newRecommendations.length === 0) {
+            previewContainer.classList.add('hidden');
+        } else {
+            previewContainer.classList.remove('hidden');
+            listContainer.innerHTML = newRecommendations.map(iso =>
+                `<span class="iso-tag">${iso.split(':')[0]}</span>`
+            ).join('');
+
+            // Re-initialize Lucide icons
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+    }
+
+    // --- Bind listeners for real-time updates ---
+    document.querySelectorAll('input[name="standards"]').forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelectedStandardsPreview);
+    });
+
+    document.querySelectorAll('input[name="issues"]').forEach(checkbox => {
+        checkbox.addEventListener('change', updateRecommendedISO);
+    });
+
     // --- Notification System ---
     function showNotification(message, type = 'info') {
         // Remove existing notifications
@@ -281,59 +371,90 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 4000);
     }
 
-    // --- Form Submission & Analysis ---
+    // --- Form Submission & Direct Matching ---
     if (intakeForm) {
         intakeForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            // Collect Data
+            // Collect Data from new 4-step form
             const formData = {
                 companyName: document.getElementById('companyName')?.value || '',
-                companyUrl: document.getElementById('companyUrl')?.value || '',
-                crno: document.getElementById('crno')?.value.replace(/-/g, '') || '', // 법인등록번호 (하이픈 제거)
-                bzno: document.getElementById('bzno')?.value.replace(/-/g, '') || '', // 사업자등록번호 (하이픈 제거)
+                contactEmail: document.getElementById('contactEmail')?.value || '',
                 industry: document.getElementById('industry')?.value || '',
                 employees: document.getElementById('employees')?.value || '',
+                region: document.getElementById('region')?.value || '',
                 standards: Array.from(document.querySelectorAll('input[name="standards"]:checked')).map(cb => cb.value),
+                issues: Array.from(document.querySelectorAll('input[name="issues"]:checked')).map(cb => ({
+                    id: cb.value,
+                    relatedISO: cb.dataset.iso?.split(',') || []
+                })),
+                reasons: Array.from(document.querySelectorAll('input[name="reasons"]:checked')).map(cb => cb.value),
                 certStatus: document.getElementById('certStatus')?.value || 'None',
-                readiness: document.getElementById('readiness')?.value || 'Initial',
-                targetDate: document.getElementById('targetDate')?.value || '',
-                budget: document.getElementById('budget')?.value || 'Undecided'
+                timeline: document.getElementById('timeline')?.value || 'flexible',
+                budget: document.getElementById('budget')?.value || 'unknown',
+                additionalNotes: document.getElementById('additionalNotes')?.value || ''
             };
 
             // Validate at least one standard is selected
             if (formData.standards.length === 0) {
                 showNotification('최소 하나의 관심 인증을 선택해주세요.', 'error');
+                showStep(2); // Go back to step 2 (standards selection)
                 return;
             }
 
-            // Hide form, show loading
+            // Hide form, show simple loading
             if (intakeForm) {
                 intakeForm.style.display = 'none';
             }
             if (loadingOverlay) {
                 loadingOverlay.classList.remove('hidden');
                 loadingOverlay.style.display = 'flex';
+                // Update loading text for faster matching
+                const loadingStatus = document.getElementById('loading-status');
+                if (loadingStatus) {
+                    loadingStatus.textContent = '전문가를 찾고 있습니다...';
+                }
             }
 
             try {
-                // 1. Start Analysis Job
-                const response = await fetch('/api/analyze', {
+                // Direct matching - no AI analysis
+                const response = await fetch('/api/match', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
                 });
 
-                if (!response.ok) throw new Error('Analysis request failed');
+                if (!response.ok) throw new Error('Matching request failed');
 
-                const { job_id } = await response.json();
+                const result = await response.json();
 
-                // 2. Poll for Results
-                pollForResults(job_id);
+                // Quick progress animation
+                const progressFill = document.getElementById('progress-fill');
+                const progressPercentage = document.getElementById('progress-percentage');
+
+                if (progressFill) progressFill.style.width = '100%';
+                if (progressPercentage) progressPercentage.textContent = '100%';
+
+                // Short delay then show results
+                setTimeout(() => {
+                    displayMatchResults(result);
+
+                    // Hide loading
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.add('hidden');
+                        loadingOverlay.style.display = 'none';
+                    }
+
+                    // Show results
+                    if (resultsSection) {
+                        resultsSection.classList.remove('hidden');
+                        resultsSection.scrollIntoView({ behavior: 'smooth' });
+                    }
+                }, 500);
 
             } catch (error) {
                 console.error('Error:', error);
-                showNotification('분석 중 오류가 발생했습니다. 다시 시도해주세요.', 'error');
+                showNotification('매칭 중 오류가 발생했습니다. 다시 시도해주세요.', 'error');
                 if (loadingOverlay) {
                     loadingOverlay.classList.add('hidden');
                     loadingOverlay.style.display = 'none';
@@ -344,6 +465,78 @@ document.addEventListener('DOMContentLoaded', () => {
                 showStep(currentStep);
             }
         });
+    }
+
+    // --- Display Match Results (Simplified - No Risk Score) ---
+    function displayMatchResults(result) {
+        // Save result to localStorage for later use
+        try {
+            localStorage.setItem('lastMatchResult', JSON.stringify(result));
+            localStorage.setItem('lastMatchTime', new Date().toISOString());
+        } catch (e) {
+            console.warn('Could not save match result to localStorage:', e);
+        }
+
+        // Update Company Title
+        const titleEl = document.getElementById('result-company-title');
+        if (titleEl) {
+            titleEl.textContent = `${result.company_name || '기업'} 컨설턴트 추천`;
+        }
+
+        // Update Summary - Show selected standards
+        const summaryEl = document.getElementById('ai-summary-text');
+        if (summaryEl) {
+            const selectedStandards = result.selected_standards || [];
+            const recommendedStandards = result.recommended_standards || [];
+
+            let summaryHTML = `<strong>선택하신 인증:</strong> ${selectedStandards.join(', ') || '없음'}`;
+
+            if (recommendedStandards.length > 0) {
+                summaryHTML += `<br><br><strong>🔔 이슈 기반 추천 인증:</strong> ${recommendedStandards.join(', ')}`;
+            }
+
+            if (result.issues_summary) {
+                summaryHTML += `<br><br><strong>주요 경영 이슈:</strong> ${result.issues_summary}`;
+            }
+
+            summaryEl.innerHTML = summaryHTML;
+        }
+
+        // Hide risk score section (not used in survey-based matching)
+        const scoreCard = document.querySelector('.score-card');
+        if (scoreCard) {
+            scoreCard.style.display = 'none';
+        }
+
+        // Hide data dashboard and evidence sections
+        const dataDashboard = document.getElementById('data-dashboard');
+        const evidenceSection = document.getElementById('evidence-section');
+        if (dataDashboard) dataDashboard.classList.add('hidden');
+        if (evidenceSection) evidenceSection.classList.add('hidden');
+
+        // Update AI Summary title
+        const aiSummaryTitle = document.querySelector('#ai-summary-text')?.parentElement?.querySelector('h3');
+        if (aiSummaryTitle) {
+            aiSummaryTitle.innerHTML = '<i data-lucide="clipboard-list" style="width: 20px; height: 20px; color: var(--primary);"></i> 요청 요약';
+        }
+
+        // Fetch & Display Consultants
+        allConsultants = result.consultants || [];
+        currentConsultantIndex = 0;
+        renderConsultants();
+
+        if (refreshContainer) {
+            if (allConsultants.length > CONSULTANTS_PER_PAGE) {
+                refreshContainer.classList.remove('hidden');
+            } else {
+                refreshContainer.classList.add('hidden');
+            }
+        }
+
+        // Re-initialize Lucide icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
     }
 
     async function pollForResults(jobId) {
@@ -846,7 +1039,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 
                 <div class="consultant-match-reason">
-                    ${c.matchReason || 'AI 추천 매칭'}
+                    ${c.matchReason || '매칭 전문가'}
                 </div>
                 
                 <div style="margin-bottom: 16px;">
@@ -1017,25 +1210,25 @@ document.addEventListener('DOMContentLoaded', () => {
             console.warn('Could not parse analysis result:', e);
         }
 
-        // Show confirmation modal
-        const names = selectedList.map(c => c.name).join(', ');
-        const confirmed = confirm(`다음 ${selectedConsultants.size}명의 전문가에게 견적을 요청합니다:\n\n${names}\n\n진행하시겠습니까?`);
+        // Get user ID from localStorage
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user || !user.id) {
+            showNotification('로그인이 필요합니다. 먼저 로그인해주세요.', 'error');
+            setTimeout(() => {
+                window.location.href = 'login.html';
+            }, 1500);
+            return;
+        }
 
-        if (!confirmed) return;
+        // Show confirmation notification first
+        const names = selectedList.map(c => c.name).join(', ');
+        showNotification(`${selectedConsultants.size}명의 전문가(${names})에게 견적을 요청합니다...`, 'info');
 
         // Show loading state
         const requestBtn = document.getElementById('request-quotes-btn');
         if (requestBtn) {
             requestBtn.disabled = true;
             requestBtn.innerHTML = '<span class="loading-spinner" style="width: 16px; height: 16px; border-width: 2px;"></span> 요청 중...';
-        }
-
-        // Get user ID from localStorage
-        const user = JSON.parse(localStorage.getItem('user'));
-        if (!user || !user.id) {
-            showNotification('로그인이 필요합니다. 먼저 로그인해주세요.', 'error');
-            window.location.href = 'login.html';
-            return;
         }
 
         try {
@@ -1051,18 +1244,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.ok) {
                 const result = await response.json();
-                showNotification(`${selectedConsultants.size}명의 전문가에게 견적을 요청했습니다. 대시보드에서 확인하세요.`, 'success');
+                showNotification(`✅ ${selectedConsultants.size}명의 전문가에게 견적을 요청했습니다! 대시보드에서 확인하세요.`, 'success');
 
                 // Clear selection
                 window.clearConsultantSelection();
 
-                // Optionally redirect to dashboard
+                // Redirect to dashboard after 2 seconds
                 setTimeout(() => {
-                    const goToDashboard = confirm('견적 요청이 완료되었습니다.\n대시보드에서 확인하시겠습니까?');
-                    if (goToDashboard) {
-                        window.location.href = 'dashboard.html';
-                    }
-                }, 500);
+                    window.location.href = 'dashboard.html';
+                }, 2000);
             } else {
                 const error = await response.json();
                 showNotification(error.message || '견적 요청에 실패했습니다.', 'error');
