@@ -362,6 +362,19 @@
                 text-align: center;
             }
         }
+
+        /* Notification Animation */
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 
@@ -664,7 +677,7 @@
                             <i data-lucide="user-plus" style="width: 14px; height: 14px;"></i>
                             다른 전문가에게도 요청
                         </button>
-                        <button class="btn btn-ghost btn-sm" style="color: var(--error);" onclick="deleteQuoteRequestGroup('${group.title.replace(/'/g, "\\'")}')">
+                        <button class="btn btn-ghost btn-sm delete-all-btn" style="color: var(--error);" data-title="${group.title.replace(/"/g, '&quot;')}" onclick="deleteQuoteRequestGroup(this)">
                             <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
                             전체 삭제
                         </button>
@@ -972,7 +985,10 @@
         document.head.appendChild(modalStyles);
 
         // ===== Phase 2: Delete Quote Request Group =====
-        async function deleteQuoteRequestGroup(title) {
+        async function deleteQuoteRequestGroup(buttonElement) {
+            // Get title from data attribute
+            const title = buttonElement.getAttribute('data-title');
+
             if (!confirm(`"${title}" 요청을 전체 삭제하시겠습니까?\n\n모든 컨설턴트에 대한 요청이 삭제됩니다.`)) {
                 return;
             }
@@ -980,34 +996,13 @@
             const user = JSON.parse(localStorage.getItem('user'));
             if (!user) return;
 
-            // Find and update the delete button to show loading state
-            const deleteButtons = document.querySelectorAll('button[onclick*="deleteQuoteRequestGroup"]');
-            let targetButton = null;
-            deleteButtons.forEach(btn => {
-                if (btn.onclick && btn.onclick.toString().includes(title.replace(/'/g, "\\'"))) {
-                    targetButton = btn;
-                }
-            });
-
-            // If we can't find the exact button, find any delete button in the same card
-            if (!targetButton && deleteButtons.length > 0) {
-                deleteButtons.forEach(btn => {
-                    const card = btn.closest('.quote-request-card');
-                    if (card && card.querySelector('.quote-request-title')?.textContent === title) {
-                        targetButton = btn;
-                    }
-                });
-            }
-
-            const originalButtonContent = targetButton ? targetButton.innerHTML : '';
-
-            if (targetButton) {
-                targetButton.disabled = true;
-                targetButton.innerHTML = `
-                    <span class="loading-spinner" style="width: 14px; height: 14px; border-width: 2px;"></span>
-                    삭제 중...
-                `;
-            }
+            // Show loading state on the button immediately
+            const originalButtonContent = buttonElement.innerHTML;
+            buttonElement.disabled = true;
+            buttonElement.innerHTML = `
+                <span class="loading-spinner" style="width: 14px; height: 14px; border-width: 2px;"></span>
+                삭제 중...
+            `;
 
             try {
                 // 해당 title을 가진 모든 프로젝트 조회
@@ -1019,10 +1014,9 @@
 
                 if (projectsToDelete.length === 0) {
                     showNotification('삭제할 수 있는 프로젝트가 없습니다.', 'error');
-                    if (targetButton) {
-                        targetButton.disabled = false;
-                        targetButton.innerHTML = originalButtonContent;
-                    }
+                    buttonElement.disabled = false;
+                    buttonElement.innerHTML = originalButtonContent;
+                    lucide.createIcons();
                     return;
                 }
 
@@ -1042,18 +1036,16 @@
                     fetchProjects(); // 새로고침
                 } else {
                     showNotification('삭제에 실패했습니다. 다시 시도해주세요.', 'error');
-                    if (targetButton) {
-                        targetButton.disabled = false;
-                        targetButton.innerHTML = originalButtonContent;
-                    }
+                    buttonElement.disabled = false;
+                    buttonElement.innerHTML = originalButtonContent;
+                    lucide.createIcons();
                 }
             } catch (error) {
                 console.error('Delete error:', error);
                 showNotification('삭제 중 오류가 발생했습니다.', 'error');
-                if (targetButton) {
-                    targetButton.disabled = false;
-                    targetButton.innerHTML = originalButtonContent;
-                }
+                buttonElement.disabled = false;
+                buttonElement.innerHTML = originalButtonContent;
+                lucide.createIcons();
             }
         }
 
