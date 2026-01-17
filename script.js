@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // If no valid saved results, show notification and proceed to form
-            showNotification('이전 분석 결과가 만료되었습니다. 새로 진단을 시작해주세요.', 'info');
+            showNotification('이전 분석 결과가 만료되었습니다. 새로 매칭을 시작해주세요.', 'info');
             window.history.replaceState({}, document.title, window.location.pathname);
         }
         return false;
@@ -1285,6 +1285,122 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     };
+
+    // Alias for button onclick
+    window.requestQuotesForSelected = window.requestQuotes;
+
+    // --- Compare Modal Functions ---
+    window.showCompareModal = function () {
+        if (selectedConsultants.size < 2) {
+            showNotification('비교하려면 2명 이상의 전문가를 선택해주세요.', 'error');
+            return;
+        }
+
+        const modal = document.getElementById('compare-modal');
+        const content = document.getElementById('compare-content');
+
+        if (!modal || !content) return;
+
+        const consultants = Array.from(selectedConsultants.values());
+
+        // Build comparison table
+        let tableHTML = `
+            <div class="compare-table-wrapper" style="overflow-x: auto;">
+                <table class="compare-table" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left; padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 500;">항목</th>
+                            ${consultants.map(c => `
+                                <th style="text-align: center; padding: 12px; border-bottom: 1px solid var(--border); min-width: 180px;">
+                                    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                                        <div style="width: 48px; height: 48px; background: linear-gradient(135deg, var(--primary), var(--accent)); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 600; color: white;">
+                                            ${c.avatar || c.name[0]}
+                                        </div>
+                                        <div>
+                                            <div style="font-weight: 600;">${c.name}</div>
+                                            ${c.verified ? '<span class="verified-badge" style="margin-top: 4px;"><i data-lucide="badge-check" style="width: 12px; height: 12px;"></i> 검증됨</span>' : ''}
+                                        </div>
+                                    </div>
+                                </th>
+                            `).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">전문 분야</td>
+                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border);">${c.specialty || '종합'}</td>`).join('')}
+                        </tr>
+                        <tr>
+                            <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">경력</td>
+                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border);">${c.experience || '정보없음'}</td>`).join('')}
+                        </tr>
+                        <tr>
+                            <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">신뢰 점수</td>
+                            ${consultants.map(c => `
+                                <td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border);">
+                                    <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                        <span style="font-weight: 700; color: var(--primary); font-size: 1.25rem;">${c.trustScore || 85}</span>
+                                        <div style="width: 60px; height: 6px; background: var(--bg-secondary); border-radius: 3px; overflow: hidden;">
+                                            <div style="width: ${c.trustScore || 85}%; height: 100%; background: var(--primary);"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                            `).join('')}
+                        </tr>
+                        <tr>
+                            <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">매칭률</td>
+                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--primary);">${c.matchScore || 95}%</td>`).join('')}
+                        </tr>
+                        <tr>
+                            <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">리뷰 수</td>
+                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border);">${c.reviews || 0}개</td>`).join('')}
+                        </tr>
+                        <tr>
+                            <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">ISO 규격</td>
+                            ${consultants.map(c => {
+            const isoList = c.isoExperience ? Object.keys(c.isoExperience).map(iso => `ISO ${iso}`).join(', ') : '-';
+            return `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border); font-size: 0.85rem;">${isoList}</td>`;
+        }).join('')}
+                        </tr>
+                        <tr>
+                            <td style="padding: 12px; color: var(--text-secondary);">매칭 이유</td>
+                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; font-size: 0.85rem; color: var(--text-muted);">${c.matchReason || '-'}</td>`).join('')}
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div style="margin-top: 24px; text-align: center;">
+                <button class="btn btn-primary" onclick="requestQuotesForSelected(); closeCompareModal();">
+                    <i data-lucide="send" style="width: 18px; height: 18px;"></i>
+                    선택한 ${consultants.length}명에게 견적 요청하기
+                </button>
+            </div>
+        `;
+
+        content.innerHTML = tableHTML;
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+
+        // Re-initialize icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    };
+
+    window.closeCompareModal = function () {
+        const modal = document.getElementById('compare-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    };
+
+    // Close modal on escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            window.closeCompareModal();
+        }
+    });
 
     // --- Filter Functions ---
     function isFilterActive() {

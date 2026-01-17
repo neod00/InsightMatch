@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, AnalysisJob, Consultant, User, Project, Milestone, Post, Company
-from services import AIService, MatchingService, ProposalService
+from services import AIService, MatchingService, ProposalService, EmailService
 
 # Load environment variables
 # Load from project root directory
@@ -55,6 +55,7 @@ db.init_app(app)
 ai_service = AIService()
 matching_service = MatchingService()
 proposal_service = ProposalService()
+email_service = EmailService()
 
 # Create tables on first request
 @app.before_request
@@ -350,7 +351,11 @@ def handle_projects():
             results.append({
                 'id': p.id,
                 'title': p.title,
+                'session_id': getattr(p, 'session_id', None),
                 'status': p.status,
+                'proposal_status': getattr(p, 'proposal_status', 'pending'),
+                'proposal_data': getattr(p, 'proposal_data', None),
+                'consultant_id': p.consultant_id,
                 'consultant_name': consultant.name if consultant else 'Unknown',
                 'start_date': p.start_date.isoformat() if p.start_date else None,
                 'milestones': [m.to_dict() for m in p.milestones]
@@ -415,9 +420,136 @@ def download_proposal(project_id):
 @app.route('/api/projects/<int:project_id>/sign', methods=['POST'])
 def sign_contract(project_id):
     project = Project.query.get_or_404(project_id)
-    project.status = 'in_progress'
+    
+    # 상태를 'contracted'로 변경
+    project.status = 'contracted'
+    if hasattr(project, 'proposal_status'):
+        project.proposal_status = 'accepted'
+    project.start_date = datetime.datetime.utcnow()
+    
+    # 계약 후 마일스톤이 없으면 생성
+    if not project.milestones:
+        defaults = ["Kick-off Meeting", "Gap Analysis", "Documentation", "Internal Audit", "Final Certification"]
+        for title in defaults:
+            m = Milestone(project_id=project.id, title=title)
+            db.session.add(m)
+    
     db.session.commit()
     return jsonify({'message': 'Contract signed successfully', 'status': project.status})
+
+# --- Cancel Consultant Request ---
+@app.route('/api/projects/<int:project_id>/cancel', methods=['POST'])
+def cancel_consultant_request(project_id):
+    """특정 컨설턴트에 대한 요청 취소"""
+    project = Project.query.get_or_404(project_id)
+    
+    # 이미 계약된 경우 취소 불가
+    if project.status in ['contracted', 'in_progress', 'completed']:
+        return jsonify({'message': '계약된 요청은 취소할 수 없습니다.'}), 400
+    
+    # 이미 제안서가 제출된 경우
+    if hasattr(project, 'proposal_status') and project.proposal_status == 'submitted':
+        return jsonify({'message': '이미 제안서가 제출된 요청입니다. 삭제하시겠습니까?'}), 400
+    
+    # 프로젝트 삭제
+    Milestone.query.filter_by(project_id=project_id).delete()
+    db.session.delete(project)
+    db.session.commit()
+    
+    return jsonify({'message': '요청이 취소되었습니다.'})
+
+# --- Add Consultant to Existing Quote Request ---
+@app.route('/api/projects/add-consultant', methods=['POST'])
+def add_consultant_to_request():
+    """기존 견적 요청 그룹에 컨설턴트 추가"""
+    data = request.json
+    user_id = data.get('user_id')
+    consultant_id = data.get('consultant_id')
+    title = data.get('title')  # 기존 프로젝트 제목 사용
+    
+    if not user_id or not consultant_id or not title:
+        return jsonify({'message': 'user_id, consultant_id, title이 필요합니다.'}), 400
+    
+    # 컨설턴트 확인
+    consultant = Consultant.query.get(consultant_id)
+    if not consultant:
+        return jsonify({'message': '컨설턴트를 찾을 수 없습니다.'}), 404
+    
+    # 이미 해당 컨설턴트에게 같은 제목으로 요청한 적 있는지 확인
+    existing = Project.query.filter_by(
+        company_id=user_id, 
+        consultant_id=consultant_id,
+        title=title
+    ).first()
+    
+    if existing:
+        return jsonify({'message': f'{consultant.name}에게 이미 요청된 프로젝트입니다.'}), 400
+    
+    # 새 프로젝트 생성
+    new_project = Project(
+        company_id=user_id,
+        consultant_id=consultant_id,
+        title=title,
+        status='proposal_pending',
+    )
+    if hasattr(new_project, 'proposal_status'):
+        new_project.proposal_status = 'pending'
+    
+    db.session.add(new_project)
+    db.session.commit()
+    
+    # 이메일 발송
+    try:
+        company = User.query.get(user_id)
+        consultant_user = User.query.get(consultant.user_id) if consultant.user_id else None
+        if consultant_user and company and email_service:
+            email_service.send_consultant_notification(
+                consultant_email=consultant_user.email,
+                consultant_name=consultant.name,
+                company_name=company.name,
+                request_details={'title': title}
+            )
+    except Exception as e:
+        print(f"[Email] Failed to send notification: {e}")
+    
+    return jsonify({
+        'message': f'{consultant.name}에게 견적 요청을 추가했습니다.',
+        'project_id': new_project.id
+    }), 201
+
+# --- Get Available Consultants for Adding to Project ---
+@app.route('/api/projects/<string:title>/available-consultants', methods=['GET'])
+def get_available_consultants(title):
+    """이미 요청되지 않은 컨설턴트 목록 조회"""
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({'message': 'user_id가 필요합니다.'}), 400
+    
+    # 이미 요청된 컨설턴트 ID 목록
+    existing_projects = Project.query.filter_by(company_id=user_id, title=title).all()
+    existing_consultant_ids = [p.consultant_id for p in existing_projects]
+    
+    # 검증된 전체 컨설턴트 중 아직 요청하지 않은 컨설턴트
+    if existing_consultant_ids:
+        available = Consultant.query.filter(
+            Consultant.verified == True,
+            ~Consultant.id.in_(existing_consultant_ids)
+        ).all()
+    else:
+        available = Consultant.query.filter(Consultant.verified == True).all()
+    
+    results = []
+    for c in available:
+        results.append({
+            'id': c.id,
+            'name': c.name,
+            'specialty': c.specialty,
+            'rating': c.rating,
+            'experience': c.experience,
+            'verified': c.verified
+        })
+    
+    return jsonify(results)
 
 # --- Admin Endpoints ---
 @app.route('/api/admin/jobs', methods=['GET'])
@@ -516,20 +648,34 @@ def request_quotes():
     
     # Generate project title from analysis context
     company_name = analysis_context.get('company_name', '기업')
-    recommended_standards = analysis_context.get('recommended_standards', [])
+    
+    # Check multiple possible keys for standards
+    recommended_standards = (
+        analysis_context.get('selected_standards') or 
+        analysis_context.get('all_standards') or 
+        analysis_context.get('recommended_standards') or 
+        []
+    )
+    
+    iso_codes = []
     if isinstance(recommended_standards, list) and len(recommended_standards) > 0:
-        # Extract ISO codes from recommended standards
-        iso_codes = []
         for std in recommended_standards:
             if isinstance(std, dict):
-                iso_codes.append(std.get('code', ''))
-            elif isinstance(std, str):
+                code = std.get('code', '')
+                if code:
+                    iso_codes.append(code)
+            elif isinstance(std, str) and std:
                 iso_codes.append(std)
-        iso_text = ', '.join(iso_codes) if iso_codes else 'ISO 인증'
-    else:
-        iso_text = 'ISO 인증'
     
-    project_title = f"{iso_text} 인증 프로젝트"
+    # Build title without duplication
+    if iso_codes:
+        iso_text = ', '.join(iso_codes)
+        project_title = f"{iso_text} 인증 프로젝트"
+    else:
+        project_title = "ISO 인증 프로젝트"
+    
+    # Get session_id from frontend (for grouping projects from same matching session)
+    session_id = data.get('session_id') or str(uuid.uuid4())
     
     # Create quote requests and projects for each consultant
     quote_request_id = str(uuid.uuid4())
@@ -543,17 +689,18 @@ def request_quotes():
                 company_id=user_id,
                 consultant_id=consultant.id,
                 title=project_title,
-                status='planning',
-                start_date=datetime.datetime.utcnow()
+                status='proposal_pending',  # 계약 전 상태
             )
+            # Set optional fields if they exist
+            if hasattr(new_project, 'session_id'):
+                new_project.session_id = session_id
+            if hasattr(new_project, 'proposal_status'):
+                new_project.proposal_status = 'pending'
+            
             db.session.add(new_project)
             db.session.flush()  # Get the project ID
             
-            # Create default milestones
-            defaults = ["Kick-off Meeting", "Gap Analysis", "Documentation", "Internal Audit", "Final Certification"]
-            for title in defaults:
-                m = Milestone(project_id=new_project.id, title=title)
-                db.session.add(m)
+            # 마일스톤은 계약 후에 생성 (sign_contract에서 처리)
             
             created_projects.append({
                 'project_id': new_project.id,
@@ -572,18 +719,79 @@ def request_quotes():
             db.session.rollback()
             return jsonify({'message': f'Failed to create project: {str(e)}'}), 500
     
-    # Commit all projects and milestones
+    # Commit all projects
     try:
         db.session.commit()
     except Exception as e:
         db.session.rollback()
         return jsonify({'message': f'Failed to save projects: {str(e)}'}), 500
     
+    # --- 이메일 발송 ---
+    email_results = []
+    
+    # 컨설턴트별로 알림 이메일 발송
+    for consultant in consultants:
+        # 컨설턴트 User의 이메일 가져오기
+        consultant_user = User.query.get(consultant.user_id) if consultant.user_id else None
+        consultant_email = consultant_user.email if consultant_user else None
+        
+        if consultant_email and consultant_email != 'dummy':
+            # 프로젝트 ID 찾기
+            project_id = next(
+                (p['project_id'] for p in created_projects if p['consultant_id'] == consultant.id),
+                None
+            )
+            
+            try:
+                result = email_service.send_quote_request_to_consultant(
+                    consultant_email=consultant_email,
+                    consultant_name=consultant.name,
+                    company_name=company_name,
+                    industry=analysis_context.get('industry', '미정'),
+                    standards=recommended_standards if isinstance(recommended_standards, list) else [],
+                    issues_summary=analysis_context.get('issues_summary'),
+                    timeline=analysis_context.get('timeline', 'flexible'),
+                    budget=analysis_context.get('budget', 'unknown'),
+                    additional_notes=analysis_context.get('additional_notes'),
+                    project_id=project_id
+                )
+                email_results.append({
+                    'consultant_id': consultant.id,
+                    'consultant_name': consultant.name,
+                    'email_sent': result.get('success', False),
+                    'simulated': result.get('simulated', False)
+                })
+            except Exception as e:
+                print(f"[Email] Error sending to {consultant.name}: {e}")
+                email_results.append({
+                    'consultant_id': consultant.id,
+                    'consultant_name': consultant.name,
+                    'email_sent': False,
+                    'error': str(e)
+                })
+    
+    # 기업 사용자에게 확인 이메일 발송
+    company_user = User.query.get(user_id)
+    company_email = company_user.email if company_user else analysis_context.get('contact_email')
+    
+    if company_email:
+        try:
+            consultant_names = [c.name for c in consultants]
+            email_service.send_quote_confirmation_to_company(
+                company_email=company_email,
+                company_name=company_name,
+                consultant_names=consultant_names,
+                standards=recommended_standards if isinstance(recommended_standards, list) else []
+            )
+        except Exception as e:
+            print(f"[Email] Error sending confirmation to company: {e}")
+    
     return jsonify({
         'message': f'Quote requested from {len(consultants)} consultants',
         'quote_request_id': quote_request_id,
         'requests': created_requests,
         'projects': created_projects,
+        'email_notifications': email_results,
         'analysis_context': {
             'company_name': analysis_context.get('company_name'),
             'industry': analysis_context.get('industry'),

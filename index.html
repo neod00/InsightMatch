@@ -39,7 +39,7 @@
 
             <div class="nav-links">
                 <a href="#how-it-works">프로세스</a>
-                <a href="#diagnosis">맞춤 진단</a>
+                <a href="#diagnosis">맞춤 매칭</a>
                 <a href="#faq">FAQ</a>
                 <a href="blog.html">블로그</a>
             </div>
@@ -47,7 +47,7 @@
             <div class="nav-actions" id="nav-actions">
                 <!-- Will be populated by JavaScript based on login status -->
                 <a href="login.html" class="btn btn-ghost">로그인</a>
-                <a href="#diagnosis" class="btn btn-primary">무료 진단 시작</a>
+                <a href="#diagnosis" class="btn btn-primary">무료 매칭 시작</a>
             </div>
 
             <!-- Mobile Menu Button -->
@@ -62,13 +62,13 @@
     <!-- Mobile Navigation -->
     <div class="mobile-nav" id="mobile-nav">
         <a href="#how-it-works" onclick="closeMobileMenu()">프로세스</a>
-        <a href="#diagnosis" onclick="closeMobileMenu()">맞춤 진단</a>
+        <a href="#diagnosis" onclick="closeMobileMenu()">맞춤 매칭</a>
         <a href="#faq" onclick="closeMobileMenu()">FAQ</a>
         <a href="blog.html">블로그</a>
         <div class="nav-divider"></div>
         <div id="mobile-nav-actions">
             <a href="login.html" class="btn btn-secondary">로그인</a>
-            <a href="#diagnosis" class="btn btn-primary" onclick="closeMobileMenu()">무료 진단 시작</a>
+            <a href="#diagnosis" class="btn btn-primary" onclick="closeMobileMenu()">무료 매칭 시작</a>
         </div>
     </div>
 
@@ -97,7 +97,7 @@
 
             <div class="hero-actions">
                 <a href="#diagnosis" class="btn btn-primary btn-lg">
-                    지금 바로 진단 시작하기
+                    지금 바로 매칭 시작하기
                     <i data-lucide="arrow-right" style="width: 20px; height: 20px;"></i>
                 </a>
                 <a href="#how-it-works" class="btn btn-secondary btn-lg">
@@ -1142,7 +1142,7 @@
                     <div class="text-center mt-8">
                         <button onclick="window.resetDiagnosisForm()" class="btn btn-outline btn-lg">
                             <i data-lucide="plus-circle" style="width: 20px; height: 20px;"></i>
-                            새 진단 시작하기
+                            새 매칭 시작하기
                         </button>
                     </div>
                 </div>
@@ -1161,12 +1161,12 @@
             <div class="faq-list fade-in-up">
                 <div class="faq-item">
                     <div class="faq-question" onclick="toggleFaq(this)">
-                        <span>진단 비용이 정말 무료인가요?</span>
+                        <span>매칭 비용이 정말 무료인가요?</span>
                         <i data-lucide="chevron-down" class="faq-icon"></i>
                     </div>
                     <div class="faq-answer">
                         <div class="faq-answer-content">
-                            네, 기업 사용자는 모든 서비스를 완전 무료로 이용하실 수 있습니다. 맞춤형 진단, 컨설턴트 추천, 그리고 실제 컨설팅 계약 체결 후에도 기업에게는 별도의
+                            네, 기업 사용자는 모든 서비스를 완전 무료로 이용하실 수 있습니다. 맞춤형 컨설턴트 매칭, 컨설턴트 추천, 그리고 실제 컨설팅 계약 체결 후에도 기업에게는 별도의
                             플랫폼 이용료가 없습니다.
                         </div>
                     </div>
@@ -1232,10 +1232,10 @@
             <div class="cta-section fade-in-up">
                 <div class="cta-content">
                     <h2>전문가 상담이 필요하신가요?</h2>
-                    <p>진단 결과를 바탕으로 더 자세한 상담을 받아보세요.<br>ISO 인증 전문가가 맞춤형 솔루션을 제안해 드립니다.</p>
+                    <p>매칭 결과를 바탕으로 더 자세한 상담을 받아보세요.<br>ISO 인증 전문가가 맞춤형 솔루션을 제안해 드립니다.</p>
                     <div class="flex justify-center gap-4">
                         <a href="#diagnosis" class="btn btn-primary btn-lg">
-                            무료 진단 시작하기
+                            무료 매칭 시작하기
                         </a>
                         <a href="mailto:openbrain.main@gmail.com" class="btn btn-secondary btn-lg">
                             상담 문의하기
@@ -1293,7 +1293,7 @@
                 <div class="footer-links">
                     <div class="footer-column">
                         <h4>서비스</h4>
-                        <a href="#diagnosis">맞춤형 진단</a>
+                        <a href="#diagnosis">컨설턴트 매칭</a>
                         <a href="#how-it-works">프로세스 안내</a>
                         <a href="consultant_register.html">컨설턴트 등록</a>
                     </div>
@@ -1392,11 +1392,11 @@
                 // User is not logged in - show login button
                 navActions.innerHTML = `
                     <a href="login.html" class="btn btn-ghost">로그인</a>
-                    <a href="#diagnosis" class="btn btn-primary">무료 진단 시작</a>
+                    <a href="#diagnosis" class="btn btn-primary">무료 매칭 시작</a>
                 `;
                 mobileNavActions.innerHTML = `
                     <a href="login.html" class="btn btn-secondary">로그인</a>
-                    <a href="#diagnosis" class="btn btn-primary" onclick="closeMobileMenu()">무료 진단 시작</a>
+                    <a href="#diagnosis" class="btn btn-primary" onclick="closeMobileMenu()">무료 매칭 시작</a>
                 `;
             }
         }
@@ -1458,6 +1458,57 @@
             observer.observe(el);
         });
     </script>
+
+    <!-- Selection Bar (Fixed Bottom) -->
+    <div id="selection-bar" class="selection-bar">
+        <div class="selection-bar-content">
+            <div class="selection-info">
+                <div class="selected-avatars" id="selected-avatars">
+                    <!-- Selected consultant avatars will be shown here -->
+                </div>
+                <div class="selection-count">
+                    <strong id="selection-count">0</strong>명 선택됨
+                    <span id="selected-names"
+                        style="margin-left: 8px; color: var(--text-muted); font-size: 0.85rem;"></span>
+                </div>
+            </div>
+            <div class="selection-actions">
+                <button class="btn btn-ghost btn-sm" onclick="clearConsultantSelection()">
+                    <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+                    선택 취소
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="showCompareModal()">
+                    <i data-lucide="columns" style="width: 16px; height: 16px;"></i>
+                    비교하기
+                </button>
+                <button id="request-quotes-btn" class="btn btn-primary" onclick="requestQuotesForSelected()" disabled>
+                    <i data-lucide="send" style="width: 18px; height: 18px;"></i>
+                    견적 요청하기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Compare Modal -->
+    <div id="compare-modal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeCompareModal()"></div>
+        <div class="modal-content" style="max-width: 1000px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header"
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h3 style="margin: 0;">
+                    <i data-lucide="columns"
+                        style="width: 24px; height: 24px; color: var(--primary); vertical-align: middle;"></i>
+                    컨설턴트 비교
+                </h3>
+                <button onclick="closeCompareModal()" class="btn btn-ghost" style="padding: 8px;">
+                    <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+                </button>
+            </div>
+            <div id="compare-content">
+                <!-- Comparison table will be rendered here -->
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>

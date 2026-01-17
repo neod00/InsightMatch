@@ -39,3 +39,14 @@ Thumbs.db
 # Test outputs
 test_output*.txt
 
+# Backup folders (local only)
+backup_server/
+backup_ai_analysis/
+data/
+
+# Test files (local only)
+test_*.py
+full_models_list.txt
+
+# Agent config (local only)
+.agent/

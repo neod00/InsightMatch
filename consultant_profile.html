@@ -5,15 +5,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>컨설턴트 프로필 - InsightMatch</title>
-    
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    
+
     <!-- Styles -->
     <link rel="stylesheet" href="style.css">
     <style>
@@ -21,24 +23,24 @@
             padding-top: 120px;
             padding-bottom: 80px;
         }
-        
+
         .profile-layout {
             display: grid;
             grid-template-columns: 1fr 350px;
             gap: 32px;
             align-items: start;
         }
-        
+
         @media (max-width: 1024px) {
             .profile-layout {
                 grid-template-columns: 1fr;
             }
-            
+
             .profile-sidebar {
                 position: static !important;
             }
         }
-        
+
         .back-link {
             display: inline-flex;
             align-items: center;
@@ -49,22 +51,22 @@
             margin-bottom: 24px;
             transition: var(--transition-fast);
         }
-        
+
         .back-link:hover {
             color: var(--primary);
         }
-        
+
         .profile-loading {
             text-align: center;
             padding: 80px 40px;
         }
-        
+
         .certification-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 12px;
         }
-        
+
         .certification-item {
             display: flex;
             align-items: center;
@@ -74,47 +76,47 @@
             border-radius: var(--radius-sm);
             border: 1px solid var(--border);
         }
-        
+
         .certification-item i {
             color: var(--primary);
         }
-        
+
         .certification-item span {
             font-size: 0.9rem;
             color: var(--text-secondary);
         }
-        
+
         .review-card {
             padding: 20px;
             background: var(--bg-secondary);
             border-radius: var(--radius-sm);
             margin-bottom: 16px;
         }
-        
+
         .review-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 12px;
         }
-        
+
         .review-rating {
             display: flex;
             gap: 4px;
         }
-        
+
         .review-rating i {
             width: 16px;
             height: 16px;
             color: #f59e0b;
         }
-        
+
         .review-content {
             color: var(--text-secondary);
             font-size: 0.95rem;
             line-height: 1.6;
         }
-        
+
         .review-meta {
             margin-top: 12px;
             font-size: 0.85rem;
@@ -138,19 +140,19 @@
                     <span>by OpenBrain</span>
                 </div>
             </a>
-            
+
             <div class="nav-links">
                 <a href="index.html#how-it-works">프로세스</a>
-                <a href="index.html#diagnosis">AI 진단</a>
+                <a href="index.html#diagnosis">컨설턴트 매칭</a>
                 <a href="index.html#faq">FAQ</a>
                 <a href="blog.html">블로그</a>
             </div>
-            
+
             <div class="nav-actions" id="nav-actions">
                 <a href="login.html" class="btn btn-ghost">로그인</a>
-                <a href="index.html#diagnosis" class="btn btn-primary">무료 진단 시작</a>
+                <a href="index.html#diagnosis" class="btn btn-primary">무료 매칭 시작</a>
             </div>
-            
+
             <!-- Mobile Menu Button -->
             <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="메뉴 열기">
                 <span></span>
@@ -159,17 +161,17 @@
             </button>
         </div>
     </nav>
-    
+
     <!-- Mobile Navigation -->
     <div class="mobile-nav" id="mobile-nav">
         <a href="index.html#how-it-works" onclick="closeMobileMenu()">프로세스</a>
-        <a href="index.html#diagnosis" onclick="closeMobileMenu()">AI 진단</a>
+        <a href="index.html#diagnosis" onclick="closeMobileMenu()">컨설턴트 매칭</a>
         <a href="index.html#faq" onclick="closeMobileMenu()">FAQ</a>
         <a href="blog.html">블로그</a>
         <div class="nav-divider"></div>
         <div id="mobile-nav-actions">
             <a href="login.html" class="btn btn-secondary">로그인</a>
-            <a href="index.html#diagnosis" class="btn btn-primary" onclick="closeMobileMenu()">무료 진단 시작</a>
+            <a href="index.html#diagnosis" class="btn btn-primary" onclick="closeMobileMenu()">무료 매칭 시작</a>
         </div>
     </div>
 
@@ -180,13 +182,13 @@
             <i data-lucide="arrow-left" style="width: 18px; height: 18px;"></i>
             돌아가기
         </a>
-        
+
         <!-- Loading State -->
         <div id="profile-loading" class="profile-loading">
             <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
             <p style="color: var(--text-muted);">프로필을 불러오는 중...</p>
         </div>
-        
+
         <!-- Profile Content (Hidden until loaded) -->
         <div id="profile-content" class="profile-layout" style="display: none;">
             <!-- Main Content -->
@@ -216,7 +218,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Trust Score Section -->
                 <div class="profile-section fade-in-up">
                     <h3 class="profile-section-title">
@@ -224,10 +226,12 @@
                         신뢰 점수
                     </h3>
                     <div style="display: flex; align-items: center; gap: 20px;">
-                        <div style="font-size: 3rem; font-weight: 800; color: var(--primary);" id="trust-score-value">0</div>
+                        <div style="font-size: 3rem; font-weight: 800; color: var(--primary);" id="trust-score-value">0
+                        </div>
                         <div style="flex: 1;">
                             <div class="trust-score-bar" style="height: 12px; border-radius: 6px;">
-                                <div class="trust-score-fill" id="trust-score-bar" style="width: 0%; height: 100%; border-radius: 6px;"></div>
+                                <div class="trust-score-fill" id="trust-score-bar"
+                                    style="width: 0%; height: 100%; border-radius: 6px;"></div>
                             </div>
                             <p style="margin-top: 8px; font-size: 0.85rem; color: var(--text-muted);">
                                 경력, 프로젝트 이력, 자격증, 고객 평가를 기반으로 산출된 종합 신뢰 점수입니다.
@@ -235,7 +239,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- ISO Expertise Section -->
                 <div class="profile-section fade-in-up">
                     <h3 class="profile-section-title">
@@ -246,7 +250,7 @@
                         <!-- ISO badges will be inserted here -->
                     </div>
                 </div>
-                
+
                 <!-- Industry Experience Section -->
                 <div class="profile-section fade-in-up">
                     <h3 class="profile-section-title">
@@ -257,7 +261,7 @@
                         <!-- Industry tags will be inserted here -->
                     </div>
                 </div>
-                
+
                 <!-- Certifications Section -->
                 <div class="profile-section fade-in-up" id="certifications-section" style="display: none;">
                     <h3 class="profile-section-title">
@@ -268,7 +272,7 @@
                         <!-- Certifications will be inserted here -->
                     </div>
                 </div>
-                
+
                 <!-- Recent Projects Section -->
                 <div class="profile-section fade-in-up" id="projects-section" style="display: none;">
                     <h3 class="profile-section-title">
@@ -279,7 +283,7 @@
                         <!-- Projects will be inserted here -->
                     </div>
                 </div>
-                
+
                 <!-- Reviews Section -->
                 <div class="profile-section fade-in-up" id="reviews-section">
                     <h3 class="profile-section-title">
@@ -293,36 +297,39 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Sidebar -->
             <div class="profile-sidebar">
                 <div class="profile-contact-cta" style="position: sticky; top: 100px;">
                     <h3>이 전문가와 상담하기</h3>
                     <p>프로젝트 요구사항을 공유하고 맞춤형 제안을 받아보세요.</p>
-                    
+
                     <div style="margin-bottom: 16px;">
-                        <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 8px;">
+                        <div
+                            style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 8px;">
                             <span style="color: var(--text-muted);">예상 응답 시간</span>
                             <span style="color: var(--primary); font-weight: 600;">24시간 이내</span>
                         </div>
                     </div>
-                    
+
                     <button class="btn btn-primary btn-lg" style="width: 100%; margin-bottom: 12px;">
                         <i data-lucide="send" style="width: 18px; height: 18px;"></i>
                         컨설팅 문의하기
                     </button>
-                    
-                    <a href="index.html?action=find-others#results-section" class="btn btn-secondary" style="width: 100%;">
+
+                    <a href="index.html?action=find-others#results-section" class="btn btn-secondary"
+                        style="width: 100%;">
                         <i data-lucide="sparkles" style="width: 18px; height: 18px;"></i>
                         AI로 다른 전문가 찾기
                     </a>
                 </div>
             </div>
         </div>
-        
+
         <!-- Error State -->
         <div id="profile-error" style="display: none; text-align: center; padding: 80px 40px;">
-            <i data-lucide="alert-circle" style="width: 64px; height: 64px; color: var(--error); margin-bottom: 16px;"></i>
+            <i data-lucide="alert-circle"
+                style="width: 64px; height: 64px; color: var(--error); margin-bottom: 16px;"></i>
             <h2 style="margin-bottom: 8px;">프로필을 찾을 수 없습니다</h2>
             <p style="color: var(--text-muted); margin-bottom: 24px;">요청하신 컨설턴트 정보를 불러올 수 없습니다.</p>
             <a href="index.html" class="btn btn-primary">홈으로 돌아가기</a>
@@ -341,38 +348,38 @@
 
     <script>
         lucide.createIcons();
-        
+
         // Mobile Menu Toggle
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
         const mobileNav = document.getElementById('mobile-nav');
-        
+
         function toggleMobileMenu() {
             mobileMenuBtn.classList.toggle('active');
             mobileNav.classList.toggle('active');
             document.body.style.overflow = mobileNav.classList.contains('active') ? 'hidden' : '';
         }
-        
+
         function closeMobileMenu() {
             mobileMenuBtn.classList.remove('active');
             mobileNav.classList.remove('active');
             document.body.style.overflow = '';
         }
-        
+
         mobileMenuBtn.addEventListener('click', toggleMobileMenu);
-        
+
         window.addEventListener('resize', () => {
             if (window.innerWidth > 768) {
                 closeMobileMenu();
             }
         });
-        
+
         // Check login status and update navigation
         function updateNavigation() {
             const user = JSON.parse(localStorage.getItem('user'));
             const token = localStorage.getItem('token');
             const navActions = document.getElementById('nav-actions');
             const mobileNavActions = document.getElementById('mobile-nav-actions');
-            
+
             if (user && token) {
                 navActions.innerHTML = `
                     <a href="dashboard.html" class="btn btn-ghost">
@@ -392,33 +399,33 @@
                 lucide.createIcons();
             }
         }
-        
+
         function logout() {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             updateNavigation();
         }
-        
+
         updateNavigation();
-        
+
         // Get consultant ID from URL
         const urlParams = new URLSearchParams(window.location.search);
         const consultantId = urlParams.get('id');
-        
+
         // Fetch and display consultant profile
         async function loadProfile() {
             if (!consultantId) {
                 showError();
                 return;
             }
-            
+
             try {
                 const response = await fetch(`/api/consultants/${consultantId}`);
-                
+
                 if (!response.ok) {
                     throw new Error('Profile not found');
                 }
-                
+
                 const consultant = await response.json();
                 displayProfile(consultant);
             } catch (error) {
@@ -426,15 +433,15 @@
                 showError();
             }
         }
-        
+
         function displayProfile(c) {
             // Hide loading, show content
             document.getElementById('profile-loading').style.display = 'none';
             document.getElementById('profile-content').style.display = 'grid';
-            
+
             // Update title
             document.title = `${c.name} - InsightMatch 컨설턴트`;
-            
+
             // Basic Info
             document.getElementById('profile-avatar').textContent = c.avatar || c.name[0];
             document.getElementById('profile-name').textContent = c.name;
@@ -442,7 +449,7 @@
             document.getElementById('profile-experience').textContent = `경력 ${c.experience || '정보없음'}`;
             document.getElementById('profile-rating').textContent = `평점 ${c.rating || '-'}점`;
             document.getElementById('profile-reviews').textContent = `리뷰 ${c.reviews || 0}개`;
-            
+
             // Verified Badge
             const badgeEl = document.getElementById('profile-badge');
             if (c.verified) {
@@ -460,12 +467,12 @@
                     </span>
                 `;
             }
-            
+
             // Trust Score
             const trustScore = c.trustScore || 50;
             document.getElementById('trust-score-value').textContent = trustScore;
             document.getElementById('trust-score-bar').style.width = trustScore + '%';
-            
+
             // ISO Experience
             const isoList = document.getElementById('iso-list');
             const isoExp = c.isoExperience || {};
@@ -480,7 +487,7 @@
             } else {
                 isoList.innerHTML = '<p style="color: var(--text-muted);">등록된 ISO 규격이 없습니다.</p>';
             }
-            
+
             // Industry Experience
             const industryList = document.getElementById('industry-list');
             const industries = c.industryExperience || [];
@@ -491,7 +498,7 @@
             } else {
                 industryList.innerHTML = '<p style="color: var(--text-muted);">등록된 산업 경험이 없습니다.</p>';
             }
-            
+
             // Certifications
             const certs = c.detailedCertifications || [];
             if (certs.length > 0) {
@@ -503,7 +510,7 @@
                     </div>
                 `).join('');
             }
-            
+
             // Recent Projects
             const projects = c.recentProjects || [];
             if (projects.length > 0) {
@@ -515,11 +522,11 @@
                     </div>
                 `).join('');
             }
-            
+
             // Re-initialize icons
             lucide.createIcons();
         }
-        
+
         function translateIndustry(industry) {
             const translations = {
                 'IT/Software': 'IT/소프트웨어',
@@ -534,16 +541,16 @@
             };
             return translations[industry] || industry;
         }
-        
+
         function showError() {
             document.getElementById('profile-loading').style.display = 'none';
             document.getElementById('profile-error').style.display = 'block';
             lucide.createIcons();
         }
-        
+
         // Load profile on page load
         loadProfile();
-        
+
         // Navbar scroll effect
         window.addEventListener('scroll', () => {
             const navbar = document.getElementById('navbar');
@@ -557,4 +564,3 @@
 </body>
 
 </html>
-
