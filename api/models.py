@@ -115,10 +115,11 @@ class AnalysisJob(db.Model):
     id = db.Column(db.String(36), primary_key=True) # UUID
     company_name = db.Column(db.String(100))
     url = db.Column(db.String(200))
-    status = db.Column(db.String(20), default='processing') # processing, completed, failed
+    status = db.Column(db.String(20), default='processing') # processing, completed, failed, deleted
     result = db.Column(db.Text) # JSON string
     intake_data = db.Column(db.Text) # JSON string for raw input
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    deleted_at = db.Column(db.DateTime, nullable=True) # Soft delete timestamp
 
     def set_result(self, result_dict):
         self.result = json.dumps(result_dict)

@@ -554,18 +554,128 @@ def get_available_consultants(title):
 # --- Admin Endpoints ---
 @app.route('/api/admin/jobs', methods=['GET'])
 def get_admin_jobs():
-    jobs = AnalysisJob.query.order_by(AnalysisJob.created_at.desc()).all()
+    # Filter parameter for showing deleted items
+    show_deleted = request.args.get('show_deleted', 'false').lower() == 'true'
+    
+    # Base query
+    query = AnalysisJob.query
+    
+    # Filter out deleted items unless explicitly requested
+    if not show_deleted:
+        query = query.filter(AnalysisJob.deleted_at.is_(None))
+    
+    jobs = query.order_by(AnalysisJob.created_at.desc()).all()
     results = []
+    
     for job in jobs:
+        # Get intake data for matching info
+        intake_data = job.get_intake_data() if job.intake_data else {}
+        
+        # Find related projects by company name or email
+        company_name = job.company_name or intake_data.get('companyName', '')
+        related_projects = []
+        
+        if company_name:
+            # Try to find user by email first
+            contact_email = intake_data.get('contactEmail', '')
+            user = None
+            if contact_email:
+                user = User.query.filter_by(email=contact_email).first()
+            
+            # If not found by email, try by name
+            if not user and company_name:
+                user = User.query.filter_by(name=company_name).first()
+            
+            # Also search projects directly by title containing company_name or standards
+            standards = intake_data.get('standards', [])
+            if standards:
+                # Build project title pattern from standards
+                std_text = ', '.join(standards) if isinstance(standards, list) else str(standards)
+                project_title_pattern = f"%{std_text}%"
+                matching_projects = Project.query.filter(Project.title.like(project_title_pattern)).all()
+                
+                for p in matching_projects:
+                    consultant = Consultant.query.get(p.consultant_id)
+                    related_projects.append({
+                        'project_id': p.id,
+                        'title': p.title,
+                        'status': p.status,
+                        'consultant_id': p.consultant_id,
+                        'consultant_name': consultant.name if consultant else 'Unknown'
+                    })
+            
+            # Also add projects from user if found
+            if user:
+                user_projects = Project.query.filter_by(company_id=user.id).all()
+                existing_ids = [p['project_id'] for p in related_projects]
+                for p in user_projects:
+                    if p.id not in existing_ids:
+                        consultant = Consultant.query.get(p.consultant_id)
+                        related_projects.append({
+                            'project_id': p.id,
+                            'title': p.title,
+                            'status': p.status,
+                            'consultant_id': p.consultant_id,
+                            'consultant_name': consultant.name if consultant else 'Unknown'
+                        })
+        
         results.append({
             'id': job.id,
             'company_name': job.company_name,
             'url': job.url,
             'status': job.status,
             'created_at': job.created_at.isoformat(),
-            'result': job.get_result()
+            'deleted_at': job.deleted_at.isoformat() if job.deleted_at else None,
+            # Matching request info (instead of AI result)
+            'intake_data': {
+                'industry': intake_data.get('industry'),
+                'employees': intake_data.get('employees'),
+                'region': intake_data.get('region'),
+                'standards': intake_data.get('standards', []),
+                'issues': intake_data.get('issues', []),
+                'timeline': intake_data.get('timeline'),
+                'budget': intake_data.get('budget'),
+                'contact_email': intake_data.get('contactEmail')
+            },
+            'related_projects': related_projects,
+            'project_count': len(related_projects)
         })
     return jsonify(results)
+
+# --- Admin Job Delete Endpoint ---
+@app.route('/api/admin/jobs/<string:job_id>', methods=['DELETE'])
+def delete_admin_job(job_id):
+    """Soft delete a matching request (AnalysisJob)"""
+    job = AnalysisJob.query.get_or_404(job_id)
+    
+    # Check if there are any contracted projects related to this job
+    intake_data = job.get_intake_data() if job.intake_data else {}
+    contact_email = intake_data.get('contactEmail', '')
+    
+    if contact_email:
+        user = User.query.filter_by(email=contact_email).first()
+        if user:
+            contracted_projects = Project.query.filter(
+                Project.company_id == user.id,
+                Project.status.in_(['contracted', 'in_progress', 'completed'])
+            ).count()
+            
+            if contracted_projects > 0:
+                return jsonify({
+                    'message': '계약된 프로젝트가 있어 삭제할 수 없습니다.',
+                    'contracted_count': contracted_projects
+                }), 400
+    
+    # Soft delete
+    job.deleted_at = datetime.datetime.utcnow()
+    job.status = 'deleted'
+    db.session.commit()
+    
+    return jsonify({
+        'message': '매칭 요청이 삭제되었습니다.',
+        'id': job_id,
+        'deleted_at': job.deleted_at.isoformat()
+    })
 
 # --- Consultant Admin Endpoints ---
 @app.route('/api/admin/consultants/<int:consultant_id>/approve', methods=['POST'])
