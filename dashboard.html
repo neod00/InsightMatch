@@ -883,32 +883,76 @@
                     내 프로필 관리
                 </h2>
 
-                <form id="profile-form" class="profile-edit-form" onsubmit="saveProfile(event)">
-                    <!-- 프로필 사진 -->
-                    <div class="profile-photo-section"
-                        style="display: flex; align-items: center; gap: 24px; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--border);">
-                        <div id="profile-avatar"
-                            style="width: 100px; height: 100px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: 600; color: white;">
-                            ?
+                <!-- 🔒 검증된 정보 섹션 (읽기 전용) -->
+                <div class="verified-section"
+                    style="background: rgba(16, 185, 129, 0.05); border: 1px solid var(--primary); border-radius: var(--radius-md); padding: 20px; margin-bottom: 24px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h3 style="margin: 0; display: flex; align-items: center; gap: 8px; color: var(--primary);">
+                            <i data-lucide="shield-check" style="width: 20px; height: 20px;"></i>
+                            검증된 정보
+                        </h3>
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="requestProfileChange()"
+                            style="font-size: 0.8rem; color: var(--text-muted);">
+                            <i data-lucide="edit-3" style="width: 14px; height: 14px;"></i>
+                            수정 요청
+                        </button>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div>
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">이름</span>
+                            <p id="verified-name" style="font-weight: 500; margin: 4px 0 0;">-</p>
                         </div>
                         <div>
-                            <label for="profile-image-url"
-                                style="display: block; font-weight: 500; margin-bottom: 8px;">프로필 이미지 URL</label>
-                            <input type="url" id="profile-image-url" placeholder="https://example.com/photo.jpg"
-                                style="width: 300px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary);">
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">신뢰 점수</span>
+                            <p id="verified-trust-score"
+                                style="font-weight: 500; margin: 4px 0 0; color: var(--primary);">-</p>
                         </div>
                     </div>
 
-                    <!-- 기본 정보 -->
+                    <div style="margin-top: 16px;">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">ISO 자격/경력</span>
+                        <div id="verified-iso-experience"
+                            style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px;">
+                            <!-- Dynamic ISO badges -->
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 16px;">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">전문 역할</span>
+                        <div id="verified-roles" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px;">
+                            <!-- Dynamic role badges -->
+                        </div>
+                    </div>
+                </div>
+
+                <form id="profile-form" class="profile-edit-form" onsubmit="saveProfile(event)">
+                    <!-- ① 프로필 사진 (파일 업로드) -->
+                    <div class="profile-photo-section"
+                        style="display: flex; align-items: center; gap: 24px; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--border);">
+                        <div id="profile-avatar"
+                            style="width: 100px; height: 100px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: 600; color: white; overflow: hidden;">
+                            ?
+                        </div>
+                        <div>
+                            <label style="display: block; font-weight: 500; margin-bottom: 8px;">프로필 사진</label>
+                            <input type="file" id="profile-image-file" accept="image/jpeg,image/png,image/gif"
+                                onchange="handleProfileImageUpload(event)"
+                                style="padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary);">
+                            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 6px;">JPG, PNG, GIF / 최대
+                                50KB</p>
+                            <input type="hidden" id="profile-image-url">
+                        </div>
+                    </div>
+
+                    <!-- ✏️ 자유 편집 가능 정보 -->
+                    <h3 style="margin-bottom: 16px; font-size: 1rem; color: var(--text-secondary);">
+                        <i data-lucide="edit" style="width: 16px; height: 16px; display: inline;"></i>
+                        편집 가능
+                    </h3>
+
                     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 24px;">
-                        <div class="form-group">
-                            <label for="profile-name">이름</label>
-                            <input type="text" id="profile-name" disabled style="background: var(--bg-card-hover);">
-                        </div>
-                        <div class="form-group">
-                            <label for="profile-company">소속 기관/회사</label>
-                            <input type="text" id="profile-company" placeholder="예: 한국품질인증원">
-                        </div>
                         <div class="form-group">
                             <label for="profile-specialty">전문 분야</label>
                             <input type="text" id="profile-specialty" placeholder="예: ISO 9001, 14001 통합인증">
@@ -918,33 +962,32 @@
                             <input type="text" id="profile-regions" placeholder="예: 서울, 경기, 인천">
                         </div>
                     </div>
-            </div>
 
-            <!-- 소개글 -->
-            <div class="form-group" style="margin-bottom: 24px;">
-                <label for="profile-bio">자기소개</label>
-                <textarea id="profile-bio" rows="4" placeholder="전문 분야, 경력, 강점 등을 자유롭게 작성해주세요..."
-                    style="width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary); resize: vertical;"></textarea>
-            </div>
+                    <!-- 소개글 -->
+                    <div class="form-group" style="margin-bottom: 24px;">
+                        <label for="profile-bio">자기소개</label>
+                        <textarea id="profile-bio" rows="4" placeholder="전문 분야, 경력, 강점 등을 자유롭게 작성해주세요..."
+                            style="width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary); resize: vertical;"></textarea>
+                    </div>
 
-            <!-- 소개 영상 -->
-            <div class="form-group" style="margin-bottom: 32px;">
-                <label for="profile-video">소개 영상 링크 (YouTube 등)</label>
-                <input type="url" id="profile-video" placeholder="https://youtube.com/watch?v=..."
-                    style="width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary);">
-            </div>
+                    <!-- 소개 영상 -->
+                    <div class="form-group" style="margin-bottom: 32px;">
+                        <label for="profile-video">소개 영상 링크 (YouTube 등)</label>
+                        <input type="url" id="profile-video" placeholder="https://youtube.com/watch?v=..."
+                            style="width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary);">
+                    </div>
 
-            <!-- 저장 버튼 -->
-            <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                <button type="button" class="btn btn-outline" onclick="loadProfile()">변경사항 취소</button>
-                <button type="submit" class="btn btn-primary">
-                    <i data-lucide="save" style="width: 16px; height: 16px;"></i>
-                    프로필 저장
-                </button>
+                    <!-- 저장 버튼 -->
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button type="button" class="btn btn-outline" onclick="loadProfile()">변경사항 취소</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i data-lucide="save" style="width: 16px; height: 16px;"></i>
+                            프로필 저장
+                        </button>
+                    </div>
+                </form>
             </div>
-            </form>
         </div>
-    </div>
     </div><!-- container 끝 -->
 
     <!-- Consultant Profile Modal -->
@@ -1274,9 +1317,38 @@
                 const profileRes = await fetch(`${API_BASE_URL}/api/consultants/${consultantId}/profile`);
                 const profile = await profileRes.json();
 
-                // 폼에 데이터 채우기
-                document.getElementById('profile-name').value = profile.name || '';
-                document.getElementById('profile-company').value = profile.companyName || '';
+                // 🔒 검증된 정보 채우기
+                document.getElementById('verified-name').textContent = profile.name || '-';
+                document.getElementById('verified-trust-score').textContent = profile.trustScore ? `${profile.trustScore}점` : '-';
+
+                // ISO 자격/경력 뱃지
+                const isoContainer = document.getElementById('verified-iso-experience');
+                const isoExp = profile.isoExperience || {};
+                if (Object.keys(isoExp).length > 0) {
+                    isoContainer.innerHTML = Object.entries(isoExp).map(([iso, years]) => `
+                        <span style="background: rgba(16, 185, 129, 0.1); color: var(--primary); padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 500;">
+                            <i data-lucide="award" style="width: 12px; height: 12px; display: inline;"></i>
+                            ${iso} (${years}년)
+                        </span>
+                    `).join('');
+                } else {
+                    isoContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">등록된 자격이 없습니다</span>';
+                }
+
+                // 전문 역할 뱃지
+                const rolesContainer = document.getElementById('verified-roles');
+                const roles = profile.roles || [];
+                if (roles.length > 0) {
+                    rolesContainer.innerHTML = roles.map(role => `
+                        <span style="background: var(--bg-secondary); border: 1px solid var(--border); padding: 4px 10px; border-radius: 20px; font-size: 0.8rem;">
+                            ${role}
+                        </span>
+                    `).join('');
+                } else {
+                    rolesContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">등록된 역할이 없습니다</span>';
+                }
+
+                // ✏️ 편집 가능 정보 채우기
                 document.getElementById('profile-specialty').value = profile.specialty || '';
                 document.getElementById('profile-regions').value = profile.regions || '';
                 document.getElementById('profile-bio').value = profile.bio || '';
@@ -1288,8 +1360,10 @@
                 if (profile.profileImageUrl) {
                     avatar.innerHTML = `<img src="${profile.profileImageUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
                 } else {
-                    avatar.textContent = profile.name?.charAt(0) || '?';
+                    avatar.innerHTML = `<span style="font-size: 2.5rem;">${profile.name?.charAt(0) || '?'}</span>`;
                 }
+
+                lucide.createIcons();
 
             } catch (error) {
                 console.error('Failed to load profile:', error);
@@ -1306,7 +1380,6 @@
             }
 
             const data = {
-                companyName: document.getElementById('profile-company').value,
                 specialty: document.getElementById('profile-specialty').value,
                 regions: document.getElementById('profile-regions').value,
                 bio: document.getElementById('profile-bio').value,
@@ -1332,6 +1405,89 @@
                 console.error('Save profile error:', error);
                 showNotification('저장 중 오류가 발생했습니다.', 'error');
             }
+        };
+
+        // ① 프로필 이미지 업로드 핸들러
+        window.handleProfileImageUpload = async function (event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // 파일 크기 검증 (50KB)
+            const maxSize = 50 * 1024; // 50KB
+            if (file.size > maxSize) {
+                showNotification('이미지 크기는 50KB 이하여야 합니다.', 'error');
+                event.target.value = '';
+                return;
+            }
+
+            // 파일 타입 검증
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+            if (!allowedTypes.includes(file.type)) {
+                showNotification('JPG, PNG, GIF 파일만 업로드 가능합니다.', 'error');
+                event.target.value = '';
+                return;
+            }
+
+            showNotification('이미지 업로드 중...', 'success');
+
+            try {
+                // Supabase Storage에 업로드
+                const fileName = `profile_${user.id}_${Date.now()}.${file.name.split('.').pop()}`;
+
+                // Supabase anon key와 URL 사용
+                const supabaseUrl = 'https://qpuepxyxznpbhjuikqzv.supabase.co';
+                const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwdWVweHl4em5wYmhqdWlrcXp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzYxNjQ3NDEsImV4cCI6MjA1MTc0MDc0MX0.MxCGwSpTJb1KlnE8TIwNQwi1FBcP_TBWWFE4Koo7q3w';
+
+                const uploadResponse = await fetch(`${supabaseUrl}/storage/v1/object/profiles/${fileName}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${supabaseKey}`,
+                        'apikey': supabaseKey,
+                        'Content-Type': file.type
+                    },
+                    body: file
+                });
+
+                if (uploadResponse.ok) {
+                    const publicUrl = `${supabaseUrl}/storage/v1/object/public/profiles/${fileName}`;
+                    document.getElementById('profile-image-url').value = publicUrl;
+
+                    // 아바타 미리보기 업데이트
+                    const avatar = document.getElementById('profile-avatar');
+                    avatar.innerHTML = `<img src="${publicUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+
+                    showNotification('이미지가 업로드되었습니다. 저장 버튼을 눌러주세요.', 'success');
+                } else {
+                    throw new Error('Upload failed');
+                }
+            } catch (error) {
+                console.error('Image upload error:', error);
+                showNotification('이미지 업로드에 실패했습니다.', 'error');
+            }
+        };
+
+        // ④ 검증된 정보 수정 요청
+        window.requestProfileChange = function () {
+            const subject = encodeURIComponent('[프로필 수정 요청] ' + user.name);
+            const body = encodeURIComponent(`
+안녕하세요,
+
+프로필 검증 정보 수정을 요청드립니다.
+
+[현재 정보]
+- 이름: ${document.getElementById('verified-name').textContent}
+- 컨설턴트 ID: ${consultantId}
+
+[수정 희망 내용]
+- 수정 항목: 
+- 변경 내용: 
+- 증빙 자료: (첨부 또는 설명)
+
+감사합니다.
+            `);
+
+            window.open(`mailto:support@insightmatch.com?subject=${subject}&body=${body}`, '_blank');
+            showNotification('이메일 작성 화면이 열립니다. 수정 희망 내용을 작성해주세요.', 'success');
         };
 
         function updateEmptyState(role) {
