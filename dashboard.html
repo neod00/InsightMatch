@@ -925,6 +925,18 @@
                             <!-- Dynamic role badges -->
                         </div>
                     </div>
+
+                    <!-- 검토 대기 중 알림 -->
+                    <div id="pending-changes-notice" class="hidden"
+                        style="margin-top: 16px; padding: 12px; background: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; border-radius: var(--radius-sm);">
+                        <div style="display: flex; align-items: center; gap: 8px; color: #f59e0b;">
+                            <i data-lucide="clock" style="width: 16px; height: 16px;"></i>
+                            <span style="font-weight: 500;">검토 대기 중</span>
+                        </div>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px;">
+                            요청하신 수정사항이 관리자 검토 중입니다. 승인 후 반영됩니다.
+                        </p>
+                    </div>
                 </div>
 
                 <form id="profile-form" class="profile-edit-form" onsubmit="saveProfile(event)">
@@ -1363,6 +1375,14 @@
                     avatar.innerHTML = `<span style="font-size: 2.5rem;">${profile.name?.charAt(0) || '?'}</span>`;
                 }
 
+                // 검토 대기 중 알림 표시
+                const pendingNotice = document.getElementById('pending-changes-notice');
+                if (profile.pendingChanges) {
+                    pendingNotice.classList.remove('hidden');
+                } else {
+                    pendingNotice.classList.add('hidden');
+                }
+
                 lucide.createIcons();
 
             } catch (error) {
@@ -1486,8 +1506,8 @@
 감사합니다.
             `);
 
-            window.open(`mailto:support@insightmatch.com?subject=${subject}&body=${body}`, '_blank');
-            showNotification('이메일 작성 화면이 열립니다. 수정 희망 내용을 작성해주세요.', 'success');
+            window.open(`mailto:openbrain.main@gmail.com?subject=${subject}&body=${body}`, '_blank');
+            showNotification('이메일 작성 화면이 열립니다. 검증 정보 수정은 관리자 검토 후 반영됩니다.', 'success');
         };
 
         function updateEmptyState(role) {

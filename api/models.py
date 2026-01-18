@@ -55,6 +55,10 @@ class Consultant(db.Model):
     email = db.Column(db.String(120))  # 이메일 (User와 별도로 공개용)
     company_name = db.Column(db.String(100))  # 소속 회사/기관
     
+    # ④ Pending Changes (관리자 검토 대기)
+    pending_changes = db.Column(db.Text)  # JSON: {"name": "새이름", "iso_experience": {...}, ...}
+    pending_changes_at = db.Column(db.DateTime)  # 검토 요청 시각
+    
     def to_dict(self):
         return {
             'id': self.id,
@@ -80,7 +84,10 @@ class Consultant(db.Model):
             'portfolioFiles': json.loads(self.portfolio_files) if self.portfolio_files else [],
             'phone': self.phone,
             'email': self.email,
-            'companyName': self.company_name
+            'companyName': self.company_name,
+            # Pending changes
+            'pendingChanges': json.loads(self.pending_changes) if self.pending_changes else None,
+            'pendingChangesAt': self.pending_changes_at.isoformat() if self.pending_changes_at else None
         }
 
 # ② Notification Model
