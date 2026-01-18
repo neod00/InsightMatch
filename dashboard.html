@@ -569,12 +569,20 @@
                 if (!Array.isArray(projects) || projects.length === 0) {
                     document.getElementById('project-list').classList.add('hidden');
                     document.getElementById('empty-state').classList.remove('hidden');
+                    updateEmptyState(user.role);
                     return;
                 }
 
-                // 같은 title로 그룹화 (같은 견적 요청에서 온 프로젝트들)
-                const grouped = groupProjectsByTitle(projects);
-                renderGroupedProjects(grouped);
+                document.getElementById('project-list').classList.remove('hidden');
+                document.getElementById('empty-state').classList.add('hidden');
+
+                if (user.role === 'consultant') {
+                    renderConsultantProjects(projects);
+                } else {
+                    // 기업: 같은 title/session_id로 그룹화
+                    const grouped = groupProjectsByTitle(projects);
+                    renderGroupedProjects(grouped);
+                }
 
             } catch (error) {
                 console.error('프로젝트 로딩 에러:', error);
@@ -586,6 +594,91 @@
                 `;
                 lucide.createIcons();
             }
+        }
+
+        // --- UI Setup based on Role ---
+        function setupDashboardUI() {
+            const headerTitle = document.querySelector('.dashboard-header h1');
+            const headerDesc = document.querySelector('.dashboard-header p');
+            const actionBtn = document.querySelector('.dashboard-header .btn-primary');
+
+            if (user.role === 'consultant') {
+                headerTitle.textContent = '받은 요청 관리';
+                headerDesc.textContent = '기업으로부터 받은 견적 요청을 확인하고 제안을 보내세요.';
+                if (actionBtn) actionBtn.style.display = 'none'; // 컨설턴트는 '새 매칭' 버튼 숨김
+            } else {
+                headerTitle.textContent = '내 견적 요청';
+                headerDesc.textContent = '전문가에게 요청한 견적 현황을 확인하세요.';
+                if (actionBtn) actionBtn.style.display = 'flex';
+            }
+        }
+
+        function updateEmptyState(role) {
+            const emptyTitle = document.querySelector('#empty-state h3');
+            const emptyDesc = document.querySelector('#empty-state p');
+            const emptyBtn = document.querySelector('#empty-state .btn-primary');
+
+            if (role === 'consultant') {
+                emptyTitle.textContent = '아직 받은 요청이 없습니다';
+                emptyDesc.textContent = '프로필을 알차게 꾸며 기업의 선택을 받아보세요.';
+                if (emptyBtn) emptyBtn.style.display = 'none';
+            } else {
+                emptyTitle.textContent = '진행 중인 견적 요청이 없습니다';
+                emptyDesc.textContent = '전문가 추천을 받고 견적을 요청해보세요.';
+                if (emptyBtn) emptyBtn.style.display = 'inline-flex';
+            }
+        }
+
+        // --- Consultant View Render ---
+        function renderConsultantProjects(projects) {
+            const container = document.getElementById('project-list');
+            container.innerHTML = '';
+
+            // 최신순 정렬
+            projects.sort((a, b) => new Date(b.created_at || b.start_date) - new Date(a.created_at || a.start_date));
+
+            projects.forEach(project => {
+                const statusInfo = STATUS_CONFIG[project.status] || STATUS_CONFIG['planning'];
+                const isPending = project.status === 'proposal_pending' || project.status === 'planning';
+
+                const card = document.createElement('div');
+                card.className = 'quote-request-card'; // 재사용
+                card.innerHTML = `
+                    <div class="quote-request-header">
+                        <div>
+                            <div class="quote-request-title">${project.title}</div>
+                            <div class="quote-request-meta">
+                                <span><i data-lucide="building"></i> ${project.company_name || '기업 고객'}</span>
+                                <span><i data-lucide="calendar"></i> ${new Date(project.start_date).toLocaleDateString()} 요청</span>
+                            </div>
+                        </div>
+                        <div class="response-status ${isPending ? 'pending' : 'submitted'}">
+                            ${statusInfo.text}
+                        </div>
+                    </div>
+                    
+                    <div style="padding: 24px;">
+                        <!-- 요약 정보 (추후 상세 데이터 연동 필요) -->
+                        <div style="background: var(--bg-secondary); padding: 16px; border-radius: var(--radius-sm); margin-bottom: 20px;">
+                            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 8px;">요청 사항:</p>
+                            <p style="font-size: 0.95rem;">${project.description || '상세 요청 내용이 없습니다. 제안서를 작성하여 구체적인 논의를 시작해보세요.'}</p>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                            ${isPending ? `
+                                <button class="btn btn-outline" onclick="rejectRequest(${project.id})">거절하기</button>
+                                <button class="btn btn-primary" onclick="openProposalModal(${project.id})">제안서 보내기</button>
+                            ` : `
+                                <button class="btn btn-outline" onclick="viewMyProposal(${project.id})">내 제안 보기</button>
+                                <button class="btn btn-primary" onclick="enterProjectRoom(${project.id})">프로젝트 방 입장</button>
+                            `}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            lucide.createIcons();
         }
 
         function groupProjectsByTitle(projects) {
@@ -1285,6 +1378,8 @@
             }
         }
 
+        // Initialize
+        setupDashboardUI();
         fetchProjects();
     </script>
 </body>
