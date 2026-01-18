@@ -663,10 +663,15 @@
                 // Parse industry experience
                 let industryList = consultant.industryExperience || [];
 
+                // Avatar logic
+                const avatarContent = consultant.profileImageUrl
+                    ? `<img src="${consultant.profileImageUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
+                    : (consultant.avatar || consultant.name[0]);
+
                 card.innerHTML = `
                     <div class="consultant-approval-header">
                         <div class="consultant-approval-info">
-                            <div class="consultant-approval-avatar">${consultant.avatar || consultant.name[0]}</div>
+                            <div class="consultant-approval-avatar">${avatarContent}</div>
                             <div class="consultant-approval-details">
                                 <h3>${consultant.name}</h3>
                                 <p>${consultant.specialty || '종합'} 전문 · 경력 ${consultant.experience || '-'}</p>
@@ -833,9 +838,9 @@
             const consultant = allConsultantsAdmin.find(c => c.id == consultantId);
             if (!consultant) return;
 
-            // Set Header
-            document.getElementById('panel-company-name').textContent = consultant.name;
-            document.getElementById('panel-request-date').textContent = `${consultant.specialty || '종합'} 전문 컨설턴트`;
+            // Set Header Title
+            document.getElementById('panel-company-name').textContent = '컨설턴트 상세 정보';
+            document.getElementById('panel-request-date').textContent = `${consultant.name} 전문가`;
 
             // Parse ISO experience
             let isoList = [];
@@ -843,8 +848,22 @@
                 isoList = Object.keys(consultant.isoExperience).map(iso => 'ISO ' + iso);
             }
 
-            // Build Body Content
-            let contentHtml = `
+            // Set Header with Avatar
+            const avatarContent = consultant.profileImageUrl
+                ? `<img src="${consultant.profileImageUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">`
+                : `<div class="consultant-approval-avatar" style="width: 80px; height: 80px; border-radius: 12px; font-size: 1.5rem;">${consultant.avatar || consultant.name[0]}</div>`;
+
+            document.getElementById('panel-content').innerHTML = `
+                <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 32px; padding: 20px; background: rgba(255,255,255,0.03); border-radius: 16px;">
+                    <div style="width: 80px; height: 80px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+                        ${avatarContent} 
+                    </div>
+                    <div>
+                        <h2 style="font-size: 1.5rem; margin-bottom: 4px;">${consultant.name}</h2>
+                        <p style="color: var(--text-muted); font-size: 0.95rem;">${consultant.specialty || '종합'} 전문 · 경력 ${consultant.experience || '-'}</p>
+                    </div>
+                </div>
+
                 <div class="info-group">
                     <h4 style="margin-bottom: 16px; color: var(--primary); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
                         컨설턴트 전문성
@@ -993,23 +1012,32 @@
                         매칭된 컨설턴트 상세
                     </h4>
                     ${job.related_projects && job.related_projects.length > 0 ?
-                    job.related_projects.map(p => `
-                            <div class="consultant-item">
-                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-                                    <span style="font-weight: 600; font-size: 1.1rem;">${p.consultant_name}</span>
-                                    <span class="status-badge status-completed" style="font-size: 0.75rem;">
-                                        ${p.status === 'contracted' ? '계약 완료' : p.status === 'proposal_submitted' ? '제안 완료' : p.status}
-                                    </span>
+                    job.related_projects.map(p => {
+                        const avatarContent = p.profile_image_url
+                            ? `<img src="${p.profile_image_url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
+                            : (p.consultant_name?.charAt(0) || '?');
+
+                        return `
+                            <div class="consultant-item" style="padding: 16px;">
+                                <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 12px;">
+                                    <div class="consultant-approval-avatar" style="width: 40px; height: 40px; font-size: 1rem; flex-shrink: 0;">${avatarContent}</div>
+                                    <div style="flex: 1;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                                            <span style="font-weight: 600; font-size: 1.05rem;">${p.consultant_name}</span>
+                                            <span class="status-badge status-completed" style="font-size: 0.7rem; padding: 2px 8px;">
+                                                ${p.status === 'contracted' ? '계약 완료' : p.status === 'proposal_submitted' ? '제안 완료' : p.status}
+                                            </span>
+                                        </div>
+                                        <div style="font-size: 0.8rem; color: var(--text-muted);">${p.title}</div>
+                                    </div>
                                 </div>
-                                <div style="font-size: 0.85rem; color: var(--text-muted);">
-                                    프로젝트: ${p.title}
-                                </div>
-                                <div style="margin-top: 12px; display: flex; gap: 8px;">
-                                    <button class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 0.75rem;">제안서 확인</button>
-                                    <button class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 0.75rem;">채팅하기</button>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="btn btn-secondary btn-sm" style="flex: 1; padding: 6px; font-size: 0.75rem;" onclick="viewConsultantDetails('${p.consultant_id}')">프로필</button>
+                                    <button class="btn btn-secondary btn-sm" style="flex: 1; padding: 6px; font-size: 0.75rem;">제안서</button>
                                 </div>
                             </div>
-                        `).join('') : '<p style="color: var(--text-muted); text-align: center; padding: 20px;">매칭된 컨설턴트 데이터가 없습니다.</p>'
+                        `;
+                    }).join('') : '<p style="color: var(--text-muted); text-align: center; padding: 20px;">매칭된 컨설턴트 데이터가 없습니다.</p>'
                 }
                 </div>
             `;

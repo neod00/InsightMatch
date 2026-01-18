@@ -1756,10 +1756,14 @@
             const scheduleStatus = project.schedule_status || 'pending';
             const needsScheduleConfirm = isContracted && scheduleStatus === 'proposed';
 
+            const avatarContent = project.profile_image_url
+                ? `<img src="${project.profile_image_url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
+                : (project.consultant_name?.charAt(0) || '?');
+
             return `
                 <div class="consultant-response-card ${cardClass}">
                     <div class="response-card-header">
-                        <div class="consultant-avatar-large">${project.consultant_name?.charAt(0) || '?'}</div>
+                        <div class="consultant-avatar-large">${avatarContent}</div>
                         <div class="consultant-info-main">
                             <div class="consultant-name-row">
                                 <h4>${project.consultant_name || '컨설턴트'}</h4>
@@ -1851,10 +1855,14 @@
 
                 const consultant = await response.json();
 
+                const avatarContent = consultant.profileImageUrl
+                    ? `<img src="${consultant.profileImageUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
+                    : (consultant.avatar || consultant.name?.charAt(0) || '?');
+
                 document.getElementById('modal-body').innerHTML = `
                     <div style="text-align: center; margin-bottom: 24px;">
                         <div class="consultant-avatar-large" style="width: 80px; height: 80px; font-size: 2rem; margin: 0 auto 16px;">
-                            ${consultant.avatar || consultant.name?.charAt(0) || '?'}
+                            ${avatarContent}
                         </div>
                         <h3 style="margin: 0 0 4px;">${consultant.name}</h3>
                         <p style="color: var(--text-muted); margin: 0;">${consultant.specialty || '컨설턴트'}</p>
@@ -2242,25 +2250,31 @@
                 }
 
                 // 모달 내용 생성
-                const consultantCards = consultants.map(c => `
-                    <div class="add-consultant-item" style="display: flex; align-items: center; justify-content: space-between; padding: 16px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px;">
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <div class="consultant-avatar-large" style="width: 48px; height: 48px; font-size: 1.2rem;">${c.name?.charAt(0) || '?'}</div>
-                            <div>
-                                <div style="font-weight: 600;">${c.name}</div>
-                                <div style="font-size: 0.85rem; color: var(--text-muted);">${c.specialty || 'ISO 전문가'}</div>
-                                <div style="display: flex; gap: 8px; margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary);">
-                                    <span>⭐ ${c.rating || '-'}</span>
-                                    <span>경력 ${c.experience || '-'}</span>
+                const consultantCards = consultants.map(c => {
+                    const avatarContent = c.profileImageUrl
+                        ? `<img src="${c.profileImageUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
+                        : (c.name?.charAt(0) || '?');
+
+                    return `
+                        <div class="add-consultant-item" style="display: flex; align-items: center; justify-content: space-between; padding: 16px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div class="consultant-avatar-large" style="width: 48px; height: 48px; font-size: 1.2rem;">${avatarContent}</div>
+                                <div>
+                                    <div style="font-weight: 600;">${c.name}</div>
+                                    <div style="font-size: 0.85rem; color: var(--text-muted);">${c.specialty || 'ISO 전문가'}</div>
+                                    <div style="display: flex; gap: 8px; margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary);">
+                                        <span>⭐ ${c.rating || '-'}</span>
+                                        <span>경력 ${c.experience || '-'}</span>
+                                    </div>
                                 </div>
                             </div>
+                            <button class="btn btn-primary btn-sm" onclick="addConsultant(${c.id}, '${c.name?.replace(/'/g, "\\'")}')">
+                                <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+                                요청
+                            </button>
                         </div>
-                        <button class="btn btn-primary btn-sm" onclick="addConsultant(${c.id}, '${c.name?.replace(/'/g, "\\'")}')">
-                            <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
-                            요청
-                        </button>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
 
                 document.getElementById('modal-body').innerHTML = `
                     <h3 style="margin-bottom: 16px;">다른 전문가에게도 요청</h3>

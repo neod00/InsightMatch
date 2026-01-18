@@ -357,6 +357,7 @@ def handle_projects():
                 'status': p.status,
                 'consultant_id': p.consultant_id,
                 'consultant_name': consultant.name if consultant else 'Unknown',
+                'profile_image_url': consultant.profile_image_url if consultant else None,
                 'company_id': p.company_id,
                 'company_name': company_user.name if company_user else 'Unknown Company',
                 'start_date': p.start_date.isoformat() if p.start_date else None,
@@ -722,7 +723,8 @@ def get_available_consultants(title):
             'specialty': c.specialty,
             'rating': c.rating,
             'experience': c.experience,
-            'verified': c.verified
+            'verified': c.verified,
+            'profileImageUrl': c.profile_image_url
         })
     
     return jsonify(results)
@@ -888,6 +890,7 @@ def get_consultant_detail(consultant_id):
         'id': consultant.id,
         'name': consultant.name,
         'avatar': consultant.avatar,
+        'profileImageUrl': consultant.profile_image_url,
         'specialty': consultant.specialty,
         'experience': consultant.experience,
         'rating': consultant.rating,
