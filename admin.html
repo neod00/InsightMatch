@@ -695,10 +695,10 @@
                     </div>
                     
                     <div class="consultant-approval-actions">
-                        <a href="consultant_profile.html?id=${consultant.id}" class="btn btn-secondary btn-sm">
+                        <button class="btn btn-secondary btn-sm" onclick="viewConsultantDetails('${consultant.id}')">
                             <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
                             상세 보기
-                        </a>
+                        </button>
                         ${!consultant.verified ? `
                             <button class="btn btn-approve btn-sm" onclick="approveConsultant(${consultant.id})">
                                 <i data-lucide="check" style="width: 16px; height: 16px;"></i>
@@ -826,6 +826,100 @@
                 console.error('Error:', error);
                 showNotification('서버 연결에 실패했습니다.', 'error');
             }
+        }
+
+        // View Consultant Details - Show in side panel
+        function viewConsultantDetails(consultantId) {
+            const consultant = allConsultantsAdmin.find(c => c.id == consultantId);
+            if (!consultant) return;
+
+            // Set Header
+            document.getElementById('panel-company-name').textContent = consultant.name;
+            document.getElementById('panel-request-date').textContent = `${consultant.specialty || '종합'} 전문 컨설턴트`;
+
+            // Parse ISO experience
+            let isoList = [];
+            if (consultant.isoExperience && typeof consultant.isoExperience === 'object') {
+                isoList = Object.keys(consultant.isoExperience).map(iso => 'ISO ' + iso);
+            }
+
+            // Build Body Content
+            let contentHtml = `
+                <div class="info-group">
+                    <h4 style="margin-bottom: 16px; color: var(--primary); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+                        컨설턴트 전문성
+                    </h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div>
+                            <label class="info-label">보유 규격</label>
+                            <div class="info-value">${isoList.join(', ') || '미지정'}</div>
+                        </div>
+                        <div>
+                            <label class="info-label">총 경력</label>
+                            <div class="info-value">${consultant.experience || '신입'}</div>
+                        </div>
+                        <div style="grid-column: span 2;">
+                            <label class="info-label">산업 경험</label>
+                            <div class="info-value">${(consultant.industryExperience || []).join(', ') || '미지정'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-group">
+                    <label class="info-label">자기소개 (Bio)</label>
+                    <div class="info-value" style="background: rgba(255,255,255,0.03); padding: 16px; border-radius: 8px; font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap;">
+                        ${consultant.bio || '등록된 자기소개가 없습니다.'}
+                    </div>
+                </div>
+
+                <div class="info-group" style="margin-top: 32px;">
+                    <h4 style="margin-bottom: 16px; color: var(--warning); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+                        성과 및 지표
+                    </h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; text-align: center;">
+                        <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px;">
+                            <div class="info-label" style="margin-bottom: 4px;">신뢰 점수</div>
+                            <div class="info-value" style="color: var(--primary); font-size: 1.2rem;">${consultant.trustScore || 50}점</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px;">
+                            <div class="info-label" style="margin-bottom: 4px;">리뷰 수</div>
+                            <div class="info-value" style="font-size: 1.2rem;">${consultant.reviews || 0}개</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px;">
+                            <div class="info-label" style="margin-bottom: 4px;">매칭 이력</div>
+                            <div class="info-value" style="font-size: 1.2rem;">${consultant.projects_count || 0}건</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('panel-content').innerHTML = contentHtml;
+
+            // Update Footer Buttons
+            let footerHtml = `
+                <button class="btn btn-secondary" onclick="closeSidePanel()">닫기</button>
+                <a href="mailto:${consultant.email}" class="btn btn-secondary" style="display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="mail" style="width: 18px; height: 18px;"></i>
+                    메일 보내기
+                </a>
+                ${!consultant.verified ? `
+                    <button class="btn btn-primary" style="flex: 1;" onclick="approveConsultant(${consultant.id}); closeSidePanel();">
+                        <i data-lucide="check-circle" style="width: 18px; height: 18px;"></i>
+                        검증 승인하기
+                    </button>
+                ` : `
+                    <button class="btn btn-sm" style="background: rgba(239, 68, 68, 0.15); color: var(--error);" onclick="revokeVerification(${consultant.id}); closeSidePanel();">
+                        검증 취소
+                    </button>
+                `}
+            `;
+            document.getElementById('panel-footer').innerHTML = footerHtml;
+
+            // Re-create icons
+            lucide.createIcons();
+
+            // Open Panel
+            openSidePanel();
         }
 
         // Side Panel Controls
