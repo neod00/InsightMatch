@@ -16,6 +16,9 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <!-- Styles -->
     <link rel="stylesheet" href="style.css">
     <style>
@@ -1427,38 +1430,46 @@
             showNotification('이미지 업로드 중...', 'success');
 
             try {
-                // Supabase Storage에 업로드
-                const fileName = `profile_${user.id}_${Date.now()}.${file.name.split('.').pop()}`;
-
-                // Supabase anon key와 URL 사용
+                // Supabase 클라이언트 초기화
                 const supabaseUrl = 'https://qpuepxyxznpbhjuikqzv.supabase.co';
                 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwdWVweHl4em5wYmhqdWlrcXp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzYxNjQ3NDEsImV4cCI6MjA1MTc0MDc0MX0.MxCGwSpTJb1KlnE8TIwNQwi1FBcP_TBWWFE4Koo7q3w';
 
-                const uploadResponse = await fetch(`${supabaseUrl}/storage/v1/object/profiles/${fileName}`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${supabaseKey}`,
-                        'apikey': supabaseKey,
-                        'Content-Type': file.type
-                    },
-                    body: file
-                });
+                const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-                if (uploadResponse.ok) {
-                    const publicUrl = `${supabaseUrl}/storage/v1/object/public/profiles/${fileName}`;
-                    document.getElementById('profile-image-url').value = publicUrl;
+                // 파일명 생성
+                const fileExt = file.name.split('.').pop();
+                const fileName = `profile_${user.id}_${Date.now()}.${fileExt}`;
 
-                    // 아바타 미리보기 업데이트
-                    const avatar = document.getElementById('profile-avatar');
-                    avatar.innerHTML = `<img src="${publicUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+                // Supabase Storage에 업로드
+                const { data, error } = await supabase.storage
+                    .from('profiles')
+                    .upload(fileName, file, {
+                        cacheControl: '3600',
+                        upsert: true
+                    });
 
-                    showNotification('이미지가 업로드되었습니다. 저장 버튼을 눌러주세요.', 'success');
-                } else {
-                    throw new Error('Upload failed');
+                if (error) {
+                    console.error('Supabase upload error:', error);
+                    showNotification(`업로드 실패: ${error.message}`, 'error');
+                    return;
                 }
+
+                // Public URL 생성
+                const { data: urlData } = supabase.storage
+                    .from('profiles')
+                    .getPublicUrl(fileName);
+
+                const publicUrl = urlData.publicUrl;
+                document.getElementById('profile-image-url').value = publicUrl;
+
+                // 아바타 미리보기 업데이트
+                const avatar = document.getElementById('profile-avatar');
+                avatar.innerHTML = `<img src="${publicUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+
+                showNotification('이미지가 업로드되었습니다. 저장 버튼을 눌러주세요.', 'success');
             } catch (error) {
                 console.error('Image upload error:', error);
-                showNotification('이미지 업로드에 실패했습니다.', 'error');
+                showNotification(`이미지 업로드 오류: ${error.message}`, 'error');
             }
         };
 
