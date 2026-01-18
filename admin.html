@@ -18,6 +18,123 @@
 
     <!-- Styles -->
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* Side Panel Styles */
+        .side-panel-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .side-panel-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .side-panel {
+            position: fixed;
+            top: 0;
+            right: -600px;
+            width: 100%;
+            max-width: 600px;
+            height: 100%;
+            background: rgba(23, 23, 23, 0.95);
+            backdrop-filter: blur(20px);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 2001;
+            transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+            box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .side-panel.active {
+            right: 0;
+        }
+
+        .side-panel-header {
+            padding: 24px 32px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .close-panel-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 0;
+        }
+
+        .close-panel-btn:hover {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            transform: rotate(90deg);
+        }
+
+        .side-panel-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        .side-panel-footer {
+            padding: 24px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            gap: 12px;
+            background: rgba(20, 20, 20, 0.5);
+        }
+
+        .info-group {
+            margin-bottom: 24px;
+        }
+
+        .info-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .info-value {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .consultant-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: transform 0.2s;
+        }
+
+        .consultant-item:hover {
+            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 0.05);
+        }
+    </style>
 </head>
 
 <body>
@@ -180,6 +297,26 @@
         </div>
     </div>
 
+    <!-- Side Panel for Details -->
+    <div class="side-panel-overlay" id="side-panel-overlay" onclick="closeSidePanel()"></div>
+    <div class="side-panel" id="side-panel">
+        <div class="side-panel-header">
+            <div>
+                <h3 id="panel-company-name">업체 상세 정보</h3>
+                <p id="panel-request-date" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;"></p>
+            </div>
+            <button class="close-panel-btn" onclick="closeSidePanel()" title="닫기">
+                <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+            </button>
+        </div>
+        <div class="side-panel-body" id="panel-content">
+            <!-- Content will be injected by JS -->
+        </div>
+        <div class="side-panel-footer" id="panel-footer">
+            <button class="btn btn-secondary" onclick="closeSidePanel()">닫기</button>
+        </div>
+    </div>
+
     <script>
         lucide.createIcons();
 
@@ -207,11 +344,12 @@
             }
         });
 
-        // Tab State
+        // Global State
         let currentTab = 'analysis';
         let allConsultantsAdmin = [];
+        let allJobsAdmin = []; // Store all matching requests
         let currentFilter = 'all';
-        let expandedJobId = null; // Track which job card is expanded
+        let expandedJobId = null;
 
         // Tab Switching
         function switchTab(tab) {
@@ -235,9 +373,9 @@
         async function fetchJobs() {
             try {
                 const response = await fetch('/api/admin/jobs');
-                const jobs = await response.json();
-                renderJobs(jobs);
-                updateStats(jobs);
+                allJobsAdmin = await response.json();
+                renderJobs(allJobsAdmin);
+                updateStats(allJobsAdmin);
             } catch (error) {
                 console.error('Error fetching jobs:', error);
                 document.getElementById('job-list').innerHTML = `
@@ -690,13 +828,120 @@
             }
         }
 
-        // View Job Details - Navigate to dashboard or show modal
+        // Side Panel Controls
+        function openSidePanel() {
+            document.getElementById('side-panel-overlay').classList.add('active');
+            document.getElementById('side-panel').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeSidePanel() {
+            document.getElementById('side-panel-overlay').classList.remove('active');
+            document.getElementById('side-panel').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        // View Job Details - Navigate to dashboard or show side panel
         function viewJobDetails(jobId) {
-            // For now, show an alert with job ID
-            // Later this can navigate to a detailed view or open a modal
-            showNotification('상세 보기 기능은 추후 구현될 예정입니다. Job ID: ' + jobId, 'success');
-            // Alternative: Navigate to dashboard with filter
-            // window.location.href = `/dashboard.html?job_id=${jobId}`;
+            const job = allJobsAdmin.find(j => j.id === jobId);
+            if (!job) return;
+
+            const intake = job.intake_data || {};
+            const date = new Date(job.created_at).toLocaleString('ko-KR');
+
+            // Set Header
+            document.getElementById('panel-company-name').textContent = job.company_name;
+            document.getElementById('panel-request-date').textContent = `요청 일시: ${date}`;
+
+            // Build Body Content
+            let contentHtml = `
+                <div class="info-group">
+                    <h4 style="margin-bottom: 16px; color: var(--primary); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+                        매칭 요청 원문
+                    </h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div>
+                            <label class="info-label">희망 규격</label>
+                            <div class="info-value">${(intake.standards || []).join(', ') || '미지정'}</div>
+                        </div>
+                        <div>
+                            <label class="info-label">업종</label>
+                            <div class="info-value">${intake.industry || '미지정'}</div>
+                        </div>
+                        <div>
+                            <label class="info-label">직원 수</label>
+                            <div class="info-value">${intake.employees || '미지정'}</div>
+                        </div>
+                        <div>
+                            <label class="info-label">희망 일정</label>
+                            <div class="info-value">${intake.timeline || '유연함'}</div>
+                        </div>
+                        <div>
+                            <label class="info-label">예산</label>
+                            <div class="info-value">${intake.budget || '미정'}</div>
+                        </div>
+                        <div>
+                            <label class="info-label">지역</label>
+                            <div class="info-value">${intake.region || '전국'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-group">
+                    <label class="info-label">이슈 및 요구사항</label>
+                    <div class="info-value" style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; font-size: 0.9rem;">
+                        ${(intake.issues || []).join('\n') || '특별한 요구사항 없음'}
+                    </div>
+                </div>
+
+                <div class="info-group" style="margin-top: 32px;">
+                    <h4 style="margin-bottom: 16px; color: var(--success); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+                        매칭된 컨설턴트 상세
+                    </h4>
+                    ${job.related_projects && job.related_projects.length > 0 ?
+                    job.related_projects.map(p => `
+                            <div class="consultant-item">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                                    <span style="font-weight: 600; font-size: 1.1rem;">${p.consultant_name}</span>
+                                    <span class="status-badge status-completed" style="font-size: 0.75rem;">
+                                        ${p.status === 'contracted' ? '계약 완료' : p.status === 'proposal_submitted' ? '제안 완료' : p.status}
+                                    </span>
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted);">
+                                    프로젝트: ${p.title}
+                                </div>
+                                <div style="margin-top: 12px; display: flex; gap: 8px;">
+                                    <button class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 0.75rem;">제안서 확인</button>
+                                    <button class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 0.75rem;">채팅하기</button>
+                                </div>
+                            </div>
+                        `).join('') : '<p style="color: var(--text-muted); text-align: center; padding: 20px;">매칭된 컨설턴트 데이터가 없습니다.</p>'
+                }
+                </div>
+            `;
+
+            document.getElementById('panel-content').innerHTML = contentHtml;
+
+            // Update Footer Buttons
+            let footerHtml = `
+                <button class="btn btn-secondary" onclick="closeSidePanel()">닫기</button>
+                ${intake.contact_email ? `
+                    <a href="mailto:${intake.contact_email}" class="btn btn-primary" style="flex: 1; display: flex; justify-content: center; align-items: center; gap: 8px;">
+                        <i data-lucide="mail" style="width: 18px; height: 18px;"></i>
+                        업체에 메일 보내기
+                    </a>
+                ` : ''}
+                <button class="btn btn-sm" style="background: rgba(239, 68, 68, 0.15); color: var(--error);" onclick="deleteJob('${job.id}', '${job.company_name}'); closeSidePanel();">
+                    삭제
+                </button>
+            `;
+            document.getElementById('panel-footer').innerHTML = footerHtml;
+
+            // Re-create icons
+            lucide.createIcons();
+
+            // Open Panel
+            openSidePanel();
         }
 
         // Notification
