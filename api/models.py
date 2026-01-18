@@ -105,6 +105,25 @@ class Notification(db.Model):
             'createdAt': self.created_at.isoformat() if self.created_at else None
         }
 
+# B. 인앱 메시지 모델
+class Message(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id'), nullable=False)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'projectId': self.project_id,
+            'senderId': self.sender_id,
+            'content': self.content,
+            'isRead': self.is_read,
+            'createdAt': self.created_at.isoformat() if self.created_at else None
+        }
+
 class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     company_id = db.Column(db.Integer, db.ForeignKey('user.id')) # Using User ID for simplicity in MVP

@@ -704,6 +704,47 @@
             outline: none;
             border-color: var(--primary);
         }
+
+        /* B. 메시지 스타일 */
+        .message-bubble {
+            max-width: 80%;
+            padding: 10px 14px;
+            border-radius: 16px;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .message-bubble.sent {
+            background: var(--primary);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-bubble.received {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-meta {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+            text-align: right;
+        }
+
+        .message-bubble.received .message-meta {
+            text-align: left;
+        }
+
+        .message-sender {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
     </style>
 </head>
 
@@ -876,41 +917,34 @@
                             <label for="profile-regions">활동 지역</label>
                             <input type="text" id="profile-regions" placeholder="예: 서울, 경기, 인천">
                         </div>
-                        <div class="form-group">
-                            <label for="profile-phone">연락처</label>
-                            <input type="tel" id="profile-phone" placeholder="010-0000-0000">
-                        </div>
-                        <div class="form-group">
-                            <label for="profile-email">공개 이메일</label>
-                            <input type="email" id="profile-email" placeholder="contact@example.com">
-                        </div>
                     </div>
-
-                    <!-- 소개글 -->
-                    <div class="form-group" style="margin-bottom: 24px;">
-                        <label for="profile-bio">자기소개</label>
-                        <textarea id="profile-bio" rows="4" placeholder="전문 분야, 경력, 강점 등을 자유롭게 작성해주세요..."
-                            style="width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary); resize: vertical;"></textarea>
-                    </div>
-
-                    <!-- 소개 영상 -->
-                    <div class="form-group" style="margin-bottom: 32px;">
-                        <label for="profile-video">소개 영상 링크 (YouTube 등)</label>
-                        <input type="url" id="profile-video" placeholder="https://youtube.com/watch?v=..."
-                            style="width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary);">
-                    </div>
-
-                    <!-- 저장 버튼 -->
-                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                        <button type="button" class="btn btn-outline" onclick="loadProfile()">변경사항 취소</button>
-                        <button type="submit" class="btn btn-primary">
-                            <i data-lucide="save" style="width: 16px; height: 16px;"></i>
-                            프로필 저장
-                        </button>
-                    </div>
-                </form>
             </div>
+
+            <!-- 소개글 -->
+            <div class="form-group" style="margin-bottom: 24px;">
+                <label for="profile-bio">자기소개</label>
+                <textarea id="profile-bio" rows="4" placeholder="전문 분야, 경력, 강점 등을 자유롭게 작성해주세요..."
+                    style="width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary); resize: vertical;"></textarea>
+            </div>
+
+            <!-- 소개 영상 -->
+            <div class="form-group" style="margin-bottom: 32px;">
+                <label for="profile-video">소개 영상 링크 (YouTube 등)</label>
+                <input type="url" id="profile-video" placeholder="https://youtube.com/watch?v=..."
+                    style="width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary);">
+            </div>
+
+            <!-- 저장 버튼 -->
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button type="button" class="btn btn-outline" onclick="loadProfile()">변경사항 취소</button>
+                <button type="submit" class="btn btn-primary">
+                    <i data-lucide="save" style="width: 16px; height: 16px;"></i>
+                    프로필 저장
+                </button>
+            </div>
+            </form>
         </div>
+    </div>
     </div><!-- container 끝 -->
 
     <!-- Consultant Profile Modal -->
@@ -1025,6 +1059,38 @@
             <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px;">
                 <button type="button" class="btn btn-outline" onclick="rejectSchedule()">일정 조율 요청</button>
                 <button type="button" class="btn btn-primary" onclick="confirmSchedule()">일정 확정</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- B. 인앱 메시지 모달 -->
+    <div id="message-modal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeMessageModal()"></div>
+        <div class="modal-content card" style="max-width: 500px; height: 70vh; display: flex; flex-direction: column;">
+            <div class="modal-header"
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-shrink: 0;">
+                <h3 style="margin: 0;" id="message-modal-title">메시지</h3>
+                <button onclick="closeMessageModal()" class="btn btn-ghost" style="padding: 8px;">
+                    <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+                </button>
+            </div>
+
+            <!-- 메시지 목록 -->
+            <div id="message-list"
+                style="flex: 1; overflow-y: auto; padding: 16px; background: var(--bg-secondary); border-radius: var(--radius-sm); margin-bottom: 16px;">
+                <div class="message-empty" style="text-align: center; color: var(--text-muted); padding: 32px;">
+                    메시지를 불러오는 중...
+                </div>
+            </div>
+
+            <!-- 메시지 입력 -->
+            <div style="display: flex; gap: 8px; flex-shrink: 0;">
+                <input type="text" id="message-input" placeholder="메시지를 입력하세요..."
+                    style="flex: 1; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary);"
+                    onkeypress="if(event.key === 'Enter') sendMessage()">
+                <button class="btn btn-primary" onclick="sendMessage()" style="padding: 12px 20px;">
+                    <i data-lucide="send" style="width: 18px; height: 18px;"></i>
+                </button>
             </div>
         </div>
     </div>
@@ -1213,8 +1279,6 @@
                 document.getElementById('profile-company').value = profile.companyName || '';
                 document.getElementById('profile-specialty').value = profile.specialty || '';
                 document.getElementById('profile-regions').value = profile.regions || '';
-                document.getElementById('profile-phone').value = profile.phone || '';
-                document.getElementById('profile-email').value = profile.email || '';
                 document.getElementById('profile-bio').value = profile.bio || '';
                 document.getElementById('profile-video').value = profile.introductionVideoUrl || '';
                 document.getElementById('profile-image-url').value = profile.profileImageUrl || '';
@@ -1245,8 +1309,6 @@
                 companyName: document.getElementById('profile-company').value,
                 specialty: document.getElementById('profile-specialty').value,
                 regions: document.getElementById('profile-regions').value,
-                phone: document.getElementById('profile-phone').value,
-                email: document.getElementById('profile-email').value,
                 bio: document.getElementById('profile-bio').value,
                 introductionVideoUrl: document.getElementById('profile-video').value,
                 profileImageUrl: document.getElementById('profile-image-url').value
@@ -1380,12 +1442,20 @@
                                 <button class="btn btn-outline" onclick="viewMyProposal(${project.id})">내 제안 보기</button>
                             ` : ''}
                             ${isContracted && scheduleStatus === 'pending' ? `
+                                <button class="btn btn-secondary" onclick="openMessageModal(${project.id}, '${project.title?.replace(/'/g, "\\'")}')">
+                                    <i data-lucide="message-circle" style="width: 16px; height: 16px;"></i>
+                                    메시지
+                                </button>
                                 <button class="btn btn-primary" onclick="openScheduleModal(${project.id})">
                                     <i data-lucide="calendar-plus" style="width: 16px; height: 16px;"></i>
                                     일정 제안하기
                                 </button>
                             ` : ''}
                             ${isInProgress || scheduleStatus === 'confirmed' ? `
+                                <button class="btn btn-secondary" onclick="openMessageModal(${project.id}, '${project.title?.replace(/'/g, "\\'")}')">
+                                    <i data-lucide="message-circle" style="width: 16px; height: 16px;"></i>
+                                    메시지
+                                </button>
                                 <button class="btn btn-primary" onclick="enterProjectRoom(${project.id})">프로젝트 관리</button>
                             ` : ''}
                         </div>
@@ -1621,6 +1691,10 @@
                         </button>
                         ` : ''}
                         ${isContracted ? `
+                        <button class="btn btn-secondary btn-sm" onclick="openMessageModal(${project.id}, '${project.title?.replace(/'/g, "\\'")}')">
+                            <i data-lucide="message-circle" style="width: 14px; height: 14px;"></i>
+                            메시지
+                        </button>
                         <button class="btn btn-secondary btn-sm" onclick="viewProjectProgress(${project.id})">
                             <i data-lucide="activity" style="width: 14px; height: 14px;"></i>
                             진행 현황
@@ -2528,6 +2602,99 @@
                 panel.classList.add('hidden');
             }
         });
+
+        // ========================================
+        // B. 인앱 메시지 함수
+        // ========================================
+
+        let currentMessageProjectId = null;
+
+        window.openMessageModal = async function (projectId, projectTitle) {
+            currentMessageProjectId = projectId;
+            document.getElementById('message-modal-title').textContent = `메시지 - ${projectTitle || '프로젝트'}`;
+            document.getElementById('message-modal').classList.remove('hidden');
+            document.getElementById('message-input').value = '';
+
+            await loadMessages();
+            lucide.createIcons();
+        };
+
+        window.closeMessageModal = function () {
+            document.getElementById('message-modal').classList.add('hidden');
+            currentMessageProjectId = null;
+        };
+
+        async function loadMessages() {
+            const container = document.getElementById('message-list');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${currentMessageProjectId}/messages`);
+                const messages = await response.json();
+
+                if (!Array.isArray(messages) || messages.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align: center; color: var(--text-muted); padding: 32px;">
+                            <i data-lucide="message-circle" style="width: 48px; height: 48px; margin-bottom: 12px;"></i>
+                            <p>아직 메시지가 없습니다.<br>첫 메시지를 보내보세요!</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = messages.map(msg => {
+                    const isSent = msg.senderId === user.id;
+                    return `
+                        <div class="message-bubble ${isSent ? 'sent' : 'received'}">
+                            ${!isSent ? `<div class="message-sender">${msg.senderName}</div>` : ''}
+                            <div>${msg.content}</div>
+                            <div class="message-meta">${formatTimeAgo(msg.createdAt)}</div>
+                        </div>
+                    `;
+                }).join('');
+
+                // 스크롤 맨 아래로
+                container.scrollTop = container.scrollHeight;
+
+                // 읽음 처리
+                await fetch(`${API_BASE_URL}/api/projects/${currentMessageProjectId}/messages/read`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: user.id })
+                });
+
+            } catch (error) {
+                console.error('Failed to load messages:', error);
+                container.innerHTML = `<div style="text-align: center; color: var(--error);">메시지를 불러올 수 없습니다.</div>`;
+            }
+        }
+
+        window.sendMessage = async function () {
+            const input = document.getElementById('message-input');
+            const content = input.value.trim();
+
+            if (!content || !currentMessageProjectId) return;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${currentMessageProjectId}/messages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sender_id: user.id,
+                        content: content
+                    })
+                });
+
+                if (response.ok) {
+                    input.value = '';
+                    await loadMessages();
+                } else {
+                    showNotification('메시지 전송에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                console.error('Send message error:', error);
+                showNotification('오류가 발생했습니다.', 'error');
+            }
+        };
 
         // Initialize
         setupDashboardUI();

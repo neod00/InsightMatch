@@ -15,7 +15,7 @@ from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, AnalysisJob, Consultant, User, Project, Milestone, Post, Company, Notification
+from models import db, AnalysisJob, Consultant, User, Project, Milestone, Post, Company, Notification, Message
 from services import AIService, MatchingService, ProposalService, EmailService
 
 # Load environment variables
@@ -1455,7 +1455,156 @@ def get_upload_signed_url():
         'publicUrl': f"{supabase_url}/storage/v1/object/public/{bucket}/{unique_name}" if supabase_url else None
     })
 
-# Serve static files for local development
+# ========================================
+# B. 인앱 메시지 API
+# ========================================
+
+@app.route('/api/projects/<int:project_id>/messages', methods=['GET', 'POST'])
+def handle_messages(project_id):
+    """프로젝트 메시지 조회/전송"""
+    project = Project.query.get_or_404(project_id)
+    
+    if request.method == 'GET':
+        # 메시지 목록 조회
+        messages = Message.query.filter_by(project_id=project_id).order_by(Message.created_at.asc()).all()
+        
+        # 발신자 정보 추가
+        result = []
+        for msg in messages:
+            sender = User.query.get(msg.sender_id)
+            msg_dict = msg.to_dict()
+            msg_dict['senderName'] = sender.name if sender else 'Unknown'
+            msg_dict['senderRole'] = sender.role if sender else 'unknown'
+            result.append(msg_dict)
+        
+        return jsonify(result)
+    
+    elif request.method == 'POST':
+        data = request.json
+        sender_id = data.get('sender_id')
+        content = data.get('content', '').strip()
+        
+        if not content:
+            return jsonify({'message': '메시지 내용을 입력해주세요.'}), 400
+        
+        # 메시지 생성
+        message = Message(
+            project_id=project_id,
+            sender_id=sender_id,
+            content=content
+        )
+        db.session.add(message)
+        db.session.commit()
+        
+        # 상대방에게 알림 생성
+        try:
+            sender = User.query.get(sender_id)
+            # 수신자 결정 (기업이면 컨설턴트에게, 컨설턴트면 기업에게)
+            if sender and sender.role == 'company':
+                consultant = Consultant.query.get(project.consultant_id)
+                if consultant:
+                    consultant_user = User.query.get(consultant.user_id)
+                    if consultant_user:
+                        notification = Notification(
+                            user_id=consultant_user.id,
+                            type='new_message',
+                            title=f'{sender.name}님이 메시지를 보냈습니다',
+                            message=content[:50] + ('...' if len(content) > 50 else ''),
+                            link=f'/dashboard.html?project={project_id}'
+                        )
+                        db.session.add(notification)
+            else:
+                # 컨설턴트가 보낸 경우 기업에게 알림
+                company_user = User.query.get(project.company_id)
+                if company_user:
+                    notification = Notification(
+                        user_id=company_user.id,
+                        type='new_message',
+                        title=f'{sender.name if sender else "컨설턴트"}님이 메시지를 보냈습니다',
+                        message=content[:50] + ('...' if len(content) > 50 else ''),
+                        link=f'/dashboard.html?project={project_id}'
+                    )
+                    db.session.add(notification)
+            db.session.commit()
+        except Exception as e:
+            print(f"[Notification] Failed to create message notification: {e}")
+        
+        return jsonify({'message': '메시지가 전송되었습니다.', 'id': message.id})
+
+@app.route('/api/projects/<int:project_id>/messages/read', methods=['POST'])
+def mark_messages_read(project_id):
+    """해당 프로젝트의 메시지 읽음 처리"""
+    data = request.json or {}
+    user_id = data.get('user_id')
+    
+    if not user_id:
+        return jsonify({'message': 'User ID required'}), 400
+    
+    # 본인이 보낸 메시지가 아닌 것들만 읽음 처리
+    Message.query.filter(
+        Message.project_id == project_id,
+        Message.sender_id != user_id,
+        Message.is_read == False
+    ).update({'is_read': True})
+    db.session.commit()
+    
+    return jsonify({'message': 'Messages marked as read'})
+
+@app.route('/api/messages/unread-count', methods=['GET'])
+def get_unread_message_count():
+    """읽지 않은 메시지 수 조회"""
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({'message': 'User ID required'}), 400
+    
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'count': 0})
+    
+    # 사용자가 참여한 프로젝트의 읽지 않은 메시지 수
+    if user.role == 'company':
+        projects = Project.query.filter_by(company_id=user_id).all()
+    else:
+        consultant = Consultant.query.filter_by(user_id=user_id).first()
+        if consultant:
+            projects = Project.query.filter_by(consultant_id=consultant.id).all()
+        else:
+            projects = []
+    
+    project_ids = [p.id for p in projects]
+    if not project_ids:
+        return jsonify({'count': 0})
+    
+    count = Message.query.filter(
+        Message.project_id.in_(project_ids),
+        Message.sender_id != int(user_id),
+        Message.is_read == False
+    ).count()
+    
+    return jsonify({'count': count})
+
+# C. 계약 후에만 연락처 공개
+@app.route('/api/projects/<int:project_id>/contact-info', methods=['GET'])
+def get_contact_info(project_id):
+    """계약 완료된 프로젝트의 컨설턴트 연락처 조회"""
+    project = Project.query.get_or_404(project_id)
+    
+    # 계약 완료 상태인지 확인
+    if project.status not in ['contracted', 'in_progress', 'completed']:
+        return jsonify({'message': '계약이 완료된 후에만 연락처를 확인할 수 있습니다.'}), 403
+    
+    consultant = Consultant.query.get(project.consultant_id)
+    if not consultant:
+        return jsonify({'message': '컨설턴트 정보를 찾을 수 없습니다.'}), 404
+    
+    return jsonify({
+        'name': consultant.name,
+        'phone': consultant.phone,
+        'email': consultant.email,
+        'companyName': consultant.company_name
+    })
+
+
 @app.route('/')
 def index():
     return send_file('../index.html')
