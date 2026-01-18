@@ -375,6 +375,187 @@
                 opacity: 1;
             }
         }
+
+        /* ① 견적 비교 테이블 */
+        .proposal-comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+
+        .proposal-comparison-table th,
+        .proposal-comparison-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .proposal-comparison-table th {
+            background: var(--bg-secondary);
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .proposal-comparison-table td {
+            font-size: 0.95rem;
+        }
+
+        .proposal-price {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .proposal-price.not-submitted {
+            color: var(--text-muted);
+            font-weight: 400;
+            font-style: italic;
+        }
+
+        .proposal-status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .proposal-status-badge.pending {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+
+        .proposal-status-badge.submitted {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--primary);
+        }
+
+        .proposal-status-badge.contracted {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+        }
+
+        /* ② 제안서 제출 폼 모달 */
+        .proposal-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .proposal-form .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .proposal-form label {
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .proposal-form input,
+        .proposal-form textarea,
+        .proposal-form select {
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .proposal-form input:focus,
+        .proposal-form textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .proposal-form textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .price-input-wrapper {
+            position: relative;
+        }
+
+        .price-input-wrapper input {
+            padding-right: 40px;
+        }
+
+        .price-input-wrapper::after {
+            content: '원';
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        /* ③ 일정 관리 UI */
+        .schedule-section {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            margin-top: 16px;
+        }
+
+        .schedule-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .schedule-status-badge {
+            padding: 6px 12px;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .schedule-status-badge.pending {
+            background: rgba(156, 163, 175, 0.2);
+            color: #9ca3af;
+        }
+
+        .schedule-status-badge.proposed {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+
+        .schedule-status-badge.confirmed {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--primary);
+        }
+
+        .milestone-schedule-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .milestone-schedule-item:last-child {
+            border-bottom: none;
+        }
+
+        .milestone-schedule-item input[type="date"] {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+
+        .schedule-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
     </style>
 </head>
 
@@ -489,6 +670,94 @@
         </div>
     </div>
 
+    <!-- ② 제안서 제출 모달 (컨설턴트용) -->
+    <div id="proposal-modal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeProposalModal()"></div>
+        <div class="modal-content card" style="max-width: 500px;">
+            <div class="modal-header"
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h3 style="margin: 0;">제안서 작성</h3>
+                <button onclick="closeProposalModal()" class="btn btn-ghost" style="padding: 8px;">
+                    <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+                </button>
+            </div>
+            <form id="proposal-form" class="proposal-form" onsubmit="submitProposal(event)">
+                <input type="hidden" id="proposal-project-id">
+
+                <div class="form-group">
+                    <label for="proposal-price">제안 금액 (VAT 별도) *</label>
+                    <div class="price-input-wrapper">
+                        <input type="number" id="proposal-price" placeholder="5000000" required min="100000">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="proposal-duration">예상 소요 기간</label>
+                    <select id="proposal-duration">
+                        <option value="1개월">1개월</option>
+                        <option value="2개월">2개월</option>
+                        <option value="3개월" selected>3개월</option>
+                        <option value="4개월">4개월</option>
+                        <option value="6개월">6개월</option>
+                        <option value="6개월 이상">6개월 이상</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="proposal-message">제안 메시지</label>
+                    <textarea id="proposal-message" placeholder="프로젝트 수행 방안, 특장점 등을 작성해주세요..."></textarea>
+                </div>
+
+                <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px;">
+                    <button type="button" class="btn btn-outline" onclick="closeProposalModal()">취소</button>
+                    <button type="submit" class="btn btn-primary">제안서 제출</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ③ 일정 제안 모달 (컨설턴트용) -->
+    <div id="schedule-modal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeScheduleModal()"></div>
+        <div class="modal-content card" style="max-width: 500px;">
+            <div class="modal-header"
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h3 style="margin: 0;">일정 제안</h3>
+                <button onclick="closeScheduleModal()" class="btn btn-ghost" style="padding: 8px;">
+                    <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+                </button>
+            </div>
+            <div id="schedule-form-body">
+                <!-- Dynamic milestone date inputs -->
+            </div>
+            <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px;">
+                <button type="button" class="btn btn-outline" onclick="closeScheduleModal()">취소</button>
+                <button type="button" class="btn btn-primary" onclick="submitSchedule()">일정 제안</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 일정 확인 모달 (기업용) -->
+    <div id="schedule-review-modal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeScheduleReviewModal()"></div>
+        <div class="modal-content card" style="max-width: 500px;">
+            <div class="modal-header"
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h3 style="margin: 0;">제안된 일정 확인</h3>
+                <button onclick="closeScheduleReviewModal()" class="btn btn-ghost" style="padding: 8px;">
+                    <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+                </button>
+            </div>
+            <div id="schedule-review-body">
+                <!-- Dynamic milestone dates display -->
+            </div>
+            <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px;">
+                <button type="button" class="btn btn-outline" onclick="rejectSchedule()">일정 조율 요청</button>
+                <button type="button" class="btn btn-primary" onclick="confirmSchedule()">일정 확정</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="footer" style="margin-top: 40px;">
         <div class="container">
@@ -548,6 +817,7 @@
         // 프로젝트 상태 설정
         const STATUS_CONFIG = {
             'proposal_pending': { text: '제안서 대기', stage: 1, stageText: '제안서 대기' },
+            'proposal_submitted': { text: '제안 완료', stage: 2, stageText: '검토 중' },
             'reviewing': { text: '검토 중', stage: 2, stageText: '검토 중' },
             'contracted': { text: '계약 완료', stage: 3, stageText: '계약 체결' },
             'in_progress': { text: '진행 중', stage: 3, stageText: '계약 체결' },
@@ -651,6 +921,13 @@
 
                 const card = document.createElement('div');
                 card.className = 'quote-request-card'; // 재사용
+
+                // 세분화된 상태
+                const isProposalSubmitted = project.status === 'proposal_submitted';
+                const isContracted = project.status === 'contracted';
+                const isInProgress = project.status === 'in_progress';
+                const scheduleStatus = project.schedule_status || 'pending';
+
                 card.innerHTML = `
                     <div class="quote-request-header">
                         <div>
@@ -660,27 +937,68 @@
                                 <span><i data-lucide="calendar"></i> ${requestDate} 요청</span>
                             </div>
                         </div>
-                        <div class="response-status ${isPending ? 'pending' : 'submitted'}">
+                        <div class="response-status ${isPending ? 'pending' : (isContracted || isInProgress ? 'contracted' : 'submitted')}">
                             ${statusInfo.text}
                         </div>
                     </div>
                     
                     <div style="padding: 24px;">
-                        <!-- 요약 정보 (추후 상세 데이터 연동 필요) -->
+                        <!-- 요약 정보 -->
                         <div style="background: var(--bg-secondary); padding: 16px; border-radius: var(--radius-sm); margin-bottom: 20px;">
                             <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 8px;">요청 사항:</p>
                             <p style="font-size: 0.95rem;">${project.description || '상세 요청 내용이 없습니다. 제안서를 작성하여 구체적인 논의를 시작해보세요.'}</p>
                         </div>
+                        
+                        ${isProposalSubmitted ? `
+                        <!-- 제안 제출 완료 상태 -->
+                        <div style="background: rgba(16, 185, 129, 0.1); padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="check-circle" style="width: 18px; height: 18px; color: var(--primary);"></i>
+                            <span style="color: var(--primary); font-size: 0.9rem;">제안서를 제출했습니다. 기업의 선택을 기다려주세요.</span>
+                        </div>
+                        ` : ''}
+                        
+                        ${isContracted && scheduleStatus === 'pending' ? `
+                        <!-- 계약 완료, 일정 제안 필요 -->
+                        <div style="background: rgba(245, 158, 11, 0.1); padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="calendar-clock" style="width: 18px; height: 18px; color: #f59e0b;"></i>
+                            <span style="color: #f59e0b; font-size: 0.9rem;">계약이 완료되었습니다. 일정을 제안해주세요.</span>
+                        </div>
+                        ` : ''}
+                        
+                        ${scheduleStatus === 'proposed' ? `
+                        <!-- 일정 승인 대기 -->
+                        <div style="background: rgba(59, 130, 246, 0.1); padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="clock" style="width: 18px; height: 18px; color: #3b82f6;"></i>
+                            <span style="color: #3b82f6; font-size: 0.9rem;">일정 승인을 기다리고 있습니다.</span>
+                        </div>
+                        ` : ''}
+                        
+                        ${scheduleStatus === 'confirmed' ? `
+                        <!-- 일정 확정 -->
+                        <div style="background: rgba(16, 185, 129, 0.1); padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="calendar-check" style="width: 18px; height: 18px; color: var(--primary);"></i>
+                            <span style="color: var(--primary); font-size: 0.9rem;">일정이 확정되었습니다. 프로젝트를 진행해주세요.</span>
+                        </div>
+                        ` : ''}
 
                         <!-- Action Buttons -->
-                        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <div style="display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap;">
                             ${isPending ? `
                                 <button class="btn btn-outline" onclick="rejectRequest(${project.id})">거절하기</button>
                                 <button class="btn btn-primary" onclick="openProposalModal(${project.id})">제안서 보내기</button>
-                            ` : `
+                            ` : ''}
+                            ${isProposalSubmitted ? `
                                 <button class="btn btn-outline" onclick="viewMyProposal(${project.id})">내 제안 보기</button>
-                                <button class="btn btn-primary" onclick="enterProjectRoom(${project.id})">프로젝트 방 입장</button>
-                            `}
+                            ` : ''}
+                            ${isContracted && scheduleStatus === 'pending' ? `
+                                <button class="btn btn-primary" onclick="openScheduleModal(${project.id})">
+                                    <i data-lucide="calendar-plus" style="width: 16px; height: 16px;"></i>
+                                    일정 제안하기
+                                </button>
+                            ` : ''}
+                            ${isInProgress || scheduleStatus === 'confirmed' ? `
+                                <button class="btn btn-primary" onclick="enterProjectRoom(${project.id})">프로젝트 관리</button>
+                            ` : ''}
                         </div>
                     </div>
                 `;
@@ -688,6 +1006,7 @@
             });
             lucide.createIcons();
         }
+
 
         function groupProjectsByTitle(projects) {
             const groups = {};
@@ -833,18 +1152,23 @@
         }
 
         function generateConsultantResponseCard(project) {
-            const isSubmitted = project.proposal_status === 'submitted';
+            // 새로운 상태 체계 사용
+            const isSubmitted = project.status === 'proposal_submitted';
             const isContracted = project.status === 'contracted' || project.status === 'in_progress';
-            const isPending = !isSubmitted && !isContracted;
+            const isPending = project.status === 'proposal_pending' || project.status === 'planning';
 
             const cardClass = isContracted ? 'selected' : (isPending ? 'pending' : '');
-            const statusClass = isSubmitted ? 'submitted' : 'pending';
+            const statusClass = isSubmitted ? 'submitted' : (isContracted ? 'contracted' : 'pending');
             const statusText = isContracted ? '계약 완료' : (isSubmitted ? '제안서 도착' : '응답 대기');
 
-            // 견적 정보 (임시 데이터 - 실제로는 proposal_data에서 가져옴)
-            const proposalData = project.proposal_data ? JSON.parse(project.proposal_data) : null;
-            const estimatedCost = proposalData?.cost || '협의 필요';
-            const estimatedDuration = proposalData?.duration || '협의 필요';
+            // 새로운 제안서 필드 사용
+            const proposalPrice = project.proposal_price;
+            const proposalDuration = project.proposal_duration || '협의 필요';
+            const estimatedCost = proposalPrice ? proposalPrice.toLocaleString() + '원' : '협의 필요';
+
+            // 일정 상태
+            const scheduleStatus = project.schedule_status || 'pending';
+            const needsScheduleConfirm = isContracted && scheduleStatus === 'proposed';
 
             return `
                 <div class="consultant-response-card ${cardClass}">
@@ -870,16 +1194,23 @@
                         <span class="response-status ${statusClass}">${statusText}</span>
                     </div>
                     
-                    ${isSubmitted && !isContracted ? `
+                    ${isSubmitted || isContracted ? `
+                    <!-- ① 견적 비교: 제안 금액/기간 표시 -->
                     <div class="proposal-preview">
                         <div class="proposal-preview-row">
-                            <span class="proposal-label">예상 비용</span>
-                            <span class="proposal-value highlight">${estimatedCost}</span>
+                            <span class="proposal-label">제안 금액</span>
+                            <span class="proposal-value ${proposalPrice ? 'highlight' : 'not-submitted'}">${estimatedCost}</span>
                         </div>
                         <div class="proposal-preview-row">
                             <span class="proposal-label">예상 기간</span>
-                            <span class="proposal-value">${estimatedDuration}</span>
+                            <span class="proposal-value">${proposalDuration}</span>
                         </div>
+                        ${project.proposal_message ? `
+                        <div class="proposal-preview-row" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+                            <span class="proposal-label">메시지</span>
+                            <span class="proposal-value" style="font-size: 0.85rem; color: var(--text-secondary);">${project.proposal_message.substring(0, 100)}${project.proposal_message.length > 100 ? '...' : ''}</span>
+                        </div>
+                        ` : ''}
                     </div>
                     ` : ''}
                     
@@ -889,10 +1220,6 @@
                             프로필 보기
                         </button>
                         ${isSubmitted && !isContracted ? `
-                        <button class="btn btn-secondary btn-sm" onclick="downloadProposal(${project.id})">
-                            <i data-lucide="file-text" style="width: 14px; height: 14px;"></i>
-                            제안서 보기
-                        </button>
                         <button class="btn btn-primary btn-sm" onclick="selectConsultant(${project.id})">
                             <i data-lucide="check" style="width: 14px; height: 14px;"></i>
                             이 전문가 선택
@@ -905,10 +1232,16 @@
                         </button>
                         ` : ''}
                         ${isContracted ? `
-                        <button class="btn btn-primary btn-sm" onclick="viewProjectProgress(${project.id})">
+                        <button class="btn btn-secondary btn-sm" onclick="viewProjectProgress(${project.id})">
                             <i data-lucide="activity" style="width: 14px; height: 14px;"></i>
-                            진행 현황 보기
+                            진행 현황
                         </button>
+                        ${needsScheduleConfirm ? `
+                        <button class="btn btn-primary btn-sm" onclick="openScheduleReviewModal(${project.id})">
+                            <i data-lucide="calendar-check" style="width: 14px; height: 14px;"></i>
+                            일정 확인
+                        </button>
+                        ` : ''}
                         ` : ''}
                     </div>
                 </div>
@@ -1384,6 +1717,282 @@
                 console.error('Add consultant error:', error);
                 showNotification('추가 중 오류가 발생했습니다.', 'error');
             }
+        }
+
+        // ========================================
+        // ② 컨설턴트 제안서 제출 기능
+        // ========================================
+
+        let currentProposalProjectId = null;
+
+        window.openProposalModal = function (projectId) {
+            currentProposalProjectId = projectId;
+            document.getElementById('proposal-project-id').value = projectId;
+            document.getElementById('proposal-price').value = '';
+            document.getElementById('proposal-duration').value = '3개월';
+            document.getElementById('proposal-message').value = '';
+            document.getElementById('proposal-modal').classList.remove('hidden');
+            lucide.createIcons();
+        };
+
+        window.closeProposalModal = function () {
+            document.getElementById('proposal-modal').classList.add('hidden');
+            currentProposalProjectId = null;
+        };
+
+        window.submitProposal = async function (event) {
+            event.preventDefault();
+
+            const projectId = currentProposalProjectId;
+            const price = document.getElementById('proposal-price').value;
+            const duration = document.getElementById('proposal-duration').value;
+            const message = document.getElementById('proposal-message').value;
+
+            if (!price || parseInt(price) < 100000) {
+                showNotification('올바른 금액을 입력해주세요. (최소 100,000원)', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/submit-proposal`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        proposal_price: parseInt(price),
+                        proposal_duration: duration,
+                        proposal_message: message
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showNotification('제안서가 성공적으로 제출되었습니다!', 'success');
+                    closeProposalModal();
+                    fetchProjects();
+                } else {
+                    showNotification(result.message || '제출에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                console.error('Submit proposal error:', error);
+                showNotification('제출 중 오류가 발생했습니다.', 'error');
+            }
+        };
+
+        // 컨설턴트가 거절할 때
+        window.rejectRequest = async function (projectId) {
+            if (!confirm('이 요청을 거절하시겠습니까?')) return;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/cancel`, {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    showNotification('요청을 거절했습니다.', 'success');
+                    fetchProjects();
+                } else {
+                    const error = await response.json();
+                    showNotification(error.message || '거절에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                showNotification('오류가 발생했습니다.', 'error');
+            }
+        };
+
+        // ========================================
+        // ③ 일정 제안/확정 기능
+        // ========================================
+
+        let currentScheduleProjectId = null;
+        let currentScheduleMilestones = [];
+
+        window.openScheduleModal = async function (projectId) {
+            currentScheduleProjectId = projectId;
+
+            try {
+                // 프로젝트의 마일스톤 정보 가져오기
+                const response = await fetch(`${API_BASE_URL}/api/projects?user_id=${user.id}`);
+                const projects = await response.json();
+                const project = projects.find(p => p.id === projectId);
+
+                if (!project) {
+                    showNotification('프로젝트를 찾을 수 없습니다.', 'error');
+                    return;
+                }
+
+                currentScheduleMilestones = project.milestones || [];
+
+                // 마일스톤별 날짜 입력 폼 생성
+                const formBody = document.getElementById('schedule-form-body');
+                formBody.innerHTML = currentScheduleMilestones.map(m => `
+                    <div class="milestone-schedule-item">
+                        <span>${m.title}</span>
+                        <input type="date" id="schedule-date-${m.id}" value="${m.due_date ? m.due_date.split('T')[0] : ''}">
+                    </div>
+                `).join('');
+
+                document.getElementById('schedule-modal').classList.remove('hidden');
+            } catch (error) {
+                showNotification('마일스톤 정보를 불러올 수 없습니다.', 'error');
+            }
+        };
+
+        window.closeScheduleModal = function () {
+            document.getElementById('schedule-modal').classList.add('hidden');
+            currentScheduleProjectId = null;
+        };
+
+        window.submitSchedule = async function () {
+            const schedule = currentScheduleMilestones.map(m => ({
+                milestone_id: m.id,
+                proposed_date: document.getElementById(`schedule-date-${m.id}`)?.value || null
+            })).filter(s => s.proposed_date);
+
+            if (schedule.length === 0) {
+                showNotification('최소 한 개 이상의 일정을 입력해주세요.', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${currentScheduleProjectId}/propose-schedule`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ schedule })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showNotification('일정이 제안되었습니다!', 'success');
+                    closeScheduleModal();
+                    fetchProjects();
+                } else {
+                    showNotification(result.message || '제안에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                showNotification('오류가 발생했습니다.', 'error');
+            }
+        };
+
+        // 기업용 일정 확인 모달
+        window.openScheduleReviewModal = async function (projectId) {
+            currentScheduleProjectId = projectId;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects?user_id=${user.id}`);
+                const projects = await response.json();
+                const project = projects.find(p => p.id === projectId);
+
+                if (!project) return;
+
+                const reviewBody = document.getElementById('schedule-review-body');
+                reviewBody.innerHTML = (project.milestones || []).map(m => `
+                    <div class="milestone-schedule-item">
+                        <span>${m.title}</span>
+                        <span style="color: var(--primary); font-weight: 500;">
+                            ${m.due_date ? new Date(m.due_date).toLocaleDateString() : '미정'}
+                        </span>
+                    </div>
+                `).join('');
+
+                document.getElementById('schedule-review-modal').classList.remove('hidden');
+            } catch (error) {
+                showNotification('일정 정보를 불러올 수 없습니다.', 'error');
+            }
+        };
+
+        window.closeScheduleReviewModal = function () {
+            document.getElementById('schedule-review-modal').classList.add('hidden');
+        };
+
+        window.confirmSchedule = async function () {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${currentScheduleProjectId}/confirm-schedule`, {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showNotification('일정이 확정되었습니다! 프로젝트가 시작됩니다.', 'success');
+                    closeScheduleReviewModal();
+                    fetchProjects();
+                } else {
+                    showNotification(result.message || '확정에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                showNotification('오류가 발생했습니다.', 'error');
+            }
+        };
+
+        window.rejectSchedule = async function () {
+            const reason = prompt('일정 조율이 필요한 이유를 입력해주세요:');
+            if (reason === null) return; // 취소
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${currentScheduleProjectId}/reject-schedule`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showNotification('일정 조율을 요청했습니다.', 'success');
+                    closeScheduleReviewModal();
+                    fetchProjects();
+                } else {
+                    showNotification(result.message || '요청에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                showNotification('오류가 발생했습니다.', 'error');
+            }
+        };
+
+        // 프로젝트 방 입장 (계약 후)
+        window.enterProjectRoom = function (projectId) {
+            showNotification('프로젝트 관리 페이지는 준비 중입니다.', 'info');
+        };
+
+        // 내 제안 보기
+        window.viewMyProposal = async function (projectId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/proposal`);
+                const proposal = await response.json();
+
+                alert(`제안 금액: ${proposal.proposal_price?.toLocaleString() || '-'}원\n예상 기간: ${proposal.proposal_duration || '-'}\n메시지: ${proposal.proposal_message || '-'}`);
+            } catch (error) {
+                showNotification('제안 정보를 불러올 수 없습니다.', 'error');
+            }
+        };
+
+        // ========================================
+        // ① 기업용 견적 비교 테이블 렌더링 (renderGroupedProjects 내부에서 호출)
+        // ========================================
+
+        function formatPrice(price) {
+            if (!price) return '-';
+            return price.toLocaleString() + '원';
+        }
+
+        function getStatusBadgeClass(status) {
+            if (status === 'proposal_submitted') return 'submitted';
+            if (status === 'contracted' || status === 'in_progress') return 'contracted';
+            return 'pending';
+        }
+
+        function getStatusText(status) {
+            const map = {
+                'proposal_pending': '대기 중',
+                'proposal_submitted': '제안 완료',
+                'contracted': '계약 완료',
+                'in_progress': '진행 중',
+                'completed': '완료',
+                'planning': '대기 중'
+            };
+            return map[status] || status;
         }
 
         // Initialize

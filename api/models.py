@@ -69,12 +69,44 @@ class Project(db.Model):
     company_id = db.Column(db.Integer, db.ForeignKey('user.id')) # Using User ID for simplicity in MVP
     consultant_id = db.Column(db.Integer, db.ForeignKey('consultant.id'))
     title = db.Column(db.String(200), nullable=False)
-    status = db.Column(db.String(50), default='planning') # planning, in_progress, review, completed
+    status = db.Column(db.String(50), default='proposal_pending') # proposal_pending, proposal_submitted, contracted, in_progress, completed
     start_date = db.Column(db.DateTime)
     end_date = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    # Consultant Proposal Fields (② 컨설턴트 직접 견적)
+    proposal_price = db.Column(db.Integer)  # 제안 금액 (원)
+    proposal_duration = db.Column(db.String(50))  # 예상 소요 기간 (예: "3개월")
+    proposal_message = db.Column(db.Text)  # 제안 메시지
+    proposal_file_url = db.Column(db.String(500))  # 제안서 파일 URL
+    proposal_submitted_at = db.Column(db.DateTime)  # 제안 제출 시간
+    
+    # Schedule Fields (③ 일정 확정 워크플로우)
+    schedule_data = db.Column(db.Text)  # JSON: 마일스톤별 예정일
+    schedule_status = db.Column(db.String(50), default='pending')  # pending, proposed, confirmed
+    schedule_proposed_at = db.Column(db.DateTime)
+    schedule_confirmed_at = db.Column(db.DateTime)
+    
     milestones = db.relationship('Milestone', backref='project', lazy=True)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'company_id': self.company_id,
+            'consultant_id': self.consultant_id,
+            'title': self.title,
+            'status': self.status,
+            'start_date': self.start_date.isoformat() if self.start_date else None,
+            'end_date': self.end_date.isoformat() if self.end_date else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'proposal_price': self.proposal_price,
+            'proposal_duration': self.proposal_duration,
+            'proposal_message': self.proposal_message,
+            'proposal_file_url': self.proposal_file_url,
+            'proposal_submitted_at': self.proposal_submitted_at.isoformat() if self.proposal_submitted_at else None,
+            'schedule_status': self.schedule_status,
+            'milestones': [m.to_dict() for m in self.milestones]
+        }
 
 class Milestone(db.Model):
     id = db.Column(db.Integer, primary_key=True)

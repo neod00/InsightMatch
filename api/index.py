@@ -355,13 +355,20 @@ def handle_projects():
                 'title': p.title,
                 'session_id': getattr(p, 'session_id', None),
                 'status': p.status,
-                'proposal_status': getattr(p, 'proposal_status', 'pending'),
-                'proposal_data': getattr(p, 'proposal_data', None),
                 'consultant_id': p.consultant_id,
                 'consultant_name': consultant.name if consultant else 'Unknown',
+                'company_id': p.company_id,
                 'company_name': company_user.name if company_user else 'Unknown Company',
                 'start_date': p.start_date.isoformat() if p.start_date else None,
                 'created_at': p.created_at.isoformat() if hasattr(p, 'created_at') and p.created_at else None,
+                # 제안서 관련 필드 (① 견적 비교용)
+                'proposal_price': getattr(p, 'proposal_price', None),
+                'proposal_duration': getattr(p, 'proposal_duration', None),
+                'proposal_message': getattr(p, 'proposal_message', None),
+                'proposal_file_url': getattr(p, 'proposal_file_url', None),
+                'proposal_submitted_at': p.proposal_submitted_at.isoformat() if hasattr(p, 'proposal_submitted_at') and p.proposal_submitted_at else None,
+                # 일정 관련 필드 (③ 일정 워크플로우용)
+                'schedule_status': getattr(p, 'schedule_status', 'pending'),
                 'milestones': [m.to_dict() for m in p.milestones]
             })
         return jsonify(results)
@@ -425,10 +432,12 @@ def download_proposal(project_id):
 def sign_contract(project_id):
     project = Project.query.get_or_404(project_id)
     
+    # 제안서가 제출되지 않은 경우 계약 불가
+    if project.status != 'proposal_submitted':
+        return jsonify({'message': '제안서가 제출된 프로젝트만 계약할 수 있습니다.'}), 400
+    
     # 상태를 'contracted'로 변경
     project.status = 'contracted'
-    if hasattr(project, 'proposal_status'):
-        project.proposal_status = 'accepted'
     project.start_date = datetime.datetime.utcnow()
     
     # 계약 후 마일스톤이 없으면 생성
@@ -440,6 +449,153 @@ def sign_contract(project_id):
     
     db.session.commit()
     return jsonify({'message': 'Contract signed successfully', 'status': project.status})
+
+# ========================================
+# ② 컨설턴트 직접 견적 체계
+# ========================================
+
+@app.route('/api/projects/<int:project_id>/submit-proposal', methods=['POST'])
+def submit_proposal(project_id):
+    """컨설턴트가 제안서(금액, 기간, 메시지, 파일) 제출"""
+    project = Project.query.get_or_404(project_id)
+    
+    # 이미 제출된 경우
+    if project.status == 'proposal_submitted':
+        return jsonify({'message': '이미 제안서가 제출되었습니다.'}), 400
+    
+    # 이미 계약된 경우
+    if project.status in ['contracted', 'in_progress', 'completed']:
+        return jsonify({'message': '이미 계약된 프로젝트입니다.'}), 400
+    
+    data = request.json
+    
+    # 필수 필드 검증
+    proposal_price = data.get('proposal_price')
+    if not proposal_price:
+        return jsonify({'message': '제안 금액을 입력해주세요.'}), 400
+    
+    # 제안 정보 저장
+    project.proposal_price = int(proposal_price)
+    project.proposal_duration = data.get('proposal_duration', '')
+    project.proposal_message = data.get('proposal_message', '')
+    project.proposal_file_url = data.get('proposal_file_url', '')  # 파일 업로드는 별도 처리
+    project.proposal_submitted_at = datetime.datetime.utcnow()
+    project.status = 'proposal_submitted'
+    
+    db.session.commit()
+    
+    # 기업에게 알림 이메일 발송 (선택적)
+    try:
+        company_user = User.query.get(project.company_id)
+        consultant = Consultant.query.get(project.consultant_id)
+        if company_user and consultant and email_service:
+            # email_service.send_proposal_notification(...) 추후 구현
+            pass
+    except Exception as e:
+        print(f"[Email] Failed to send proposal notification: {e}")
+    
+    return jsonify({
+        'message': '제안서가 성공적으로 제출되었습니다.',
+        'project_id': project.id,
+        'status': project.status,
+        'proposal_price': project.proposal_price
+    })
+
+@app.route('/api/projects/<int:project_id>/proposal', methods=['GET'])
+def get_proposal(project_id):
+    """특정 프로젝트의 제안서 상세 조회"""
+    project = Project.query.get_or_404(project_id)
+    consultant = Consultant.query.get(project.consultant_id)
+    
+    return jsonify({
+        'project_id': project.id,
+        'consultant_id': project.consultant_id,
+        'consultant_name': consultant.name if consultant else 'Unknown',
+        'proposal_price': project.proposal_price,
+        'proposal_duration': project.proposal_duration,
+        'proposal_message': project.proposal_message,
+        'proposal_file_url': project.proposal_file_url,
+        'proposal_submitted_at': project.proposal_submitted_at.isoformat() if project.proposal_submitted_at else None,
+        'status': project.status
+    })
+
+# ========================================
+# ③ 계약 후 일정 확정 워크플로우
+# ========================================
+
+@app.route('/api/projects/<int:project_id>/propose-schedule', methods=['POST'])
+def propose_schedule(project_id):
+    """컨설턴트가 마일스톤별 일정 제안"""
+    project = Project.query.get_or_404(project_id)
+    
+    # 계약된 프로젝트만 일정 제안 가능
+    if project.status not in ['contracted', 'in_progress']:
+        return jsonify({'message': '계약 완료된 프로젝트만 일정을 제안할 수 있습니다.'}), 400
+    
+    data = request.json
+    schedule = data.get('schedule', [])  # [{milestone_id, proposed_date}, ...]
+    
+    if not schedule:
+        return jsonify({'message': '일정 데이터가 필요합니다.'}), 400
+    
+    # 마일스톤 일정 업데이트
+    for item in schedule:
+        milestone = Milestone.query.get(item.get('milestone_id'))
+        if milestone and milestone.project_id == project_id:
+            if item.get('proposed_date'):
+                milestone.due_date = datetime.datetime.fromisoformat(item['proposed_date'].replace('Z', '+00:00'))
+    
+    project.schedule_data = json.dumps(schedule)
+    project.schedule_status = 'proposed'
+    project.schedule_proposed_at = datetime.datetime.utcnow()
+    
+    db.session.commit()
+    
+    return jsonify({
+        'message': '일정이 제안되었습니다. 기업의 확인을 기다려주세요.',
+        'schedule_status': project.schedule_status
+    })
+
+@app.route('/api/projects/<int:project_id>/confirm-schedule', methods=['POST'])
+def confirm_schedule(project_id):
+    """기업이 제안된 일정 승인"""
+    project = Project.query.get_or_404(project_id)
+    
+    if project.schedule_status != 'proposed':
+        return jsonify({'message': '제안된 일정이 없습니다.'}), 400
+    
+    project.schedule_status = 'confirmed'
+    project.schedule_confirmed_at = datetime.datetime.utcnow()
+    project.status = 'in_progress'  # 일정 확정 시 프로젝트 시작
+    
+    db.session.commit()
+    
+    return jsonify({
+        'message': '일정이 확정되었습니다. 프로젝트가 시작됩니다.',
+        'schedule_status': project.schedule_status,
+        'status': project.status
+    })
+
+@app.route('/api/projects/<int:project_id>/reject-schedule', methods=['POST'])
+def reject_schedule(project_id):
+    """기업이 제안된 일정 거절 (재조율 요청)"""
+    project = Project.query.get_or_404(project_id)
+    
+    if project.schedule_status != 'proposed':
+        return jsonify({'message': '제안된 일정이 없습니다.'}), 400
+    
+    data = request.json
+    rejection_reason = data.get('reason', '')
+    
+    project.schedule_status = 'pending'  # 다시 대기 상태로
+    project.schedule_data = None
+    
+    db.session.commit()
+    
+    return jsonify({
+        'message': '일정 조율을 요청했습니다. 컨설턴트가 새로운 일정을 제안할 것입니다.',
+        'schedule_status': project.schedule_status
+    })
 
 # --- Cancel Consultant Request ---
 @app.route('/api/projects/<int:project_id>/cancel', methods=['POST'])
