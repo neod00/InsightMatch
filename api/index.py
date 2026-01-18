@@ -1509,6 +1509,74 @@ def get_profile_change_logs():
     return jsonify(result)
 
 # ========================================
+# 프로필 이미지 업로드 API
+# ========================================
+
+@app.route('/api/upload/profile-image', methods=['POST'])
+def upload_profile_image():
+    """프로필 이미지를 Supabase Storage에 업로드"""
+    import requests
+    import time as time_module
+    
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    
+    file = request.files['file']
+    user_id = request.form.get('user_id', 'unknown')
+    
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    # 파일 크기 검증 (100KB)
+    file.seek(0, 2)
+    file_size = file.tell()
+    file.seek(0)
+    
+    if file_size > 100 * 1024:
+        return jsonify({'error': '파일 크기는 100KB 이하여야 합니다.'}), 400
+    
+    # 파일 타입 검증
+    allowed_types = ['image/jpeg', 'image/png', 'image/gif']
+    if file.content_type not in allowed_types:
+        return jsonify({'error': 'JPG, PNG, GIF 파일만 업로드 가능합니다.'}), 400
+    
+    # Supabase 설정
+    supabase_url = os.environ.get('SUPABASE_URL', 'https://qpuepxyxznpbhjuikqzv.supabase.co')
+    supabase_key = os.environ.get('SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwdWVweHl4em5wYmhqdWlrcXp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzYxNjQ3NDEsImV4cCI6MjA1MTc0MDc0MX0.MxCGwSpTJb1KlnE8TIwNQwi1FBcP_TBWWFE4Koo7q3w')
+    
+    # 파일명 생성
+    file_ext = file.filename.rsplit('.', 1)[-1].lower()
+    unique_name = f"profile_{user_id}_{int(time_module.time())}.{file_ext}"
+    
+    # Supabase Storage에 업로드
+    upload_url = f"{supabase_url}/storage/v1/object/profiles/{unique_name}"
+    
+    headers = {
+        'Authorization': f'Bearer {supabase_key}',
+        'apikey': supabase_key,
+        'Content-Type': file.content_type
+    }
+    
+    try:
+        response = requests.post(upload_url, headers=headers, data=file.read())
+        
+        if response.status_code in [200, 201]:
+            public_url = f"{supabase_url}/storage/v1/object/public/profiles/{unique_name}"
+            return jsonify({
+                'success': True,
+                'url': public_url,
+                'fileName': unique_name
+            })
+        else:
+            error_detail = response.json() if response.text else {'message': 'Unknown error'}
+            return jsonify({
+                'error': f"업로드 실패: {error_detail.get('message', response.status_code)}"
+            }), 500
+            
+    except Exception as e:
+        return jsonify({'error': f'업로드 중 오류: {str(e)}'}), 500
+
+# ========================================
 # B. 인앱 메시지 API
 # ========================================
 
