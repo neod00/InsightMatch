@@ -15,7 +15,7 @@ from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, AnalysisJob, Consultant, User, Project, Milestone, Post, Company, Notification, Message
+from models import db, AnalysisJob, Consultant, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog
 from services import AIService, MatchingService, ProposalService, EmailService
 
 # Load environment variables
@@ -1379,24 +1379,40 @@ def consultant_profile(consultant_id):
     
     elif request.method == 'PUT':
         data = request.json
+        user_id = data.get('user_id')  # 변경한 사용자 ID
         
-        # 업데이트 가능한 필드들
-        if 'bio' in data:
-            consultant.bio = data['bio']
-        if 'phone' in data:
-            consultant.phone = data['phone']
-        if 'email' in data:
-            consultant.email = data['email']
-        if 'companyName' in data:
-            consultant.company_name = data['companyName']
-        if 'profileImageUrl' in data:
-            consultant.profile_image_url = data['profileImageUrl']
-        if 'introductionVideoUrl' in data:
-            consultant.introduction_video_url = data['introductionVideoUrl']
-        if 'specialty' in data:
-            consultant.specialty = data['specialty']
-        if 'regions' in data:
-            consultant.regions = data['regions']
+        # 변경 이력 기록을 위한 필드 매핑
+        field_mapping = {
+            'bio': 'bio',
+            'phone': 'phone',
+            'email': 'email',
+            'companyName': 'company_name',
+            'profileImageUrl': 'profile_image_url',
+            'introductionVideoUrl': 'introduction_video_url',
+            'specialty': 'specialty',
+            'regions': 'regions'
+        }
+        
+        # 각 필드에 대해 변경 여부 확인 및 이력 기록
+        for json_key, db_field in field_mapping.items():
+            if json_key in data:
+                old_value = getattr(consultant, db_field)
+                new_value = data[json_key]
+                
+                # 값이 실제로 변경되었는지 확인
+                if str(old_value or '') != str(new_value or ''):
+                    # 변경 이력 기록
+                    change_log = ProfileChangeLog(
+                        consultant_id=consultant_id,
+                        field_name=json_key,
+                        old_value=str(old_value) if old_value else None,
+                        new_value=str(new_value) if new_value else None,
+                        changed_by=user_id
+                    )
+                    db.session.add(change_log)
+                
+                # 값 업데이트
+                setattr(consultant, db_field, new_value)
         
         db.session.commit()
         return jsonify({'message': 'Profile updated', 'consultant': consultant.to_dict()})
@@ -1454,6 +1470,43 @@ def get_upload_signed_url():
         'uploadPath': f"{bucket}/{unique_name}",
         'publicUrl': f"{supabase_url}/storage/v1/object/public/{bucket}/{unique_name}" if supabase_url else None
     })
+
+# ========================================
+# 관리자용 프로필 변경 이력 조회 API
+# ========================================
+
+@app.route('/api/admin/profile-change-logs', methods=['GET'])
+def get_profile_change_logs():
+    """프로필 변경 이력 조회 (관리자용)"""
+    consultant_id = request.args.get('consultant_id')
+    limit = request.args.get('limit', 100, type=int)
+    
+    query = ProfileChangeLog.query.order_by(ProfileChangeLog.changed_at.desc())
+    
+    if consultant_id:
+        query = query.filter_by(consultant_id=consultant_id)
+    
+    logs = query.limit(limit).all()
+    
+    # 컨설턴트 이름과 변경자 이름 추가
+    result = []
+    for log in logs:
+        log_dict = log.to_dict()
+        
+        # 컨설턴트 이름
+        consultant = Consultant.query.get(log.consultant_id)
+        log_dict['consultantName'] = consultant.name if consultant else 'Unknown'
+        
+        # 변경자 이름
+        if log.changed_by:
+            changer = User.query.get(log.changed_by)
+            log_dict['changedByName'] = changer.name if changer else 'Unknown'
+        else:
+            log_dict['changedByName'] = 'System'
+        
+        result.append(log_dict)
+    
+    return jsonify(result)
 
 # ========================================
 # B. 인앱 메시지 API

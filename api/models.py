@@ -90,6 +90,27 @@ class Consultant(db.Model):
             'pendingChangesAt': self.pending_changes_at.isoformat() if self.pending_changes_at else None
         }
 
+# 프로필 변경 이력 모델
+class ProfileChangeLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    consultant_id = db.Column(db.Integer, db.ForeignKey('consultant.id'), nullable=False)
+    field_name = db.Column(db.String(50), nullable=False)  # 변경된 필드명
+    old_value = db.Column(db.Text)  # 이전 값
+    new_value = db.Column(db.Text)  # 새 값
+    changed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    changed_by = db.Column(db.Integer, db.ForeignKey('user.id'))  # 변경한 사용자
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'consultantId': self.consultant_id,
+            'fieldName': self.field_name,
+            'oldValue': self.old_value,
+            'newValue': self.new_value,
+            'changedAt': self.changed_at.isoformat() if self.changed_at else None,
+            'changedBy': self.changed_by
+        }
+
 # ② Notification Model
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
