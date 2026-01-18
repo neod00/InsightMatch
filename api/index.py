@@ -348,6 +348,8 @@ def handle_projects():
         results = []
         for p in projects:
             consultant = Consultant.query.get(p.consultant_id)
+            company_user = User.query.get(p.company_id)
+            
             results.append({
                 'id': p.id,
                 'title': p.title,
@@ -357,7 +359,9 @@ def handle_projects():
                 'proposal_data': getattr(p, 'proposal_data', None),
                 'consultant_id': p.consultant_id,
                 'consultant_name': consultant.name if consultant else 'Unknown',
+                'company_name': company_user.name if company_user else 'Unknown Company',
                 'start_date': p.start_date.isoformat() if p.start_date else None,
+                'created_at': p.created_at.isoformat() if hasattr(p, 'created_at') and p.created_at else None,
                 'milestones': [m.to_dict() for m in p.milestones]
             })
         return jsonify(results)

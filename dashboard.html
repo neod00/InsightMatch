@@ -641,6 +641,14 @@
                 const statusInfo = STATUS_CONFIG[project.status] || STATUS_CONFIG['planning'];
                 const isPending = project.status === 'proposal_pending' || project.status === 'planning';
 
+                // 날짜 표시: created_at 우선, 없으면 start_date, 둘 다 없으면 "날짜 미정"
+                let requestDate = '-';
+                if (project.created_at) {
+                    requestDate = new Date(project.created_at).toLocaleDateString();
+                } else if (project.start_date) {
+                    requestDate = new Date(project.start_date).toLocaleDateString();
+                }
+
                 const card = document.createElement('div');
                 card.className = 'quote-request-card'; // 재사용
                 card.innerHTML = `
@@ -649,7 +657,7 @@
                             <div class="quote-request-title">${project.title}</div>
                             <div class="quote-request-meta">
                                 <span><i data-lucide="building"></i> ${project.company_name || '기업 고객'}</span>
-                                <span><i data-lucide="calendar"></i> ${new Date(project.start_date).toLocaleDateString()} 요청</span>
+                                <span><i data-lucide="calendar"></i> ${requestDate} 요청</span>
                             </div>
                         </div>
                         <div class="response-status ${isPending ? 'pending' : 'submitted'}">
