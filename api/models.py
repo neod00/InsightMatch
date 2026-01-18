@@ -46,9 +46,19 @@ class Consultant(db.Model):
     trust_score = db.Column(db.Float, default=0.0)
     recent_projects = db.Column(db.Text) # JSON: List of recent projects
     
+    # ① Profile Enhancement Fields
+    profile_image_url = db.Column(db.String(500))  # 프로필 사진 URL
+    bio = db.Column(db.Text)  # 자기소개
+    introduction_video_url = db.Column(db.String(500))  # 소개 영상 링크
+    portfolio_files = db.Column(db.Text)  # JSON: [{"name": "...", "url": "..."}]
+    phone = db.Column(db.String(20))  # 연락처
+    email = db.Column(db.String(120))  # 이메일 (User와 별도로 공개용)
+    company_name = db.Column(db.String(100))  # 소속 회사/기관
+    
     def to_dict(self):
         return {
             'id': self.id,
+            'user_id': self.user_id,
             'name': self.name,
             'avatar': self.avatar,
             'specialty': self.specialty,
@@ -56,12 +66,43 @@ class Consultant(db.Model):
             'rating': self.rating,
             'reviews': self.reviews,
             'matchReason': self.match_reason,
+            'regions': self.regions,
             'verified': self.verified,
             'trustScore': self.trust_score,
             'isoExperience': json.loads(self.iso_experience) if self.iso_experience else {},
             'industryExperience': json.loads(self.industry_experience) if self.industry_experience else [],
             'projectTypes': json.loads(self.project_types) if self.project_types else [],
-            'roles': json.loads(self.roles) if self.roles else []
+            'roles': json.loads(self.roles) if self.roles else [],
+            # Profile fields
+            'profileImageUrl': self.profile_image_url,
+            'bio': self.bio,
+            'introductionVideoUrl': self.introduction_video_url,
+            'portfolioFiles': json.loads(self.portfolio_files) if self.portfolio_files else [],
+            'phone': self.phone,
+            'email': self.email,
+            'companyName': self.company_name
+        }
+
+# ② Notification Model
+class Notification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    type = db.Column(db.String(50), nullable=False)  # quote_request, proposal_received, contract_signed, schedule_proposed, etc.
+    title = db.Column(db.String(200), nullable=False)
+    message = db.Column(db.Text)
+    link = db.Column(db.String(500))  # 클릭 시 이동할 URL
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'type': self.type,
+            'title': self.title,
+            'message': self.message,
+            'link': self.link,
+            'isRead': self.is_read,
+            'createdAt': self.created_at.isoformat() if self.created_at else None
         }
 
 class Project(db.Model):

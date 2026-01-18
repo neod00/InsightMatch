@@ -15,7 +15,7 @@ from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, AnalysisJob, Consultant, User, Project, Milestone, Post, Company
+from models import db, AnalysisJob, Consultant, User, Project, Milestone, Post, Company, Notification
 from services import AIService, MatchingService, ProposalService, EmailService
 
 # Load environment variables
@@ -484,15 +484,31 @@ def submit_proposal(project_id):
     
     db.session.commit()
     
-    # 기업에게 알림 이메일 발송 (선택적)
+    # ② 기업에게 알림 생성
     try:
         company_user = User.query.get(project.company_id)
         consultant = Consultant.query.get(project.consultant_id)
-        if company_user and consultant and email_service:
-            # email_service.send_proposal_notification(...) 추후 구현
-            pass
+        if company_user and consultant:
+            # 인앱 알림 생성
+            notification = Notification(
+                user_id=company_user.id,
+                type='proposal_received',
+                title=f'{consultant.name}님이 제안서를 보냈습니다',
+                message=f'제안 금액: {project.proposal_price:,}원',
+                link=f'/dashboard.html'
+            )
+            db.session.add(notification)
+            db.session.commit()
+            
+            # 이메일 발송 (선택적)
+            if email_service:
+                try:
+                    # email_service.send_proposal_notification(...)
+                    pass
+                except Exception as e:
+                    print(f"[Email] Failed to send proposal notification: {e}")
     except Exception as e:
-        print(f"[Email] Failed to send proposal notification: {e}")
+        print(f"[Notification] Failed to create notification: {e}")
     
     return jsonify({
         'message': '제안서가 성공적으로 제출되었습니다.',
@@ -1296,6 +1312,148 @@ def seed_data():
         db.session.commit()
     
     return jsonify({'message': 'Seed data created successfully'})
+
+# ========================================
+# ② Notification System APIs
+# ========================================
+
+@app.route('/api/notifications', methods=['GET'])
+def get_notifications():
+    """사용자 알림 목록 조회"""
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({'message': 'User ID required'}), 400
+    
+    notifications = Notification.query.filter_by(user_id=user_id).order_by(Notification.created_at.desc()).limit(50).all()
+    unread_count = Notification.query.filter_by(user_id=user_id, is_read=False).count()
+    
+    return jsonify({
+        'notifications': [n.to_dict() for n in notifications],
+        'unreadCount': unread_count
+    })
+
+@app.route('/api/notifications/<int:notification_id>/read', methods=['POST'])
+def mark_notification_read(notification_id):
+    """알림 읽음 처리"""
+    notification = Notification.query.get_or_404(notification_id)
+    notification.is_read = True
+    db.session.commit()
+    return jsonify({'message': 'Marked as read'})
+
+@app.route('/api/notifications/read-all', methods=['POST'])
+def mark_all_notifications_read():
+    """모든 알림 읽음 처리"""
+    data = request.json or {}
+    user_id = data.get('user_id')
+    if not user_id:
+        return jsonify({'message': 'User ID required'}), 400
+    
+    Notification.query.filter_by(user_id=user_id, is_read=False).update({'is_read': True})
+    db.session.commit()
+    return jsonify({'message': 'All notifications marked as read'})
+
+def create_notification(user_id, type, title, message=None, link=None):
+    """알림 생성 헬퍼 함수"""
+    notification = Notification(
+        user_id=user_id,
+        type=type,
+        title=title,
+        message=message,
+        link=link
+    )
+    db.session.add(notification)
+    db.session.commit()
+    return notification
+
+# ========================================
+# ① Consultant Profile APIs
+# ========================================
+
+@app.route('/api/consultants/<int:consultant_id>/profile', methods=['GET', 'PUT'])
+def consultant_profile(consultant_id):
+    """컨설턴트 프로필 조회/수정"""
+    consultant = Consultant.query.get_or_404(consultant_id)
+    
+    if request.method == 'GET':
+        return jsonify(consultant.to_dict())
+    
+    elif request.method == 'PUT':
+        data = request.json
+        
+        # 업데이트 가능한 필드들
+        if 'bio' in data:
+            consultant.bio = data['bio']
+        if 'phone' in data:
+            consultant.phone = data['phone']
+        if 'email' in data:
+            consultant.email = data['email']
+        if 'companyName' in data:
+            consultant.company_name = data['companyName']
+        if 'profileImageUrl' in data:
+            consultant.profile_image_url = data['profileImageUrl']
+        if 'introductionVideoUrl' in data:
+            consultant.introduction_video_url = data['introductionVideoUrl']
+        if 'specialty' in data:
+            consultant.specialty = data['specialty']
+        if 'regions' in data:
+            consultant.regions = data['regions']
+        
+        db.session.commit()
+        return jsonify({'message': 'Profile updated', 'consultant': consultant.to_dict()})
+
+@app.route('/api/consultants/<int:consultant_id>/portfolio', methods=['POST', 'DELETE'])
+def manage_portfolio(consultant_id):
+    """포트폴리오 파일 관리"""
+    consultant = Consultant.query.get_or_404(consultant_id)
+    
+    current_files = json.loads(consultant.portfolio_files) if consultant.portfolio_files else []
+    
+    if request.method == 'POST':
+        data = request.json
+        new_file = {
+            'name': data.get('name'),
+            'url': data.get('url'),
+            'uploaded_at': datetime.datetime.utcnow().isoformat()
+        }
+        current_files.append(new_file)
+        consultant.portfolio_files = json.dumps(current_files)
+        db.session.commit()
+        return jsonify({'message': 'Portfolio file added', 'files': current_files})
+    
+    elif request.method == 'DELETE':
+        data = request.json
+        file_url = data.get('url')
+        current_files = [f for f in current_files if f.get('url') != file_url]
+        consultant.portfolio_files = json.dumps(current_files)
+        db.session.commit()
+        return jsonify({'message': 'Portfolio file removed', 'files': current_files})
+
+# ========================================
+# ③ File Upload API (Supabase Storage)
+# ========================================
+
+@app.route('/api/upload/signed-url', methods=['POST'])
+def get_upload_signed_url():
+    """Supabase Storage 업로드용 Signed URL 생성"""
+    # NOTE: 실제 Supabase Storage 연동 시 supabase-py 사용
+    # 현재는 클라이언트에서 직접 Supabase에 업로드하도록 URL만 반환
+    data = request.json
+    file_name = data.get('fileName')
+    file_type = data.get('fileType')
+    bucket = data.get('bucket', 'proposals')  # proposals, portfolios, profiles
+    
+    # 고유한 파일명 생성
+    unique_name = f"{uuid.uuid4()}_{file_name}"
+    
+    # Supabase Storage URL (클라이언트에서 직접 사용)
+    supabase_url = os.environ.get('SUPABASE_URL', '')
+    
+    return jsonify({
+        'fileName': unique_name,
+        'bucket': bucket,
+        'uploadPath': f"{bucket}/{unique_name}",
+        'publicUrl': f"{supabase_url}/storage/v1/object/public/{bucket}/{unique_name}" if supabase_url else None
+    })
 
 # Serve static files for local development
 @app.route('/')

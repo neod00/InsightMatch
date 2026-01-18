@@ -556,6 +556,90 @@
             margin-top: 20px;
             justify-content: flex-end;
         }
+
+        /* ② 알림 시스템 스타일 */
+        .notification-badge {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: var(--error);
+            color: white;
+            font-size: 0.65rem;
+            font-weight: 600;
+            min-width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+        }
+
+        .notification-panel {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            width: 320px;
+            max-height: 400px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            overflow: hidden;
+        }
+
+        .notification-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .notification-list {
+            max-height: 340px;
+            overflow-y: auto;
+        }
+
+        .notification-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .notification-item:hover {
+            background: var(--bg-secondary);
+        }
+
+        .notification-item.unread {
+            background: rgba(16, 185, 129, 0.05);
+            border-left: 3px solid var(--primary);
+        }
+
+        .notification-item .title {
+            font-weight: 500;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+
+        .notification-item .message {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+        }
+
+        .notification-item .time {
+            color: var(--text-muted);
+            font-size: 0.7rem;
+        }
+
+        .notification-empty {
+            padding: 32px 16px;
+            text-align: center;
+            color: var(--text-muted);
+        }
     </style>
 </head>
 
@@ -584,6 +668,25 @@
             </div>
 
             <div class="nav-actions">
+                <!-- ② 알림 드롭다운 -->
+                <div class="notification-dropdown" style="position: relative;">
+                    <button id="notification-btn" class="btn btn-ghost" style="position: relative; padding: 8px;"
+                        onclick="toggleNotificationDropdown()">
+                        <i data-lucide="bell" style="width: 20px; height: 20px;"></i>
+                        <span id="notification-badge" class="notification-badge hidden">0</span>
+                    </button>
+                    <div id="notification-panel" class="notification-panel hidden">
+                        <div class="notification-header">
+                            <span style="font-weight: 600;">알림</span>
+                            <button class="btn btn-ghost btn-sm" onclick="markAllNotificationsRead()"
+                                style="padding: 4px 8px; font-size: 0.75rem;">모두 읽음</button>
+                        </div>
+                        <div id="notification-list" class="notification-list">
+                            <!-- Dynamic notifications -->
+                        </div>
+                    </div>
+                </div>
+
                 <span id="user-name" style="color: var(--primary); font-weight: 500;"></span>
                 <button onclick="logout()" class="btn btn-ghost">
                     <i data-lucide="log-out" style="width: 18px; height: 18px;"></i>
@@ -706,6 +809,17 @@
                 <div class="form-group">
                     <label for="proposal-message">제안 메시지</label>
                     <textarea id="proposal-message" placeholder="프로젝트 수행 방안, 특장점 등을 작성해주세요..."></textarea>
+                </div>
+
+                <!-- ③ 제안서 파일 업로드 -->
+                <div class="form-group">
+                    <label for="proposal-file">제안서 파일 (PDF)</label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="file" id="proposal-file" accept=".pdf,.doc,.docx" style="flex: 1;"
+                            onchange="handleProposalFileChange(event)">
+                    </div>
+                    <div id="proposal-file-info" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                    </div>
                 </div>
 
                 <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px;">
@@ -1738,6 +1852,39 @@
         window.closeProposalModal = function () {
             document.getElementById('proposal-modal').classList.add('hidden');
             currentProposalProjectId = null;
+            proposalFileUrl = null;
+            document.getElementById('proposal-file-info').textContent = '';
+        };
+
+        // ③ 제안서 파일 업로드 관련
+        let proposalFileUrl = null;
+
+        window.handleProposalFileChange = async function (event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const maxSize = 10 * 1024 * 1024; // 10MB
+            if (file.size > maxSize) {
+                showNotification('파일 크기는 10MB 이하여야 합니다.', 'error');
+                event.target.value = '';
+                return;
+            }
+
+            document.getElementById('proposal-file-info').innerHTML = `
+                <i data-lucide="file" style="width: 14px; height: 14px; display: inline;"></i> 
+                ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)
+            `;
+            lucide.createIcons();
+
+            // Supabase Storage에 업로드 (클라이언트 측)
+            // 실제 구현 시에는 Supabase JS SDK 사용
+            try {
+                // For now, we'll store the file reference and upload on submit
+                // In production, use Supabase Storage client
+                proposalFileUrl = `pending_upload_${file.name}`;
+            } catch (error) {
+                console.error('File upload preparation error:', error);
+            }
         };
 
         window.submitProposal = async function (event) {
@@ -1760,7 +1907,8 @@
                     body: JSON.stringify({
                         proposal_price: parseInt(price),
                         proposal_duration: duration,
-                        proposal_message: message
+                        proposal_message: message,
+                        proposal_file_url: proposalFileUrl || ''
                     })
                 });
 
@@ -1995,9 +2143,121 @@
             return map[status] || status;
         }
 
+        // ========================================
+        // ② 알림 시스템 함수
+        // ========================================
+
+        let notificationsData = [];
+
+        async function fetchNotifications() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/notifications?user_id=${user.id}`);
+                const data = await response.json();
+
+                notificationsData = data.notifications || [];
+                const unreadCount = data.unreadCount || 0;
+
+                // 뱃지 업데이트
+                const badge = document.getElementById('notification-badge');
+                if (unreadCount > 0) {
+                    badge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+
+                // 알림 목록 렌더링
+                renderNotifications();
+            } catch (error) {
+                console.error('Failed to fetch notifications:', error);
+            }
+        }
+
+        function renderNotifications() {
+            const list = document.getElementById('notification-list');
+
+            if (notificationsData.length === 0) {
+                list.innerHTML = '<div class="notification-empty">새로운 알림이 없습니다</div>';
+                return;
+            }
+
+            list.innerHTML = notificationsData.map(n => `
+                <div class="notification-item ${n.isRead ? '' : 'unread'}" onclick="handleNotificationClick(${n.id}, '${n.link || ''}')">
+                    <div class="title">${n.title}</div>
+                    ${n.message ? `<div class="message">${n.message}</div>` : ''}
+                    <div class="time">${formatTimeAgo(n.createdAt)}</div>
+                </div>
+            `).join('');
+        }
+
+        function formatTimeAgo(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000);
+
+            if (diff < 60) return '방금 전';
+            if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+            if (diff < 604800) return `${Math.floor(diff / 86400)}일 전`;
+            return date.toLocaleDateString();
+        }
+
+        window.toggleNotificationDropdown = function () {
+            const panel = document.getElementById('notification-panel');
+            panel.classList.toggle('hidden');
+
+            // 드롭다운 열릴 때 새로고침
+            if (!panel.classList.contains('hidden')) {
+                fetchNotifications();
+            }
+        };
+
+        window.handleNotificationClick = async function (notificationId, link) {
+            // 읽음 처리
+            try {
+                await fetch(`${API_BASE_URL}/api/notifications/${notificationId}/read`, {
+                    method: 'POST'
+                });
+            } catch (error) {
+                console.error('Failed to mark notification as read:', error);
+            }
+
+            // 링크로 이동
+            if (link) {
+                window.location.href = link;
+            } else {
+                fetchNotifications();
+            }
+        };
+
+        window.markAllNotificationsRead = async function () {
+            try {
+                await fetch(`${API_BASE_URL}/api/notifications/read-all`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: user.id })
+                });
+                fetchNotifications();
+                showNotification('모든 알림을 읽음 처리했습니다.', 'success');
+            } catch (error) {
+                showNotification('오류가 발생했습니다.', 'error');
+            }
+        };
+
+        // 드롭다운 외부 클릭 시 닫기
+        document.addEventListener('click', function (event) {
+            const dropdown = document.querySelector('.notification-dropdown');
+            const panel = document.getElementById('notification-panel');
+            if (dropdown && !dropdown.contains(event.target)) {
+                panel.classList.add('hidden');
+            }
+        });
+
         // Initialize
         setupDashboardUI();
         fetchProjects();
+        fetchNotifications(); // 알림 로드
     </script>
 </body>
 
