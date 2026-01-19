@@ -1876,8 +1876,8 @@
                     <!-- Project Actions (제안서 대기 상태에서만) -->
                     <div class="project-actions" style="padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                         <button class="btn btn-secondary btn-sm" onclick="event.preventDefault(); event.stopPropagation(); openAddConsultantModal('${group.title.replace(/'/g, "\\'")}', '${group.session_id || ''}')">
-                            <i data-lucide="user-plus" style="width: 14px; height: 14px;"></i>
-                            다른 전문가에게도 요청
+                            <i data-lucide="sparkles" style="width: 14px; height: 14px;"></i>
+                            새로운 전문가 추천받기
                         </button>
                         <button class="btn btn-ghost btn-sm delete-all-btn" style="color: var(--error);" data-title="${group.title.replace(/"/g, '&quot;')}" data-session-id="${group.session_id || ''}" onclick="event.preventDefault(); event.stopPropagation(); deleteQuoteRequestGroup(this, event)">
                             <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
@@ -2428,9 +2428,9 @@
                 return;
             }
 
-            // 사용 가능한 컨설턴트 조회
+            // 전문가 추천 조회 (세션 기반 선별 로직 적용)
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(title)}/available-consultants?user_id=${user.id}`);
+                const response = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(title)}/available-consultants?user_id=${user.id}&session_id=${currentAddSessionId}`);
                 const consultants = await response.json();
 
                 if (!Array.isArray(consultants) || consultants.length === 0) {
@@ -2445,12 +2445,16 @@
                         : (c.name?.charAt(0) || '?');
 
                     return `
-                        <div class="add-consultant-item" style="display: flex; align-items: center; justify-content: space-between; padding: 16px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px;">
+                        <div class="add-consultant-item" style="display: flex; align-items: center; justify-content: space-between; padding: 16px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; background: var(--bg-card);">
                             <div style="display: flex; align-items: center; gap: 12px;">
                                 <div class="consultant-avatar-large" style="width: 48px; height: 48px; font-size: 1.2rem;">${avatarContent}</div>
                                 <div>
-                                    <div style="font-weight: 600;">${c.name}</div>
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <div style="font-weight: 600;">${c.name}</div>
+                                        ${c.matchScore ? `<span style="background: rgba(16, 185, 129, 0.1); color: var(--primary); padding: 1px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">매칭 ${c.matchScore}%</span>` : ''}
+                                    </div>
                                     <div style="font-size: 0.85rem; color: var(--text-muted);">${c.specialty || 'ISO 전문가'}</div>
+                                    ${c.matchReason ? `<div style="font-size: 0.75rem; color: var(--primary); margin: 4px 0;">${c.matchReason}</div>` : ''}
                                     <div style="display: flex; gap: 8px; margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary);">
                                         <span>⭐ ${c.rating || '-'}</span>
                                         <span>경력 ${c.experience || '-'}</span>
@@ -2466,11 +2470,16 @@
                 }).join('');
 
                 document.getElementById('modal-body').innerHTML = `
-                    <h3 style="margin-bottom: 16px;">다른 전문가에게도 요청</h3>
-                    <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.9rem;">
-                        "${title}" 프로젝트에 추가로 전문가를 요청합니다.
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+                        <div style="width: 40px; height: 40px; background: rgba(59, 130, 246, 0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                            <i data-lucide="sparkles" style="color: var(--primary); width: 24px; height: 24px;"></i>
+                        </div>
+                        <h3 style="margin: 0;">새로운 전문가 추천받기</h3>
+                    </div>
+                    <p style="color: var(--text-muted); margin-bottom: 24px; font-size: 0.95rem; line-height: 1.5;">
+                        현재 프로젝트 정보를 바탕으로 <strong>${title}</strong> 분야의 최적 전문가들을 추가로 선별했습니다.
                     </p>
-                    <div style="max-height: 400px; overflow-y: auto;">
+                    <div style="max-height: 400px; overflow-y: auto; padding-right: 4px;">
                         ${consultantCards}
                     </div>
                 `;

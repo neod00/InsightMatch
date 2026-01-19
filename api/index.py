@@ -786,37 +786,87 @@ def add_consultant_to_request():
 # --- Get Available Consultants for Adding to Project ---
 @app.route('/api/projects/<string:title>/available-consultants', methods=['GET'])
 def get_available_consultants(title):
-    """이미 요청되지 않은 컨설턴트 목록 조회"""
+    """이미 요청되지 않은 컨설턴트 목록 조회 (선별 로직 적용)"""
     user_id = request.args.get('user_id')
+    session_id = request.args.get('session_id')
     if not user_id:
         return jsonify({'message': 'user_id가 필요합니다.'}), 400
     
-    # 이미 요청된 컨설턴트 ID 목록
+    # 1. 이미 요청된 컨설턴트 ID 목록
     existing_projects = Project.query.filter_by(company_id=user_id, title=title).all()
     existing_consultant_ids = [p.consultant_id for p in existing_projects]
     
-    # 검증된 전체 컨설턴트 중 아직 요청하지 않은 컨설턴트
-    if existing_consultant_ids:
-        available = Consultant.query.filter(
-            Consultant.verified == True,
-            ~Consultant.id.in_(existing_consultant_ids)
-        ).all()
+    # 2. 추천 로직을 위한 기준 정보(criteria) 구축
+    criteria = {}
+    
+    # session_id로 AnalysisJob 조회 시도
+    job = None
+    if session_id:
+        job = AnalysisJob.query.get(session_id)
+    
+    if not job:
+        # title 등에서 ISO 코드 추출 시도 (세션ID가 없는 경우 대비)
+        iso_match = [iso for iso in ["9001", "14001", "45001", "50001", "27001", "22301"] if iso in title]
+        if iso_match:
+            criteria['recommended_iso'] = [{'code': code} for code in iso_match]
     else:
-        available = Consultant.query.filter(Consultant.verified == True).all()
+        # Job 정보가 있는 경우 criteria 추출
+        intake_data = job.get_intake_data()
+        criteria = {
+            'industry': intake_data.get('industry', ''),
+            'recommended_iso': [{'code': code} for code in intake_data.get('standards', [])] if isinstance(intake_data.get('standards'), list) else [],
+            'project_type': intake_data.get('projectType', ''),
+            'region': intake_data.get('region', '')
+        }
+
+    # 3. 매칭 서비스 실행 (선별 로직)
+    matched = matching_service.match_consultants(criteria)
     
+    # 4. 이미 요청한 컨설턴트 제외 및 정보 구성
     results = []
-    for c in available:
-        results.append({
-            'id': c.id,
-            'name': c.name,
-            'specialty': c.specialty,
-            'rating': c.rating,
-            'experience': c.experience,
-            'verified': c.verified,
-            'profileImageUrl': c.profile_image_url
-        })
-    
-    return jsonify(results)
+    for c_info in matched:
+        if c_info['id'] not in existing_consultant_ids:
+            results.append({
+                'id': c_info['id'],
+                'name': c_info['name'],
+                'specialty': c_info['specialty'],
+                'rating': c_info['rating'],
+                'experience': c_info['experience'],
+                'verified': c_info['verified'],
+                'profileImageUrl': c_info.get('profileImageUrl') or c_info.get('avatar'),
+                'matchReason': c_info.get('matchReason'),
+                'matchScore': c_info.get('matchScore')
+            })
+            
+    # 매칭 결과가 부족할 경우Fallback: 검증된 컨설턴트 중 미요청자 추가
+    if len(results) < 5:
+        existing_in_results = [r['id'] for r in results]
+        if existing_consultant_ids:
+            others = Consultant.query.filter(
+                Consultant.verified == True,
+                ~Consultant.id.in_(existing_consultant_ids),
+                ~Consultant.id.in_(existing_in_results)
+            ).limit(10).all()
+        else:
+            others = Consultant.query.filter(
+                Consultant.verified == True,
+                ~Consultant.id.in_(existing_in_results)
+            ).limit(10).all()
+            
+        for c in others:
+            results.append({
+                'id': c.id,
+                'name': c.name,
+                'specialty': c.specialty,
+                'rating': c.rating,
+                'experience': c.experience,
+                'verified': c.verified,
+                'profileImageUrl': c.profile_image_url,
+                'matchReason': "분야별 전문가 (추가 추천)",
+                'matchScore': 60
+            })
+
+    return jsonify(results[:15]) # 상위 15명 반환
 
 # --- Admin Endpoints ---
 @app.route('/api/admin/jobs', methods=['GET'])
