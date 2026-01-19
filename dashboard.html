@@ -2017,17 +2017,17 @@
                 const stageClass = isActive ? 'active' : (isCompleted ? 'completed' : '');
 
                 html += `
-                    < div class="stage-step ${stageClass}" >
+                    <div class="stage-step ${stageClass}">
                         <div class="stage-dot">
                             ${isCompleted ? '<i data-lucide="check" style="width: 14px; height: 14px;"></i>' : stage.num}
                         </div>
                         <span>${stage.text}</span>
-                    </div >
+                    </div>
                     `;
 
                 if (index < stages.length - 1) {
                     const lineClass = isCompleted || isActive ? 'completed' : '';
-                    html += `< div class="stage-line ${lineClass}" ></div > `;
+                    html += `<div class="stage-line ${lineClass}"></div>`;
                 }
             });
 
@@ -2055,32 +2055,32 @@
             const needsScheduleConfirm = isContracted && scheduleStatus === 'proposed';
 
             const avatarContent = project.profile_image_url
-                ? `< img src = "${project.profile_image_url}" style = "width: 100%; height: 100%; object-fit: cover; border-radius: inherit;" > `
+                ? `<img src="${project.profile_image_url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
                 : (project.consultant_name?.charAt(0) || '?');
 
             return `
-                    < div class="consultant-response-card ${cardClass}" >
-                        <div class="response-card-header">
-                            <div class="consultant-avatar-large">${avatarContent}</div>
-                            <div class="consultant-info-main">
-                                <div class="consultant-name-row">
-                                    <h4>${project.consultant_name || '컨설턴트'}</h4>
-                                    <i data-lucide="badge-check" class="verified-badge-small"></i>
-                                </div>
-                                <div class="consultant-specialty">ISO 인증 전문가</div>
-                                <div class="consultant-stats">
-                                    <span>
-                                        <i data-lucide="star" style="width: 14px; height: 14px; color: #f59e0b;"></i>
-                                        4.9
-                                    </span>
-                                    <span>
-                                        <i data-lucide="briefcase" style="width: 14px; height: 14px;"></i>
-                                        15년 경력
-                                    </span>
-                                </div>
+                <div class="consultant-response-card ${cardClass}">
+                    <div class="response-card-header">
+                        <div class="consultant-avatar-large">${avatarContent}</div>
+                        <div class="consultant-info-main">
+                            <div class="consultant-name-row">
+                                <h4>${project.consultant_name || '컨설턴트'}</h4>
+                                <i data-lucide="badge-check" class="verified-badge-small"></i>
                             </div>
-                            <span class="response-status ${statusClass}">${statusText}</span>
+                            <div class="consultant-specialty">ISO 인증 전문가</div>
+                            <div class="consultant-stats">
+                                <span>
+                                    <i data-lucide="star" style="width: 14px; height: 14px; color: #f59e0b;"></i>
+                                    4.9
+                                </span>
+                                <span>
+                                    <i data-lucide="briefcase" style="width: 14px; height: 14px;"></i>
+                                    15년 경력
+                                </span>
+                            </div>
                         </div>
+                        <span class="response-status ${statusClass}">${statusText}</span>
+                    </div>
                     
                     ${isSubmitted || isContracted ? `
                     <!-- ① 견적 비교: 제안 금액/기간 표시 -->
@@ -2100,27 +2100,26 @@
                         </div>
                         ` : ''}
                     </div>
-                    ` : ''
-                }
-
-                <div class="response-actions">
-                    <button class="btn btn-secondary btn-sm" onclick="viewConsultantProfile(${project.consultant_id})">
-                        <i data-lucide="user" style="width: 14px; height: 14px;"></i>
-                        프로필 보기
-                    </button>
-                    ${isSubmitted && !isContracted ? `
+                    ` : ''}
+                    
+                    <div class="response-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="viewConsultantProfile(${project.consultant_id})">
+                            <i data-lucide="user" style="width: 14px; height: 14px;"></i>
+                            프로필 보기
+                        </button>
+                        ${isSubmitted && !isContracted ? `
                         <button class="btn btn-primary btn-sm" onclick="selectConsultant(${project.id})">
                             <i data-lucide="check" style="width: 14px; height: 14px;"></i>
                             이 전문가 선택
                         </button>
                         ` : ''}
-                    ${isPending ? `
+                        ${isPending ? `
                         <button class="btn btn-ghost btn-sm" style="color: var(--text-muted);" onclick="event.preventDefault(); event.stopPropagation(); cancelConsultantRequest(${project.id}, '${project.consultant_name?.replace(/'/g, "\\'")}', event)">
                             <i data-lucide="x" style="width: 14px; height: 14px;"></i>
                             요청 취소
                         </button>
                         ` : ''}
-                    ${isContracted ? `
+                        ${isContracted ? `
                         <button class="btn btn-secondary btn-sm" onclick="openMessageModal(${project.id}, '${project.title?.replace(/'/g, "\\'")}')">
                             <i data-lucide="message-circle" style="width: 14px; height: 14px;"></i>
                             메시지
@@ -2136,9 +2135,9 @@
                         </button>
                         ` : ''}
                         ` : ''}
+                    </div>
                 </div>
-                </div >
-                    `;
+            `;
         }
 
         function formatDate(dateStr) {
