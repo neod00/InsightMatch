@@ -358,34 +358,42 @@ def handle_projects():
         
         results = []
         for p in projects:
-            consultant_info = Consultant.query.get(p.consultant_id)
-            company_user = User.query.get(p.company_id)
-            
-            results.append({
-                'id': p.id,
-                'title': p.title,
-                'session_id': getattr(p, 'session_id', None),
-                'status': p.status,
-                'consultant_id': p.consultant_id,
-                'consultant_name': consultant_info.name if consultant_info else 'Unknown',
-                'profile_image_url': consultant_info.profile_image_url if consultant_info else None,
-                'company_id': p.company_id,
-                'company_name': company_user.name if company_user else 'Unknown Company',
-                'start_date': p.start_date.isoformat() if p.start_date else None,
-                'created_at': p.created_at.isoformat() if hasattr(p, 'created_at') and p.created_at else None,
-                # 제안서 관련 필드 (① 견적 비교용)
-                'proposal_price': getattr(p, 'proposal_price', None),
-                'proposal_duration': getattr(p, 'proposal_duration', None),
-                'proposal_message': getattr(p, 'proposal_message', None),
-                'proposal_file_url': getattr(p, 'proposal_file_url', None),
-                'proposal_submitted_at': p.proposal_submitted_at.isoformat() if hasattr(p, 'proposal_submitted_at') and p.proposal_submitted_at else None,
-                # 일정 관련 필드 (③ 일정 워크플로우용)
-                'schedule_status': getattr(p, 'schedule_status', 'pending'),
-                # 취소 관련 필드 (④ 취소 이력)
-                'cancelled_at': p.cancelled_at.isoformat() if hasattr(p, 'cancelled_at') and p.cancelled_at else None,
-                'cancelled_reason': getattr(p, 'cancelled_reason', None),
-                'milestones': [m.to_dict() for m in p.milestones]
-            })
+            try:
+                consultant_info = Consultant.query.get(p.consultant_id)
+                company_user = User.query.get(p.company_id)
+                
+                cancelled_at_val = None
+                if hasattr(p, 'cancelled_at') and p.cancelled_at:
+                    cancelled_at_val = p.cancelled_at.isoformat()
+
+                results.append({
+                    'id': p.id,
+                    'title': p.title,
+                    'session_id': getattr(p, 'session_id', None),
+                    'status': p.status,
+                    'consultant_id': p.consultant_id,
+                    'consultant_name': consultant_info.name if consultant_info else 'Unknown',
+                    'profile_image_url': consultant_info.profile_image_url if consultant_info else None,
+                    'company_id': p.company_id,
+                    'company_name': company_user.name if company_user else 'Unknown Company',
+                    'start_date': p.start_date.isoformat() if p.start_date else None,
+                    'created_at': p.created_at.isoformat() if hasattr(p, 'created_at') and p.created_at else None,
+                    # 제안서 관련 필드 (① 견적 비교용)
+                    'proposal_price': getattr(p, 'proposal_price', None),
+                    'proposal_duration': getattr(p, 'proposal_duration', None),
+                    'proposal_message': getattr(p, 'proposal_message', None),
+                    'proposal_file_url': getattr(p, 'proposal_file_url', None),
+                    'proposal_submitted_at': p.proposal_submitted_at.isoformat() if hasattr(p, 'proposal_submitted_at') and p.proposal_submitted_at else None,
+                    # 일정 관련 필드 (③ 일정 워크플로우용)
+                    'schedule_status': getattr(p, 'schedule_status', 'pending'),
+                    # 취소 관련 필드 (④ 취소 이력)
+                    'cancelled_at': cancelled_at_val,
+                    'cancelled_reason': getattr(p, 'cancelled_reason', None),
+                    'milestones': [m.to_dict() for m in p.milestones]
+                })
+            except Exception as e:
+                print(f"[Error] Failed to process project {p.id}: {e}")
+                continue
         return jsonify(results)
         
     elif request.method == 'POST':
