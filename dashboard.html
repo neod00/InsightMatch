@@ -1923,17 +1923,21 @@
                 const overallStatus = firstProject.status || 'proposal_pending';
                 const statusInfo = STATUS_CONFIG[overallStatus] || STATUS_CONFIG['proposal_pending'];
 
-                // 응답 현황 계산
-                const totalConsultants = group.projects.length;
-                const respondedConsultants = group.projects.filter(p =>
+                // 응답 현황 계산 (취소된 요청 제외)
+                const visibleProjects = group.projects.filter(p => p.status !== 'cancelled_by_company');
+                const totalConsultants = visibleProjects.length;
+                const respondedConsultants = visibleProjects.filter(p =>
                     p.proposal_status === 'submitted' || p.status === 'contracted' || p.status === 'in_progress'
                 ).length;
+
+                // 모든 전문가를 취소한 경우 그룹을 렌더링하지 않음
+                if (totalConsultants === 0) return;
 
                 // Stage indicator HTML 생성
                 const stageHtml = generateStageIndicator(statusInfo.stage);
 
-                // 컨설턴트 응답 카드 HTML 생성
-                const responsesHtml = group.projects.map(p => generateConsultantResponseCard(p)).join('');
+                // 컨설턴트 응답 카드 HTML 생성 (취소된 요청 제외)
+                const responsesHtml = visibleProjects.map(p => generateConsultantResponseCard(p)).join('');
 
                 card.innerHTML = `
                     <!-- Header -->
