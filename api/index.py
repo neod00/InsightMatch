@@ -415,6 +415,8 @@ def handle_projects():
         db.session.commit()
         
         return jsonify({'message': 'Project created', 'id': new_project.id}), 201
+        
+
 
 # --- Project Delete Endpoint ---
 @app.route('/api/projects/<int:project_id>', methods=['DELETE'])
