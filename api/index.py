@@ -1181,6 +1181,37 @@ def request_quotes():
     # Get session_id from frontend (for grouping projects from same matching session)
     session_id = data.get('session_id') or str(uuid.uuid4())
     
+    # [FIX] analysis_context 저장 로직 추가
+    # session_id로 AnalysisJob이 존재하는지 확인
+    existing_job = AnalysisJob.query.filter_by(id=session_id).first()
+    
+    if not existing_job and analysis_context:
+        try:
+            # 새로운 AnalysisJob 생성 및 데이터 저장
+            new_job = AnalysisJob(
+                id=session_id,
+                company_name=company_name,
+                url=None, # 직접 매칭의 경우 URL 정보가 없을 수 있음
+                status='completed', # 이미 매칭이 끝난 상태로 간주
+                intake_data=json.dumps(analysis_context),
+                # result 필드는 선택적이지만, 필요하면 여기에 빈 dict나 기본값 저장
+                result=json.dumps({}) # 기본값
+            )
+            # deleted_at 등 다른 필드는 default 값이나 NULL 유지
+            
+            db.session.add(new_job)
+            db.session.flush() # ID 충돌 확인 및 세션 반영
+            print(f"[Info] Created new AnalysisJob for session_id: {session_id}")
+            
+        except Exception as e:
+            print(f"[Warning] Failed to save analysis context as AnalysisJob: {e}")
+            # 여기서 실패해도 프로젝트 생성은 계속 진행 (로그만 남김)
+            # db.session.rollback() # 전체 롤백보다는 부분 처리가 나을 수 있으나, 안전하게 가려면 여기서 롤백할 수도 있음.
+            # 일단 프로젝트 생성이 주 목적이므로 pass 처리하거나 
+            # nested transaction을 사용해야 하는데 복잡하므로 단순 print 처리 후 진행
+            pass
+
+    
     # Create quote requests and projects for each consultant
     quote_request_id = str(uuid.uuid4())
     created_requests = []
