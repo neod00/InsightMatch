@@ -554,17 +554,42 @@ def get_project_detail(project_id):
     
     # Company 정보 조회 (company_id가 있는 경우)
     company = None
+    company_user = None
     if project.company_id:
         company = Company.query.get(project.company_id)
+        company_user = User.query.get(project.company_id)
     
     # AnalysisJob에서 추가 정보 조회 (session_id가 있는 경우)
     analysis_job = None
     intake_data = {}
+    
+    # 1차: session_id로 직접 조회
     if hasattr(project, 'session_id') and project.session_id:
         analysis_job = AnalysisJob.query.filter_by(id=project.session_id).first()
         if not analysis_job:
-            # session_id를 직접 id로 조회 실패시, 다른 방법 시도
-            analysis_job = AnalysisJob.query.filter(AnalysisJob.id.like(f'%{project.session_id[:8]}%')).first()
+            # session_id 부분 매칭 시도
+            try:
+                analysis_job = AnalysisJob.query.filter(AnalysisJob.id.like(f'%{project.session_id[:8]}%')).first()
+            except:
+                pass
+    
+    # 2차: session_id로 못 찾으면, company_user의 이메일로 AnalysisJob 검색
+    if not analysis_job and company_user:
+        # 가장 최근의 해당 사용자 AnalysisJob 검색
+        all_jobs = AnalysisJob.query.filter(
+            AnalysisJob.deleted_at.is_(None)
+        ).order_by(AnalysisJob.created_at.desc()).all()
+        
+        for job in all_jobs:
+            job_intake = job.get_intake_data() if job.intake_data else {}
+            contact_email = job_intake.get('contactEmail', '')
+            company_name_in_job = job_intake.get('companyName', '')
+            
+            # 이메일 매칭 또는 회사명 매칭
+            if (contact_email and company_user.email and contact_email.lower() == company_user.email.lower()) or \
+               (company_name_in_job and company_user.name and company_name_in_job == company_user.name):
+                analysis_job = job
+                break
     
     # intake_data에서 정보 파싱
     if analysis_job:
@@ -597,16 +622,22 @@ def get_project_detail(project_id):
     if isinstance(standards, str):
         standards = [s.strip() for s in standards.split(',') if s.strip()]
     
+    # 기업명 결정 (우선순위: intake_data > company > company_user > title 파싱)
+    company_name = intake_data.get('companyName') or \
+                   (company.name if company else None) or \
+                   (company_user.name if company_user else None) or \
+                   (project.title.split(' - ')[0] if project.title and ' - ' in project.title else None)
+    
     return jsonify({
         'id': project.id,
         'title': project.title,
         'description': project.description,
         'status': project.status,
-        'created_at': project.start_date.isoformat() if project.start_date else None,
+        'created_at': project.created_at.isoformat() if hasattr(project, 'created_at') and project.created_at else (project.start_date.isoformat() if project.start_date else None),
         
         # 기업 정보
         'company_id': project.company_id,
-        'company_name': company.name if company else (intake_data.get('companyName') or (project.title.split(' - ')[0] if project.title else None)),
+        'company_name': company_name,
         'industry': intake_data.get('industry'),
         'employees': intake_data.get('employees'),
         
