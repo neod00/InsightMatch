@@ -5,17 +5,109 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>로그인 - InsightMatch</title>
-    
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    
+
     <!-- Styles -->
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* Login Type Tabs */
+        .login-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 4px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+        }
+
+        .login-tab {
+            flex: 1;
+            padding: 12px 16px;
+            background: transparent;
+            border: none;
+            border-radius: var(--radius-sm);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .login-tab:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .login-tab.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .login-tab i {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Role Description */
+        .role-description {
+            text-align: center;
+            padding: 16px;
+            margin-bottom: 20px;
+            background: rgba(16, 185, 129, 0.05);
+            border: 1px solid rgba(16, 185, 129, 0.1);
+            border-radius: var(--radius-md);
+        }
+
+        .role-description p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        .role-description strong {
+            color: var(--primary);
+        }
+
+        /* Footer Admin Link */
+        .admin-login-link {
+            text-align: center;
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        .admin-login-link a {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-decoration: none;
+            opacity: 0.6;
+            transition: opacity 0.3s ease;
+        }
+
+        .admin-login-link a:hover {
+            opacity: 1;
+            color: var(--text-secondary);
+        }
+
+        /* Auth card adjustment */
+        .auth-card {
+            max-width: 420px;
+        }
+    </style>
 </head>
 
 <body>
@@ -35,14 +127,14 @@
                     <span>by OpenBrain</span>
                 </div>
             </a>
-            
+
             <div class="nav-actions">
                 <a href="index.html" class="btn btn-ghost">
                     <i data-lucide="home" style="width: 18px; height: 18px;"></i>
                     홈으로
                 </a>
             </div>
-            
+
             <!-- Mobile Menu Button -->
             <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="메뉴 열기">
                 <span></span>
@@ -51,7 +143,7 @@
             </button>
         </div>
     </nav>
-    
+
     <!-- Mobile Navigation -->
     <div class="mobile-nav" id="mobile-nav">
         <a href="index.html">홈</a>
@@ -71,9 +163,26 @@
                     <i data-lucide="shield-check" style="width: 28px; height: 28px;"></i>
                 </div>
                 <h2>로그인</h2>
-                <p>서비스 이용을 위해 로그인해주세요.</p>
+                <p id="login-subtitle">서비스 이용을 위해 로그인해주세요.</p>
             </div>
-            
+
+            <!-- Login Type Tabs -->
+            <div class="login-tabs">
+                <button class="login-tab active" data-role="company" onclick="switchLoginTab('company')">
+                    <i data-lucide="building-2"></i>
+                    기업 회원
+                </button>
+                <button class="login-tab" data-role="consultant" onclick="switchLoginTab('consultant')">
+                    <i data-lucide="user-check"></i>
+                    컨설턴트
+                </button>
+            </div>
+
+            <!-- Role Description -->
+            <div class="role-description" id="role-description">
+                <p><strong>기업 회원</strong>으로 로그인하여 최적의 ISO 전문가를 만나보세요.</p>
+            </div>
+
             <form id="login-form" class="auth-form">
                 <div class="form-group">
                     <label>이메일</label>
@@ -83,20 +192,36 @@
                     <label>비밀번호</label>
                     <input type="password" id="password" required placeholder="비밀번호를 입력하세요">
                 </div>
-                
+
                 <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
                     로그인
                 </button>
             </form>
-            
+
             <div class="auth-footer">
                 <p style="color: var(--text-muted);">
-                    계정이 없으신가요? 
-                    <a href="signup.html">회원가입</a>
+                    계정이 없으신가요?
+                    <a href="signup.html" id="signup-link">회원가입</a>
                 </p>
+            </div>
+
+            <!-- Hidden Admin Login Link -->
+            <div class="admin-login-link" id="admin-login-section" style="display: none;">
+                <a href="#" onclick="switchLoginTab('admin'); return false;">
+                    <i data-lucide="shield" style="width: 12px; height: 12px; vertical-align: middle;"></i>
+                    관리자 로그인
+                </a>
             </div>
         </div>
     </div>
+
+    <!-- Footer with hidden admin link -->
+    <footer style="position: fixed; bottom: 0; left: 0; right: 0; padding: 16px; text-align: center;">
+        <a href="#" onclick="showAdminLogin(); return false;"
+            style="color: var(--text-muted); font-size: 0.7rem; opacity: 0.4; text-decoration: none;">
+            관리자
+        </a>
+    </footer>
 
     <script>
         // API Base URL 설정 (환경에 따라 자동 감지)
@@ -106,40 +231,122 @@
             }
             return '';
         })();
-        
+
+        // 현재 선택된 로그인 타입
+        let currentLoginRole = 'company';
+
+        // 탭 전환 함수
+        function switchLoginTab(role) {
+            currentLoginRole = role;
+
+            // 탭 버튼 상태 업데이트
+            document.querySelectorAll('.login-tab').forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.dataset.role === role) {
+                    tab.classList.add('active');
+                }
+            });
+
+            // 설명 및 UI 업데이트
+            const description = document.getElementById('role-description');
+            const subtitle = document.getElementById('login-subtitle');
+            const signupLink = document.getElementById('signup-link');
+            const loginTabs = document.querySelector('.login-tabs');
+
+            switch (role) {
+                case 'company':
+                    description.innerHTML = '<p><strong>기업 회원</strong>으로 로그인하여 최적의 ISO 전문가를 만나보세요.</p>';
+                    subtitle.textContent = '서비스 이용을 위해 로그인해주세요.';
+                    signupLink.href = 'signup.html';
+                    loginTabs.style.display = 'flex';
+                    description.style.display = 'block';
+                    break;
+                case 'consultant':
+                    description.innerHTML = '<p><strong>전문위원</strong>으로 로그인하여 새로운 프로젝트를 확인하세요.</p>';
+                    subtitle.textContent = '전문가 전용 로그인';
+                    signupLink.href = 'consultant_register.html';
+                    loginTabs.style.display = 'flex';
+                    description.style.display = 'block';
+                    break;
+                case 'admin':
+                    description.innerHTML = '<p><strong>관리자</strong> 전용 로그인입니다.</p>';
+                    subtitle.textContent = '관리자 로그인';
+                    loginTabs.style.display = 'none';
+                    description.style.display = 'block';
+                    break;
+            }
+
+            lucide.createIcons();
+        }
+
+        // 원래 탭 UI로 복구하는 함수
+        function restoreNormalTabs() {
+            document.querySelector('.login-tabs').innerHTML = `
+                <button class="login-tab active" data-role="company" onclick="switchLoginTab('company')">
+                    <i data-lucide="building-2"></i>
+                    기업 회원
+                </button>
+                <button class="login-tab" data-role="consultant" onclick="switchLoginTab('consultant')">
+                    <i data-lucide="user-check"></i>
+                    컨설턴트
+                </button>
+            `;
+            currentLoginRole = 'company';
+            switchLoginTab('company');
+            lucide.createIcons();
+        }
+
+        // 관리자 로그인 표시 함수
+        function showAdminLogin() {
+            switchLoginTab('admin');
+            // 일반 탭 숨기고 뒤로가기 버튼 표시
+            document.querySelector('.login-tabs').innerHTML = `
+                <button class="login-tab" onclick="restoreNormalTabs()" style="flex: none; padding: 8px 16px;">
+                    <i data-lucide="arrow-left"></i>
+                    돌아가기
+                </button>
+                <button class="login-tab active" data-role="admin" style="flex: 1;">
+                    <i data-lucide="shield"></i>
+                    관리자
+                </button>
+            `;
+            document.querySelector('.login-tabs').style.display = 'flex';
+            lucide.createIcons();
+        }
+
         lucide.createIcons();
-        
+
         // Mobile Menu Toggle
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
         const mobileNav = document.getElementById('mobile-nav');
-        
+
         function toggleMobileMenu() {
             mobileMenuBtn.classList.toggle('active');
             mobileNav.classList.toggle('active');
             document.body.style.overflow = mobileNav.classList.contains('active') ? 'hidden' : '';
         }
-        
+
         function closeMobileMenu() {
             mobileMenuBtn.classList.remove('active');
             mobileNav.classList.remove('active');
             document.body.style.overflow = '';
         }
-        
+
         mobileMenuBtn.addEventListener('click', toggleMobileMenu);
-        
+
         window.addEventListener('resize', () => {
             if (window.innerWidth > 768) {
                 closeMobileMenu();
             }
         });
-        
+
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const submitBtn = e.target.querySelector('button[type="submit"]');
-            
+
             // Loading state
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="loading-spinner" style="width: 20px; height: 20px; border-width: 2px;"></span> 로그인 중...';
@@ -154,11 +361,38 @@
                 const data = await response.json();
 
                 if (response.ok) {
+                    // 선택된 로그인 타입과 실제 역할 검증
+                    const userRole = data.user.role;
+
+                    // 관리자 로그인 시도 시 역할 검증
+                    if (currentLoginRole === 'admin' && userRole !== 'admin') {
+                        showError('관리자 계정이 아닙니다.');
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = '로그인';
+                        return;
+                    }
+
+                    // 기업 회원 탭에서 컨설턴트 계정으로 로그인 시도
+                    if (currentLoginRole === 'company' && userRole === 'consultant') {
+                        showError('컨설턴트 계정입니다. "컨설턴트" 탭에서 로그인해주세요.');
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = '로그인';
+                        return;
+                    }
+
+                    // 컨설턴트 탭에서 기업 계정으로 로그인 시도
+                    if (currentLoginRole === 'consultant' && userRole === 'company') {
+                        showError('기업 회원 계정입니다. "기업 회원" 탭에서 로그인해주세요.');
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = '로그인';
+                        return;
+                    }
+
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
-                    
+
                     // Redirect based on role
-                    if (data.user.role === 'admin') {
+                    if (userRole === 'admin') {
                         window.location.href = 'admin.html';
                     } else {
                         window.location.href = 'dashboard.html';
@@ -175,12 +409,12 @@
                 submitBtn.textContent = '로그인';
             }
         });
-        
+
         function showError(message) {
             // Remove existing error
             const existing = document.querySelector('.error-message');
             if (existing) existing.remove();
-            
+
             const errorDiv = document.createElement('div');
             errorDiv.className = 'error-message';
             errorDiv.style.cssText = `
@@ -196,11 +430,11 @@
                 gap: 8px;
             `;
             errorDiv.innerHTML = `<i data-lucide="alert-circle" style="width: 18px; height: 18px;"></i> ${message}`;
-            
+
             const form = document.getElementById('login-form');
             form.insertBefore(errorDiv, form.firstChild);
             lucide.createIcons();
-            
+
             setTimeout(() => errorDiv.remove(), 5000);
         }
     </script>
