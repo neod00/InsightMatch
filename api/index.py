@@ -641,14 +641,14 @@ def get_project_detail(project_id):
         # 기업 정보
         'company_id': project.company_id,
         'company_name': company_name,
-        'industry': intake_data.get('industry'),
-        'employees': intake_data.get('employees'),
+        'industry': intake_data.get('industry') or intake_data.get('companyIndustry'),
+        'employees': intake_data.get('employees') or intake_data.get('employeeCount') or intake_data.get('companySize'),
         
         # 인증 요구사항
         'standards': standards,
-        'cert_status': intake_data.get('certStatus'),
-        'readiness': intake_data.get('readiness'),
-        'target_date': intake_data.get('targetDate'),
+        'cert_status': intake_data.get('certStatus') or intake_data.get('certificationStatus') or intake_data.get('currentStatus'),
+        'readiness': intake_data.get('readiness') or intake_data.get('preparationStatus'),
+        'target_date': intake_data.get('targetDate') or intake_data.get('timeline'),
         'budget': intake_data.get('budget'),
         
         # AI 진단 결과
@@ -1225,6 +1225,7 @@ def request_quotes():
                 consultant_id=consultant.id,
                 title=project_title,
                 status='proposal_pending',  # 계약 전 상태
+                description=analysis_context.get('additionalNotes') or analysis_context.get('description')
             )
             # Set optional fields if they exist
             if hasattr(new_project, 'session_id'):

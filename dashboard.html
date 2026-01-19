@@ -3135,45 +3135,6 @@
                     </div>
                 </div>
                 
-                ${project.ai_diagnosis ? `
-                <!-- AI 진단 결과 섹션 -->
-                <div class="detail-section">
-                    <div class="detail-section-title">
-                        <i data-lucide="sparkles" style="width: 16px; height: 16px;"></i>
-                        AI 진단 결과
-                    </div>
-                    <div class="detail-grid">
-                        <div class="detail-item">
-                            <div class="detail-item-label">리스크 수준</div>
-                            <div class="detail-item-value" style="color: ${project.ai_diagnosis.risk_level === 'high' ? 'var(--error)' : (project.ai_diagnosis.risk_level === 'medium' ? '#f59e0b' : 'var(--primary)')};">
-                                ${project.ai_diagnosis.risk_level === 'high' ? '높음' : (project.ai_diagnosis.risk_level === 'medium' ? '보통' : '낮음')}
-                            </div>
-                        </div>
-                        <div class="detail-item">
-                            <div class="detail-item-label">예상 기간</div>
-                            <div class="detail-item-value">${project.ai_diagnosis.estimated_duration || '-'}</div>
-                        </div>
-                    </div>
-                    ${project.ai_diagnosis.summary ? `
-                    <div class="detail-description" style="margin-top: 12px;">
-                        ${project.ai_diagnosis.summary}
-                    </div>
-                    ` : ''}
-                </div>
-                ` : ''}
-                
-                ${project.analysis_result ? `
-                <!-- 상세 분석 결과 섹션 -->
-                <div class="detail-section">
-                    <div class="detail-section-title">
-                        <i data-lucide="bar-chart-3" style="width: 16px; height: 16px;"></i>
-                        상세 분석 결과
-                    </div>
-                    <div class="detail-description">
-                        ${typeof project.analysis_result === 'string' ? project.analysis_result : JSON.stringify(project.analysis_result, null, 2)}
-                    </div>
-                </div>
-                ` : ''}
             `;
         }
 
