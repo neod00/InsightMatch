@@ -343,11 +343,22 @@ def handle_projects():
     if request.method == 'GET':
         if not user_id:
             return jsonify({'message': 'User ID required'}), 400
-            
-        projects = Project.query.filter((Project.company_id == user_id) | (Project.consultant_id == user_id)).all()
+        
+        # 컨설턴트인 경우: user_id로 Consultant 테이블에서 consultant_id 조회
+        consultant = Consultant.query.filter_by(user_id=user_id).first()
+        consultant_id = consultant.id if consultant else None
+        
+        # 필터링: company_id가 user_id이거나, consultant_id가 조회된 consultant의 id인 프로젝트
+        if consultant_id:
+            projects = Project.query.filter(
+                (Project.company_id == user_id) | (Project.consultant_id == consultant_id)
+            ).all()
+        else:
+            projects = Project.query.filter(Project.company_id == user_id).all()
+        
         results = []
         for p in projects:
-            consultant = Consultant.query.get(p.consultant_id)
+            consultant_info = Consultant.query.get(p.consultant_id)
             company_user = User.query.get(p.company_id)
             
             results.append({
@@ -356,8 +367,8 @@ def handle_projects():
                 'session_id': getattr(p, 'session_id', None),
                 'status': p.status,
                 'consultant_id': p.consultant_id,
-                'consultant_name': consultant.name if consultant else 'Unknown',
-                'profile_image_url': consultant.profile_image_url if consultant else None,
+                'consultant_name': consultant_info.name if consultant_info else 'Unknown',
+                'profile_image_url': consultant_info.profile_image_url if consultant_info else None,
                 'company_id': p.company_id,
                 'company_name': company_user.name if company_user else 'Unknown Company',
                 'start_date': p.start_date.isoformat() if p.start_date else None,
