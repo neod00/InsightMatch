@@ -634,7 +634,15 @@ def get_project_detail(project_id):
     return jsonify({
         'id': project.id,
         'title': project.title,
-        'description': project.description,
+    # Description Fallback: DB에 없으면 intake_data에서 확인
+    description = project.description
+    if not description and intake_data:
+        description = intake_data.get('additionalNotes') or intake_data.get('description')
+
+    return jsonify({
+        'id': project.id,
+        'title': project.title,
+        'description': description,
         'status': project.status,
         'created_at': project.created_at.isoformat() if hasattr(project, 'created_at') and project.created_at else (project.start_date.isoformat() if project.start_date else None),
         
@@ -642,13 +650,13 @@ def get_project_detail(project_id):
         'company_id': project.company_id,
         'company_name': company_name,
         'industry': intake_data.get('industry') or intake_data.get('companyIndustry'),
-        'employees': intake_data.get('employees') or intake_data.get('employeeCount') or intake_data.get('companySize'),
+        'employees': intake_data.get('employees') or intake_data.get('employeeCount') or intake_data.get('companySize') or intake_data.get('size'),
         
         # 인증 요구사항
         'standards': standards,
-        'cert_status': intake_data.get('certStatus') or intake_data.get('certificationStatus') or intake_data.get('currentStatus'),
-        'readiness': intake_data.get('readiness') or intake_data.get('preparationStatus'),
-        'target_date': intake_data.get('targetDate') or intake_data.get('timeline'),
+        'cert_status': intake_data.get('certStatus') or intake_data.get('certificationStatus') or intake_data.get('currentStatus') or intake_data.get('status'),
+        'readiness': intake_data.get('readiness') or intake_data.get('preparationStatus') or intake_data.get('prepare'),
+        'target_date': intake_data.get('targetDate') or intake_data.get('timeline') or intake_data.get('schedule'),
         'budget': intake_data.get('budget'),
         
         # AI 진단 결과
@@ -834,6 +842,17 @@ def add_consultant_to_request():
         session_id=session_id, # 세션 ID 저장
         status='proposal_pending',
     )
+    
+    # Description population from AnalysisJob
+    if session_id:
+        job = AnalysisJob.query.get(session_id)
+        if job and job.intake_data:
+            try:
+                idf = job.get_intake_data()
+                new_project.description = idf.get('additionalNotes') or idf.get('description')
+            except:
+                pass
+
     if hasattr(new_project, 'proposal_status'):
         new_project.proposal_status = 'pending'
     
