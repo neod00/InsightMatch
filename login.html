@@ -186,7 +186,7 @@
             <form id="login-form" class="auth-form">
                 <div class="form-group">
                     <label>이메일</label>
-                    <input type="email" id="email" required placeholder="name@company.com">
+                    <input type="text" id="email" required placeholder="name@company.com">
                 </div>
                 <div class="form-group">
                     <label>비밀번호</label>
@@ -252,6 +252,8 @@
             const subtitle = document.getElementById('login-subtitle');
             const signupLink = document.getElementById('signup-link');
             const loginTabs = document.querySelector('.login-tabs');
+            const emailLabel = document.querySelector('label[for="email"]') || document.querySelector('.form-group label');
+            const emailInput = document.getElementById('email');
 
             switch (role) {
                 case 'company':
@@ -260,6 +262,8 @@
                     signupLink.href = 'signup.html';
                     loginTabs.style.display = 'flex';
                     description.style.display = 'block';
+                    if (emailLabel) emailLabel.textContent = '이메일';
+                    if (emailInput) emailInput.placeholder = 'name@company.com';
                     break;
                 case 'consultant':
                     description.innerHTML = '<p><strong>전문위원</strong>으로 로그인하여 새로운 프로젝트를 확인하세요.</p>';
@@ -267,12 +271,16 @@
                     signupLink.href = 'consultant_register.html';
                     loginTabs.style.display = 'flex';
                     description.style.display = 'block';
+                    if (emailLabel) emailLabel.textContent = '이메일';
+                    if (emailInput) emailInput.placeholder = 'name@company.com';
                     break;
                 case 'admin':
                     description.innerHTML = '<p><strong>관리자</strong> 전용 로그인입니다.</p>';
                     subtitle.textContent = '관리자 로그인';
                     loginTabs.style.display = 'none';
                     description.style.display = 'block';
+                    if (emailLabel) emailLabel.textContent = '관리자 아이디';
+                    if (emailInput) emailInput.placeholder = '아이디를 입력하세요';
                     break;
             }
 
