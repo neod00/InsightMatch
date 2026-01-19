@@ -358,42 +358,34 @@ def handle_projects():
         
         results = []
         for p in projects:
-            try:
-                consultant_info = Consultant.query.get(p.consultant_id)
-                company_user = User.query.get(p.company_id)
-                
-                cancelled_at_val = None
-                if hasattr(p, 'cancelled_at') and p.cancelled_at:
-                    cancelled_at_val = p.cancelled_at.isoformat()
-
-                results.append({
-                    'id': p.id,
-                    'title': p.title,
-                    'session_id': getattr(p, 'session_id', None),
-                    'status': p.status,
-                    'consultant_id': p.consultant_id,
-                    'consultant_name': consultant_info.name if consultant_info else 'Unknown',
-                    'profile_image_url': consultant_info.profile_image_url if consultant_info else None,
-                    'company_id': p.company_id,
-                    'company_name': company_user.name if company_user else 'Unknown Company',
-                    'start_date': p.start_date.isoformat() if p.start_date else None,
-                    'created_at': p.created_at.isoformat() if hasattr(p, 'created_at') and p.created_at else None,
-                    # 제안서 관련 필드 (① 견적 비교용)
-                    'proposal_price': getattr(p, 'proposal_price', None),
-                    'proposal_duration': getattr(p, 'proposal_duration', None),
-                    'proposal_message': getattr(p, 'proposal_message', None),
-                    'proposal_file_url': getattr(p, 'proposal_file_url', None),
-                    'proposal_submitted_at': p.proposal_submitted_at.isoformat() if hasattr(p, 'proposal_submitted_at') and p.proposal_submitted_at else None,
-                    # 일정 관련 필드 (③ 일정 워크플로우용)
-                    'schedule_status': getattr(p, 'schedule_status', 'pending'),
-                    # 취소 관련 필드 (④ 취소 이력)
-                    'cancelled_at': cancelled_at_val,
-                    'cancelled_reason': getattr(p, 'cancelled_reason', None),
-                    'milestones': [m.to_dict() for m in p.milestones]
-                })
-            except Exception as e:
-                print(f"[Error] Failed to process project {p.id}: {e}")
-                continue
+            consultant_info = Consultant.query.get(p.consultant_id)
+            company_user = User.query.get(p.company_id)
+            
+            results.append({
+                'id': p.id,
+                'title': p.title,
+                'session_id': getattr(p, 'session_id', None),
+                'status': p.status,
+                'consultant_id': p.consultant_id,
+                'consultant_name': consultant_info.name if consultant_info else 'Unknown',
+                'profile_image_url': consultant_info.profile_image_url if consultant_info else None,
+                'company_id': p.company_id,
+                'company_name': company_user.name if company_user else 'Unknown Company',
+                'start_date': p.start_date.isoformat() if p.start_date else None,
+                'created_at': p.created_at.isoformat() if hasattr(p, 'created_at') and p.created_at else None,
+                # 제안서 관련 필드 (① 견적 비교용)
+                'proposal_price': getattr(p, 'proposal_price', None),
+                'proposal_duration': getattr(p, 'proposal_duration', None),
+                'proposal_message': getattr(p, 'proposal_message', None),
+                'proposal_file_url': getattr(p, 'proposal_file_url', None),
+                'proposal_submitted_at': p.proposal_submitted_at.isoformat() if hasattr(p, 'proposal_submitted_at') and p.proposal_submitted_at else None,
+                # 일정 관련 필드 (③ 일정 워크플로우용)
+                'schedule_status': getattr(p, 'schedule_status', 'pending'),
+                # 취소 관련 필드 (④ 취소 이력)
+                'cancelled_at': p.cancelled_at.isoformat() if hasattr(p, 'cancelled_at') and p.cancelled_at else None,
+                'cancelled_reason': getattr(p, 'cancelled_reason', None),
+                'milestones': [m.to_dict() for m in p.milestones]
+            })
         return jsonify(results)
         
     elif request.method == 'POST':
@@ -415,8 +407,6 @@ def handle_projects():
         db.session.commit()
         
         return jsonify({'message': 'Project created', 'id': new_project.id}), 201
-        
-
 
 # --- Project Delete Endpoint ---
 @app.route('/api/projects/<int:project_id>', methods=['DELETE'])
@@ -644,29 +634,21 @@ def get_project_detail(project_id):
     return jsonify({
         'id': project.id,
         'title': project.title,
-    # Description Fallback: DB에 없으면 intake_data에서 확인
-    description = project.description
-    if not description and intake_data:
-        description = intake_data.get('additionalNotes') or intake_data.get('description')
-
-    return jsonify({
-        'id': project.id,
-        'title': project.title,
-        'description': description,
+        'description': project.description,
         'status': project.status,
         'created_at': project.created_at.isoformat() if hasattr(project, 'created_at') and project.created_at else (project.start_date.isoformat() if project.start_date else None),
         
         # 기업 정보
         'company_id': project.company_id,
         'company_name': company_name,
-        'industry': intake_data.get('industry') or intake_data.get('companyIndustry'),
-        'employees': intake_data.get('employees') or intake_data.get('employeeCount') or intake_data.get('companySize') or intake_data.get('size'),
+        'industry': intake_data.get('industry'),
+        'employees': intake_data.get('employees'),
         
         # 인증 요구사항
         'standards': standards,
-        'cert_status': intake_data.get('certStatus') or intake_data.get('certificationStatus') or intake_data.get('currentStatus') or intake_data.get('status'),
-        'readiness': intake_data.get('readiness') or intake_data.get('preparationStatus') or intake_data.get('prepare'),
-        'target_date': intake_data.get('targetDate') or intake_data.get('timeline') or intake_data.get('schedule'),
+        'cert_status': intake_data.get('certStatus'),
+        'readiness': intake_data.get('readiness'),
+        'target_date': intake_data.get('targetDate'),
         'budget': intake_data.get('budget'),
         
         # AI 진단 결과
@@ -852,17 +834,6 @@ def add_consultant_to_request():
         session_id=session_id, # 세션 ID 저장
         status='proposal_pending',
     )
-    
-    # Description population from AnalysisJob
-    if session_id:
-        job = AnalysisJob.query.get(session_id)
-        if job and job.intake_data:
-            try:
-                idf = job.get_intake_data()
-                new_project.description = idf.get('additionalNotes') or idf.get('description')
-            except:
-                pass
-
     if hasattr(new_project, 'proposal_status'):
         new_project.proposal_status = 'pending'
     
@@ -1210,37 +1181,6 @@ def request_quotes():
     # Get session_id from frontend (for grouping projects from same matching session)
     session_id = data.get('session_id') or str(uuid.uuid4())
     
-    # [FIX] analysis_context 저장 로직 추가
-    # session_id로 AnalysisJob이 존재하는지 확인
-    existing_job = AnalysisJob.query.filter_by(id=session_id).first()
-    
-    if not existing_job and analysis_context:
-        try:
-            # 새로운 AnalysisJob 생성 및 데이터 저장
-            new_job = AnalysisJob(
-                id=session_id,
-                company_name=company_name,
-                url=None, # 직접 매칭의 경우 URL 정보가 없을 수 있음
-                status='completed', # 이미 매칭이 끝난 상태로 간주
-                intake_data=json.dumps(analysis_context),
-                # result 필드는 선택적이지만, 필요하면 여기에 빈 dict나 기본값 저장
-                result=json.dumps({}) # 기본값
-            )
-            # deleted_at 등 다른 필드는 default 값이나 NULL 유지
-            
-            db.session.add(new_job)
-            db.session.flush() # ID 충돌 확인 및 세션 반영
-            print(f"[Info] Created new AnalysisJob for session_id: {session_id}")
-            
-        except Exception as e:
-            print(f"[Warning] Failed to save analysis context as AnalysisJob: {e}")
-            # 여기서 실패해도 프로젝트 생성은 계속 진행 (로그만 남김)
-            # db.session.rollback() # 전체 롤백보다는 부분 처리가 나을 수 있으나, 안전하게 가려면 여기서 롤백할 수도 있음.
-            # 일단 프로젝트 생성이 주 목적이므로 pass 처리하거나 
-            # nested transaction을 사용해야 하는데 복잡하므로 단순 print 처리 후 진행
-            pass
-
-    
     # Create quote requests and projects for each consultant
     quote_request_id = str(uuid.uuid4())
     created_requests = []
@@ -1254,7 +1194,6 @@ def request_quotes():
                 consultant_id=consultant.id,
                 title=project_title,
                 status='proposal_pending',  # 계약 전 상태
-                description=analysis_context.get('additionalNotes') or analysis_context.get('description')
             )
             # Set optional fields if they exist
             if hasattr(new_project, 'session_id'):
