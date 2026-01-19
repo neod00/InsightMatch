@@ -732,6 +732,7 @@ def add_consultant_to_request():
     user_id = data.get('user_id')
     consultant_id = data.get('consultant_id')
     title = data.get('title')  # 기존 프로젝트 제목 사용
+    session_id = data.get('session_id') # 세션 ID 추가
     
     if not user_id or not consultant_id or not title:
         return jsonify({'message': 'user_id, consultant_id, title이 필요합니다.'}), 400
@@ -756,6 +757,7 @@ def add_consultant_to_request():
         company_id=user_id,
         consultant_id=consultant_id,
         title=title,
+        session_id=session_id, # 세션 ID 저장
         status='proposal_pending',
     )
     if hasattr(new_project, 'proposal_status'):
