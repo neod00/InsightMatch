@@ -748,6 +748,161 @@
             color: var(--text-muted);
             margin-bottom: 4px;
         }
+
+        /* 프로젝트 상세 슬라이드 패널 */
+        .project-detail-panel {
+            position: fixed;
+            top: 0;
+            right: -500px;
+            width: 480px;
+            max-width: 100vw;
+            height: 100vh;
+            background: var(--bg-card);
+            border-left: 1px solid var(--border);
+            box-shadow: -10px 0 40px rgba(0, 0, 0, 0.4);
+            z-index: 9999;
+            transition: right 0.3s ease-in-out;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .project-detail-panel.open {
+            right: 0;
+        }
+
+        .project-detail-panel-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 9998;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+
+        .project-detail-panel-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .project-detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(59, 130, 246, 0.05));
+        }
+
+        .project-detail-header h3 {
+            margin: 0;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .project-detail-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        .detail-section {
+            margin-bottom: 24px;
+        }
+
+        .detail-section-title {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .detail-item {
+            background: var(--bg-secondary);
+            padding: 14px 16px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+        }
+
+        .detail-item.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .detail-item-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .detail-item-value {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .detail-item-value.highlight {
+            color: var(--primary);
+        }
+
+        .detail-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .detail-tag {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--primary);
+            padding: 6px 12px;
+            border-radius: 100px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .detail-description {
+            background: var(--bg-secondary);
+            padding: 16px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            line-height: 1.6;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+
+        .project-detail-footer {
+            padding: 20px 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        @media (max-width: 520px) {
+            .project-detail-panel {
+                width: 100vw;
+                right: -100vw;
+            }
+
+            .detail-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 
@@ -1133,6 +1288,36 @@
                     <i data-lucide="send" style="width: 18px; height: 18px;"></i>
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- 프로젝트 상세 슬라이드 패널 -->
+    <div id="project-detail-overlay" class="project-detail-panel-overlay" onclick="closeProjectDetailPanel()"></div>
+    <div id="project-detail-panel" class="project-detail-panel">
+        <div class="project-detail-header">
+            <h3>
+                <i data-lucide="file-text" style="width: 22px; height: 22px; color: var(--primary);"></i>
+                <span id="detail-panel-title">프로젝트 상세</span>
+            </h3>
+            <button onclick="closeProjectDetailPanel()" class="btn btn-ghost" style="padding: 8px;">
+                <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+            </button>
+        </div>
+
+        <div class="project-detail-body" id="project-detail-body">
+            <!-- 로딩 상태 -->
+            <div class="detail-loading" style="text-align: center; padding: 60px;">
+                <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
+                <p style="color: var(--text-muted);">상세 정보를 불러오는 중...</p>
+            </div>
+        </div>
+
+        <div class="project-detail-footer" id="project-detail-footer">
+            <button class="btn btn-outline" onclick="closeProjectDetailPanel()">닫기</button>
+            <button class="btn btn-primary" id="detail-action-btn" onclick="openProposalFromDetail()">
+                <i data-lucide="send" style="width: 16px; height: 16px;"></i>
+                제안서 보내기
+            </button>
         </div>
     </div>
 
@@ -1561,6 +1746,10 @@
 
                         <!-- Action Buttons -->
                         <div style="display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap;">
+                            <button class="btn btn-secondary" onclick="openProjectDetailPanel(${project.id})">
+                                <i data-lucide="file-text" style="width: 16px; height: 16px;"></i>
+                                상세 보기
+                            </button>
                             ${isPending ? `
                                 <button class="btn btn-outline" onclick="rejectRequest(${project.id})">거절하기</button>
                                 <button class="btn btn-primary" onclick="openProposalModal(${project.id})">제안서 보내기</button>
@@ -2605,6 +2794,263 @@
                 showNotification('제안 정보를 불러올 수 없습니다.', 'error');
             }
         };
+
+        // ========================================
+        // 프로젝트 상세 슬라이드 패널 기능
+        // ========================================
+
+        let currentDetailProjectId = null;
+
+        window.openProjectDetailPanel = async function (projectId) {
+            currentDetailProjectId = projectId;
+
+            // 패널 열기
+            document.getElementById('project-detail-overlay').classList.add('open');
+            document.getElementById('project-detail-panel').classList.add('open');
+            document.body.style.overflow = 'hidden';
+
+            // 로딩 표시
+            document.getElementById('project-detail-body').innerHTML = `
+                <div style="text-align: center; padding: 60px;">
+                    <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
+                    <p style="color: var(--text-muted);">상세 정보를 불러오는 중...</p>
+                </div>
+            `;
+
+            try {
+                // 프로젝트 상세 정보 조회
+                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/detail`);
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch project details');
+                }
+
+                const project = await response.json();
+
+                // 패널 타이틀 업데이트
+                document.getElementById('detail-panel-title').textContent = project.title || '프로젝트 상세';
+
+                // 상세 내용 렌더링
+                renderProjectDetails(project);
+
+                // 액션 버튼 상태 업데이트
+                updateDetailActionButton(project);
+
+                lucide.createIcons();
+
+            } catch (error) {
+                console.error('Failed to load project details:', error);
+                document.getElementById('project-detail-body').innerHTML = `
+                    <div style="text-align: center; padding: 60px;">
+                        <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: var(--error); margin-bottom: 16px;"></i>
+                        <p style="color: var(--text-muted);">상세 정보를 불러오지 못했습니다.</p>
+                        <button class="btn btn-outline btn-sm" onclick="openProjectDetailPanel(${projectId})" style="margin-top: 12px;">다시 시도</button>
+                    </div>
+                `;
+                lucide.createIcons();
+            }
+        };
+
+        window.closeProjectDetailPanel = function () {
+            document.getElementById('project-detail-overlay').classList.remove('open');
+            document.getElementById('project-detail-panel').classList.remove('open');
+            document.body.style.overflow = '';
+            currentDetailProjectId = null;
+        };
+
+        function renderProjectDetails(project) {
+            const body = document.getElementById('project-detail-body');
+
+            // 표준 목록 태그 생성
+            const standardsTags = (project.standards || []).map(s =>
+                `<span class="detail-tag">${s}</span>`
+            ).join('') || '<span style="color: var(--text-muted);">정보 없음</span>';
+
+            // 예산 범위 포맷
+            const budgetMap = {
+                'under500': '500만원 미만',
+                '500-1000': '500만원 ~ 1,000만원',
+                '1000-2000': '1,000만원 ~ 2,000만원',
+                '2000-3000': '2,000만원 ~ 3,000만원',
+                'over3000': '3,000만원 이상',
+                'negotiable': '협의 가능'
+            };
+            const budgetText = budgetMap[project.budget] || project.budget || '협의 필요';
+
+            // 인증 상태 포맷
+            const certStatusMap = {
+                'none': '미보유',
+                'expired': '만료됨',
+                'expiring': '갱신 예정',
+                'valid': '유효',
+                'initial': '신규 인증'
+            };
+            const certStatusText = certStatusMap[project.cert_status] || project.cert_status || '-';
+
+            // 준비 상태 포맷
+            const readinessMap = {
+                'none': '시작 전',
+                'initial': '초기 단계',
+                'partial': '일부 준비됨',
+                'mostly': '대부분 준비됨',
+                'ready': '준비 완료'
+            };
+            const readinessText = readinessMap[project.readiness] || project.readiness || '-';
+
+            body.innerHTML = `
+                <!-- 기업 정보 섹션 -->
+                <div class="detail-section">
+                    <div class="detail-section-title">
+                        <i data-lucide="building-2" style="width: 16px; height: 16px;"></i>
+                        기업 정보
+                    </div>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-item-label">기업명</div>
+                            <div class="detail-item-value">${project.company_name || '-'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">업종</div>
+                            <div class="detail-item-value">${project.industry || '-'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">직원 수</div>
+                            <div class="detail-item-value">${project.employees || '-'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">요청일</div>
+                            <div class="detail-item-value">${project.created_at ? new Date(project.created_at).toLocaleDateString() : '-'}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 인증 요구사항 섹션 -->
+                <div class="detail-section">
+                    <div class="detail-section-title">
+                        <i data-lucide="shield-check" style="width: 16px; height: 16px;"></i>
+                        인증 요구사항
+                    </div>
+                    <div class="detail-item full-width" style="margin-bottom: 16px;">
+                        <div class="detail-item-label">대상 표준</div>
+                        <div class="detail-tags" style="margin-top: 8px;">${standardsTags}</div>
+                    </div>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-item-label">현재 인증 상태</div>
+                            <div class="detail-item-value">${certStatusText}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">준비 상태</div>
+                            <div class="detail-item-value">${readinessText}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">희망 완료일</div>
+                            <div class="detail-item-value">${project.target_date ? new Date(project.target_date).toLocaleDateString() : '미정'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">예산 범위</div>
+                            <div class="detail-item-value highlight">${budgetText}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 요청 내용 섹션 -->
+                <div class="detail-section">
+                    <div class="detail-section-title">
+                        <i data-lucide="message-square" style="width: 16px; height: 16px;"></i>
+                        요청 내용
+                    </div>
+                    <div class="detail-description">
+                        ${project.description || '별도로 작성된 요청 내용이 없습니다.'}
+                    </div>
+                </div>
+                
+                ${project.ai_diagnosis ? `
+                <!-- AI 진단 결과 섹션 -->
+                <div class="detail-section">
+                    <div class="detail-section-title">
+                        <i data-lucide="sparkles" style="width: 16px; height: 16px;"></i>
+                        AI 진단 결과
+                    </div>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-item-label">리스크 수준</div>
+                            <div class="detail-item-value" style="color: ${project.ai_diagnosis.risk_level === 'high' ? 'var(--error)' : (project.ai_diagnosis.risk_level === 'medium' ? '#f59e0b' : 'var(--primary)')};">
+                                ${project.ai_diagnosis.risk_level === 'high' ? '높음' : (project.ai_diagnosis.risk_level === 'medium' ? '보통' : '낮음')}
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">예상 기간</div>
+                            <div class="detail-item-value">${project.ai_diagnosis.estimated_duration || '-'}</div>
+                        </div>
+                    </div>
+                    ${project.ai_diagnosis.summary ? `
+                    <div class="detail-description" style="margin-top: 12px;">
+                        ${project.ai_diagnosis.summary}
+                    </div>
+                    ` : ''}
+                </div>
+                ` : ''}
+                
+                ${project.analysis_result ? `
+                <!-- 상세 분석 결과 섹션 -->
+                <div class="detail-section">
+                    <div class="detail-section-title">
+                        <i data-lucide="bar-chart-3" style="width: 16px; height: 16px;"></i>
+                        상세 분석 결과
+                    </div>
+                    <div class="detail-description">
+                        ${typeof project.analysis_result === 'string' ? project.analysis_result : JSON.stringify(project.analysis_result, null, 2)}
+                    </div>
+                </div>
+                ` : ''}
+            `;
+        }
+
+        function updateDetailActionButton(project) {
+            const footer = document.getElementById('project-detail-footer');
+            const isPending = project.status === 'proposal_pending' || project.status === 'planning';
+            const isSubmitted = project.status === 'proposal_submitted';
+            const isContracted = project.status === 'contracted' || project.status === 'in_progress';
+
+            let actionButtonHtml = '';
+
+            if (isPending) {
+                actionButtonHtml = `
+                    <button class="btn btn-outline" onclick="closeProjectDetailPanel(); rejectRequest(${project.id});">거절하기</button>
+                    <button class="btn btn-primary" onclick="closeProjectDetailPanel(); openProposalModal(${project.id});">
+                        <i data-lucide="send" style="width: 16px; height: 16px;"></i>
+                        제안서 보내기
+                    </button>
+                `;
+            } else if (isSubmitted) {
+                actionButtonHtml = `
+                    <button class="btn btn-outline" onclick="closeProjectDetailPanel()">닫기</button>
+                    <button class="btn btn-secondary" onclick="closeProjectDetailPanel(); viewMyProposal(${project.id});">내 제안 보기</button>
+                `;
+            } else if (isContracted) {
+                actionButtonHtml = `
+                    <button class="btn btn-outline" onclick="closeProjectDetailPanel()">닫기</button>
+                    <button class="btn btn-primary" onclick="closeProjectDetailPanel(); openMessageModal(${project.id}, '${project.title?.replace(/'/g, "\\'")}');">
+                        <i data-lucide="message-circle" style="width: 16px; height: 16px;"></i>
+                        메시지 보내기
+                    </button>
+                `;
+            } else {
+                actionButtonHtml = `<button class="btn btn-outline" onclick="closeProjectDetailPanel()">닫기</button>`;
+            }
+
+            footer.innerHTML = actionButtonHtml;
+            lucide.createIcons();
+        }
+
+        window.openProposalFromDetail = function () {
+            if (currentDetailProjectId) {
+                closeProjectDetailPanel();
+                openProposalModal(currentDetailProjectId);
+            }
+        };
+
 
         // ========================================
         // ① 기업용 견적 비교 테이블 렌더링 (renderGroupedProjects 내부에서 호출)

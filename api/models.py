@@ -157,6 +157,8 @@ class Project(db.Model):
     company_id = db.Column(db.Integer, db.ForeignKey('user.id')) # Using User ID for simplicity in MVP
     consultant_id = db.Column(db.Integer, db.ForeignKey('consultant.id'))
     title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)  # 프로젝트 설명/요청 내용
+    session_id = db.Column(db.String(36))  # AnalysisJob ID 연결용
     status = db.Column(db.String(50), default='proposal_pending') # proposal_pending, proposal_submitted, contracted, in_progress, completed
     start_date = db.Column(db.DateTime)
     end_date = db.Column(db.DateTime)
@@ -183,6 +185,8 @@ class Project(db.Model):
             'company_id': self.company_id,
             'consultant_id': self.consultant_id,
             'title': self.title,
+            'description': self.description,
+            'session_id': self.session_id,
             'status': self.status,
             'start_date': self.start_date.isoformat() if self.start_date else None,
             'end_date': self.end_date.isoformat() if self.end_date else None,

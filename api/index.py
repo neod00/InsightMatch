@@ -536,6 +536,95 @@ def get_proposal(project_id):
         'status': project.status
     })
 
+@app.route('/api/projects/<int:project_id>/detail', methods=['GET'])
+def get_project_detail(project_id):
+    """프로젝트 상세 정보 조회 (컨설턴트용)"""
+    project = Project.query.get_or_404(project_id)
+    
+    # Company 정보 조회 (company_id가 있는 경우)
+    company = None
+    if project.company_id:
+        company = Company.query.get(project.company_id)
+    
+    # AnalysisJob에서 추가 정보 조회 (session_id가 있는 경우)
+    analysis_job = None
+    intake_data = {}
+    if hasattr(project, 'session_id') and project.session_id:
+        analysis_job = AnalysisJob.query.filter_by(id=project.session_id).first()
+        if not analysis_job:
+            # session_id를 직접 id로 조회 실패시, 다른 방법 시도
+            analysis_job = AnalysisJob.query.filter(AnalysisJob.id.like(f'%{project.session_id[:8]}%')).first()
+    
+    # intake_data에서 정보 파싱
+    if analysis_job:
+        intake_data = analysis_job.get_intake_data() if analysis_job.intake_data else {}
+    
+    # Consultant 정보
+    consultant = Consultant.query.get(project.consultant_id)
+    
+    # AI 진단 결과 파싱
+    ai_diagnosis = None
+    analysis_result = None
+    if analysis_job and analysis_job.result:
+        try:
+            if isinstance(analysis_job.result, str):
+                result_data = json.loads(analysis_job.result)
+            else:
+                result_data = analysis_job.result
+            
+            ai_diagnosis = {
+                'risk_level': result_data.get('risk_level'),
+                'estimated_duration': result_data.get('estimated_duration'),
+                'summary': result_data.get('summary', '')
+            }
+            analysis_result = result_data.get('detailed_analysis')
+        except:
+            pass
+    
+    # standards 파싱 (리스트 또는 문자열)
+    standards = intake_data.get('standards', [])
+    if isinstance(standards, str):
+        standards = [s.strip() for s in standards.split(',') if s.strip()]
+    
+    return jsonify({
+        'id': project.id,
+        'title': project.title,
+        'description': project.description,
+        'status': project.status,
+        'created_at': project.start_date.isoformat() if project.start_date else None,
+        
+        # 기업 정보
+        'company_id': project.company_id,
+        'company_name': company.name if company else (intake_data.get('companyName') or (project.title.split(' - ')[0] if project.title else None)),
+        'industry': intake_data.get('industry'),
+        'employees': intake_data.get('employees'),
+        
+        # 인증 요구사항
+        'standards': standards,
+        'cert_status': intake_data.get('certStatus'),
+        'readiness': intake_data.get('readiness'),
+        'target_date': intake_data.get('targetDate'),
+        'budget': intake_data.get('budget'),
+        
+        # AI 진단 결과
+        'ai_diagnosis': ai_diagnosis,
+        'analysis_result': analysis_result,
+        
+        # 컨설턴트 정보
+        'consultant_id': project.consultant_id,
+        'consultant_name': consultant.name if consultant else None,
+        
+        # 제안서 정보
+        'proposal_price': project.proposal_price,
+        'proposal_duration': project.proposal_duration,
+        'proposal_message': project.proposal_message,
+        'proposal_file_url': project.proposal_file_url,
+        'proposal_submitted_at': project.proposal_submitted_at.isoformat() if project.proposal_submitted_at else None,
+        
+        # 일정 정보
+        'schedule_status': project.schedule_status
+    })
+
 # ========================================
 # ③ 계약 후 일정 확정 워크플로우
 # ========================================
