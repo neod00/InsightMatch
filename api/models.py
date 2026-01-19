@@ -159,7 +159,7 @@ class Project(db.Model):
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)  # 프로젝트 설명/요청 내용
     session_id = db.Column(db.String(36))  # AnalysisJob ID 연결용
-    status = db.Column(db.String(50), default='proposal_pending') # proposal_pending, proposal_submitted, contracted, in_progress, completed
+    status = db.Column(db.String(50), default='proposal_pending') # proposal_pending, proposal_submitted, contracted, in_progress, completed, cancelled_by_company
     start_date = db.Column(db.DateTime)
     end_date = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -176,6 +176,10 @@ class Project(db.Model):
     schedule_status = db.Column(db.String(50), default='pending')  # pending, proposed, confirmed
     schedule_proposed_at = db.Column(db.DateTime)
     schedule_confirmed_at = db.Column(db.DateTime)
+    
+    # Cancellation Fields (④ 취소 관련)
+    cancelled_at = db.Column(db.DateTime)  # 취소 시간
+    cancelled_reason = db.Column(db.String(500))  # 취소 사유
     
     milestones = db.relationship('Milestone', backref='project', lazy=True)
     

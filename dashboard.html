@@ -249,6 +249,16 @@
             color: var(--primary);
         }
 
+        .response-status.cancelled {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .response-status.contracted {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+        }
+
         /* Proposal Preview */
         .proposal-preview {
             background: var(--bg-card);
@@ -1321,6 +1331,74 @@
         </div>
     </div>
 
+    <!-- C. 취소 사유 입력 모달 -->
+    <div id="cancel-reason-modal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeCancelReasonModal()"></div>
+        <div class="modal-content card"
+            style="max-width: 450px; padding: 24px; background: var(--bg-card); border-radius: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;">요청 취소 사유</h3>
+                <button onclick="closeCancelReasonModal()" class="btn btn-ghost" style="padding: 8px;">
+                    <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+                </button>
+            </div>
+
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px; line-height: 1.5;">
+                요청을 취소하시는 사유를 선택해주세요.<br>선택하신 내용은 전문가에게 전달됩니다.
+            </p>
+
+            <div id="cancel-reason-options"
+                style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+                <label class="reason-option"
+                    style="display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; transition: all 0.2s;">
+                    <input type="radio" name="cancel_reason" value="다른 전문가를 선택했습니다" checked
+                        style="accent-color: var(--primary);">
+                    <span>다른 전문가를 선택했습니다</span>
+                </label>
+                <label class="reason-option"
+                    style="display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; transition: all 0.2s;">
+                    <input type="radio" name="cancel_reason" value="프로젝트 일정이 변경되었습니다"
+                        style="accent-color: var(--primary);">
+                    <span>프로젝트 일정이 변경되었습니다</span>
+                </label>
+                <label class="reason-option"
+                    style="display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; transition: all 0.2s;">
+                    <input type="radio" name="cancel_reason" value="예산 사정으로 보류합니다"
+                        style="accent-color: var(--primary);">
+                    <span>예산 사정으로 보류합니다</span>
+                </label>
+                <label class="reason-option"
+                    style="display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; transition: all 0.2s;">
+                    <input type="radio" name="cancel_reason" value="내부 검토 결과 진행이 어렵습니다"
+                        style="accent-color: var(--primary);">
+                    <span>내부 검토 결과 진행이 어렵습니다</span>
+                </label>
+                <label class="reason-option"
+                    style="display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; transition: all 0.2s;">
+                    <input type="radio" name="cancel_reason" value="인증 추진 계획을 재검토 중입니다"
+                        style="accent-color: var(--primary);">
+                    <span>인증 추진 계획을 재검토 중입니다</span>
+                </label>
+                <label class="reason-option"
+                    style="display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; transition: all 0.2s;">
+                    <input type="radio" name="cancel_reason" value="direct" style="accent-color: var(--primary);">
+                    <span>직접 입력</span>
+                </label>
+            </div>
+
+            <div id="direct-reason-container" class="hidden" style="margin-bottom: 20px;">
+                <textarea id="direct-reason-input" placeholder="취소 사유를 직접 입력해주세요."
+                    style="width: 100%; height: 80px; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; color: var(--text-primary); resize: none;"></textarea>
+            </div>
+
+            <div style="display: flex; gap: 12px;">
+                <button class="btn btn-outline" style="flex: 1;" onclick="closeCancelReasonModal()">닫기</button>
+                <button class="btn btn-primary" style="flex: 1; background: var(--error);"
+                    onclick="confirmCancelWithReason()">요청 취소</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="footer" style="margin-top: 40px;">
         <div class="container">
@@ -1385,6 +1463,7 @@
             'contracted': { text: '계약 완료', stage: 3, stageText: '계약 체결' },
             'in_progress': { text: '진행 중', stage: 3, stageText: '계약 체결' },
             'completed': { text: '완료', stage: 3, stageText: '계약 체결' },
+            'cancelled_by_company': { text: '취소됨', stage: 0, stageText: '취소됨' },
             'planning': { text: '제안서 대기', stage: 1, stageText: '제안서 대기' } // 기존 호환
         };
 
@@ -1689,9 +1768,16 @@
                 const isProposalSubmitted = project.status === 'proposal_submitted';
                 const isContracted = project.status === 'contracted';
                 const isInProgress = project.status === 'in_progress';
+                const isCancelled = project.status === 'cancelled_by_company';
                 const scheduleStatus = project.schedule_status || 'pending';
+                const cardStyle = isCancelled ? 'opacity: 0.7; filter: grayscale(0.5); position: relative;' : '';
+                if (isCancelled) card.style.cssText = cardStyle;
+                const cancelledOverlay = isCancelled ? `
+                    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 5; background: rgba(0,0,0,0.05); pointer-events: none; border-radius: inherit;"></div>
+                ` : '';
 
                 card.innerHTML = `
+                    ${cancelledOverlay}
                     <div class="quote-request-header">
                         <div>
                             <div class="quote-request-title">${project.title}</div>
@@ -1700,19 +1786,35 @@
                                 <span><i data-lucide="calendar"></i> ${requestDate} 요청</span>
                             </div>
                         </div>
-                        <div class="response-status ${isPending ? 'pending' : (isContracted || isInProgress ? 'contracted' : 'submitted')}">
+                        <div class="response-status ${isCancelled ? 'cancelled' : (isPending ? 'pending' : (isContracted || isInProgress ? 'contracted' : 'submitted'))}">
                             ${statusInfo.text}
                         </div>
                     </div>
                     
                     <div style="padding: 24px;">
+                        ${isCancelled ? `
+                        <!-- 취소 상태 섹션 -->
+                        <div style="background: rgba(239, 68, 68, 0.1); padding: 16px; border-radius: var(--radius-sm); margin-bottom: 20px; border: 1px solid rgba(239, 68, 68, 0.2);">
+                            <div style="display: flex; align-items: center; gap: 8px; color: var(--error); font-weight: 600; margin-bottom: 8px;">
+                                <i data-lucide="x-circle" style="width: 18px; height: 18px;"></i>
+                                이 요청은 기업에 의해 취소되었습니다.
+                            </div>
+                            <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0; line-height: 1.5;">
+                                <strong>취소 사유:</strong> ${project.cancelled_reason || '사유 없음'}
+                            </p>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">
+                                취소일: ${project.cancelled_at ? new Date(project.cancelled_at).toLocaleString() : '-'}
+                            </p>
+                        </div>
+                        ` : `
                         <!-- 요약 정보 -->
                         <div style="background: var(--bg-secondary); padding: 16px; border-radius: var(--radius-sm); margin-bottom: 20px;">
                             <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 8px;">요청 사항:</p>
                             <p style="font-size: 0.95rem;">${project.description || '상세 요청 내용이 없습니다. 제안서를 작성하여 구체적인 논의를 시작해보세요.'}</p>
                         </div>
+                        `}
                         
-                        ${isProposalSubmitted ? `
+                        ${isProposalSubmitted && !isCancelled ? `
                         <!-- 제안 제출 완료 상태 -->
                         <div style="background: rgba(16, 185, 129, 0.1); padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
                             <i data-lucide="check-circle" style="width: 18px; height: 18px; color: var(--primary);"></i>
@@ -1750,7 +1852,7 @@
                                 <i data-lucide="file-text" style="width: 16px; height: 16px;"></i>
                                 상세 보기
                             </button>
-                            ${isPending ? `
+                            ${isPending && !isCancelled ? `
                                 <button class="btn btn-outline" onclick="rejectRequest(${project.id})">거절하기</button>
                                 <button class="btn btn-primary" onclick="openProposalModal(${project.id})">제안서 보내기</button>
                             ` : ''}
@@ -1851,6 +1953,13 @@
                         </div>
                         <span class="status-badge status-${overallStatus}">${statusInfo.text}</span>
                     </div>
+
+                    <style>
+                        .status-badge.status-cancelled_by_company {
+                            background: rgba(239, 68, 68, 0.2);
+                            color: #ef4444;
+                        }
+                    </style>
                     
                     <!-- Stage Indicator -->
                     ${stageHtml}
@@ -1908,17 +2017,17 @@
                 const stageClass = isActive ? 'active' : (isCompleted ? 'completed' : '');
 
                 html += `
-                    <div class="stage-step ${stageClass}">
+                    < div class="stage-step ${stageClass}" >
                         <div class="stage-dot">
                             ${isCompleted ? '<i data-lucide="check" style="width: 14px; height: 14px;"></i>' : stage.num}
                         </div>
                         <span>${stage.text}</span>
-                    </div>
-                `;
+                    </div >
+                    `;
 
                 if (index < stages.length - 1) {
                     const lineClass = isCompleted || isActive ? 'completed' : '';
-                    html += `<div class="stage-line ${lineClass}"></div>`;
+                    html += `< div class="stage-line ${lineClass}" ></div > `;
                 }
             });
 
@@ -1946,32 +2055,32 @@
             const needsScheduleConfirm = isContracted && scheduleStatus === 'proposed';
 
             const avatarContent = project.profile_image_url
-                ? `<img src="${project.profile_image_url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
+                ? `< img src = "${project.profile_image_url}" style = "width: 100%; height: 100%; object-fit: cover; border-radius: inherit;" > `
                 : (project.consultant_name?.charAt(0) || '?');
 
             return `
-                <div class="consultant-response-card ${cardClass}">
-                    <div class="response-card-header">
-                        <div class="consultant-avatar-large">${avatarContent}</div>
-                        <div class="consultant-info-main">
-                            <div class="consultant-name-row">
-                                <h4>${project.consultant_name || '컨설턴트'}</h4>
-                                <i data-lucide="badge-check" class="verified-badge-small"></i>
+                    < div class="consultant-response-card ${cardClass}" >
+                        <div class="response-card-header">
+                            <div class="consultant-avatar-large">${avatarContent}</div>
+                            <div class="consultant-info-main">
+                                <div class="consultant-name-row">
+                                    <h4>${project.consultant_name || '컨설턴트'}</h4>
+                                    <i data-lucide="badge-check" class="verified-badge-small"></i>
+                                </div>
+                                <div class="consultant-specialty">ISO 인증 전문가</div>
+                                <div class="consultant-stats">
+                                    <span>
+                                        <i data-lucide="star" style="width: 14px; height: 14px; color: #f59e0b;"></i>
+                                        4.9
+                                    </span>
+                                    <span>
+                                        <i data-lucide="briefcase" style="width: 14px; height: 14px;"></i>
+                                        15년 경력
+                                    </span>
+                                </div>
                             </div>
-                            <div class="consultant-specialty">ISO 인증 전문가</div>
-                            <div class="consultant-stats">
-                                <span>
-                                    <i data-lucide="star" style="width: 14px; height: 14px; color: #f59e0b;"></i>
-                                    4.9
-                                </span>
-                                <span>
-                                    <i data-lucide="briefcase" style="width: 14px; height: 14px;"></i>
-                                    15년 경력
-                                </span>
-                            </div>
+                            <span class="response-status ${statusClass}">${statusText}</span>
                         </div>
-                        <span class="response-status ${statusClass}">${statusText}</span>
-                    </div>
                     
                     ${isSubmitted || isContracted ? `
                     <!-- ① 견적 비교: 제안 금액/기간 표시 -->
@@ -1991,26 +2100,27 @@
                         </div>
                         ` : ''}
                     </div>
-                    ` : ''}
-                    
-                    <div class="response-actions">
-                        <button class="btn btn-secondary btn-sm" onclick="viewConsultantProfile(${project.consultant_id})">
-                            <i data-lucide="user" style="width: 14px; height: 14px;"></i>
-                            프로필 보기
-                        </button>
-                        ${isSubmitted && !isContracted ? `
+                    ` : ''
+                }
+
+                <div class="response-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="viewConsultantProfile(${project.consultant_id})">
+                        <i data-lucide="user" style="width: 14px; height: 14px;"></i>
+                        프로필 보기
+                    </button>
+                    ${isSubmitted && !isContracted ? `
                         <button class="btn btn-primary btn-sm" onclick="selectConsultant(${project.id})">
                             <i data-lucide="check" style="width: 14px; height: 14px;"></i>
                             이 전문가 선택
                         </button>
                         ` : ''}
-                        ${isPending ? `
+                    ${isPending ? `
                         <button class="btn btn-ghost btn-sm" style="color: var(--text-muted);" onclick="event.preventDefault(); event.stopPropagation(); cancelConsultantRequest(${project.id}, '${project.consultant_name?.replace(/'/g, "\\'")}', event)">
                             <i data-lucide="x" style="width: 14px; height: 14px;"></i>
                             요청 취소
                         </button>
                         ` : ''}
-                        ${isContracted ? `
+                    ${isContracted ? `
                         <button class="btn btn-secondary btn-sm" onclick="openMessageModal(${project.id}, '${project.title?.replace(/'/g, "\\'")}')">
                             <i data-lucide="message-circle" style="width: 14px; height: 14px;"></i>
                             메시지
@@ -2026,36 +2136,36 @@
                         </button>
                         ` : ''}
                         ` : ''}
-                    </div>
                 </div>
-            `;
+                </div >
+                    `;
         }
 
         function formatDate(dateStr) {
             if (!dateStr) return '-';
             const date = new Date(dateStr);
-            return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+            return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')} `;
         }
 
         async function viewConsultantProfile(consultantId) {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/consultants/${consultantId}`);
+                const response = await fetch(`${API_BASE_URL} /api/consultants / ${consultantId} `);
                 if (!response.ok) throw new Error('Failed to fetch consultant');
 
                 const consultant = await response.json();
 
                 const avatarContent = consultant.profileImageUrl
-                    ? `<img src="${consultant.profileImageUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
+                    ? `< img src = "${consultant.profileImageUrl}" style = "width: 100%; height: 100%; object-fit: cover; border-radius: inherit;" > `
                     : (consultant.avatar || consultant.name?.charAt(0) || '?');
 
                 document.getElementById('modal-body').innerHTML = `
-                    <div style="text-align: center; margin-bottom: 24px;">
+                    < div style = "text-align: center; margin-bottom: 24px;" >
                         <div class="consultant-avatar-large" style="width: 80px; height: 80px; font-size: 2rem; margin: 0 auto 16px;">
                             ${avatarContent}
                         </div>
                         <h3 style="margin: 0 0 4px;">${consultant.name}</h3>
                         <p style="color: var(--text-muted); margin: 0;">${consultant.specialty || '컨설턴트'}</p>
-                    </div>
+                    </div >
                     
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
                         <div style="text-align: center; padding: 16px; background: var(--bg-card); border-radius: var(--radius-md);">
@@ -2086,14 +2196,16 @@
                             `).join('')}
                         </div>
                     </div>
-                    ` : ''}
+                    ` : ''
+                    }
                     
                     ${consultant.verified ? `
                     <div style="background: rgba(16, 185, 129, 0.1); padding: 12px 16px; border-radius: var(--radius-md); display: flex; align-items: center; gap: 8px;">
                         <i data-lucide="badge-check" style="width: 20px; height: 20px; color: var(--primary);"></i>
                         <span style="color: var(--primary); font-weight: 500;">인증된 전문가</span>
                     </div>
-                    ` : ''}
+                    ` : ''
+                    }
                 `;
 
                 document.getElementById('consultant-modal').classList.remove('hidden');
@@ -2110,7 +2222,7 @@
         }
 
         async function downloadProposal(projectId) {
-            window.location.href = `${API_BASE_URL}/api/projects/${projectId}/proposal`;
+            window.location.href = `${API_BASE_URL} /api/projects / ${projectId}/proposal`;
         }
 
         async function selectConsultant(projectId) {
@@ -2376,42 +2488,72 @@
         }
 
         // ===== Phase 3: Cancel single consultant request =====
-        window.cancelConsultantRequest = async function (projectId, consultantName, event) {
-            // Prevent any event propagation issues
+        let currentCancellingProjectId = null;
+
+        window.cancelConsultantRequest = function (projectId, consultantName, event) {
             if (event) {
                 event.preventDefault();
                 event.stopPropagation();
             }
 
-            console.log('[DEBUG] cancelConsultantRequest called', projectId, consultantName);
+            currentCancellingProjectId = projectId;
 
-            // Use custom confirm modal instead of native confirm
-            const confirmResult = await showConfirmModal(
-                '요청 취소 확인',
-                `<strong>${consultantName}</strong>에게 보낸 요청을 취소하시겠습니까?`
-            );
+            // 모달 표시
+            document.getElementById('cancel-reason-modal').classList.remove('hidden');
 
-            if (!confirmResult) {
-                return false;
+            // 라디오 버튼 변경 이벤트 리스너 추가
+            const radios = document.getElementsByName('cancel_reason');
+            radios.forEach(radio => {
+                radio.onchange = function () {
+                    const directContainer = document.getElementById('direct-reason-container');
+                    if (this.value === 'direct') {
+                        directContainer.classList.remove('hidden');
+                    } else {
+                        directContainer.classList.add('hidden');
+                    }
+                };
+            });
+        };
+
+        window.closeCancelReasonModal = function () {
+            document.getElementById('cancel-reason-modal').classList.add('hidden');
+            currentCancellingProjectId = null;
+        };
+
+        window.confirmCancelWithReason = async function () {
+            if (!currentCancellingProjectId) return;
+
+            const selectedOption = document.querySelector('input[name="cancel_reason"]:checked').value;
+            let reason = selectedOption;
+
+            if (selectedOption === 'direct') {
+                reason = document.getElementById('direct-reason-input').value.trim();
+                if (!reason) {
+                    showNotification('취소 사유를 입력해주세요.', 'error');
+                    return;
+                }
             }
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
-                    method: 'DELETE'
+                const response = await fetch(`${API_BASE_URL}/api/projects/${currentCancellingProjectId}/cancel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason: reason })
                 });
 
                 if (response.ok) {
-                    showNotification(`${consultantName}에 대한 요청이 취소되었습니다.`, 'success');
+                    showNotification('요청이 취소되었습니다.', 'success');
+                    closeCancelReasonModal();
                     fetchProjects();
                 } else {
-                    const error = await response.json();
-                    showNotification(error.message || '취소에 실패했습니다.', 'error');
+                    const err = await response.json();
+                    showNotification(err.message || '취소에 실패했습니다.', 'error');
                 }
             } catch (error) {
                 console.error('Cancel error:', error);
-                showNotification('취소 중 오류가 발생했습니다.', 'error');
+                showNotification('서버 연결 오류가 발생했습니다.', 'error');
             }
-        }
+        };
 
         // ===== Phase 3: Add consultant modal =====
         let currentAddTitle = '';
@@ -2908,6 +3050,21 @@
             const readinessText = readinessMap[project.readiness] || project.readiness || '-';
 
             body.innerHTML = `
+                ${project.status === 'cancelled_by_company' ? `
+                <!-- 취소 정보 섹션 -->
+                <div class="detail-section" style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px;">
+                    <div class="detail-section-title" style="color: var(--error);">
+                        <i data-lucide="x-circle" style="width: 16px; height: 16px;"></i>
+                        취소된 프로젝트
+                    </div>
+                    <div style="padding: 12px; line-height: 1.6;">
+                        <div style="font-size: 1rem; color: var(--error); font-weight: 600; margin-bottom: 8px;">기업에 의해 요청이 취소되었습니다.</div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);"><strong>취소 사유:</strong> ${project.cancelled_reason || '사유 없음'}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">취소 일시: ${project.cancelled_at ? new Date(project.cancelled_at).toLocaleString() : '-'}</div>
+                    </div>
+                </div>
+                ` : ''}
+
                 <!-- 기업 정보 섹션 -->
                 <div class="detail-section">
                     <div class="detail-section-title">
@@ -3022,10 +3179,13 @@
             const isPending = project.status === 'proposal_pending' || project.status === 'planning';
             const isSubmitted = project.status === 'proposal_submitted';
             const isContracted = project.status === 'contracted' || project.status === 'in_progress';
+            const isCancelled = project.status === 'cancelled_by_company';
 
             let actionButtonHtml = '';
 
-            if (isPending) {
+            if (isCancelled) {
+                actionButtonHtml = `<button class="btn btn-outline" onclick="closeProjectDetailPanel()">닫기</button>`;
+            } else if (isPending) {
                 actionButtonHtml = `
                     <button class="btn btn-outline" onclick="closeProjectDetailPanel(); rejectRequest(${project.id});">거절하기</button>
                     <button class="btn btn-primary" onclick="closeProjectDetailPanel(); openProposalModal(${project.id});">
@@ -3074,6 +3234,7 @@
         function getStatusBadgeClass(status) {
             if (status === 'proposal_submitted') return 'submitted';
             if (status === 'contracted' || status === 'in_progress') return 'contracted';
+            if (status === 'cancelled_by_company') return 'cancelled';
             return 'pending';
         }
 
@@ -3084,6 +3245,7 @@
                 'contracted': '계약 완료',
                 'in_progress': '진행 중',
                 'completed': '완료',
+                'cancelled_by_company': '취소됨',
                 'planning': '대기 중'
             };
             return map[status] || status;

@@ -381,6 +381,9 @@ def handle_projects():
                 'proposal_submitted_at': p.proposal_submitted_at.isoformat() if hasattr(p, 'proposal_submitted_at') and p.proposal_submitted_at else None,
                 # 일정 관련 필드 (③ 일정 워크플로우용)
                 'schedule_status': getattr(p, 'schedule_status', 'pending'),
+                # 취소 관련 필드 (④ 취소 이력)
+                'cancelled_at': p.cancelled_at.isoformat() if hasattr(p, 'cancelled_at') and p.cancelled_at else None,
+                'cancelled_reason': getattr(p, 'cancelled_reason', None),
                 'milestones': [m.to_dict() for m in p.milestones]
             })
         return jsonify(results)
@@ -748,23 +751,52 @@ def reject_schedule(project_id):
 # --- Cancel Consultant Request ---
 @app.route('/api/projects/<int:project_id>/cancel', methods=['POST'])
 def cancel_consultant_request(project_id):
-    """특정 컨설턴트에 대한 요청 취소"""
+    """특정 컨설턴트에 대한 요청 취소 (Soft Delete + 알림)"""
     project = Project.query.get_or_404(project_id)
     
     # 이미 계약된 경우 취소 불가
     if project.status in ['contracted', 'in_progress', 'completed']:
         return jsonify({'message': '계약된 요청은 취소할 수 없습니다.'}), 400
     
-    # 이미 제안서가 제출된 경우
-    if hasattr(project, 'proposal_status') and project.proposal_status == 'submitted':
-        return jsonify({'message': '이미 제안서가 제출된 요청입니다. 삭제하시겠습니까?'}), 400
+    # 이미 취소된 경우
+    if project.status == 'cancelled_by_company':
+        return jsonify({'message': '이미 취소된 요청입니다.'}), 400
     
-    # 프로젝트 삭제
-    Milestone.query.filter_by(project_id=project_id).delete()
-    db.session.delete(project)
+    # 취소 사유 받기
+    data = request.json or {}
+    cancelled_reason = data.get('reason', '사유 없음')
+    
+    # Soft Delete: 상태를 cancelled_by_company로 변경
+    project.status = 'cancelled_by_company'
+    project.cancelled_at = datetime.datetime.utcnow()
+    project.cancelled_reason = cancelled_reason
+    
+    # 컨설턴트에게 알림 생성
+    try:
+        consultant = Consultant.query.get(project.consultant_id)
+        if consultant and consultant.user_id:
+            company_user = User.query.get(project.company_id)
+            company_name = company_user.name if company_user else '기업'
+            
+            notification = Notification(
+                user_id=consultant.user_id,
+                type='request_cancelled',
+                title=f'{company_name}의 요청이 취소되었습니다',
+                message=f'취소 사유: {cancelled_reason}',
+                link='/dashboard.html'
+            )
+            db.session.add(notification)
+    except Exception as e:
+        print(f"[Notification] Failed to create cancellation notification: {e}")
+    
     db.session.commit()
     
-    return jsonify({'message': '요청이 취소되었습니다.'})
+    return jsonify({
+        'message': '요청이 취소되었습니다.',
+        'project_id': project_id,
+        'status': project.status,
+        'cancelled_at': project.cancelled_at.isoformat() if project.cancelled_at else None
+    })
 
 # --- Add Consultant to Existing Quote Request ---
 @app.route('/api/projects/add-consultant', methods=['POST'])
