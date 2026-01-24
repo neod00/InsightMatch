@@ -2760,46 +2760,47 @@
             `;
             lucide.createIcons();
 
-            // 서버를 통해 Supabase Storage에 업로드
+            // [수정] Vercel 서버를 거치지 않고 Supabase에 직접 업로드 (용량 제한 회피)
             try {
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('user_id', user.id);
+                // .env에 있는 키가 환경변수로 주입되어야 하지만, 클라이언트 사이드에서는 
+                // 이미 설정된 SUPABASE_URL과 ANON_KEY를 사용합니다.
+                const SUPABASE_URL = 'https://ghyioswdnfgtijowvpeo.supabase.co';
+                const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdoeWlvc3dkbmZndGlqb3d2cGVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ0NzMxMTgsImV4cCI6MjA4MDA0OTExOH0.OReuua98F5edVsYgut916CHp6ao3UR08QEG8M-SsCTQ';
 
-                const response = await fetch(`${API_BASE_URL}/api/upload/proposal-file`, {
+                const fileExt = file.name.split('.').pop();
+                const fileName = `up_${Date.now()}_${user.id}.${fileExt}`;
+                const uploadUrl = `${SUPABASE_URL}/storage/v1/object/proposals/${fileName}`;
+
+                const response = await fetch(uploadUrl, {
                     method: 'POST',
-                    body: formData
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Content-Type': file.type || 'application/octet-stream',
+                        'x-upsert': 'true'
+                    },
+                    body: file
                 });
 
-                // JSON 응답 확인
-                const contentType = response.headers.get("content-type");
-                if (!contentType || !contentType.includes("application/json")) {
-                    const errorText = await response.text();
-                    console.error('Server Error (Non-JSON):', errorText);
-                    throw new Error(`서버 응답 오류 (상태코드: ${response.status}). 용량이 너무 크거나 서버 설정에 문제가 있습니다.`);
-                }
-
-                const result = await response.json();
-
-                if (response.ok && result.success) {
-                    proposalFileUrl = result.url;
+                if (response.ok) {
+                    proposalFileUrl = `${SUPABASE_URL}/storage/v1/object/public/proposals/${fileName}`;
                     document.getElementById('proposal-file-info').innerHTML = `
                         <i data-lucide="check-circle" style="width: 14px; height: 14px; display: inline; color: var(--primary);"></i> 
                         업로드 완료: ${file.name}
                     `;
                     showNotification('제안서 파일이 업로드되었습니다.', 'success');
                 } else {
-                    // 서버가 리턴한 상세 에러 메시지 사용
-                    throw new Error(result.error || result.message || '업로드 중 오류가 발생했습니다.');
+                    const error = await response.json();
+                    throw new Error(error.message || 'Supabase 업로드 실패');
                 }
                 lucide.createIcons();
             } catch (error) {
-                console.error('File upload error:', error);
+                console.error('Direct Upload error:', error);
                 document.getElementById('proposal-file-info').innerHTML = `
                     <i data-lucide="alert-circle" style="width: 14px; height: 14px; display: inline; color: var(--error);"></i> 
                     업로드 실패
                 `;
-                showNotification(error.message, 'error');
+                showNotification(`업로드 실패: ${error.message}`, 'error');
                 lucide.createIcons();
             }
         };
