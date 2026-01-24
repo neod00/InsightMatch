@@ -8,6 +8,19 @@ const API_BASE_URL = (() => {
     return '';
 })();
 
+// ========== Privacy Protection: Name Masking ==========
+// Mask consultant names for non-logged-in users
+function maskName(name) {
+    if (!name || name.length < 2) return name || '';
+    // Show first character + asterisks (e.g., 최** for 최지은)
+    return name[0] + '*'.repeat(Math.min(name.length - 1, 2));
+}
+
+// Check if user is logged in
+function isUserLoggedIn() {
+    return !!localStorage.getItem('token');
+}
+
 // ========== Centralized Auth Fetch Wrapper ==========
 // Use this instead of fetch() for all authenticated API calls
 async function authFetch(url, options = {}) {
@@ -123,9 +136,39 @@ function showSessionExpiredModal() {
     document.body.appendChild(overlay);
 }
 
+// Login Required Modal - for accessing protected features
+function showLoginRequiredModal() {
+    // Check if modal already exists
+    if (document.getElementById('login-required-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'login-required-overlay';
+    overlay.innerHTML = `
+        <div class="session-modal">
+            <div class="session-modal-icon" style="color: #10b981;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <circle cx="12" cy="16" r="1"></circle>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+            </div>
+            <h3>로그인이 필요합니다</h3>
+            <p>컨설턴트의 상세 프로필은<br>로그인 후 확인하실 수 있습니다.</p>
+            <div style="display: flex; gap: 12px; justify-content: center;">
+                <button onclick="document.getElementById('login-required-overlay').remove()" style="background: rgba(255,255,255,0.1); color: #fff;">닫기</button>
+                <button onclick="window.location.href='login.html'">로그인</button>
+            </div>
+        </div>
+    `;
+
+    // Reuse session modal styles
+    document.body.appendChild(overlay);
+}
+
 // Make functions globally accessible
 window.authFetch = authFetch;
 window.showSessionExpiredModal = showSessionExpiredModal;
+window.showLoginRequiredModal = showLoginRequiredModal;
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Elements ---
@@ -1131,6 +1174,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const trustScore = c.trustScore || 85;
             const isSelected = selectedConsultants.has(c.id);
 
+            // Privacy protection: mask name for non-logged-in users
+            const isLoggedIn = isUserLoggedIn();
+            const displayName = isLoggedIn ? c.name : maskName(c.name);
+            const displayAvatar = isLoggedIn ? (c.avatar || c.name[0]) : (c.name ? c.name[0] : 'C');
+
             // Enhanced verified badge
             const verifiedBadge = c.verified
                 ? `<span class="verified-badge" title="InsightMatch에서 검증된 전문가입니다">
@@ -1157,10 +1205,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 
                 <div class="consultant-header">
-                    <div class="consultant-avatar">${c.avatar || c.name[0]}</div>
+                    <div class="consultant-avatar">${displayAvatar}</div>
                     <div class="consultant-info">
                         <h4>
-                            ${c.name}
+                            ${displayName}
                             ${verifiedBadge}
                         </h4>
                         <span class="consultant-specialty">${c.specialty || '종합'} 전문</span>
@@ -1188,10 +1236,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 
                 <div style="display: flex; gap: 8px; margin-top: 16px;">
-                    <a href="consultant_profile.html?id=${c.id}" class="btn btn-secondary" style="flex: 1;">
-                        <i data-lucide="user" style="width: 16px; height: 16px;"></i>
-                        프로필 보기
-                    </a>
+                    ${isLoggedIn
+                    ? `<a href="consultant_profile.html?id=${c.id}" class="btn btn-secondary" style="flex: 1;">
+                               <i data-lucide="user" style="width: 16px; height: 16px;"></i>
+                               프로필 보기
+                           </a>`
+                    : `<button onclick="showLoginRequiredModal()" class="btn btn-secondary" style="flex: 1;">
+                               <i data-lucide="lock" style="width: 16px; height: 16px;"></i>
+                               로그인 후 프로필 보기
+                           </button>`
+                }
                 </div>
             `;
             consultantList.appendChild(card);
