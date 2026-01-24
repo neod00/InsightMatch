@@ -274,8 +274,8 @@
             // Show loading
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="loading-spinner"></span>찾는 중...';
-            messageEl.className = 'message';
             messageEl.style.display = 'none';
+            messageEl.className = 'message';
             resultBox.style.display = 'none';
 
             try {
@@ -285,8 +285,14 @@
                     body: JSON.stringify({ name, phone })
                 });
 
-                const data = await response.json();
+                let data;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    data = { message: '서버 오류가 발생했습니다.' };
+                }
 
+                messageEl.style.display = 'block';
                 if (response.ok) {
                     messageEl.className = 'message success';
                     messageEl.textContent = data.message;
@@ -298,6 +304,7 @@
                     messageEl.textContent = data.message || '아이디를 찾을 수 없습니다.';
                 }
             } catch (error) {
+                messageEl.style.display = 'block';
                 messageEl.className = 'message error';
                 messageEl.textContent = '서버 연결에 실패했습니다.';
             } finally {
