@@ -188,8 +188,12 @@ def request_password_reset():
     db.session.commit()
     
     # Build reset link
-    base_url = os.environ.get('BASE_URL', 'http://localhost:5000')
-    reset_link = f"{base_url}/reset-password.html?token={token}"
+    # Prefer BASE_URL from env, but fallback to current request host for flexibility
+    base_url = os.environ.get('BASE_URL')
+    if not base_url or 'localhost' in base_url and 'localhost' not in request.host:
+        base_url = f"{request.scheme}://{request.host}"
+    
+    reset_link = f"{base_url.rstrip('/')}/reset-password.html?token={token}"
     
     # Send email
     email_service = EmailService()
