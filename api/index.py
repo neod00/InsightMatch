@@ -623,6 +623,13 @@ def delete_project(project_id):
 @app.route('/api/projects/<int:project_id>/proposal', methods=['GET'])
 def download_proposal(project_id):
     project = Project.query.get_or_404(project_id)
+    
+    # 1. 컨설턴트가 직접 업로드한 원본 파일이 있는 경우 해당 파일로 리다이렉트
+    if project.proposal_file_url and (project.proposal_file_url.startswith('http') or project.proposal_file_url.startswith('/')):
+        from flask import redirect
+        return redirect(project.proposal_file_url)
+    
+    # 2. 업로드된 파일이 없는 경우 시스템 요약 제안서 생성
     consultant = Consultant.query.get(project.consultant_id)
     company_user = User.query.get(project.company_id)
     company_name = company_user.name if company_user else "Client"
@@ -2009,6 +2016,53 @@ def upload_profile_image():
             return jsonify({
                 'error': f"업로드 실패: {error_detail.get('message', response.status_code)}"
             }), 500
+            
+    except Exception as e:
+        return jsonify({'error': f'업로드 중 오류: {str(e)}'}), 500
+
+@app.route('/api/upload/proposal-file', methods=['POST'])
+def upload_proposal_file():
+    """제안서 원본 파일을 Supabase Storage에 업로드"""
+    import requests
+    import time as time_module
+    
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    
+    file = request.files['file']
+    user_id = request.form.get('user_id', 'unknown')
+    
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    # 파일명 생성 (원본 파일명 유지)
+    file_ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+    unique_name = f"proposal_{user_id}_{int(time_module.time())}_{file.filename}"
+    
+    # Supabase 설정
+    supabase_url = os.environ.get('SUPABASE_URL', 'https://ghyioswdnfgtijowvpeo.supabase.co')
+    supabase_key = os.environ.get('SUPABASE_ANON_KEY', '')
+    
+    upload_url = f"{supabase_url}/storage/v1/object/proposals/{unique_name}"
+    
+    headers = {
+        'Authorization': f'Bearer {supabase_key}',
+        'apikey': supabase_key,
+        'Content-Type': file.content_type or 'application/octet-stream'
+    }
+    
+    try:
+        response = requests.post(upload_url, headers=headers, data=file.read())
+        
+        if response.status_code in [200, 201]:
+            public_url = f"{supabase_url}/storage/v1/object/public/proposals/{unique_name}"
+            return jsonify({
+                'success': True,
+                'url': public_url,
+                'fileName': file.filename
+            })
+        else:
+            return jsonify({'error': f"업로드 실패: {response.status_code}"}), 500
             
     except Exception as e:
         return jsonify({'error': f'업로드 중 오류: {str(e)}'}), 500

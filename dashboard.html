@@ -2755,19 +2755,44 @@
             }
 
             document.getElementById('proposal-file-info').innerHTML = `
-                <i data-lucide="file" style="width: 14px; height: 14px; display: inline;"></i> 
-                ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)
+                <i data-lucide="loader" class="spin" style="width: 14px; height: 14px; display: inline;"></i> 
+                업로드 중: ${file.name}...
             `;
             lucide.createIcons();
 
-            // Supabase Storage에 업로드 (클라이언트 측)
-            // 실제 구현 시에는 Supabase JS SDK 사용
+            // 서버를 통해 Supabase Storage에 업로드
             try {
-                // For now, we'll store the file reference and upload on submit
-                // In production, use Supabase Storage client
-                proposalFileUrl = `pending_upload_${file.name}`;
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('user_id', user.id);
+
+                const response = await fetch(`${API_BASE_URL}/api/upload/proposal-file`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    proposalFileUrl = result.url;
+                    document.getElementById('proposal-file-info').innerHTML = `
+                        <i data-lucide="check-circle" style="width: 14px; height: 14px; display: inline; color: var(--primary);"></i> 
+                        업로드 완료: ${file.name}
+                    `;
+                    showNotification('제안서 파일이 업로드되었습니다.', 'success');
+                } else {
+                    console.error('Upload failed:', result);
+                    document.getElementById('proposal-file-info').innerHTML = `
+                        <i data-lucide="alert-circle" style="width: 14px; height: 14px; display: inline; color: var(--error);"></i> 
+                        업로드 실패: ${result.error || '오류'}
+                    `;
+                    showNotification(`업로드 실패: ${result.error || '알 수 없는 오류'}`, 'error');
+                }
+                lucide.createIcons();
             } catch (error) {
-                console.error('File upload preparation error:', error);
+                console.error('File upload error:', error);
+                document.getElementById('proposal-file-info').innerHTML = `<span style="color: var(--error);">업로드 중 오류 발생</span>`;
+                showNotification(`업로드 중 오류가 발생했습니다: ${error.message}`, 'error');
             }
         };
 
