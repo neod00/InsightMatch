@@ -8,6 +8,125 @@ const API_BASE_URL = (() => {
     return '';
 })();
 
+// ========== Centralized Auth Fetch Wrapper ==========
+// Use this instead of fetch() for all authenticated API calls
+async function authFetch(url, options = {}) {
+    const token = localStorage.getItem('token');
+    if (token) {
+        options.headers = {
+            ...options.headers,
+            'Authorization': `Bearer ${token}`
+        };
+    }
+
+    const response = await fetch(url, options);
+
+    // Handle 401 Unauthorized - token expired or invalid
+    if (response.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        showSessionExpiredModal();
+        throw new Error('Session expired');
+    }
+
+    return response;
+}
+
+// Session Expired Modal
+function showSessionExpiredModal() {
+    // Check if modal already exists
+    if (document.getElementById('session-expired-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'session-expired-overlay';
+    overlay.innerHTML = `
+        <div class="session-modal">
+            <div class="session-modal-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+            </div>
+            <h3>세션이 만료되었습니다</h3>
+            <p>보안을 위해 자동으로 로그아웃되었습니다.<br>다시 로그인해주세요.</p>
+            <button onclick="window.location.href='login.html'">로그인 페이지로 이동</button>
+        </div>
+    `;
+
+    // Add styles
+    const style = document.createElement('style');
+    style.textContent = `
+        #session-expired-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .session-modal {
+            background: linear-gradient(135deg, rgba(30, 30, 40, 0.95), rgba(20, 20, 30, 0.98));
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.4s ease;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .session-modal-icon {
+            color: #f59e0b;
+            margin-bottom: 16px;
+        }
+        .session-modal h3 {
+            color: #fff;
+            font-size: 1.5rem;
+            margin: 0 0 12px 0;
+        }
+        .session-modal p {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.95rem;
+            margin: 0 0 24px 0;
+            line-height: 1.6;
+        }
+        .session-modal button {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff;
+            border: none;
+            padding: 14px 32px;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .session-modal button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+        }
+    `;
+    document.head.appendChild(style);
+    document.body.appendChild(overlay);
+}
+
+// Make functions globally accessible
+window.authFetch = authFetch;
+window.showSessionExpiredModal = showSessionExpiredModal;
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Elements ---
     const intakeForm = document.getElementById('intake-form');
@@ -1258,7 +1377,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.ok) {
                 const result = await response.json();
-                showNotification(`✅ ${selectedConsultants.size}명의 전문가에게 견적을 요청했습니다! 대시보드에서 확인하세요.`, 'success');
+
+                // Check if any consultants were skipped due to existing projects
+                const skipped = result.created_requests?.filter(r => r.skipped) || [];
+                const created = result.created_projects?.length || (selectedConsultants.size - skipped.length);
+
+                if (skipped.length > 0 && created > 0) {
+                    // Partial success
+                    const skippedNames = skipped.map(s => s.consultant_name).join(', ');
+                    showNotification(`✅ ${created}명에게 요청 완료! ⚠️ ${skippedNames}님은 이미 진행 중인 요청이 있습니다.`, 'info');
+                } else if (skipped.length > 0 && created === 0) {
+                    // All skipped
+                    showNotification('선택하신 모든 컨설턴트에게 이미 진행 중인 요청이 있습니다.', 'warning');
+                } else {
+                    // All success
+                    showNotification(`✅ ${selectedConsultants.size}명의 전문가에게 견적을 요청했습니다! 대시보드에서 확인하세요.`, 'success');
+                }
 
                 // Clear selection
                 window.clearConsultantSelection();

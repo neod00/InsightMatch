@@ -9,13 +9,14 @@ if current_dir not in sys.path:
 import uuid
 import json
 import datetime
+import re
 from flask import Flask, request, jsonify, send_file, Response
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, AnalysisJob, Consultant, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog
+from models import db, AnalysisJob, Consultant, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken
 from services import AIService, MatchingService, ProposalService, EmailService
 
 # Load environment variables
@@ -34,10 +35,12 @@ CORS(app)
 is_local_dev = not os.environ.get('VERCEL')  # Vercel sets this env var in production
 
 if is_local_dev:
-    # Local development: use SQLite
-    db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'insightmatch.db')
+    # Use absolute path to project root
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    db_path = os.path.join(base_dir, 'insightmatch.db')
     database_url = f'sqlite:///{db_path}'
     print(f"[LOCAL DEV] Using SQLite: {db_path}")
+
 else:
     # Production: use Supabase PostgreSQL
     database_url = os.environ.get('DATABASE_URL')
@@ -64,6 +67,14 @@ def create_tables():
         db.create_all()
         app._tables_created = True
 
+# --- Helper: Email Validation ---
+def is_valid_email(email):
+    """Unicode-aware email validation (RFC 5321 compliant with IDN support)"""
+    if not email:
+        return False
+    pattern = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+    return re.match(pattern, email) is not None
+
 # --- Auth Endpoints ---
 @app.route('/api/auth/signup', methods=['POST'])
 def signup():
@@ -73,14 +84,25 @@ def signup():
     name = data.get('name')
     role = data.get('role', 'company')
     
+    # Email validation
+    if not is_valid_email(email):
+        return jsonify({'message': '유효하지 않은 이메일 형식입니다.'}), 400
+    
+    # Password length validation
+    if not password or len(password) < 8:
+        return jsonify({'message': '비밀번호는 8자 이상이어야 합니다.'}), 400
+    
     if User.query.filter_by(email=email).first():
         return jsonify({'message': 'Email already exists'}), 400
+    
+    phone = data.get('phone', '').strip()
         
     new_user = User(
         email=email,
         password_hash=generate_password_hash(password),
         name=name,
-        role=role
+        role=role,
+        phone=phone
     )
     db.session.add(new_user)
     db.session.commit()
@@ -129,6 +151,131 @@ def login():
             'email': user.email,
             'role': user.role
         }
+    })
+
+# --- Password Reset Endpoints ---
+@app.route('/api/auth/request-reset', methods=['POST'])
+def request_password_reset():
+    """Request a password reset link via email"""
+    data = request.json
+    email = data.get('email', '').strip().lower()
+    
+    if not email:
+        return jsonify({'message': '이메일을 입력해주세요.'}), 400
+    
+    # Always return success to prevent email enumeration attacks
+    success_message = '입력하신 이메일로 비밀번호 재설정 링크를 발송했습니다. 이메일을 확인해주세요.'
+    
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        # Silently succeed to prevent enumeration
+        return jsonify({'message': success_message})
+    
+    # Generate secure token
+    token = str(uuid.uuid4())
+    expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
+    
+    # Invalidate any existing tokens for this user
+    PasswordResetToken.query.filter_by(user_id=user.id, used=False).update({'used': True})
+    
+    # Create new token
+    reset_token = PasswordResetToken(
+        user_id=user.id,
+        token=token,
+        expires_at=expires_at
+    )
+    db.session.add(reset_token)
+    db.session.commit()
+    
+    # Build reset link
+    base_url = os.environ.get('BASE_URL', 'http://localhost:5000')
+    reset_link = f"{base_url}/reset-password.html?token={token}"
+    
+    # Send email
+    email_service = EmailService()
+    result = email_service.send_password_reset_email(
+        to_email=email,
+        user_name=user.name or '사용자',
+        reset_link=reset_link
+    )
+    
+    if not result.get('success') and not result.get('simulated'):
+        print(f"[Password Reset] Email send failed: {result.get('message')}")
+    
+    return jsonify({'message': success_message})
+
+@app.route('/api/auth/reset-password', methods=['POST'])
+def reset_password():
+    """Reset password using token from email"""
+    data = request.json
+    token = data.get('token', '').strip()
+    new_password = data.get('new_password', '')
+    
+    if not token:
+        return jsonify({'message': '유효하지 않은 요청입니다.'}), 400
+    
+    if not new_password or len(new_password) < 8:
+        return jsonify({'message': '비밀번호는 8자 이상이어야 합니다.'}), 400
+    
+    # Find token
+    reset_token = PasswordResetToken.query.filter_by(token=token, used=False).first()
+    
+    if not reset_token:
+        return jsonify({'message': '유효하지 않거나 이미 사용된 링크입니다.'}), 400
+    
+    # Check expiration
+    if reset_token.expires_at < datetime.datetime.utcnow():
+        return jsonify({'message': '링크가 만료되었습니다. 다시 요청해주세요.'}), 400
+    
+    # Update password
+    user = User.query.get(reset_token.user_id)
+    if not user:
+        return jsonify({'message': '사용자를 찾을 수 없습니다.'}), 404
+    
+    user.password_hash = generate_password_hash(new_password)
+    reset_token.used = True
+    db.session.commit()
+    
+    return jsonify({'message': '비밀번호가 성공적으로 변경되었습니다. 로그인해주세요.'})
+
+@app.route('/api/auth/find-email', methods=['POST'])
+def find_email():
+    """Find email (ID) by name and phone number"""
+    data = request.json
+    name = data.get('name', '').strip()
+    phone = data.get('phone', '').strip()
+    
+    if not name or not phone:
+        return jsonify({'message': '이름과 휴대폰 번호를 모두 입력해주세요.'}), 400
+    
+    # Normalize phone number (remove hyphens and spaces)
+    phone_normalized = phone.replace('-', '').replace(' ', '')
+    
+    # Find user with matching name and phone
+    users = User.query.filter_by(name=name).all()
+    
+    matched_user = None
+    for user in users:
+        if user.phone:
+            user_phone_normalized = user.phone.replace('-', '').replace(' ', '')
+            if user_phone_normalized == phone_normalized:
+                matched_user = user
+                break
+    
+    if not matched_user:
+        return jsonify({'message': '일치하는 계정을 찾을 수 없습니다.'}), 404
+    
+    # Mask email for security (show first 3 chars + *** + domain)
+    email = matched_user.email
+    at_index = email.find('@')
+    if at_index > 3:
+        masked_email = email[:3] + '*' * (at_index - 3) + email[at_index:]
+    else:
+        masked_email = email[0] + '*' * (at_index - 1) + email[at_index:]
+    
+    return jsonify({
+        'message': '이메일을 찾았습니다.',
+        'email': masked_email
     })
 
 # --- Analysis Endpoints ---
@@ -390,6 +537,24 @@ def handle_projects():
         
     elif request.method == 'POST':
         data = request.json
+        
+        # === Duplicate Prevention ===
+        # Check if an ACTIVE project with same company+consultant+title already exists
+        active_statuses = ['planning', 'proposal_submitted', 'contracted', 'in_progress']
+        existing = Project.query.filter(
+            Project.company_id == data.get('company_id'),
+            Project.consultant_id == data.get('consultant_id'),
+            Project.title == data.get('title'),
+            Project.status.in_(active_statuses)
+        ).first()
+        
+        if existing:
+            return jsonify({
+                'message': '이 컨설턴트에게 동일한 규격으로 이미 진행 중인 요청이 있습니다.',
+                'existing_project_id': existing.id,
+                'existing_status': existing.status
+            }), 409
+        
         new_project = Project(
             company_id=data.get('company_id'),
             consultant_id=data.get('consultant_id'),
@@ -950,59 +1115,45 @@ def get_admin_jobs():
     # Filter parameter for showing deleted items
     show_deleted = request.args.get('show_deleted', 'false').lower() == 'true'
     
-    # Base query
-    query = AnalysisJob.query
-    
-    # Filter out deleted items unless explicitly requested
-    if not show_deleted:
-        query = query.filter(AnalysisJob.deleted_at.is_(None))
-    
-    jobs = query.order_by(AnalysisJob.created_at.desc()).all()
-    results = []
-    
-    for job in jobs:
-        # Get intake data for matching info
-        intake_data = job.get_intake_data() if job.intake_data else {}
+    try:
+        # Base query
+        query = AnalysisJob.query
         
-        # Find related projects by company name or email
-        company_name = job.company_name or intake_data.get('companyName', '')
-        related_projects = []
+        # Filter out deleted items unless explicitly requested
+        if not show_deleted:
+            query = query.filter(AnalysisJob.deleted_at.is_(None))
         
-        if company_name:
-            # Try to find user by email first
-            contact_email = intake_data.get('contactEmail', '')
-            user = None
-            if contact_email:
-                user = User.query.filter_by(email=contact_email).first()
+        jobs = query.order_by(AnalysisJob.created_at.desc()).all()
+        results = []
+        
+        for job in jobs:
+            # Get intake data for matching info
+            intake_data = job.get_intake_data() if job.intake_data else {}
             
-            # If not found by email, try by name
-            if not user and company_name:
-                user = User.query.filter_by(name=company_name).first()
+            # Find related projects by company name or email
+            company_name = job.company_name or intake_data.get('companyName', '')
+            related_projects = []
             
-            # Also search projects directly by title containing company_name or standards
-            standards = intake_data.get('standards', [])
-            if standards:
-                # Build project title pattern from standards
-                std_text = ', '.join(standards) if isinstance(standards, list) else str(standards)
-                project_title_pattern = f"%{std_text}%"
-                matching_projects = Project.query.filter(Project.title.like(project_title_pattern)).all()
+            if company_name:
+                # Try to find user by email first
+                contact_email = intake_data.get('contactEmail', '')
+                user = None
+                if contact_email:
+                    user = User.query.filter_by(email=contact_email).first()
                 
-                for p in matching_projects:
-                    consultant = Consultant.query.get(p.consultant_id)
-                    related_projects.append({
-                        'project_id': p.id,
-                        'title': p.title,
-                        'status': p.status,
-                        'consultant_id': p.consultant_id,
-                        'consultant_name': consultant.name if consultant else 'Unknown'
-                    })
-            
-            # Also add projects from user if found
-            if user:
-                user_projects = Project.query.filter_by(company_id=user.id).all()
-                existing_ids = [p['project_id'] for p in related_projects]
-                for p in user_projects:
-                    if p.id not in existing_ids:
+                # If not found by email, try by name
+                if not user and company_name:
+                    user = User.query.filter_by(name=company_name).first()
+                
+                # Also search projects directly by title containing company_name or standards
+                standards = intake_data.get('standards', [])
+                if standards:
+                    # Build project title pattern from standards
+                    std_text = ', '.join(standards) if isinstance(standards, list) else str(standards)
+                    project_title_pattern = f"%{std_text}%"
+                    matching_projects = Project.query.filter(Project.title.like(project_title_pattern)).all()
+                    
+                    for p in matching_projects:
                         consultant = Consultant.query.get(p.consultant_id)
                         related_projects.append({
                             'project_id': p.id,
@@ -1011,29 +1162,48 @@ def get_admin_jobs():
                             'consultant_id': p.consultant_id,
                             'consultant_name': consultant.name if consultant else 'Unknown'
                         })
-        
-        results.append({
-            'id': job.id,
-            'company_name': job.company_name,
-            'url': job.url,
-            'status': job.status,
-            'created_at': job.created_at.isoformat(),
-            'deleted_at': job.deleted_at.isoformat() if job.deleted_at else None,
-            # Matching request info (instead of AI result)
-            'intake_data': {
-                'industry': intake_data.get('industry'),
-                'employees': intake_data.get('employees'),
-                'region': intake_data.get('region'),
-                'standards': intake_data.get('standards', []),
-                'issues': intake_data.get('issues', []),
-                'timeline': intake_data.get('timeline'),
-                'budget': intake_data.get('budget'),
-                'contact_email': intake_data.get('contactEmail')
-            },
-            'related_projects': related_projects,
-            'project_count': len(related_projects)
-        })
-    return jsonify(results)
+                
+                # Also add projects from user if found
+                if user:
+                    user_projects = Project.query.filter_by(company_id=user.id).all()
+                    existing_ids = [p['project_id'] for p in related_projects]
+                    for p in user_projects:
+                        if p.id not in existing_ids:
+                            consultant = Consultant.query.get(p.consultant_id)
+                            related_projects.append({
+                                'project_id': p.id,
+                                'title': p.title,
+                                'status': p.status,
+                                'consultant_id': p.consultant_id,
+                                'consultant_name': consultant.name if consultant else 'Unknown'
+                            })
+            
+            results.append({
+                'id': job.id,
+                'company_name': job.company_name,
+                'url': job.url,
+                'status': job.status,
+                'created_at': job.created_at.isoformat() if job.created_at else None,
+                'deleted_at': job.deleted_at.isoformat() if job.deleted_at else None,
+                # Matching request info (instead of AI result)
+                'intake_data': {
+                    'industry': intake_data.get('industry'),
+                    'employees': intake_data.get('employees'),
+                    'region': intake_data.get('region'),
+                    'standards': intake_data.get('standards', []),
+                    'issues': intake_data.get('issues', []),
+                    'timeline': intake_data.get('timeline'),
+                    'budget': intake_data.get('budget'),
+                    'contact_email': intake_data.get('contactEmail')
+                },
+                'related_projects': related_projects,
+                'project_count': len(related_projects)
+            })
+        return jsonify(results)
+    except Exception as e:
+        print(f"[Admin API] Error fetching jobs: {e}")
+        return jsonify({'message': '데이터를 불러오는 중 오류가 발생했습니다.', 'error': str(e)}), 500
+
 
 # --- Admin Job Delete Endpoint ---
 @app.route('/api/admin/jobs/<string:job_id>', methods=['DELETE'])
@@ -1187,6 +1357,27 @@ def request_quotes():
     created_projects = []
     
     for consultant in consultants:
+        # === Duplicate Prevention ===
+        # Check if an ACTIVE project with same company+consultant+title already exists
+        active_statuses = ['planning', 'proposal_pending', 'proposal_submitted', 'contracted', 'in_progress']
+        existing = Project.query.filter(
+            Project.company_id == user_id,
+            Project.consultant_id == consultant.id,
+            Project.title == project_title,
+            Project.status.in_(active_statuses)
+        ).first()
+        
+        if existing:
+            # Skip this consultant - already has active project
+            created_requests.append({
+                'consultant_id': consultant.id,
+                'consultant_name': consultant.name,
+                'skipped': True,
+                'reason': '이미 진행 중인 동일 요청이 있습니다',
+                'existing_project_id': existing.id
+            })
+            continue
+        
         # Create a project for each consultant
         try:
             new_project = Project(

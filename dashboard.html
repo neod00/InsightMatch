@@ -449,6 +449,44 @@
             color: #3b82f6;
         }
 
+        /* 📊 Proposal Comparison Header */
+        .comparison-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.05));
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+        }
+
+        .comparison-header h4 {
+            margin: 0;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-primary);
+        }
+
+        .comparison-header select {
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .proposal-value.lowest-price {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1));
+            padding: 4px 8px;
+            border-radius: var(--radius-sm);
+            display: inline-block;
+        }
+
         /* ② 제안서 제출 폼 모달 */
         .proposal-form {
             display: flex;
@@ -3418,6 +3456,16 @@
                 showNotification('오류가 발생했습니다.', 'error');
             }
         };
+
+        // === Visibility Change Listener ===
+        // Refresh data when user returns to this tab (instead of constant polling)
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                console.log('Tab became visible - refreshing data');
+                fetchProjects();
+                fetchNotifications();
+            }
+        });
 
         // Initialize
         setupDashboardUI();

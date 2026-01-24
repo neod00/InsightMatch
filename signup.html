@@ -5,15 +5,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>회원가입 - InsightMatch</title>
-    
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    
+
     <!-- Styles -->
     <link rel="stylesheet" href="style.css">
 </head>
@@ -35,14 +37,14 @@
                     <span>by OpenBrain</span>
                 </div>
             </a>
-            
+
             <div class="nav-actions">
                 <a href="index.html" class="btn btn-ghost">
                     <i data-lucide="home" style="width: 18px; height: 18px;"></i>
                     홈으로
                 </a>
             </div>
-            
+
             <!-- Mobile Menu Button -->
             <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="메뉴 열기">
                 <span></span>
@@ -51,7 +53,7 @@
             </button>
         </div>
     </nav>
-    
+
     <!-- Mobile Navigation -->
     <div class="mobile-nav" id="mobile-nav">
         <a href="index.html">홈</a>
@@ -73,7 +75,7 @@
                 <h2>회원가입</h2>
                 <p>InsightMatch에 오신 것을 환영합니다.</p>
             </div>
-            
+
             <form id="signup-form" class="auth-form">
                 <div class="form-group">
                     <label>이름 / 회사명</label>
@@ -81,11 +83,19 @@
                 </div>
                 <div class="form-group">
                     <label>이메일</label>
-                    <input type="email" id="email" required placeholder="name@company.com">
+                    <input type="text" id="email" required placeholder="name@company.com 또는 윤태호@example.com">
                 </div>
                 <div class="form-group">
                     <label>비밀번호</label>
                     <input type="password" id="password" required placeholder="8자 이상 입력해주세요" minlength="8">
+                    <div class="password-strength-meter" id="password-strength">
+                        <div class="strength-bar" id="strength-bar"></div>
+                    </div>
+                    <small class="strength-text" id="strength-text">8자 이상, 영문+숫자 조합 권장</small>
+                </div>
+                <div class="form-group">
+                    <label>휴대폰 번호 <small style="color: var(--text-muted);">(아이디 찾기에 사용됩니다)</small></label>
+                    <input type="tel" id="phone" required placeholder="010-1234-5678">
                 </div>
                 <div class="form-group">
                     <label>비밀번호 확인</label>
@@ -104,20 +114,20 @@
                         </label>
                     </div>
                 </div>
-                
+
                 <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
                     회원가입
                 </button>
-                
+
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 16px; text-align: center;">
-                    가입 시 <a href="#" style="color: var(--primary);">이용약관</a> 및 
+                    가입 시 <a href="#" style="color: var(--primary);">이용약관</a> 및
                     <a href="#" style="color: var(--primary);">개인정보처리방침</a>에 동의합니다.
                 </p>
             </form>
-            
+
             <div class="auth-footer">
                 <p style="color: var(--text-muted);">
-                    이미 계정이 있으신가요? 
+                    이미 계정이 있으신가요?
                     <a href="login.html">로그인</a>
                 </p>
             </div>
@@ -126,52 +136,129 @@
 
     <script>
         lucide.createIcons();
-        
+
         // Mobile Menu Toggle
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
         const mobileNav = document.getElementById('mobile-nav');
-        
+
         function toggleMobileMenu() {
             mobileMenuBtn.classList.toggle('active');
             mobileNav.classList.toggle('active');
             document.body.style.overflow = mobileNav.classList.contains('active') ? 'hidden' : '';
         }
-        
+
         function closeMobileMenu() {
             mobileMenuBtn.classList.remove('active');
             mobileNav.classList.remove('active');
             document.body.style.overflow = '';
         }
-        
+
         mobileMenuBtn.addEventListener('click', toggleMobileMenu);
-        
+
         window.addEventListener('resize', () => {
             if (window.innerWidth > 768) {
                 closeMobileMenu();
             }
         });
-        
+
+        // === Email Validation (Unicode-aware) ===
+        function isValidEmail(email) {
+            // RFC 5321 compliant with IDN support (allows Unicode in local part)
+            const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return pattern.test(email);
+        }
+
+        // === Password Strength Calculation ===
+        function calculatePasswordStrength(password) {
+            let score = 0;
+            if (password.length >= 8) score += 1;
+            if (password.length >= 12) score += 1;
+            if (/[a-z]/.test(password)) score += 1;
+            if (/[A-Z]/.test(password)) score += 1;
+            if (/[0-9]/.test(password)) score += 1;
+            if (/[^a-zA-Z0-9]/.test(password)) score += 1;
+            return score;
+        }
+
+        function updatePasswordStrengthUI(password) {
+            const bar = document.getElementById('strength-bar');
+            const text = document.getElementById('strength-text');
+            const score = calculatePasswordStrength(password);
+
+            const levels = [
+                { min: 0, width: '0%', color: '#ef4444', text: '8자 이상, 영문+숫자 조합 권장' },
+                { min: 1, width: '20%', color: '#ef4444', text: '약함' },
+                { min: 2, width: '40%', color: '#f97316', text: '보통' },
+                { min: 3, width: '60%', color: '#eab308', text: '양호' },
+                { min: 4, width: '80%', color: '#22c55e', text: '강함' },
+                { min: 5, width: '100%', color: '#16a34a', text: '매우 강함' }
+            ];
+
+            const level = levels.filter(l => score >= l.min).pop();
+            bar.style.width = level.width;
+            bar.style.backgroundColor = level.color;
+            text.textContent = level.text;
+            text.style.color = level.color;
+        }
+
+        // Add password input event listener
+        document.getElementById('password').addEventListener('input', (e) => {
+            updatePasswordStrengthUI(e.target.value);
+        });
+
+        // Add inline CSS for password strength meter
+        const style = document.createElement('style');
+        style.textContent = `
+            .password-strength-meter {
+                height: 6px;
+                background: rgba(255,255,255,0.1);
+                border-radius: 3px;
+                margin-top: 8px;
+                overflow: hidden;
+            }
+            .strength-bar {
+                height: 100%;
+                width: 0%;
+                transition: all 0.3s ease;
+                border-radius: 3px;
+            }
+            .strength-text {
+                display: block;
+                margin-top: 6px;
+                font-size: 0.75rem;
+                color: var(--text-muted);
+                transition: color 0.3s ease;
+            }
+        `;
+        document.head.appendChild(style);
+
         document.getElementById('signup-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             const name = document.getElementById('name').value;
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
             const role = document.querySelector('input[name="role"]:checked').value;
             const submitBtn = e.target.querySelector('button[type="submit"]');
-            
-            // Validation
+
+            // Email Validation
+            if (!isValidEmail(email)) {
+                showError('유효하지 않은 이메일 형식입니다.');
+                return;
+            }
+
+            // Password Validation
             if (password !== confirmPassword) {
                 showError('비밀번호가 일치하지 않습니다.');
                 return;
             }
-            
+
             if (password.length < 8) {
                 showError('비밀번호는 8자 이상이어야 합니다.');
                 return;
             }
-            
+
             // Loading state
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="loading-spinner" style="width: 20px; height: 20px; border-width: 2px;"></span> 가입 처리 중...';
@@ -184,11 +271,13 @@
                     }
                     return '';
                 })();
-                
+
+                const phone = document.getElementById('phone').value;
+
                 const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, email, password, role })
+                    body: JSON.stringify({ name, email, password, role, phone })
                 });
 
                 const data = await response.json();
@@ -210,28 +299,28 @@
                 submitBtn.textContent = '회원가입';
             }
         });
-        
+
         function showError(message) {
             showMessage(message, 'error');
         }
-        
+
         function showSuccess(message) {
             showMessage(message, 'success');
         }
-        
+
         function showMessage(message, type) {
             const existing = document.querySelector('.message-box');
             if (existing) existing.remove();
-            
+
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message-box';
-            
+
             const isError = type === 'error';
             const color = isError ? '#ef4444' : '#22c55e';
             const bgColor = isError ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)';
             const borderColor = isError ? 'rgba(239, 68, 68, 0.3)' : 'rgba(34, 197, 94, 0.3)';
             const icon = isError ? 'alert-circle' : 'check-circle';
-            
+
             messageDiv.style.cssText = `
                 background: ${bgColor};
                 border: 1px solid ${borderColor};
@@ -245,11 +334,11 @@
                 gap: 8px;
             `;
             messageDiv.innerHTML = `<i data-lucide="${icon}" style="width: 18px; height: 18px;"></i> ${message}`;
-            
+
             const form = document.getElementById('signup-form');
             form.insertBefore(messageDiv, form.firstChild);
             lucide.createIcons();
-            
+
             if (isError) {
                 setTimeout(() => messageDiv.remove(), 5000);
             }

@@ -10,6 +10,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(20), nullable=False) # 'company', 'consultant', 'admin'
     name = db.Column(db.String(100))
+    phone = db.Column(db.String(20))  # For find-email feature
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Company(db.Model):
@@ -261,3 +262,12 @@ class AnalysisJob(db.Model):
     def get_intake_data(self):
         return json.loads(self.intake_data) if self.intake_data else {}
 
+
+class PasswordResetToken(db.Model):
+    """Password reset token for account recovery"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    token = db.Column(db.String(100), unique=True, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

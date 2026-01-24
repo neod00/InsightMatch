@@ -17,16 +17,19 @@ class MatchingService:
         1. Filter (Region, Budget - not fully impl in MVP)
         2. Score (Weighted Sum)
            - ISO Match (30%)
-           - Industry Match (25%)
+           - Industry Match (20%)
            - Project Type Match (15%)
            - Trust Score (20%)
-           - Role/Size Match (10%)
+           - Region Match (5%)
+           - Timeline/Availability (5%)
+           - Reviews/Rating (5%)
         """
         
         target_industry = criteria.get('industry', '')
         target_iso = [iso['code'] for iso in criteria.get('recommended_iso', [])]
         target_project_type = criteria.get('project_type', '')
         target_region = criteria.get('region', '')
+        target_timeline = criteria.get('timeline', 'flexible')
         
         # Get all consultants
         all_consultants = Consultant.query.all()
@@ -52,13 +55,13 @@ class MatchingService:
                 if matched_iso:
                     match_details.append(f"ISO {', '.join(matched_iso)} 경험")
 
-            # 2. Industry Match (25 points)
+            # 2. Industry Match (20 points - reduced from 25)
             consultant_industries = json.loads(consultant.industry_experience) if consultant.industry_experience else []
             if self._is_industry_match(consultant_industries, target_industry):
-                score += 25
+                score += 20
                 match_details.append(f"{target_industry} 분야 전문")
             elif consultant.specialty and target_industry in consultant.specialty: # Fallback
-                score += 15
+                score += 12
                 match_details.append(f"{target_industry} 관련 경험")
 
             # 3. Project Type Match (15 points)
@@ -75,12 +78,30 @@ class MatchingService:
                 trust_points += 10
             score += min(trust_points, 20)
             
-            # 5. Role/Size Match (10 points)
-            # Simplified for MVP: Bonus for high ratings/reviews if specific role not requested
+            # 5. Region Match (5 points - NEW)
+            if target_region and consultant.regions:
+                consultant_regions = [r.strip() for r in consultant.regions.split(',')]
+                if target_region in consultant_regions:
+                    score += 5
+                    match_details.append(f"{target_region} 지역 활동")
+            
+            # 6. Timeline/Availability Fit (5 points - NEW)
+            # Bonus for consultants with lower project load (higher availability)
+            # For MVP: give points based on trust_score as proxy for availability
+            if target_timeline in ['urgent', '1month']:
+                # Urgent timeline - prefer highly rated consultants who can deliver fast
+                if (consultant.rating or 0) >= 4.5:
+                    score += 5
+                    match_details.append("긴급 대응 가능")
+            else:
+                # Flexible timeline - small bonus for all
+                score += 2
+            
+            # 7. Reviews/Rating (5 points - reduced from 10)
             if (consultant.reviews or 0) > 10:
-                score += 5
+                score += 2.5
             if (consultant.rating or 0) >= 4.5:
-                score += 5
+                score += 2.5
 
             scored_consultants.append({
                 'consultant': consultant,

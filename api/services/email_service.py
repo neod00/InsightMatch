@@ -293,7 +293,7 @@ class EmailService:
             </div>
             
             <p style="margin-top: 25px; color: #64748b; font-size: 0.9rem;">
-                💡 문의사항이 있으시면 <a href="mailto:support@insightmatch.com">support@insightmatch.com</a>으로 연락주세요.
+                💡 문의사항이 있으시면 <a href="mailto:openbrain.main@gmail.com">openbrain.main@gmail.com</a>으로 연락주세요.
             </p>
         </div>
         
@@ -307,6 +307,70 @@ class EmailService:
 """
         
         return self.send_email(company_email, subject, html_content)
+
+    def send_password_reset_email(
+        self,
+        to_email: str,
+        user_name: str,
+        reset_link: str
+    ) -> Dict:
+        """
+        비밀번호 재설정 이메일 발송
+        """
+        subject = "[InsightMatch] 비밀번호 재설정 요청"
+        
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {{ font-family: 'Pretendard', -apple-system, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 30px; border-radius: 12px 12px 0 0; text-align: center; }}
+        .content {{ background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; }}
+        .cta-button {{ display: inline-block; background: #10b981; color: white; padding: 16px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 20px 0; }}
+        .warning {{ background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }}
+        .footer {{ text-align: center; color: #94a3b8; font-size: 0.85rem; padding: 20px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 style="margin: 0; font-size: 1.5rem;">🔐 비밀번호 재설정</h1>
+        </div>
+        
+        <div class="content">
+            <p>안녕하세요, {user_name}님.</p>
+            <p>InsightMatch 계정의 비밀번호 재설정 요청이 접수되었습니다.</p>
+            
+            <p style="text-align: center;">
+                <a href="{reset_link}" class="cta-button">새 비밀번호 설정하기</a>
+            </p>
+            
+            <div class="warning">
+                <strong>⚠️ 주의사항</strong>
+                <ul style="margin: 10px 0 0; padding-left: 20px;">
+                    <li>이 링크는 <strong>30분간</strong> 유효합니다.</li>
+                    <li>본인이 요청하지 않았다면 이 이메일을 무시하세요.</li>
+                </ul>
+            </div>
+            
+            <p style="color: #64748b; font-size: 0.9rem; margin-top: 25px;">
+                문의사항이 있으시면 <a href="mailto:openbrain.main@gmail.com">openbrain.main@gmail.com</a>으로 연락주세요.
+            </p>
+        </div>
+        
+        <div class="footer">
+            <p>이 이메일은 InsightMatch 플랫폼에서 발송되었습니다.</p>
+            <p>© 2025 OpenBrain Limited. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+        
+        return self.send_email(to_email, subject, html_content)
 
 
 # 카카오톡 알림톡 준비용 클래스 (향후 구현)
