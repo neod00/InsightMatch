@@ -29,6 +29,7 @@ print(f"DATA_GO_KR_API_KEY exists: {os.environ.get('DATA_GO_KR_API_KEY') is not 
 
 # Configure Flask
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB까지 허용
 CORS(app)
 
 # Database Config - Use SQLite for local development, PostgreSQL for production
