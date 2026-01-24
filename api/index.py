@@ -81,8 +81,17 @@ def signup():
     data = request.json
     email = data.get('email')
     password = data.get('password')
-    name = data.get('name')
+    name = data.get('name')  # 이름 (담당자명/컨설턴트명)
+    company_name = data.get('company_name', '').strip()  # 회사명
     role = data.get('role', 'company')
+    
+    # Name validation
+    if not name or not name.strip():
+        return jsonify({'message': '이름을 입력해 주세요.'}), 400
+    
+    # Company name validation for company users
+    if role == 'company' and not company_name:
+        return jsonify({'message': '회사명을 입력해 주세요.'}), 400
     
     # Email validation
     if not is_valid_email(email):
@@ -100,7 +109,8 @@ def signup():
     new_user = User(
         email=email,
         password_hash=generate_password_hash(password),
-        name=name,
+        name=name.strip(),
+        company_name=company_name,
         role=role,
         phone=phone
     )
@@ -108,13 +118,13 @@ def signup():
     db.session.commit()
     
     if role == 'company':
-        new_company = Company(user_id=new_user.id, name=name, industry='Unknown')
+        new_company = Company(user_id=new_user.id, name=company_name, industry='Unknown')
         db.session.add(new_company)
         db.session.commit()
     elif role == 'consultant':
         new_consultant = Consultant(
             user_id=new_user.id,
-            name=name,
+            name=name.strip(),
             specialty='General',
             experience='0년',
             rating=0.0,

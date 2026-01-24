@@ -9,7 +9,8 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(20), nullable=False) # 'company', 'consultant', 'admin'
-    name = db.Column(db.String(100))
+    name = db.Column(db.String(100))  # 이름 (담당자명/컨설턴트명)
+    company_name = db.Column(db.String(100))  # 회사명 (기업 필수, 컨설턴트 선택)
     phone = db.Column(db.String(20))  # For find-email feature
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

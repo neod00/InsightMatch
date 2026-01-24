@@ -78,8 +78,26 @@
 
             <form id="signup-form" class="auth-form">
                 <div class="form-group">
-                    <label>이름 / 회사명</label>
-                    <input type="text" id="name" required placeholder="홍길동 / (주)인사이트매치">
+                    <label>계정 유형</label>
+                    <div class="checkbox-grid" style="grid-template-columns: 1fr 1fr;">
+                        <label class="checkbox-card">
+                            <input type="radio" name="role" value="company" checked>
+                            <span>기업 담당자<small>ISO 인증 상담 필요</small></span>
+                        </label>
+                        <label class="checkbox-card">
+                            <input type="radio" name="role" value="consultant">
+                            <span>컨설턴트<small>전문가로 등록</small></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>이름 <small style="color: var(--text-muted);">(담당자명 또는 본인 이름)</small></label>
+                    <input type="text" id="name" required placeholder="홍길동">
+                </div>
+                <div class="form-group" id="company-name-group">
+                    <label>회사명 <small id="company-label-optional"
+                            style="color: var(--text-muted); display: none;">(선택)</small></label>
+                    <input type="text" id="companyName" required placeholder="(주)인사이트매치">
                 </div>
                 <div class="form-group">
                     <label>이메일</label>
@@ -100,19 +118,6 @@
                 <div class="form-group">
                     <label>비밀번호 확인</label>
                     <input type="password" id="confirmPassword" required placeholder="비밀번호를 다시 입력해주세요">
-                </div>
-                <div class="form-group">
-                    <label>계정 유형</label>
-                    <div class="checkbox-grid" style="grid-template-columns: 1fr 1fr;">
-                        <label class="checkbox-card">
-                            <input type="radio" name="role" value="company" checked>
-                            <span>기업 담당자<small>ISO 인증 상담 필요</small></span>
-                        </label>
-                        <label class="checkbox-card">
-                            <input type="radio" name="role" value="consultant">
-                            <span>컨설턴트<small>전문가로 등록</small></span>
-                        </label>
-                    </div>
                 </div>
 
                 <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
@@ -232,10 +237,32 @@
         `;
         document.head.appendChild(style);
 
+        // Role change listener - toggle company name required/optional
+        const roleInputs = document.querySelectorAll('input[name="role"]');
+        const companyNameInput = document.getElementById('companyName');
+        const companyLabelOptional = document.getElementById('company-label-optional');
+
+        function updateCompanyNameRequired() {
+            const role = document.querySelector('input[name="role"]:checked').value;
+            if (role === 'consultant') {
+                companyNameInput.required = false;
+                companyLabelOptional.style.display = 'inline';
+            } else {
+                companyNameInput.required = true;
+                companyLabelOptional.style.display = 'none';
+            }
+        }
+
+        roleInputs.forEach(input => {
+            input.addEventListener('change', updateCompanyNameRequired);
+        });
+        updateCompanyNameRequired(); // Initialize on load
+
         document.getElementById('signup-form').addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const name = document.getElementById('name').value;
+            const companyName = document.getElementById('companyName').value;
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
@@ -277,7 +304,7 @@
                 const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, email, password, role, phone })
+                    body: JSON.stringify({ name, company_name: companyName, email, password, role, phone })
                 });
 
                 const data = await response.json();
