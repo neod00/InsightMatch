@@ -168,6 +168,7 @@ def request_password_reset():
     
     user = User.query.filter_by(email=email).first()
     if not user:
+        print(f"[Password Reset] Email not found in database: {email}")
         # Silently succeed to prevent enumeration
         return jsonify({'message': success_message})
     
@@ -190,10 +191,12 @@ def request_password_reset():
     # Build reset link
     # Prefer BASE_URL from env, but fallback to current request host for flexibility
     base_url = os.environ.get('BASE_URL')
-    if not base_url or 'localhost' in base_url and 'localhost' not in request.host:
-        base_url = f"{request.scheme}://{request.host}"
+    if not base_url or ('localhost' in base_url and 'localhost' not in request.host):
+        # request.host_url includes scheme and host (e.g., https://domain.com/)
+        base_url = request.host_url.rstrip('/')
     
-    reset_link = f"{base_url.rstrip('/')}/reset-password.html?token={token}"
+    reset_link = f"{base_url}/reset-password.html?token={token}"
+    print(f"[Password Reset] Link generated: {reset_link}")
     
     # Send email
     email_service = EmailService()
