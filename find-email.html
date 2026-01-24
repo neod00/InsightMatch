@@ -301,7 +301,7 @@
                     document.getElementById('find-form').style.display = 'none';
                 } else {
                     messageEl.className = 'message error';
-                    messageEl.textContent = data.message || '아이디를 찾을 수 없습니다.';
+                    messageEl.textContent = data.debug ? `${data.message} (${data.debug})` : (data.message || '아이디를 찾을 수 없습니다.');
                 }
             } catch (error) {
                 messageEl.style.display = 'block';

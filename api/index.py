@@ -157,59 +157,70 @@ def login():
 @app.route('/api/auth/request-reset', methods=['POST'])
 def request_password_reset():
     """Request a password reset link via email"""
-    data = request.json
-    email = data.get('email', '').strip().lower()
-    
-    if not email:
-        return jsonify({'message': '이메일을 입력해주세요.'}), 400
-    
-    # Always return success to prevent email enumeration attacks
-    success_message = '입력하신 이메일로 비밀번호 재설정 링크를 발송했습니다. 이메일을 확인해주세요.'
-    
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        print(f"[Password Reset] Email not found in database: {email}")
-        # Silently succeed to prevent enumeration
+    try:
+        data = request.json
+        email = data.get('email', '').strip().lower()
+        
+        if not email:
+            return jsonify({'message': '이메일을 입력해주세요.'}), 400
+        
+        # Always return success to prevent email enumeration attacks
+        success_message = '입력하신 이메일로 비밀번호 재설정 링크를 발송했습니다. 이메일을 확인해주세요.'
+        
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            print(f"[Password Reset] Email not found in database: {email}")
+            # Silently succeed to prevent enumeration
+            return jsonify({'message': success_message})
+        
+        # Generate secure token
+        token = str(uuid.uuid4())
+        expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
+        
+        # Invalidate any existing tokens for this user
+        try:
+            PasswordResetToken.query.filter_by(user_id=user.id, used=False).update({'used': True})
+        except Exception as e:
+            print(f"[Password Reset] Token invalidation error (continuing): {e}")
+        
+        # Create new token
+        reset_token = PasswordResetToken(
+            user_id=user.id,
+            token=token,
+            expires_at=expires_at
+        )
+        db.session.add(reset_token)
+        db.session.commit()
+        
+        # Build reset link
+        base_url = os.environ.get('BASE_URL')
+        if not base_url or ('localhost' in base_url and 'localhost' not in request.host):
+            base_url = request.host_url.rstrip('/')
+        
+        reset_link = f"{base_url}/reset-password.html?token={token}"
+        print(f"[Password Reset] Link generated: {reset_link}")
+        
+        # Send email
+        email_service = EmailService()
+        result = email_service.send_password_reset_email(
+            to_email=email,
+            user_name=user.name or '사용자',
+            reset_link=reset_link
+        )
+        
+        if not result.get('success') and not result.get('simulated'):
+            print(f"[Password Reset] Email send failed: {result.get('message')}")
+        
         return jsonify({'message': success_message})
-    
-    # Generate secure token
-    token = str(uuid.uuid4())
-    expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
-    
-    # Invalidate any existing tokens for this user
-    PasswordResetToken.query.filter_by(user_id=user.id, used=False).update({'used': True})
-    
-    # Create new token
-    reset_token = PasswordResetToken(
-        user_id=user.id,
-        token=token,
-        expires_at=expires_at
-    )
-    db.session.add(reset_token)
-    db.session.commit()
-    
-    # Build reset link
-    # Prefer BASE_URL from env, but fallback to current request host for flexibility
-    base_url = os.environ.get('BASE_URL')
-    if not base_url or ('localhost' in base_url and 'localhost' not in request.host):
-        # request.host_url includes scheme and host (e.g., https://domain.com/)
-        base_url = request.host_url.rstrip('/')
-    
-    reset_link = f"{base_url}/reset-password.html?token={token}"
-    print(f"[Password Reset] Link generated: {reset_link}")
-    
-    # Send email
-    email_service = EmailService()
-    result = email_service.send_password_reset_email(
-        to_email=email,
-        user_name=user.name or '사용자',
-        reset_link=reset_link
-    )
-    
-    if not result.get('success') and not result.get('simulated'):
-        print(f"[Password Reset] Email send failed: {result.get('message')}")
-    
-    return jsonify({'message': success_message})
+        
+    except Exception as e:
+        import traceback
+        print(f"[Password Reset] Critical error: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({
+            'message': '서버 오류가 발생했습니다.',
+            'debug': str(e)
+        }), 500
 
 @app.route('/api/auth/reset-password', methods=['POST'])
 def reset_password():
