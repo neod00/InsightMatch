@@ -2138,7 +2138,13 @@
                         ${project.proposal_message ? `
                         <div class="proposal-preview-row" style="flex-direction: column; align-items: flex-start; gap: 4px;">
                             <span class="proposal-label">메시지</span>
-                            <span class="proposal-value" style="font-size: 0.85rem; color: var(--text-secondary);">${project.proposal_message.substring(0, 100)}${project.proposal_message.length > 100 ? '...' : ''}</span>
+                            <span class="proposal-value" style="font-size: 0.85rem; color: var(--text-secondary);">${project.proposal_message}</span>
+                        </div>
+                        ` : ''}
+                        ${project.proposal_file_url && !project.proposal_file_url.startsWith('pending_upload') ? `
+                        <div class="proposal-preview-row">
+                            <span class="proposal-label">첨부 파일</span>
+                            <a href="${project.proposal_file_url}" target="_blank" class="proposal-value highlight" style="text-decoration: underline; font-size: 0.85rem;">첨부된 파일 보기</a>
                         </div>
                         ` : ''}
                     </div>
@@ -2149,6 +2155,12 @@
                             <i data-lucide="user" style="width: 14px; height: 14px;"></i>
                             프로필 보기
                         </button>
+                        ${isSubmitted || isContracted ? `
+                        <button class="btn btn-secondary btn-sm" onclick="downloadProposal(${project.id})">
+                            <i data-lucide="file-down" style="width: 14px; height: 14px;"></i>
+                            제안서 다운로드
+                        </button>
+                        ` : ''}
                         ${isSubmitted && !isContracted ? `
                         <button class="btn btn-primary btn-sm" onclick="selectConsultant(${project.id})">
                             <i data-lucide="check" style="width: 14px; height: 14px;"></i>
