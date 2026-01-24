@@ -29,8 +29,17 @@ print(f"DATA_GO_KR_API_KEY exists: {os.environ.get('DATA_GO_KR_API_KEY') is not 
 
 # Configure Flask
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB까지 허용
+# 1. 파일 업로드 허용 용량을 50MB로 대폭 늘립니다.
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 CORS(app)
+
+# 2. 용량 초과 시 HTML 대신 JSON 에러를 반환하도록 설정합니다.
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    return jsonify({
+        'error': '파일 용량이 너무 큽니다. (최대 50MB까지 허용)',
+        'message': '제안서 파일 크기를 줄이거나 50MB 이하의 파일을 선택해주세요.'
+    }), 413
 
 # Database Config - Use SQLite for local development, PostgreSQL for production
 is_local_dev = not os.environ.get('VERCEL')  # Vercel sets this env var in production

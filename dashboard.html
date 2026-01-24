@@ -2771,12 +2771,12 @@
                     body: formData
                 });
 
-                // JSON 응답이 아닌 경우 (Request Entity Too Large 등) 처리
+                // JSON 응답 확인
                 const contentType = response.headers.get("content-type");
                 if (!contentType || !contentType.includes("application/json")) {
                     const errorText = await response.text();
-                    console.error('Non-JSON Error:', errorText);
-                    throw new Error('서버 용량 제한 또는 설정 오류로 파일 업로드에 실패했습니다. (10MB 이하 권장)');
+                    console.error('Server Error (Non-JSON):', errorText);
+                    throw new Error(`서버 응답 오류 (상태코드: ${response.status}). 용량이 너무 크거나 서버 설정에 문제가 있습니다.`);
                 }
 
                 const result = await response.json();
@@ -2789,7 +2789,8 @@
                     `;
                     showNotification('제안서 파일이 업로드되었습니다.', 'success');
                 } else {
-                    throw new Error(result.error || '업로드 처리 중 오류 발생');
+                    // 서버가 리턴한 상세 에러 메시지 사용
+                    throw new Error(result.error || result.message || '업로드 중 오류가 발생했습니다.');
                 }
                 lucide.createIcons();
             } catch (error) {
