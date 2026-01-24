@@ -2025,19 +2025,25 @@ def upload_proposal_file():
     """제안서 원본 파일을 Supabase Storage에 업로드"""
     import requests
     import time as time_module
+    import re
     
     if 'file' not in request.files:
+        print("ERROR: No file in request.files")
         return jsonify({'error': 'No file provided'}), 400
     
     file = request.files['file']
     user_id = request.form.get('user_id', 'unknown')
     
     if file.filename == '':
+        print("ERROR: Empty filename")
         return jsonify({'error': 'No file selected'}), 400
     
-    # 파일명 생성 (원본 파일명 유지)
-    file_ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
-    unique_name = f"proposal_{user_id}_{int(time_module.time())}_{file.filename}"
+    # 1. 파일명 정제 (공백/한글 등을 영문/숫자로 변환하여 Supabase 오류 방지)
+    file_ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else 'pdf'
+    # 한글/특수문자가 섞인 원본 대신 안전한 파일명 생성
+    unique_name = f"proposal_{user_id}_{int(time_module.time())}.{file_ext}"
+    
+    print(f"DEBUG: Attempting to upload {file.filename} as {unique_name}")
     
     # Supabase 설정
     supabase_url = os.environ.get('SUPABASE_URL', 'https://ghyioswdnfgtijowvpeo.supabase.co')
@@ -2052,17 +2058,28 @@ def upload_proposal_file():
     }
     
     try:
-        response = requests.post(upload_url, headers=headers, data=file.read())
+        # 파일 읽기 전 포인터 초기화
+        file.seek(0)
+        file_data = file.read()
+        print(f"DEBUG: File size: {len(file_data)} bytes")
         
-        if response.status_code in [200, 201]:
-            public_url = f"{supabase_url}/storage/v1/object/public/proposals/{unique_name}"
-            return jsonify({
-                'success': True,
-                'url': public_url,
-                'fileName': file.filename
-            })
-        else:
-            return jsonify({'error': f"업로드 실패: {response.status_code}"}), 500
+        response = requests.post(upload_url, headers=headers, data=file_data)
+        
+        print(f"DEBUG: Supabase Response Status: {response.status_code}")
+        if response.status_code not in [200, 201]:
+            print(f"ERROR: Supabase upload failed: {response.text}")
+            return jsonify({'error': f"Storage upload failed: {response.status_code}"}), 500
+            
+        public_url = f"{supabase_url}/storage/v1/object/public/proposals/{unique_name}"
+        return jsonify({
+            'success': True,
+            'url': public_url,
+            'fileName': file.filename
+        })
+            
+    except Exception as e:
+        print(f"CRITICAL ERROR during upload: {str(e)}")
+        return jsonify({'error': f'Internal upload error: {str(e)}'}), 500
             
     except Exception as e:
         return jsonify({'error': f'업로드 중 오류: {str(e)}'}), 500
