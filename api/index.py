@@ -1475,8 +1475,41 @@ def get_admin_jobs():
                         standards.add(iso_match.group(1).strip())
             
             # Build related projects list with consultant info
-            related_projects = []
+            # Deduplicate by (consultant_id, ISO standard) - keep most advanced status
+            status_priority = {
+                'in_progress': 6,
+                'contracted': 5,
+                'awaiting_signature': 4,
+                'proposal_submitted': 3,
+                'proposal_pending': 2,
+                'completed': 1,
+                'cancelled_by_company': 0
+            }
+            
+            # Group by consultant_id + ISO standard
+            dedup_map = {}  # key: (consultant_id, iso_standard) -> project with highest priority
+            
             for p in project_list:
+                # Extract ISO standard from title
+                iso_standard = ''
+                if p.title:
+                    iso_match = re.search(r'(ISO[/\s]?\w+[:\s]?\d*)', p.title, re.IGNORECASE)
+                    if iso_match:
+                        iso_standard = iso_match.group(1).strip()
+                
+                key = (p.consultant_id, iso_standard)
+                current_priority = status_priority.get(p.status, 0)
+                
+                if key not in dedup_map:
+                    dedup_map[key] = p
+                else:
+                    existing_priority = status_priority.get(dedup_map[key].status, 0)
+                    if current_priority > existing_priority:
+                        dedup_map[key] = p
+            
+            # Build deduplicated related projects list
+            related_projects = []
+            for (consultant_id, iso_standard), p in dedup_map.items():
                 consultant = Consultant.query.get(p.consultant_id) if p.consultant_id else None
                 related_projects.append({
                     'project_id': p.id,
@@ -1488,6 +1521,9 @@ def get_admin_jobs():
                     'proposal_price': p.proposal_price,
                     'proposal_submitted_at': p.proposal_submitted_at.isoformat() if p.proposal_submitted_at else None
                 })
+            
+            # Sort related projects by created_at descending
+            related_projects.sort(key=lambda x: x['created_at'] or '', reverse=True)
             
             # Determine overall status based on projects
             statuses = [p.status for p in project_list]
