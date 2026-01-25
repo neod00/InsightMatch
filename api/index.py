@@ -460,6 +460,25 @@ def direct_match():
         'consultants': matched_consultants
     }
     
+    # === NEW: Save as AnalysisJob for Admin Visibility ===
+    try:
+        session_id = str(uuid.uuid4()) # Create a session ID
+        result['session_id'] = session_id
+        
+        new_job = AnalysisJob(
+            id=session_id,
+            company_name=company_name,
+            url='', # Direct match usually has no URL
+            status='completed'
+        )
+        new_job.set_intake_data(data)
+        new_job.set_result(result)
+        db.session.add(new_job)
+        db.session.commit()
+    except Exception as e:
+        print(f"[Direct Match] Error saving job to DB: {e}")
+        db.session.rollback()
+    
     return jsonify(result)
 
 # --- Consultant Endpoints ---
@@ -1654,8 +1673,29 @@ def request_quotes():
         project_title = "ISO 인증 프로젝트"
     
     # Get session_id from frontend (for grouping projects from same matching session)
-    session_id = data.get('session_id') or str(uuid.uuid4())
+    session_id = data.get('session_id')
     
+    # === NEW: Ensure AnalysisJob exists for this session (for Admin Visibility) ===
+    if session_id:
+        existing_job = AnalysisJob.query.get(session_id)
+        if not existing_job:
+            try:
+                company_name = analysis_context.get('company_name', '기업')
+                new_job = AnalysisJob(
+                    id=session_id,
+                    company_name=company_name,
+                    status='completed'
+                )
+                new_job.set_intake_data(analysis_context)
+                db.session.add(new_job)
+                db.session.commit()
+                print(f"[Request Quotes] Created AnalysisJob for session {session_id}")
+            except Exception as e:
+                print(f"[Request Quotes] Error creating AnalysisJob: {e}")
+                db.session.rollback()
+    else:
+        session_id = str(uuid.uuid4())
+
     # Create quote requests and projects for each consultant
     quote_request_id = str(uuid.uuid4())
     created_requests = []

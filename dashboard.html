@@ -955,6 +955,17 @@
 </head>
 
 <body>
+    <!-- Admin Redirect Check -->
+    <script>
+        (function () {
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (user && user.role === 'admin') {
+                window.location.href = 'admin.html';
+            } else if (!localStorage.getItem('token')) {
+                window.location.href = 'login.html';
+            }
+        })();
+    </script>
     <!-- Background Effects -->
     <div class="bg-gradient"></div>
     <div class="bg-grid"></div>

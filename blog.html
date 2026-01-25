@@ -182,11 +182,15 @@
             const mobileNavActions = document.getElementById('mobile-nav-actions');
 
             if (user && token) {
+                // Determine dashboard link based on role
+                const dashboardLink = user.role === 'admin' ? 'admin.html' : 'dashboard.html';
+                const dashboardText = user.role === 'admin' ? '관리자 대시보드' : '대시보드';
+
                 // User is logged in
                 navActions.innerHTML = `
-                    <a href="dashboard.html" class="btn btn-ghost">
+                    <a href="${dashboardLink}" class="btn btn-ghost">
                         <i data-lucide="layout-dashboard" style="width: 18px; height: 18px;"></i>
-                        대시보드
+                        ${dashboardText}
                     </a>
                     <span style="color: var(--primary); font-weight: 500;">${user.name}님</span>
                     <button onclick="logout()" class="btn btn-ghost">
@@ -196,9 +200,9 @@
                 `;
                 // Update mobile nav
                 mobileNavActions.innerHTML = `
-                    <a href="dashboard.html" class="btn btn-secondary" onclick="closeMobileMenu()">
+                    <a href="${dashboardLink}" class="btn btn-secondary" onclick="closeMobileMenu()">
                         <i data-lucide="layout-dashboard" style="width: 18px; height: 18px;"></i>
-                        대시보드
+                        ${dashboardText}
                     </a>
                     <button onclick="logout(); closeMobileMenu();" class="btn btn-ghost" style="width: 100%;">
                         <i data-lucide="log-out" style="width: 18px; height: 18px;"></i>
