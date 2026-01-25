@@ -830,6 +830,33 @@ def create_contract_draft(project_id):
     project.contract_special_terms = special_terms
     project.status = 'pending_contract'
     
+    # ========================================
+    # 미선정 컨설턴트 자동 처리
+    # ========================================
+    if project.session_id:
+        # 동일 session_id를 가진 다른 프로젝트들 찾기 (선택된 프로젝트 제외)
+        other_projects = Project.query.filter(
+            Project.session_id == project.session_id,
+            Project.id != project.id,
+            Project.status.notin_(['not_selected', 'cancelled_by_company', 'contracted', 'in_progress', 'completed'])
+        ).all()
+        
+        for other in other_projects:
+            other.status = 'not_selected'
+            
+            # 미선정 알림 발송
+            if other.consultant_id:
+                consultant = Consultant.query.get(other.consultant_id)
+                if consultant and consultant.user_id:
+                    notification = Notification(
+                        user_id=consultant.user_id,
+                        type='not_selected',
+                        title='프로젝트 미선정 안내',
+                        message=f'"{other.title}" 프로젝트에서 다른 전문가가 선정되었습니다. 다음 기회에 좋은 결과가 있기를 바랍니다.',
+                        related_project_id=other.id
+                    )
+                    db.session.add(notification)
+    
     db.session.commit()
     
     return jsonify({

@@ -1473,7 +1473,8 @@
                     <label
                         style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">희망
                         금액 (원)</label>
-                    <input type="number" id="nego-requested-price" placeholder="예: 5000000"
+                    <input type="text" id="nego-requested-price" placeholder="예: 5,000,000" inputmode="numeric"
+                        oninput="formatNumberWithComma(this)"
                         style="width: 100%; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary);">
                 </div>
                 <div>
@@ -1606,8 +1607,19 @@
             'in_progress': { text: '진행 중', stage: 3, stageText: '계약 체결' },
             'completed': { text: '완료', stage: 3, stageText: '계약 체결' },
             'cancelled_by_company': { text: '취소됨', stage: 0, stageText: '취소됨' },
+            'not_selected': { text: '미선정', stage: 0, stageText: '종료' },
             'planning': { text: '제안서 대기', stage: 1, stageText: '제안서 대기' } // 기존 호환
         };
+
+        // 금액 자동 콤마 포맷팅 함수
+        function formatNumberWithComma(input) {
+            let value = input.value.replace(/[^0-9]/g, '');
+            input.value = value.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        }
+
+        function parseFormattedNumber(str) {
+            return parseInt(str.replace(/,/g, '')) || 0;
+        }
 
         async function fetchProjects() {
             try {
@@ -1988,7 +2000,17 @@
                                 <button class="btn btn-ghost btn-sm" style="color: var(--error);" onclick="respondNegotiation(${project.id}, 'reject')">
                                     <i data-lucide="x" style="width: 14px; height: 14px;"></i> 거절
                                 </button>
+                        </div>
+                        ` : ''}
+                        
+                        ${project.status === 'not_selected' ? `
+                        <!-- 미선정 상태 (전문가용) -->
+                        <div style="background: rgba(156, 163, 175, 0.1); padding: 16px; border-radius: var(--radius-sm); margin-bottom: 20px; border: 1px solid rgba(156, 163, 175, 0.3);">
+                            <div style="display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px;">
+                                <i data-lucide="user-x" style="width: 18px; height: 18px;"></i>
+                                다른 전문가가 선정되었습니다
                             </div>
+                            <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;">이번 프로젝트에서는 다른 전문가가 선정되었습니다. 다음 기회에 좋은 결과가 있기를 바랍니다.</p>
                         </div>
                         ` : ''}
                         
@@ -2107,8 +2129,10 @@
                 const overallStatus = firstProject.status || 'proposal_pending';
                 const statusInfo = STATUS_CONFIG[overallStatus] || STATUS_CONFIG['proposal_pending'];
 
-                // 응답 현황 계산 (취소된 요청 제외)
-                const visibleProjects = group.projects.filter(p => p.status !== 'cancelled_by_company');
+                // 응답 현황 계산 (취소된 요청 및 미선정 요청 제외)
+                const visibleProjects = group.projects.filter(p =>
+                    p.status !== 'cancelled_by_company' && p.status !== 'not_selected'
+                );
                 const totalConsultants = visibleProjects.length;
                 const respondedConsultants = visibleProjects.filter(p =>
                     p.proposal_status === 'submitted' || p.status === 'contracted' || p.status === 'in_progress'
@@ -2487,7 +2511,8 @@
 
         async function submitNegotiation() {
             const projectId = document.getElementById('nego-project-id').value;
-            const requestedPrice = document.getElementById('nego-requested-price').value;
+            const requestedPriceRaw = document.getElementById('nego-requested-price').value;
+            const requestedPrice = parseFormattedNumber(requestedPriceRaw);
             const requestedDuration = document.getElementById('nego-requested-duration').value;
             const message = document.getElementById('nego-message').value;
 
@@ -2501,7 +2526,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        requested_price: requestedPrice ? parseInt(requestedPrice) : null,
+                        requested_price: requestedPrice || null,
                         requested_duration: requestedDuration || null,
                         message: message
                     })
