@@ -1437,6 +1437,107 @@
         </div>
     </div>
 
+    <!-- D. 조건 협의 모달 -->
+    <div id="negotiation-modal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeNegotiationModal()"></div>
+        <div class="modal-content card"
+            style="max-width: 500px; padding: 24px; background: var(--bg-card); border-radius: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;">
+                    <i data-lucide="message-square-plus"
+                        style="width: 20px; height: 20px; color: var(--primary); display: inline;"></i>
+                    조건 협의 요청
+                </h3>
+                <button onclick="closeNegotiationModal()" class="btn btn-ghost" style="padding: 8px;">
+                    <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+                </button>
+            </div>
+
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px; line-height: 1.5;">
+                전문가에게 금액이나 기간 조정을 요청할 수 있습니다.
+            </p>
+
+            <div style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="color: var(--text-muted); font-size: 0.85rem;">현재 제안 금액</span>
+                    <span id="nego-current-price" style="font-weight: 600;">-</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-muted); font-size: 0.85rem;">현재 제안 기간</span>
+                    <span id="nego-current-duration" style="font-weight: 600;">-</span>
+                </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 20px;">
+                <div>
+                    <label
+                        style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">희망
+                        금액 (원)</label>
+                    <input type="number" id="nego-requested-price" placeholder="예: 5000000"
+                        style="width: 100%; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary);">
+                </div>
+                <div>
+                    <label
+                        style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">희망
+                        기간</label>
+                    <input type="text" id="nego-requested-duration" placeholder="예: 2개월"
+                        style="width: 100%; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary);">
+                </div>
+                <div>
+                    <label
+                        style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">요청
+                        메시지</label>
+                    <textarea id="nego-message" placeholder="조정 요청 사유나 추가 협의 사항을 작성해주세요."
+                        style="width: 100%; height: 80px; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); resize: none;"></textarea>
+                </div>
+            </div>
+
+            <input type="hidden" id="nego-project-id">
+
+            <div style="display: flex; gap: 12px;">
+                <button class="btn btn-outline" style="flex: 1;" onclick="closeNegotiationModal()">취소</button>
+                <button class="btn btn-primary" style="flex: 1;" onclick="submitNegotiation()">협의 요청 보내기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- E. 계약서 확인/서명 모달 -->
+    <div id="contract-modal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeContractModal()"></div>
+        <div class="modal-content card"
+            style="max-width: 600px; max-height: 80vh; overflow-y: auto; padding: 24px; background: var(--bg-card); border-radius: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;">
+                    <i data-lucide="file-signature"
+                        style="width: 20px; height: 20px; color: var(--primary); display: inline;"></i>
+                    ISO 컨설팅 표준 계약서
+                </h3>
+                <button onclick="closeContractModal()" class="btn btn-ghost" style="padding: 8px;">
+                    <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+                </button>
+            </div>
+
+            <div id="contract-preview"
+                style="background: var(--bg-secondary); padding: 20px; border-radius: 12px; margin-bottom: 20px; font-size: 0.9rem; line-height: 1.8;">
+                <!-- 계약서 내용 동적 삽입 -->
+            </div>
+
+            <div id="contract-signature-status" style="margin-bottom: 20px;">
+                <!-- 서명 상태 동적 표시 -->
+            </div>
+
+            <input type="hidden" id="contract-project-id">
+
+            <div style="display: flex; gap: 12px;">
+                <button class="btn btn-outline" style="flex: 1;" onclick="closeContractModal()">닫기</button>
+                <button class="btn btn-primary" style="flex: 1;" id="contract-sign-btn" onclick="signContract()">
+                    <i data-lucide="pen-tool" style="width: 16px; height: 16px;"></i>
+                    서명하기
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="footer" style="margin-top: 40px;">
         <div class="container">
@@ -1498,6 +1599,9 @@
             'proposal_pending': { text: '제안서 대기', stage: 1, stageText: '제안서 대기' },
             'proposal_submitted': { text: '제안 완료', stage: 2, stageText: '검토 중' },
             'reviewing': { text: '검토 중', stage: 2, stageText: '검토 중' },
+            'negotiating': { text: '조건 협의 중', stage: 2, stageText: '조건 협의' },
+            'pending_contract': { text: '계약서 검토', stage: 2, stageText: '계약서 검토' },
+            'awaiting_signature': { text: '서명 대기', stage: 2, stageText: '서명 대기' },
             'contracted': { text: '계약 완료', stage: 3, stageText: '계약 체결' },
             'in_progress': { text: '진행 중', stage: 3, stageText: '계약 체결' },
             'completed': { text: '완료', stage: 3, stageText: '계약 체결' },
@@ -1860,6 +1964,48 @@
                         </div>
                         ` : ''}
                         
+                        ${project.status === 'negotiating' && !isCancelled ? `
+                        <!-- 조건 협의 요청 도착 (전문가용) -->
+                        <div style="background: rgba(245, 158, 11, 0.1); padding: 16px; border-radius: var(--radius-sm); margin-bottom: 20px; border: 1px solid rgba(245, 158, 11, 0.3);">
+                            <div style="display: flex; align-items: center; gap: 8px; color: #f59e0b; font-weight: 600; margin-bottom: 12px;">
+                                <i data-lucide="message-square" style="width: 18px; height: 18px;"></i>
+                                기업에서 조건 협의를 요청했습니다
+                            </div>
+                            ${project.negotiation_data ? `
+                            <div style="background: var(--bg-card); padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+                                ${project.negotiation_data.requested_price ? `<p style="margin: 0 0 4px 0; font-size: 0.9rem;"><strong>희망 금액:</strong> ${project.negotiation_data.requested_price.toLocaleString()}원</p>` : ''}
+                                ${project.negotiation_data.requested_duration ? `<p style="margin: 0 0 4px 0; font-size: 0.9rem;"><strong>희망 기간:</strong> ${project.negotiation_data.requested_duration}</p>` : ''}
+                                ${project.negotiation_data.company_message ? `<p style="margin: 8px 0 0 0; font-size: 0.85rem; color: var(--text-secondary);">"${project.negotiation_data.company_message}"</p>` : ''}
+                            </div>
+                            ` : ''}
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button class="btn btn-primary btn-sm" onclick="respondNegotiation(${project.id}, 'accept')">
+                                    <i data-lucide="check" style="width: 14px; height: 14px;"></i> 수락
+                                </button>
+                                <button class="btn btn-outline btn-sm" onclick="openCounterOfferModal(${project.id})">
+                                    <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i> 역제안
+                                </button>
+                                <button class="btn btn-ghost btn-sm" style="color: var(--error);" onclick="respondNegotiation(${project.id}, 'reject')">
+                                    <i data-lucide="x" style="width: 14px; height: 14px;"></i> 거절
+                                </button>
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        ${(project.status === 'pending_contract' || project.status === 'awaiting_signature') && !isCancelled ? `
+                        <!-- 계약서 서명 대기 (전문가용) -->
+                        <div style="background: rgba(59, 130, 246, 0.1); padding: 16px; border-radius: var(--radius-sm); margin-bottom: 20px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                            <div style="display: flex; align-items: center; gap: 8px; color: #3b82f6; font-weight: 600; margin-bottom: 8px;">
+                                <i data-lucide="file-signature" style="width: 18px; height: 18px;"></i>
+                                계약서 서명이 필요합니다
+                            </div>
+                            <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0 0 12px 0;">기업에서 회원님을 최종 선택했습니다. 계약서를 확인하고 서명해주세요.</p>
+                            <button class="btn btn-primary btn-sm" onclick="openContractModal(${project.id})">
+                                <i data-lucide="pen-tool" style="width: 14px; height: 14px;"></i> 계약서 확인/서명
+                            </button>
+                        </div>
+                        ` : ''}
+                        
                         ${isContracted && scheduleStatus === 'pending' ? `
                         <!-- 계약 완료, 일정 제안 필요 -->
                         <div style="background: rgba(245, 158, 11, 0.1); padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
@@ -2162,9 +2308,25 @@
                         </button>
                         ` : ''}
                         ${isSubmitted && !isContracted ? `
+                        <button class="btn btn-outline btn-sm" onclick="openNegotiationModal(${project.id}, ${project.proposal_price || 0}, '${project.proposal_duration || ''}')">
+                            <i data-lucide="message-square-plus" style="width: 14px; height: 14px;"></i>
+                            조건 협의
+                        </button>
                         <button class="btn btn-primary btn-sm" onclick="selectConsultant(${project.id})">
                             <i data-lucide="check" style="width: 14px; height: 14px;"></i>
                             이 전문가 선택
+                        </button>
+                        ` : ''}
+                        ${project.status === 'negotiating' ? `
+                        <div style="background: rgba(245, 158, 11, 0.1); padding: 8px 12px; border-radius: 8px; font-size: 0.85rem; color: #f59e0b;">
+                            <i data-lucide="clock" style="width: 14px; height: 14px; display: inline;"></i>
+                            조건 협의 응답 대기 중
+                        </div>
+                        ` : ''}
+                        ${(project.status === 'pending_contract' || project.status === 'awaiting_signature') ? `
+                        <button class="btn btn-primary btn-sm" onclick="openContractModal(${project.id})">
+                            <i data-lucide="file-signature" style="width: 14px; height: 14px;"></i>
+                            계약서 확인/서명
                         </button>
                         ` : ''}
                         ${isPending ? `
@@ -2279,18 +2441,269 @@
         }
 
         async function selectConsultant(projectId) {
-            if (!confirm('이 전문가를 선택하고 계약을 진행하시겠습니까?')) return;
+            if (!confirm('이 전문가를 선택하고 계약서 검토를 진행하시겠습니까?')) return;
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/sign`, {
-                    method: 'POST'
+                // 계약서 초안 생성 API 호출
+                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/contract/draft`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
                 });
 
                 if (response.ok) {
-                    showNotification('계약이 체결되었습니다! 프로젝트가 시작됩니다.', 'success');
+                    showNotification('계약서가 준비되었습니다. 내용을 확인하고 서명해주세요.', 'success');
+                    fetchProjects();
+                    // 계약서 모달 열기
+                    openContractModal(projectId);
+                } else {
+                    const data = await response.json();
+                    showNotification(data.message || '처리에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                console.error(error);
+                showNotification('서버 연결에 실패했습니다.', 'error');
+            }
+        }
+
+        // ========================================
+        // 조건 협의 관련 함수
+        // ========================================
+
+        function openNegotiationModal(projectId, currentPrice, currentDuration) {
+            document.getElementById('nego-project-id').value = projectId;
+            document.getElementById('nego-current-price').textContent = currentPrice ? `${currentPrice.toLocaleString()}원` : '미정';
+            document.getElementById('nego-current-duration').textContent = currentDuration || '미정';
+            document.getElementById('nego-requested-price').value = '';
+            document.getElementById('nego-requested-duration').value = '';
+            document.getElementById('nego-message').value = '';
+            document.getElementById('negotiation-modal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeNegotiationModal() {
+            document.getElementById('negotiation-modal').classList.add('hidden');
+        }
+
+        async function submitNegotiation() {
+            const projectId = document.getElementById('nego-project-id').value;
+            const requestedPrice = document.getElementById('nego-requested-price').value;
+            const requestedDuration = document.getElementById('nego-requested-duration').value;
+            const message = document.getElementById('nego-message').value;
+
+            if (!requestedPrice && !requestedDuration) {
+                showNotification('희망 금액 또는 희망 기간을 입력해주세요.', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/negotiate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        requested_price: requestedPrice ? parseInt(requestedPrice) : null,
+                        requested_duration: requestedDuration || null,
+                        message: message
+                    })
+                });
+
+                if (response.ok) {
+                    showNotification('조건 협의 요청이 전송되었습니다.', 'success');
+                    closeNegotiationModal();
                     fetchProjects();
                 } else {
-                    showNotification('처리에 실패했습니다.', 'error');
+                    const data = await response.json();
+                    showNotification(data.message || '처리에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                console.error(error);
+                showNotification('서버 연결에 실패했습니다.', 'error');
+            }
+        }
+
+        // ========================================
+        // 계약서 관련 함수
+        // ========================================
+
+        async function openContractModal(projectId) {
+            document.getElementById('contract-project-id').value = projectId;
+            document.getElementById('contract-modal').classList.remove('hidden');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/contract/preview`);
+                const data = await response.json();
+
+                // 계약서 미리보기 렌더링
+                document.getElementById('contract-preview').innerHTML = `
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <strong style="font-size: 1.1rem;">ISO 인증 컨설팅 용역 계약서</strong>
+                    </div>
+                    
+                    <p><strong>제1조 (계약 당사자)</strong></p>
+                    <p style="margin-left: 16px;">
+                        갑(의뢰인): <strong>${data.company_name}</strong> ${data.company_company_name ? `(${data.company_company_name})` : ''}<br>
+                        을(수행자): <strong>${data.consultant_name}</strong> ${data.consultant_company_name ? `(${data.consultant_company_name})` : ''}
+                    </p>
+                    
+                    <p><strong>제2조 (용역 내용)</strong></p>
+                    <p style="margin-left: 16px;">
+                        본 계약의 대상 용역은 <strong>${data.title}</strong>으로 한다.
+                    </p>
+                    
+                    <p><strong>제3조 (계약 금액)</strong></p>
+                    <p style="margin-left: 16px;">
+                        본 용역의 총 계약금액은 <strong>${data.proposal_price ? data.proposal_price.toLocaleString() + '원' : '별도 협의'}</strong>으로 한다.
+                    </p>
+                    
+                    <p><strong>제4조 (수행 기간)</strong></p>
+                    <p style="margin-left: 16px;">
+                        본 용역의 수행 기간은 계약 체결일로부터 <strong>${data.proposal_duration || '별도 협의 기간'}</strong>으로 한다.
+                    </p>
+                    
+                    <p><strong>제5조 (비밀 유지)</strong></p>
+                    <p style="margin-left: 16px;">
+                        갑과 을은 본 계약의 수행 과정에서 취득한 상대방의 비밀 정보를 제3자에게 누설하거나 본 계약 외의 목적으로 사용하지 않는다.
+                    </p>
+                    
+                    ${data.special_terms ? `
+                    <p><strong>특약 사항</strong></p>
+                    <p style="margin-left: 16px; white-space: pre-wrap;">${data.special_terms}</p>
+                    ` : ''}
+                `;
+
+                // 서명 상태 표시
+                const companySigned = data.company_signed_at;
+                const consultantSigned = data.consultant_signed_at;
+                const isCompany = user.role !== 'consultant';
+                const mySignStatus = isCompany ? companySigned : consultantSigned;
+                const otherSignStatus = isCompany ? consultantSigned : companySigned;
+
+                document.getElementById('contract-signature-status').innerHTML = `
+                    <div style="display: flex; gap: 12px;">
+                        <div style="flex: 1; padding: 12px; border-radius: 8px; text-align: center; background: ${companySigned ? 'rgba(16, 185, 129, 0.1)' : 'rgba(156, 163, 175, 0.1)'};">
+                            <i data-lucide="${companySigned ? 'check-circle' : 'circle'}" style="width: 20px; height: 20px; color: ${companySigned ? 'var(--primary)' : 'var(--text-muted)'};"></i>
+                            <div style="font-size: 0.85rem; margin-top: 4px; color: ${companySigned ? 'var(--primary)' : 'var(--text-muted)'};">기업 서명 ${companySigned ? '완료' : '대기'}</div>
+                        </div>
+                        <div style="flex: 1; padding: 12px; border-radius: 8px; text-align: center; background: ${consultantSigned ? 'rgba(16, 185, 129, 0.1)' : 'rgba(156, 163, 175, 0.1)'};">
+                            <i data-lucide="${consultantSigned ? 'check-circle' : 'circle'}" style="width: 20px; height: 20px; color: ${consultantSigned ? 'var(--primary)' : 'var(--text-muted)'};"></i>
+                            <div style="font-size: 0.85rem; margin-top: 4px; color: ${consultantSigned ? 'var(--primary)' : 'var(--text-muted)'};">전문가 서명 ${consultantSigned ? '완료' : '대기'}</div>
+                        </div>
+                    </div>
+                `;
+
+                // 이미 내가 서명한 경우 버튼 비활성화
+                const signBtn = document.getElementById('contract-sign-btn');
+                if (mySignStatus) {
+                    signBtn.disabled = true;
+                    signBtn.textContent = '서명 완료';
+                    signBtn.style.opacity = '0.5';
+                } else {
+                    signBtn.disabled = false;
+                    signBtn.innerHTML = '<i data-lucide="pen-tool" style="width: 16px; height: 16px;"></i> 서명하기';
+                    signBtn.style.opacity = '1';
+                }
+
+                lucide.createIcons();
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('contract-preview').innerHTML = '<p style="color: var(--error);">계약서를 불러오지 못했습니다.</p>';
+            }
+        }
+
+        function closeContractModal() {
+            document.getElementById('contract-modal').classList.add('hidden');
+        }
+
+        async function signContract() {
+            const projectId = document.getElementById('contract-project-id').value;
+            const signer = user.role === 'consultant' ? 'consultant' : 'company';
+
+            if (!confirm('계약서에 서명하시겠습니까? 서명 후에는 취소할 수 없습니다.')) return;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/contract/sign`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ signer })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showNotification(data.message, 'success');
+                    closeContractModal();
+                    fetchProjects();
+                } else {
+                    showNotification(data.message || '서명에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                console.error(error);
+                showNotification('서버 연결에 실패했습니다.', 'error');
+            }
+        }
+
+        // ========================================
+        // 전문가용 협의 응답 함수
+        // ========================================
+
+        async function respondNegotiation(projectId, action) {
+            const actionTexts = { accept: '수락', counter: '역제안', reject: '거절' };
+            if (!confirm(`조건 협의를 ${actionTexts[action]}하시겠습니까?`)) return;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/negotiate/respond`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showNotification(data.message, 'success');
+                    fetchProjects();
+                } else {
+                    showNotification(data.message || '처리에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                console.error(error);
+                showNotification('서버 연결에 실패했습니다.', 'error');
+            }
+        }
+
+        function openCounterOfferModal(projectId) {
+            const counterPrice = prompt('역제안 금액을 입력하세요 (원):');
+            if (counterPrice === null) return;
+
+            const counterDuration = prompt('역제안 기간을 입력하세요 (예: 3개월):');
+            if (counterDuration === null) return;
+
+            const message = prompt('역제안 메시지를 입력하세요 (선택):') || '';
+
+            submitCounterOffer(projectId, counterPrice, counterDuration, message);
+        }
+
+        async function submitCounterOffer(projectId, counterPrice, counterDuration, message) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/negotiate/respond`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'counter',
+                        counter_price: counterPrice ? parseInt(counterPrice) : null,
+                        counter_duration: counterDuration || null,
+                        message: message
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showNotification(data.message, 'success');
+                    fetchProjects();
+                } else {
+                    showNotification(data.message || '처리에 실패했습니다.', 'error');
                 }
             } catch (error) {
                 console.error(error);

@@ -183,6 +183,18 @@ class Project(db.Model):
     cancelled_at = db.Column(db.DateTime)  # 취소 시간
     cancelled_reason = db.Column(db.String(500))  # 취소 사유
     
+    # ⑤ 조건 협의 (Negotiation) 관련 필드
+    negotiation_status = db.Column(db.String(50))  # pending, accepted, counter, rejected
+    negotiation_data = db.Column(db.Text)  # JSON: {requested_price, requested_duration, message, response}
+    negotiation_requested_at = db.Column(db.DateTime)
+    negotiation_responded_at = db.Column(db.DateTime)
+    
+    # ⑥ 계약서 (Contract) 관련 필드
+    contract_pdf_url = db.Column(db.String(500))  # 생성된 계약서 PDF URL
+    contract_special_terms = db.Column(db.Text)  # 특약 사항
+    company_signed_at = db.Column(db.DateTime)  # 기업 서명 시간
+    consultant_signed_at = db.Column(db.DateTime)  # 전문가 서명 시간
+    
     milestones = db.relationship('Milestone', backref='project', lazy=True)
     
     def to_dict(self):
@@ -203,6 +215,15 @@ class Project(db.Model):
             'proposal_file_url': self.proposal_file_url,
             'proposal_submitted_at': self.proposal_submitted_at.isoformat() if self.proposal_submitted_at else None,
             'schedule_status': self.schedule_status,
+            # Negotiation fields
+            'negotiation_status': self.negotiation_status,
+            'negotiation_data': json.loads(self.negotiation_data) if self.negotiation_data else None,
+            'negotiation_requested_at': self.negotiation_requested_at.isoformat() if self.negotiation_requested_at else None,
+            # Contract fields
+            'contract_pdf_url': self.contract_pdf_url,
+            'contract_special_terms': self.contract_special_terms,
+            'company_signed_at': self.company_signed_at.isoformat() if self.company_signed_at else None,
+            'consultant_signed_at': self.consultant_signed_at.isoformat() if self.consultant_signed_at else None,
             'milestones': [m.to_dict() for m in self.milestones]
         }
 

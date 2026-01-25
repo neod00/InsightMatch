@@ -676,6 +676,239 @@ def sign_contract(project_id):
     return jsonify({'message': 'Contract signed successfully', 'status': project.status})
 
 # ========================================
+# ⑤ 조건 협의 (Negotiation) API
+# ========================================
+
+@app.route('/api/projects/<int:project_id>/negotiate', methods=['POST'])
+def request_negotiation(project_id):
+    """기업이 전문가에게 조건 협의 요청"""
+    project = Project.query.get_or_404(project_id)
+    
+    # 제안서가 제출된 상태에서만 협의 가능
+    if project.status != 'proposal_submitted':
+        return jsonify({'message': '제안서가 제출된 프로젝트만 조건 협의가 가능합니다.'}), 400
+    
+    data = request.json
+    requested_price = data.get('requested_price')
+    requested_duration = data.get('requested_duration')
+    message = data.get('message', '')
+    
+    if not requested_price and not requested_duration:
+        return jsonify({'message': '희망 금액 또는 희망 기간을 입력해주세요.'}), 400
+    
+    # 협의 데이터 저장
+    negotiation_data = {
+        'original_price': project.proposal_price,
+        'original_duration': project.proposal_duration,
+        'requested_price': requested_price,
+        'requested_duration': requested_duration,
+        'company_message': message
+    }
+    
+    project.negotiation_data = json.dumps(negotiation_data)
+    project.negotiation_status = 'pending'
+    project.negotiation_requested_at = datetime.datetime.utcnow()
+    project.status = 'negotiating'
+    
+    db.session.commit()
+    
+    # 전문가에게 알림 발송
+    try:
+        consultant = Consultant.query.get(project.consultant_id)
+        if consultant and consultant.user_id:
+            company_user = User.query.get(project.company_id)
+            company_name = company_user.name if company_user else '기업'
+            notification = Notification(
+                user_id=consultant.user_id,
+                type='negotiation_requested',
+                title=f'{company_name}에서 조건 협의를 요청했습니다',
+                message=f'희망 금액: {requested_price:,}원' if requested_price else f'희망 기간: {requested_duration}',
+                link='/dashboard.html'
+            )
+            db.session.add(notification)
+            db.session.commit()
+    except Exception as e:
+        print(f"[Notification] Failed: {e}")
+    
+    return jsonify({
+        'message': '조건 협의 요청이 전송되었습니다.',
+        'status': project.status,
+        'negotiation_status': project.negotiation_status
+    })
+
+@app.route('/api/projects/<int:project_id>/negotiate/respond', methods=['POST'])
+def respond_negotiation(project_id):
+    """전문가가 협의 요청에 응답 (수락/역제안/거절)"""
+    project = Project.query.get_or_404(project_id)
+    
+    if project.status != 'negotiating':
+        return jsonify({'message': '협의 중인 프로젝트가 아닙니다.'}), 400
+    
+    data = request.json
+    action = data.get('action')  # accept, counter, reject
+    
+    if action not in ['accept', 'counter', 'reject']:
+        return jsonify({'message': '유효한 응답을 선택해주세요.'}), 400
+    
+    negotiation_data = json.loads(project.negotiation_data) if project.negotiation_data else {}
+    
+    if action == 'accept':
+        # 요청된 조건으로 제안서 업데이트
+        if negotiation_data.get('requested_price'):
+            project.proposal_price = int(negotiation_data['requested_price'])
+        if negotiation_data.get('requested_duration'):
+            project.proposal_duration = negotiation_data['requested_duration']
+        
+        project.negotiation_status = 'accepted'
+        project.status = 'proposal_submitted'  # 다시 제안 완료 상태로
+        message = '조건 협의가 수락되었습니다. 최종 선택을 진행해주세요.'
+        
+    elif action == 'counter':
+        # 역제안
+        counter_price = data.get('counter_price')
+        counter_duration = data.get('counter_duration')
+        counter_message = data.get('message', '')
+        
+        negotiation_data['counter_price'] = counter_price
+        negotiation_data['counter_duration'] = counter_duration
+        negotiation_data['consultant_message'] = counter_message
+        
+        project.negotiation_data = json.dumps(negotiation_data)
+        project.negotiation_status = 'counter'
+        message = '역제안이 전송되었습니다.'
+        
+    else:  # reject
+        reject_message = data.get('message', '')
+        negotiation_data['consultant_message'] = reject_message
+        project.negotiation_data = json.dumps(negotiation_data)
+        project.negotiation_status = 'rejected'
+        project.status = 'proposal_submitted'  # 다시 제안 완료 상태로
+        message = '조건 협의가 거절되었습니다.'
+    
+    project.negotiation_responded_at = datetime.datetime.utcnow()
+    db.session.commit()
+    
+    # 기업에게 알림 발송
+    try:
+        company_user = User.query.get(project.company_id)
+        consultant = Consultant.query.get(project.consultant_id)
+        if company_user and consultant:
+            action_text = {'accept': '수락', 'counter': '역제안', 'reject': '거절'}
+            notification = Notification(
+                user_id=company_user.id,
+                type='negotiation_response',
+                title=f'{consultant.name}님이 조건 협의에 {action_text[action]}했습니다',
+                message=message,
+                link='/dashboard.html'
+            )
+            db.session.add(notification)
+            db.session.commit()
+    except Exception as e:
+        print(f"[Notification] Failed: {e}")
+    
+    return jsonify({
+        'message': message,
+        'status': project.status,
+        'negotiation_status': project.negotiation_status
+    })
+
+# ========================================
+# ⑥ 표준 계약서 (Contract) API
+# ========================================
+
+@app.route('/api/projects/<int:project_id>/contract/draft', methods=['POST'])
+def create_contract_draft(project_id):
+    """계약서 초안 생성"""
+    project = Project.query.get_or_404(project_id)
+    
+    if project.status not in ['proposal_submitted', 'negotiating']:
+        return jsonify({'message': '제안서가 확정된 프로젝트만 계약서를 생성할 수 있습니다.'}), 400
+    
+    data = request.json or {}
+    special_terms = data.get('special_terms', '')
+    
+    project.contract_special_terms = special_terms
+    project.status = 'pending_contract'
+    
+    db.session.commit()
+    
+    return jsonify({
+        'message': '계약서 초안이 생성되었습니다. 내용을 확인하고 서명해주세요.',
+        'status': project.status
+    })
+
+@app.route('/api/projects/<int:project_id>/contract/sign', methods=['POST'])
+def sign_contract_step(project_id):
+    """계약서 서명 (기업 또는 전문가)"""
+    project = Project.query.get_or_404(project_id)
+    
+    if project.status not in ['pending_contract', 'awaiting_signature']:
+        return jsonify({'message': '계약서가 준비된 프로젝트만 서명할 수 있습니다.'}), 400
+    
+    data = request.json
+    signer = data.get('signer')  # 'company' or 'consultant'
+    
+    if signer not in ['company', 'consultant']:
+        return jsonify({'message': '서명자 정보가 필요합니다.'}), 400
+    
+    now = datetime.datetime.utcnow()
+    
+    if signer == 'company':
+        project.company_signed_at = now
+    else:
+        project.consultant_signed_at = now
+    
+    # 양측 모두 서명 완료 시
+    if project.company_signed_at and project.consultant_signed_at:
+        project.status = 'contracted'
+        project.start_date = now
+        
+        # 마일스톤 생성
+        if not project.milestones:
+            defaults = ["Kick-off Meeting", "Gap Analysis", "Documentation", "Internal Audit", "Final Certification"]
+            for title in defaults:
+                m = Milestone(project_id=project.id, title=title)
+                db.session.add(m)
+        
+        message = '양측 서명이 완료되어 계약이 체결되었습니다!'
+    else:
+        project.status = 'awaiting_signature'
+        other_party = '전문가' if signer == 'company' else '기업'
+        message = f'서명이 완료되었습니다. {other_party}의 서명을 기다리고 있습니다.'
+    
+    db.session.commit()
+    
+    return jsonify({
+        'message': message,
+        'status': project.status,
+        'company_signed': project.company_signed_at is not None,
+        'consultant_signed': project.consultant_signed_at is not None
+    })
+
+@app.route('/api/projects/<int:project_id>/contract/preview', methods=['GET'])
+def get_contract_preview(project_id):
+    """계약서 미리보기 데이터 반환"""
+    project = Project.query.get_or_404(project_id)
+    
+    company_user = User.query.get(project.company_id)
+    consultant = Consultant.query.get(project.consultant_id)
+    
+    return jsonify({
+        'project_id': project.id,
+        'title': project.title,
+        'company_name': company_user.name if company_user else '기업',
+        'company_company_name': company_user.company_name if company_user else '',
+        'consultant_name': consultant.name if consultant else '전문가',
+        'consultant_company_name': consultant.company_name if consultant else '',
+        'proposal_price': project.proposal_price,
+        'proposal_duration': project.proposal_duration,
+        'special_terms': project.contract_special_terms,
+        'company_signed_at': project.company_signed_at.isoformat() if project.company_signed_at else None,
+        'consultant_signed_at': project.consultant_signed_at.isoformat() if project.consultant_signed_at else None,
+        'status': project.status
+    })
+
+# ========================================
 # ② 컨설턴트 직접 견적 체계
 # ========================================
 
