@@ -450,12 +450,19 @@
                             <ul style="list-style: none; padding: 0; margin: 0;">
                                 ${projects.map(p => {
                         const statusText = p.status === 'contracted' ? '계약 완료'
-                            : p.status === 'proposal_pending' ? '견적 대기'
-                                : p.status === 'proposal_submitted' ? '견적 발송 완료'
-                                    : p.status;
+                            : p.status === 'in_progress' ? '진행중'
+                                : p.status === 'proposal_pending' ? '견적 대기'
+                                    : p.status === 'proposal_submitted' ? '견적 발송 완료'
+                                        : p.status === 'awaiting_signature' ? '서명 대기'
+                                            : p.status === 'completed' ? '완료'
+                                                : p.status;
+                        // Extract ISO standard from project title (e.g., "ISO 9001:2015 인증 프로젝트" -> "ISO 9001:2015")
+                        const isoMatch = p.title ? p.title.match(/(ISO[\s\/]?\w+[:\s]?\d*)/i) : null;
+                        const isoStandard = isoMatch ? isoMatch[1].trim() : '';
                         return `
-                                        <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px;">
-                                            <span style="color: var(--text-primary);">• ${p.consultant_name}</span>
+                                        <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                            <span style="color: var(--text-primary); font-weight: 500;">• ${p.consultant_name}</span>
+                                            ${isoStandard ? `<span style="background: rgba(16, 185, 129, 0.15); color: var(--secondary); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">${isoStandard}</span>` : ''}
                                             <span style="color: var(--text-muted); font-size: 0.85rem;">(${statusText})</span>
                                         </li>
                                     `;
