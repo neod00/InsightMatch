@@ -438,36 +438,76 @@
                 const projects = job.related_projects || [];
                 const projectCount = job.project_count || 0;
 
-                // Consultants section - always show, even if empty
+                // Consultants section grouped by ISO Standard
                 let consultantsHtml = '';
                 if (projectCount > 0) {
-                    consultantsHtml = `
-                        <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);">
-                            <h5 style="font-size: 0.95rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                                <i data-lucide="users" style="width: 16px; height: 16px; color: var(--primary);"></i>
-                                매칭된 컨설턴트: ${projectCount}명
-                            </h5>
-                            <ul style="list-style: none; padding: 0; margin: 0;">
-                                ${projects.map(p => {
-                        const statusText = p.status === 'contracted' ? '계약 완료'
-                            : p.status === 'in_progress' ? '진행중'
-                                : p.status === 'proposal_pending' ? '견적 대기'
-                                    : p.status === 'proposal_submitted' ? '견적 발송 완료'
-                                        : p.status === 'awaiting_signature' ? '서명 대기'
-                                            : p.status === 'completed' ? '완료'
-                                                : p.status;
-                        // Extract ISO standard from project title (e.g., "ISO 9001:2015 인증 프로젝트" -> "ISO 9001:2015")
+                    // Grouping logic for standard-centric view
+                    const groupedByStandard = {};
+                    projects.forEach(p => {
+                        // Extract ISO standard from title
                         const isoMatch = p.title ? p.title.match(/(ISO[\s\/]?\w+[:\s]?\d*)/i) : null;
-                        const isoStandard = isoMatch ? isoMatch[1].trim() : '';
-                        return `
-                                        <li style="padding: 8px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                            <span style="color: var(--text-primary); font-weight: 500;">• ${p.consultant_name}</span>
-                                            ${isoStandard ? `<span style="background: rgba(16, 185, 129, 0.15); color: var(--secondary); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">${isoStandard}</span>` : ''}
-                                            <span style="color: var(--text-muted); font-size: 0.85rem;">(${statusText})</span>
-                                        </li>
-                                    `;
-                    }).join('')}
-                            </ul>
+                        const isoStandard = isoMatch ? isoMatch[1].trim().toUpperCase() : '기타/미지정';
+
+                        if (!groupedByStandard[isoStandard]) {
+                            groupedByStandard[isoStandard] = [];
+                        }
+                        groupedByStandard[isoStandard].push(p);
+                    });
+
+                    let standardsHtml = '';
+                    // Sort standards alphabetically
+                    const sortedStandards = Object.keys(groupedByStandard).sort();
+
+                    sortedStandards.forEach(std => {
+                        const stdProjects = groupedByStandard[std];
+                        standardsHtml += `
+                            <div style="margin-bottom: 20px; background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                                    <span style="background: var(--primary-gradient); color: white; padding: 2px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.5px;">
+                                        ${std}
+                                    </span>
+                                    <span style="color: var(--text-muted); font-size: 0.8rem;">(${stdProjects.length}명 매칭)</span>
+                                </div>
+                                <ul style="list-style: none; padding: 0; margin: 0;">
+                                    ${stdProjects.map(p => {
+                            const statusText = p.status === 'contracted' ? '계약 완료'
+                                : p.status === 'in_progress' ? '진행중'
+                                    : p.status === 'proposal_pending' ? '견적 대기'
+                                        : p.status === 'proposal_submitted' ? '견적 발송 완료'
+                                            : p.status === 'awaiting_signature' ? '서명 대기'
+                                                : p.status === 'completed' ? '완료'
+                                                    : p.status;
+
+                            const statusStyle = p.status === 'in_progress' || p.status === 'contracted'
+                                ? 'color: var(--secondary); font-weight: 500;'
+                                : 'color: var(--text-muted);';
+
+                            return `
+                                            <li style="padding: 6px 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                                                <div style="display: flex; align-items: center; gap: 8px;">
+                                                    <div style="width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: var(--text-primary);">
+                                                        ${p.consultant_name.charAt(0)}
+                                                    </div>
+                                                    <span style="color: var(--text-primary); font-size: 0.9rem;">${p.consultant_name}</span>
+                                                </div>
+                                                <span style="font-size: 0.8rem; ${statusStyle}">[${statusText}]</span>
+                                            </li>
+                                        `;
+                        }).join('')}
+                                </ul>
+                            </div>
+                        `;
+                    });
+
+                    consultantsHtml = `
+                        <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+                            <h5 style="font-size: 0.95rem; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; color: var(--text-primary);">
+                                <i data-lucide="layers" style="width: 18px; height: 18px; color: var(--primary);"></i>
+                                규격별 매칭 현황
+                            </h5>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
+                                ${standardsHtml}
+                            </div>
                         </div>
                     `;
                 } else {
