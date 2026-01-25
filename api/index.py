@@ -1436,96 +1436,97 @@ def get_available_consultants(title):
 # --- Admin Endpoints ---
 @app.route('/api/admin/jobs', methods=['GET'])
 def get_admin_jobs():
-    # Filter parameter for showing deleted items
-    show_deleted = request.args.get('show_deleted', 'false').lower() == 'true'
-    
+    """
+    Get all matching requests (projects) for admin dashboard.
+    Now queries from Project table directly instead of AnalysisJob.
+    Groups projects by company to show all consultants matched to each company.
+    """
     try:
-        # Base query
-        query = AnalysisJob.query
+        # Get all projects ordered by creation date
+        projects = Project.query.order_by(Project.created_at.desc()).all()
         
-        # Filter out deleted items unless explicitly requested
-        if not show_deleted:
-            query = query.filter(AnalysisJob.deleted_at.is_(None))
+        # Group projects by company_id
+        company_projects = {}
+        for p in projects:
+            company_id = p.company_id
+            if company_id not in company_projects:
+                company_projects[company_id] = []
+            company_projects[company_id].append(p)
         
-        jobs = query.order_by(AnalysisJob.created_at.desc()).all()
         results = []
         
-        for job in jobs:
-            # Get intake data for matching info
-            intake_data = job.get_intake_data() if job.intake_data else {}
+        for company_id, project_list in company_projects.items():
+            # Get company/user info
+            user = User.query.get(company_id)
+            company_name = user.company_name or user.name if user else '알 수 없음'
+            contact_email = user.email if user else None
             
-            # Find related projects by company name or email
-            company_name = job.company_name or intake_data.get('companyName', '')
+            # Get earliest project creation date for this company
+            earliest_project = min(project_list, key=lambda x: x.created_at if x.created_at else datetime.datetime.max)
+            
+            # Extract ISO standard from project title (e.g., "ISO 9001:2015 인증 프로젝트" -> "ISO 9001:2015")
+            standards = set()
+            for p in project_list:
+                if p.title:
+                    # Extract ISO standard pattern
+                    import re
+                    iso_match = re.search(r'(ISO[/\s]?\w+[:\s]?\d*)', p.title, re.IGNORECASE)
+                    if iso_match:
+                        standards.add(iso_match.group(1).strip())
+            
+            # Build related projects list with consultant info
             related_projects = []
+            for p in project_list:
+                consultant = Consultant.query.get(p.consultant_id) if p.consultant_id else None
+                related_projects.append({
+                    'project_id': p.id,
+                    'title': p.title,
+                    'status': p.status,
+                    'consultant_id': p.consultant_id,
+                    'consultant_name': consultant.name if consultant else 'Unknown',
+                    'created_at': p.created_at.isoformat() if p.created_at else None,
+                    'proposal_price': p.proposal_price,
+                    'proposal_submitted_at': p.proposal_submitted_at.isoformat() if p.proposal_submitted_at else None
+                })
             
-            if company_name:
-                # Try to find user by email first
-                contact_email = intake_data.get('contactEmail', '')
-                user = None
-                if contact_email:
-                    user = User.query.filter_by(email=contact_email).first()
-                
-                # If not found by email, try by name
-                if not user and company_name:
-                    user = User.query.filter_by(name=company_name).first()
-                
-                # Also search projects directly by title containing company_name or standards
-                standards = intake_data.get('standards', [])
-                if standards:
-                    # Build project title pattern from standards
-                    std_text = ', '.join(standards) if isinstance(standards, list) else str(standards)
-                    project_title_pattern = f"%{std_text}%"
-                    matching_projects = Project.query.filter(Project.title.like(project_title_pattern)).all()
-                    
-                    for p in matching_projects:
-                        consultant = Consultant.query.get(p.consultant_id)
-                        related_projects.append({
-                            'project_id': p.id,
-                            'title': p.title,
-                            'status': p.status,
-                            'consultant_id': p.consultant_id,
-                            'consultant_name': consultant.name if consultant else 'Unknown'
-                        })
-                
-                # Also add projects from user if found
-                if user:
-                    user_projects = Project.query.filter_by(company_id=user.id).all()
-                    existing_ids = [p['project_id'] for p in related_projects]
-                    for p in user_projects:
-                        if p.id not in existing_ids:
-                            consultant = Consultant.query.get(p.consultant_id)
-                            related_projects.append({
-                                'project_id': p.id,
-                                'title': p.title,
-                                'status': p.status,
-                                'consultant_id': p.consultant_id,
-                                'consultant_name': consultant.name if consultant else 'Unknown'
-                            })
+            # Determine overall status based on projects
+            statuses = [p.status for p in project_list]
+            if 'in_progress' in statuses or 'contracted' in statuses:
+                overall_status = 'completed'  # At least one project is active
+            elif 'proposal_submitted' in statuses:
+                overall_status = 'completed'  # Has proposals
+            else:
+                overall_status = 'processing'  # Still waiting
             
             results.append({
-                'id': job.id,
-                'company_name': job.company_name,
-                'url': job.url,
-                'status': job.status,
-                'created_at': job.created_at.isoformat() if job.created_at else None,
-                'deleted_at': job.deleted_at.isoformat() if job.deleted_at else None,
-                # Matching request info (instead of AI result)
+                'id': f"company_{company_id}",  # Unique ID for frontend
+                'company_name': company_name,
+                'url': '',  # No URL in direct matching
+                'status': overall_status,
+                'created_at': earliest_project.created_at.isoformat() if earliest_project.created_at else None,
+                'deleted_at': None,
                 'intake_data': {
-                    'industry': intake_data.get('industry'),
-                    'employees': intake_data.get('employees'),
-                    'region': intake_data.get('region'),
-                    'standards': intake_data.get('standards', []),
-                    'issues': intake_data.get('issues', []),
-                    'timeline': intake_data.get('timeline'),
-                    'budget': intake_data.get('budget'),
-                    'contact_email': intake_data.get('contactEmail')
+                    'industry': None,
+                    'employees': None,
+                    'region': None,
+                    'standards': list(standards),
+                    'issues': [],
+                    'timeline': None,
+                    'budget': None,
+                    'contact_email': contact_email
                 },
                 'related_projects': related_projects,
                 'project_count': len(related_projects)
             })
+        
+        # Sort by created_at descending
+        results.sort(key=lambda x: x['created_at'] or '', reverse=True)
+        
         return jsonify(results)
     except Exception as e:
         print(f"[Admin API] Error fetching jobs: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'message': '데이터를 불러오는 중 오류가 발생했습니다.', 'error': str(e)}), 500
 
 
