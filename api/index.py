@@ -18,7 +18,6 @@ import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, AnalysisJob, Consultant, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken
 from services import AIService, MatchingService, ProposalService, EmailService
-from constants import ISSUE_NAMES  # A4: Centralized constants
 
 # Load environment variables
 # Load from project root directory
@@ -41,22 +40,6 @@ def request_entity_too_large(error):
         'error': '파일 용량이 너무 큽니다. (최대 50MB까지 허용)',
         'message': '제안서 파일 크기를 줄이거나 50MB 이하의 파일을 선택해주세요.'
     }), 413
-
-@app.errorhandler(Exception)
-def handle_exception(e):
-    # Pass through HTTP errors
-    if hasattr(e, 'code') and e.code < 500:
-        return jsonify({'message': str(e)}), e.code
-    
-    # Handle non-HTTP exceptions only
-    import traceback
-    error_msg = traceback.format_exc()
-    print(f"DEBUG - EXCEPTION: {error_msg}")
-    return jsonify({
-        'message': 'Internal Server Error',
-        'error': str(e),
-        'traceback': error_msg if not os.environ.get('VERCEL') else 'Log checked in Vercel'
-    }), 500
 
 # Database Config - Use SQLite for local development, PostgreSQL for production
 is_local_dev = not os.environ.get('VERCEL')  # Vercel sets this env var in production
@@ -180,28 +163,13 @@ def login():
         'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
     }, app.config['SECRET_KEY'], algorithm="HS256")
     
-    # 컨설턴트인 경우 프로필 등록 여부 확인
-    # 회원가입 시 빈 Consultant 레코드가 생성되므로, 실제 프로필 등록 여부는 iso_experience로 판단
-    has_consultant_profile = False
-    consultant_id = None
-    if user.role == 'consultant':
-        consultant = Consultant.query.filter_by(user_id=user.id).first()
-        if consultant:
-            consultant_id = consultant.id
-            # iso_experience가 있으면 프로필이 등록된 것으로 간주
-            iso_exp = consultant.iso_experience
-            if iso_exp and iso_exp not in ['{}', '[]', 'null', '']:
-                has_consultant_profile = True
-    
     return jsonify({
         'token': token,
         'user': {
             'id': user.id,
             'name': user.name,
             'email': user.email,
-            'role': user.role,
-            'has_consultant_profile': has_consultant_profile,
-            'consultant_id': consultant_id
+            'role': user.role
         }
     })
 
@@ -447,8 +415,34 @@ def direct_match():
     # Get matched consultants
     matched_consultants = matching_service.match_consultants(criteria)
     
-    # Build issues summary - A4: Using centralized constant
-    issues_summary = ', '.join([ISSUE_NAMES.get(issue.get('id'), issue.get('id', '')) for issue in issues[:5]])
+    # Build issues summary
+    issue_names = {
+        'quality_defect': '품질 불량',
+        'customer_complaint': '고객 클레임',
+        'process_inefficiency': '프로세스 비효율',
+        'supplier_quality': '공급업체 품질',
+        'safety_incident': '안전사고',
+        'env_regulation': '환경 규제',
+        'energy_cost': '에너지 비용',
+        'work_condition': '작업환경',
+        'esg_demand': 'ESG 요구',
+        'carbon_report': '탄소 보고',
+        'carbon_neutral': '탄소중립',
+        'esg_disclosure': 'ESG 공시',
+        'security_incident': '정보보안',
+        'privacy_need': '개인정보',
+        'cloud_security': '클라우드 보안',
+        'ai_risk': 'AI 리스크',
+        'supply_unstable': '공급망 불안정',
+        'crisis_response': '위기 대응',
+        'compliance_risk': '컴플라이언스',
+        'corruption_prevent': '부패 방지',
+        'turnover': '이직률',
+        'burnout': '번아웃',
+        'knowledge_loss': '지식 유실'
+    }
+    
+    issues_summary = ', '.join([issue_names.get(issue.get('id'), issue.get('id', '')) for issue in issues[:5]])
     
     # Build result
     result = {
@@ -522,106 +516,28 @@ def get_consultants():
 
 @app.route('/api/consultants/register', methods=['POST'])
 def register_consultant():
-    """
-    컨설턴트 프로필 등록/업데이트 API
-    
-    개선 사항:
-    1. JWT 인증된 사용자의 기존 Consultant 레코드를 업데이트 (중복 생성 방지)
-    2. ISO 경험 데이터를 매칭 엔진 호환 형식(딕셔너리)으로 정규화
-    3. 경력 데이터를 "N년" 형식으로 통일
-    """
     data = request.json
-    
-    # JWT 토큰에서 사용자 정보 추출 (인증 필수)
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return jsonify({'message': '로그인이 필요합니다.'}), 401
-    
-    try:
-        token = auth_header.split(' ')[1]
-        payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-        user_id = payload.get('user_id')
-    except jwt.ExpiredSignatureError:
-        return jsonify({'message': '세션이 만료되었습니다. 다시 로그인해주세요.'}), 401
-    except jwt.InvalidTokenError:
-        return jsonify({'message': '유효하지 않은 인증입니다.'}), 401
-    
-    # 해당 user_id로 기존 Consultant 조회
-    consultant = Consultant.query.filter_by(user_id=user_id).first()
-    
-    if not consultant:
-        # signup 시 생성되지 않았다면 새로 생성 (예외 케이스)
-        consultant = Consultant(user_id=user_id)
-        db.session.add(consultant)
-    
-    # --- 데이터 정규화 ---
-    # 1. ISO 경험: 리스트 -> 딕셔너리 변환 (매칭 엔진 호환)
-    iso_list = data.get('iso_experience', [])
-    if isinstance(iso_list, list):
-        # ["9001", "14001"] -> {"9001": "Auditor", "14001": "Auditor"}
-        iso_dict = {iso: "Auditor" for iso in iso_list}
-    else:
-        iso_dict = iso_list  # 이미 딕셔너리면 그대로 사용
-    
-    # 2. 경력: 숫자 -> "N년" 형식
-    exp_raw = data.get('experience', 0)
-    experience_str = f"{exp_raw}년" if isinstance(exp_raw, (int, str)) and str(exp_raw).isdigit() else str(exp_raw)
-    
-    # 3. 상세 자격증: 텍스트 -> 리스트 구조화
-    detailed_certs_raw = data.get('detailed_certifications', '')
-    if isinstance(detailed_certs_raw, str):
-        # 텍스트를 줄바꿈이나 쉼표로 분리하여 리스트화
-        detailed_certs = [c.strip() for c in detailed_certs_raw.replace('\n', ',').split(',') if c.strip()]
-    else:
-        detailed_certs = detailed_certs_raw
-    
-    # 4. 최근 프로젝트: 텍스트 -> 리스트 구조화
-    recent_projects_raw = data.get('recent_projects', '')
-    if isinstance(recent_projects_raw, str):
-        recent_projects = [p.strip() for p in recent_projects_raw.split('\n') if p.strip()]
-    else:
-        recent_projects = recent_projects_raw
-    
-    # --- 컨설턴트 정보 업데이트 ---
-    consultant.name = data.get('name', consultant.name)
-    consultant.avatar = data.get('avatar', data.get('name', 'C')[0])
-    consultant.specialty = data.get('specialty', 'General')
-    consultant.experience = experience_str
-    consultant.match_reason = data.get('match_reason', consultant.match_reason)
-    consultant.certifications = data.get('certifications', '')
-    consultant.iso_experience = json.dumps(iso_dict)
-    consultant.industry_experience = json.dumps(data.get('industry_experience', []))
-    consultant.project_types = json.dumps(data.get('project_types', []))
-    consultant.org_size_experience = json.dumps(data.get('org_size_experience', []))
-    consultant.roles = json.dumps(data.get('roles', ['Consultant']))  # 기본 역할 부여
-    consultant.detailed_certifications = json.dumps(detailed_certs)
-    consultant.recent_projects = json.dumps(recent_projects)
-    
-    # 새 필드들 추가
-    consultant.regions = data.get('regions', '')  # 콤마로 구분된 지역 문자열
-    consultant.phone = data.get('phone', '')
-    consultant.company_name = data.get('company_name', '')
-    consultant.email = data.get('email', '')
-    consultant.profile_image_url = data.get('profile_image_url', consultant.profile_image_url)
-    
-    # 신규 등록 시 초기값 설정
-    if consultant.rating is None:
-        consultant.rating = 0.0
-    if consultant.reviews is None:
-        consultant.reviews = 0
-    if consultant.trust_score is None:
-        consultant.trust_score = 50.0
-    if consultant.verified is None:
-        consultant.verified = False
-    
+    new_consultant = Consultant(
+        name=data.get('name'),
+        avatar=data.get('avatar', 'N'),
+        specialty=data.get('specialty'),
+        experience=f"{data.get('experience')}년",
+        rating=5.0,
+        reviews=0,
+        match_reason=data.get('match_reason'),
+        certifications=data.get('certifications'),
+        iso_experience=json.dumps(data.get('iso_experience', {})),
+        industry_experience=json.dumps(data.get('industry_experience', [])),
+        project_types=json.dumps(data.get('project_types', [])),
+        org_size_experience=json.dumps(data.get('org_size_experience', [])),
+        roles=json.dumps(data.get('roles', [])),
+        detailed_certifications=json.dumps(data.get('detailed_certifications', [])),
+        verified=False,
+        trust_score=50.0
+    )
+    db.session.add(new_consultant)
     db.session.commit()
-    
-    return jsonify({
-        'message': '전문가 프로필이 등록되었습니다. 관리자 승인 후 매칭이 시작됩니다.',
-        'id': consultant.id,
-        'consultant_id': consultant.id,
-        'status': 'updated' if consultant.verified is not None else 'created'
-    }), 200
+    return jsonify({'message': 'Consultant registered successfully', 'id': new_consultant.id}), 201
 
 # --- Project Endpoints ---
 @app.route('/api/projects', methods=['GET', 'POST'])
@@ -632,52 +548,48 @@ def handle_projects():
         if not user_id:
             return jsonify({'message': 'User ID required'}), 400
         
-        try:
-            # 컨설턴트인 경우: user_id로 Consultant 테이블에서 consultant_id 조회
-            consultant = Consultant.query.filter_by(user_id=user_id).first()
-            consultant_id = consultant.id if consultant else None
-            
-            # 필터링
-            if consultant_id:
-                projects = Project.query.filter(
-                    (Project.company_id == user_id) | (Project.consultant_id == consultant_id)
-                ).all()
-            else:
-                projects = Project.query.filter(Project.company_id == user_id).all()
-        except Exception as e:
-            return jsonify({'message': 'Query failed', 'error': str(e)}), 500
+        # 컨설턴트인 경우: user_id로 Consultant 테이블에서 consultant_id 조회
+        consultant = Consultant.query.filter_by(user_id=user_id).first()
+        consultant_id = consultant.id if consultant else None
+        
+        # 필터링: company_id가 user_id이거나, consultant_id가 조회된 consultant의 id인 프로젝트
+        if consultant_id:
+            projects = Project.query.filter(
+                (Project.company_id == user_id) | (Project.consultant_id == consultant_id)
+            ).all()
+        else:
+            projects = Project.query.filter(Project.company_id == user_id).all()
         
         results = []
         for p in projects:
-            try:
-                consultant_info = Consultant.query.get(p.consultant_id) if p.consultant_id else None
-                company_user = User.query.get(p.company_id) if p.company_id else None
-                
-                results.append({
-                    'id': p.id,
-                    'title': p.title,
-                    'session_id': getattr(p, 'session_id', None),
-                    'status': p.status or 'proposal_pending',
-                    'consultant_id': p.consultant_id,
-                    'consultant_name': consultant_info.name if consultant_info else 'Unknown',
-                    'profile_image_url': consultant_info.profile_image_url if consultant_info else None,
-                    'company_id': p.company_id,
-                    'company_name': company_user.name if company_user else 'Unknown Company',
-                    'start_date': p.start_date.isoformat() if hasattr(p.start_date, 'isoformat') else None,
-                    'created_at': p.created_at.isoformat() if hasattr(p.created_at, 'isoformat') else None,
-                    'proposal_price': getattr(p, 'proposal_price', None),
-                    'proposal_duration': getattr(p, 'proposal_duration', None),
-                    'proposal_message': getattr(p, 'proposal_message', None),
-                    'proposal_file_url': getattr(p, 'proposal_file_url', None),
-                    'proposal_submitted_at': p.proposal_submitted_at.isoformat() if hasattr(p.proposal_submitted_at, 'isoformat') else None,
-                    'schedule_status': getattr(p, 'schedule_status', 'pending'),
-                    'cancelled_at': p.cancelled_at.isoformat() if hasattr(p, 'cancelled_at', 'isoformat') else None,
-                    'cancelled_reason': getattr(p, 'cancelled_reason', None),
-                    'milestones': [m.to_dict() for m in p.milestones] if hasattr(p, 'milestones') else []
-                })
-            except Exception as e:
-                print(f"Error processing project {getattr(p, 'id', 'unknown')}: {e}")
-                continue
+            consultant_info = Consultant.query.get(p.consultant_id)
+            company_user = User.query.get(p.company_id)
+            
+            results.append({
+                'id': p.id,
+                'title': p.title,
+                'session_id': getattr(p, 'session_id', None),
+                'status': p.status,
+                'consultant_id': p.consultant_id,
+                'consultant_name': consultant_info.name if consultant_info else 'Unknown',
+                'profile_image_url': consultant_info.profile_image_url if consultant_info else None,
+                'company_id': p.company_id,
+                'company_name': company_user.name if company_user else 'Unknown Company',
+                'start_date': p.start_date.isoformat() if p.start_date else None,
+                'created_at': p.created_at.isoformat() if hasattr(p, 'created_at') and p.created_at else None,
+                # 제안서 관련 필드 (① 견적 비교용)
+                'proposal_price': getattr(p, 'proposal_price', None),
+                'proposal_duration': getattr(p, 'proposal_duration', None),
+                'proposal_message': getattr(p, 'proposal_message', None),
+                'proposal_file_url': getattr(p, 'proposal_file_url', None),
+                'proposal_submitted_at': p.proposal_submitted_at.isoformat() if hasattr(p, 'proposal_submitted_at') and p.proposal_submitted_at else None,
+                # 일정 관련 필드 (③ 일정 워크플로우용)
+                'schedule_status': getattr(p, 'schedule_status', 'pending'),
+                # 취소 관련 필드 (④ 취소 이력)
+                'cancelled_at': p.cancelled_at.isoformat() if hasattr(p, 'cancelled_at') and p.cancelled_at else None,
+                'cancelled_reason': getattr(p, 'cancelled_reason', None),
+                'milestones': [m.to_dict() for m in p.milestones]
+            })
         return jsonify(results)
         
     elif request.method == 'POST':
@@ -1694,56 +1606,26 @@ def delete_admin_job(job_id):
 def approve_consultant(consultant_id):
     consultant = Consultant.query.get_or_404(consultant_id)
     consultant.verified = True
-    consultant.status = 'verified'
     consultant.trust_score = max(consultant.trust_score or 50, 70)
-    # Clear rejection info if previously rejected
-    consultant.rejection_reason = None
-    consultant.rejected_at = None
     db.session.commit()
-    return jsonify({'message': 'Consultant approved successfully', 'verified': True, 'status': 'verified'})
+    return jsonify({'message': 'Consultant approved successfully', 'verified': True})
 
 @app.route('/api/admin/consultants/<int:consultant_id>/reject', methods=['POST'])
 def reject_consultant(consultant_id):
     data = request.json
     reason = data.get('reason', 'No reason provided')
     consultant = Consultant.query.get_or_404(consultant_id)
-    # Don't delete - just mark as rejected
-    consultant.status = 'rejected'
-    consultant.verified = False
-    consultant.rejection_reason = reason
-    consultant.rejected_at = datetime.datetime.utcnow()
+    db.session.delete(consultant)
     db.session.commit()
-    return jsonify({
-        'message': f'Consultant rejected: {reason}',
-        'status': 'rejected',
-        'rejectionReason': reason
-    })
+    return jsonify({'message': f'Consultant rejected: {reason}'})
 
 @app.route('/api/admin/consultants/<int:consultant_id>/revoke', methods=['POST'])
 def revoke_consultant_verification(consultant_id):
     consultant = Consultant.query.get_or_404(consultant_id)
     consultant.verified = False
-    consultant.status = 'pending'
     consultant.trust_score = min(consultant.trust_score or 50, 50)
     db.session.commit()
-    return jsonify({'message': 'Consultant verification revoked', 'verified': False, 'status': 'pending'})
-
-@app.route('/api/admin/consultants/<int:consultant_id>/restore', methods=['POST'])
-def restore_consultant(consultant_id):
-    """거부된 컨설턴트를 승인 대기 상태로 복구"""
-    consultant = Consultant.query.get_or_404(consultant_id)
-    if consultant.status != 'rejected':
-        return jsonify({'message': 'Only rejected consultants can be restored'}), 400
-    
-    consultant.status = 'pending'
-    consultant.verified = False
-    # Keep rejection history for reference, but clear the active rejection
-    # Optionally clear: consultant.rejection_reason = None, consultant.rejected_at = None
-    db.session.commit()
-    return jsonify({
-        'message': 'Consultant restored to pending status',
-        'status': 'pending'
-    })
+    return jsonify({'message': 'Consultant verification revoked', 'verified': False})
 
 # --- Consultant Detail Endpoint ---
 @app.route('/api/consultants/<int:consultant_id>', methods=['GET'])

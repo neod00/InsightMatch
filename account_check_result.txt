@@ -1,0 +1,37 @@
+======================================================================
+1. 기업회원 계정: neod00@naver.com
+======================================================================
+User Found: ID=5, Name=김성혁, Email=neod00@naver.com, Role=company
+
+Projects for this company: 10건
+  ID:88 | ISO 9001:2015, ISO 14001:2015 인증 프로젝트 | Status:proposal_pending | Consultant:15
+  ID:87 | ISO 9001:2015, ISO 14001:2015 인증 프로젝트 | Status:proposal_pending | Consultant:7
+  ID:86 | ISO 50001:2018 인증 프로젝트 | Status:in_progress | Consultant:15
+  ID:85 | ISO 50001:2018 인증 프로젝트 | Status:proposal_pending | Consultant:14
+  ID:82 | ISO 14001:2015 인증 프로젝트 | Status:proposal_submitted | Consultant:15
+  ID:81 | ISO 14001:2015 인증 프로젝트 | Status:proposal_pending | Consultant:14
+  ID:80 | ISO 9001:2015 인증 프로젝트 | Status:awaiting_signature | Consultant:15
+  ID:79 | ISO 9001:2015 인증 프로젝트 | Status:proposal_pending | Consultant:14
+  ID:4 | ISO 9001, ISO 14001 인증 프로젝트 | Status:in_progress | Consultant:7
+  ID:3 | ISO 9001, ISO 14001 인증 프로젝트 | Status:in_progress | Consultant:6
+
+======================================================================
+2. 컨설턴트 계정: consultant@consultant.com
+======================================================================
+User Found: ID=19, Name=김컨설턴트, Email=consultant@consultant.com, Role=consultant
+
+Consultant Profile:
+  ID: 15
+  Name: 김컨설턴트
+  Status: verified
+  Verified: True
+  ProfileImage: 
+
+Projects assigned: 7건
+  ID:88 | ISO 9001:2015, ISO 14001:2015 인증 프로젝트 | Status:proposal_pending | Company:5
+  ID:86 | ISO 50001:2018 인증 프로젝트 | Status:in_progress | Company:5
+  ID:82 | ISO 14001:2015 인증 프로젝트 | Status:proposal_submitted | Company:5
+  ID:80 | ISO 9001:2015 인증 프로젝트 | Status:awaiting_signature | Company:5
+  ID:77 | ISO/IEC 27001:2022 인증 프로젝트 | Status:proposal_submitted | Company:21
+  ID:74 | ISO 14090:2019 인증 프로젝트 | Status:cancelled_by_company | Company:21
+  ID:52 | ISO 14064-1:2018, ISO 14067:2018 인증 프로젝트 | Status:proposal_submitted | Company:19
