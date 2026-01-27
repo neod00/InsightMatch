@@ -239,6 +239,10 @@
             return '';
         })();
 
+        // URL에서 redirect 파라미터 추출
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirectTo = urlParams.get('redirect');
+
         // 현재 선택된 로그인 타입
         let currentLoginRole = 'company';
 
@@ -406,9 +410,15 @@
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
 
-                    // Redirect based on role
+                    // Redirect based on role and profile status
                     if (userRole === 'admin') {
                         window.location.href = 'admin.html';
+                    } else if (userRole === 'consultant' && !data.user.has_consultant_profile) {
+                        // 컨설턴트 프로필이 없으면 등록 페이지로 이동
+                        window.location.href = 'consultant_register.html';
+                    } else if (redirectTo) {
+                        // URL 파라미터로 지정된 페이지로 이동
+                        window.location.href = redirectTo;
                     } else {
                         window.location.href = 'dashboard.html';
                     }

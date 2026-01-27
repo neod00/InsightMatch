@@ -164,13 +164,28 @@ def login():
         'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
     }, app.config['SECRET_KEY'], algorithm="HS256")
     
+    # 컨설턴트인 경우 프로필 등록 여부 확인
+    # 회원가입 시 빈 Consultant 레코드가 생성되므로, 실제 프로필 등록 여부는 iso_experience로 판단
+    has_consultant_profile = False
+    consultant_id = None
+    if user.role == 'consultant':
+        consultant = Consultant.query.filter_by(user_id=user.id).first()
+        if consultant:
+            consultant_id = consultant.id
+            # iso_experience가 있으면 프로필이 등록된 것으로 간주
+            iso_exp = consultant.iso_experience
+            if iso_exp and iso_exp not in ['{}', '[]', 'null', '']:
+                has_consultant_profile = True
+    
     return jsonify({
         'token': token,
         'user': {
             'id': user.id,
             'name': user.name,
             'email': user.email,
-            'role': user.role
+            'role': user.role,
+            'has_consultant_profile': has_consultant_profile,
+            'consultant_id': consultant_id
         }
     })
 
@@ -491,28 +506,99 @@ def get_consultants():
 
 @app.route('/api/consultants/register', methods=['POST'])
 def register_consultant():
+    """
+    컨설턴트 프로필 등록/업데이트 API
+    
+    개선 사항:
+    1. JWT 인증된 사용자의 기존 Consultant 레코드를 업데이트 (중복 생성 방지)
+    2. ISO 경험 데이터를 매칭 엔진 호환 형식(딕셔너리)으로 정규화
+    3. 경력 데이터를 "N년" 형식으로 통일
+    """
     data = request.json
-    new_consultant = Consultant(
-        name=data.get('name'),
-        avatar=data.get('avatar', 'N'),
-        specialty=data.get('specialty'),
-        experience=f"{data.get('experience')}년",
-        rating=5.0,
-        reviews=0,
-        match_reason=data.get('match_reason'),
-        certifications=data.get('certifications'),
-        iso_experience=json.dumps(data.get('iso_experience', {})),
-        industry_experience=json.dumps(data.get('industry_experience', [])),
-        project_types=json.dumps(data.get('project_types', [])),
-        org_size_experience=json.dumps(data.get('org_size_experience', [])),
-        roles=json.dumps(data.get('roles', [])),
-        detailed_certifications=json.dumps(data.get('detailed_certifications', [])),
-        verified=False,
-        trust_score=50.0
-    )
-    db.session.add(new_consultant)
+    
+    # JWT 토큰에서 사용자 정보 추출 (인증 필수)
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'message': '로그인이 필요합니다.'}), 401
+    
+    try:
+        token = auth_header.split(' ')[1]
+        payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+        user_id = payload.get('user_id')
+    except jwt.ExpiredSignatureError:
+        return jsonify({'message': '세션이 만료되었습니다. 다시 로그인해주세요.'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'message': '유효하지 않은 인증입니다.'}), 401
+    
+    # 해당 user_id로 기존 Consultant 조회
+    consultant = Consultant.query.filter_by(user_id=user_id).first()
+    
+    if not consultant:
+        # signup 시 생성되지 않았다면 새로 생성 (예외 케이스)
+        consultant = Consultant(user_id=user_id)
+        db.session.add(consultant)
+    
+    # --- 데이터 정규화 ---
+    # 1. ISO 경험: 리스트 -> 딕셔너리 변환 (매칭 엔진 호환)
+    iso_list = data.get('iso_experience', [])
+    if isinstance(iso_list, list):
+        # ["9001", "14001"] -> {"9001": "Auditor", "14001": "Auditor"}
+        iso_dict = {iso: "Auditor" for iso in iso_list}
+    else:
+        iso_dict = iso_list  # 이미 딕셔너리면 그대로 사용
+    
+    # 2. 경력: 숫자 -> "N년" 형식
+    exp_raw = data.get('experience', 0)
+    experience_str = f"{exp_raw}년" if isinstance(exp_raw, (int, str)) and str(exp_raw).isdigit() else str(exp_raw)
+    
+    # 3. 상세 자격증: 텍스트 -> 리스트 구조화
+    detailed_certs_raw = data.get('detailed_certifications', '')
+    if isinstance(detailed_certs_raw, str):
+        # 텍스트를 줄바꿈이나 쉼표로 분리하여 리스트화
+        detailed_certs = [c.strip() for c in detailed_certs_raw.replace('\n', ',').split(',') if c.strip()]
+    else:
+        detailed_certs = detailed_certs_raw
+    
+    # 4. 최근 프로젝트: 텍스트 -> 리스트 구조화
+    recent_projects_raw = data.get('recent_projects', '')
+    if isinstance(recent_projects_raw, str):
+        recent_projects = [p.strip() for p in recent_projects_raw.split('\n') if p.strip()]
+    else:
+        recent_projects = recent_projects_raw
+    
+    # --- 컨설턴트 정보 업데이트 ---
+    consultant.name = data.get('name', consultant.name)
+    consultant.avatar = data.get('avatar', data.get('name', 'C')[0])
+    consultant.specialty = data.get('specialty', 'General')
+    consultant.experience = experience_str
+    consultant.match_reason = data.get('match_reason', consultant.match_reason)
+    consultant.certifications = data.get('certifications', '')
+    consultant.iso_experience = json.dumps(iso_dict)
+    consultant.industry_experience = json.dumps(data.get('industry_experience', []))
+    consultant.project_types = json.dumps(data.get('project_types', []))
+    consultant.org_size_experience = json.dumps(data.get('org_size_experience', []))
+    consultant.roles = json.dumps(data.get('roles', ['Consultant']))  # 기본 역할 부여
+    consultant.detailed_certifications = json.dumps(detailed_certs)
+    consultant.recent_projects = json.dumps(recent_projects)
+    
+    # 신규 등록 시 초기값 설정
+    if consultant.rating is None:
+        consultant.rating = 0.0
+    if consultant.reviews is None:
+        consultant.reviews = 0
+    if consultant.trust_score is None:
+        consultant.trust_score = 50.0
+    if consultant.verified is None:
+        consultant.verified = False
+    
     db.session.commit()
-    return jsonify({'message': 'Consultant registered successfully', 'id': new_consultant.id}), 201
+    
+    return jsonify({
+        'message': '전문가 프로필이 등록되었습니다. 관리자 승인 후 매칭이 시작됩니다.',
+        'id': consultant.id,
+        'consultant_id': consultant.id,
+        'status': 'updated' if consultant.verified is not None else 'created'
+    }), 200
 
 # --- Project Endpoints ---
 @app.route('/api/projects', methods=['GET', 'POST'])

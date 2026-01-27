@@ -310,7 +310,12 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    showSuccess('회원가입이 완료되었습니다! 로그인 페이지로 이동합니다.');
+                    // 컨설턴트인 경우 프로필 등록 안내
+                    if (role === 'consultant') {
+                        showSuccess('회원가입이 완료되었습니다! 로그인 후 전문가 프로필을 등록해주세요.');
+                    } else {
+                        showSuccess('회원가입이 완료되었습니다! 로그인 페이지로 이동합니다.');
+                    }
                     setTimeout(() => {
                         window.location.href = 'login.html';
                     }, 2000);
