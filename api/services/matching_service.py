@@ -46,87 +46,102 @@ class MatchingService:
         scored_consultants = []
         
         for consultant in all_consultants:
-            score = 0
-            match_details = []
-            
-            # --- 1. ISO Match (25 points) ---
-            iso_score = 0
-            consultant_iso_raw = json.loads(consultant.iso_experience) if consultant.iso_experience else {}
-            consultant_iso = {normalize_iso_code(k): v for k, v in consultant_iso_raw.items()}
-            
-            matched_iso = []
-            for iso in target_iso:
-                if iso in consultant_iso:
-                    iso_score += 1
-                    matched_iso.append(iso)
-            
-            if target_iso:
-                iso_points = (iso_score / len(target_iso)) * MATCHING_WEIGHTS['iso_match']
-                score += iso_points
-                if matched_iso:
-                    match_details.append(f"ISO {', '.join(matched_iso)} 전문가")
+            try:
+                score = 0
+                match_details = []
+                
+                # --- 1. ISO Match (25 points) ---
+                iso_score = 0
+                consultant_iso_raw = json.loads(consultant.iso_experience) if consultant.iso_experience else {}
+                
+                # Normalize consultant ISO data (handle both list and dict)
+                if isinstance(consultant_iso_raw, dict):
+                    consultant_iso = {normalize_iso_code(k): v for k, v in consultant_iso_raw.items()}
+                elif isinstance(consultant_iso_raw, list):
+                    # If list, assume default role "Auditor"
+                    consultant_iso = {normalize_iso_code(k): "Auditor" for k in consultant_iso_raw}
+                else:
+                    consultant_iso = {}
+                
+                matched_iso = []
+                for iso in target_iso:
+                    if iso in consultant_iso:
+                        iso_score += 1
+                        matched_iso.append(iso)
+                
+                if target_iso:
+                    iso_points = (iso_score / len(target_iso)) * MATCHING_WEIGHTS['iso_match']
+                    score += iso_points
+                    if matched_iso:
+                        match_details.append(f"ISO {', '.join(matched_iso)} 전문가")
 
-            # --- 2. Industry Match (20 points - B3: Enhanced) ---
-            industry_match_score = self._calculate_industry_score(consultant, target_industry)
-            score += industry_match_score
-            if industry_match_score >= MATCHING_WEIGHTS['industry_match'] * 0.8:
-                match_details.append(f"{target_industry} 분야 풍부한 경험")
-            elif industry_match_score > 0:
-                match_details.append(f"{target_industry} 관련 분야 수행")
+                # --- 2. Industry Match (20 points - B3: Enhanced) ---
+                industry_match_score = self._calculate_industry_score(consultant, target_industry)
+                score += industry_match_score
+                if industry_match_score >= MATCHING_WEIGHTS['industry_match'] * 0.8:
+                    match_details.append(f"{target_industry} 분야 풍부한 경험")
+                elif industry_match_score > 0:
+                    match_details.append(f"{target_industry} 관련 분야 수행")
 
-            # --- 3. Experience Years (10 points - B1: NEW) ---
-            exp_years = self._parse_experience_years(consultant.experience)
-            if exp_years >= 15:
-                score += MATCHING_WEIGHTS['experience_years'] # Max
-                match_details.append(f"{exp_years}년차 베테랑")
-            elif exp_years >= 10:
-                score += MATCHING_WEIGHTS['experience_years'] * 0.8
-                match_details.append(f"{exp_years}년 숙련 전문가")
-            elif exp_years >= 5:
-                score += MATCHING_WEIGHTS['experience_years'] * 0.5
-            
-            # --- 4. Org Size Match (10 points - B2: NEW) ---
-            consultant_org_sizes = json.loads(consultant.org_size_experience) if consultant.org_size_experience else []
-            if target_size in consultant_org_sizes:
-                score += MATCHING_WEIGHTS['org_size_match']
-                size_kr = {'Small':'소기업', 'Medium':'중소/중견', 'Large':'대기업'}.get(target_size, '')
-                match_details.append(f"{size_kr} 맞춤형 컨설팅")
+                # --- 3. Experience Years (10 points - B1: NEW) ---
+                exp_years = self._parse_experience_years(consultant.experience)
+                if exp_years >= 15:
+                    score += MATCHING_WEIGHTS['experience_years'] # Max
+                    match_details.append(f"{exp_years}년차 베테랑")
+                elif exp_years >= 10:
+                    score += MATCHING_WEIGHTS['experience_years'] * 0.8
+                    match_details.append(f"{exp_years}년 숙련 전문가")
+                elif exp_years >= 5:
+                    score += MATCHING_WEIGHTS['experience_years'] * 0.5
+                
+                # --- 4. Org Size Match (10 points - B2: NEW) ---
+                org_size_raw = json.loads(consultant.org_size_experience) if consultant.org_size_experience else []
+                consultant_org_sizes = org_size_raw if isinstance(org_size_raw, list) else []
+                if target_size in consultant_org_sizes:
+                    score += MATCHING_WEIGHTS['org_size_match']
+                    size_kr = {'Small':'소기업', 'Medium':'중소/중견', 'Large':'대기업'}.get(target_size, '')
+                    match_details.append(f"{size_kr} 맞춤형 컨설팅")
 
-            # --- 5. Project Type Match (10 points) ---
-            consultant_projects = json.loads(consultant.project_types) if consultant.project_types else []
-            if target_project_type and target_project_type in consultant_projects:
-                score += MATCHING_WEIGHTS['project_type']
-                match_details.append(f"{target_project_type} 최적화")
+                # --- 5. Project Type Match (10 points) ---
+                proj_type_raw = json.loads(consultant.project_types) if consultant.project_types else []
+                consultant_projects = proj_type_raw if isinstance(proj_type_raw, list) else []
+                if target_project_type and target_project_type in consultant_projects:
+                    score += MATCHING_WEIGHTS['project_type']
+                    match_details.append(f"{target_project_type} 최적화")
 
-            # --- 6. Trust & Roles (20 points - B4: Enhanced) ---
-            # Trust score (max 15)
-            trust_points = (consultant.trust_score or 0) * 0.1
-            if consultant.verified:
-                trust_points += 5 # Badge bonus
-            score += min(trust_points, MATCHING_WEIGHTS['trust_verified'])
-            
-            # Role points (max 5 - B4)
-            consultant_roles = json.loads(consultant.roles) if consultant.roles else []
-            role_points = 0
-            for r in consultant_roles:
-                role_points += ROLE_POINTS.get(r, 0)
-            score += min(role_points, MATCHING_WEIGHTS['role_match'])
-            if 'Lead Auditor' in consultant_roles or '심사원' in consultant_roles:
-                match_details.append("공인 심사 자격 보유")
+                # --- 6. Trust & Roles (20 points - B4: Enhanced) ---
+                # Trust score (max 15)
+                trust_points = (consultant.trust_score or 0) * 0.1
+                if consultant.verified:
+                    trust_points += 5 # Badge bonus
+                score += min(trust_points, MATCHING_WEIGHTS['trust_verified'])
+                
+                # Role points (max 5 - B4)
+                roles_raw = json.loads(consultant.roles) if consultant.roles else []
+                consultant_roles = roles_raw if isinstance(roles_raw, list) else []
+                role_points = 0
+                for r in consultant_roles:
+                    role_points += ROLE_POINTS.get(r, 0)
+                score += min(role_points, MATCHING_WEIGHTS['role_match'])
+                if 'Lead Auditor' in consultant_roles or '심사원' in consultant_roles:
+                    match_details.append("공인 심사 자격 보유")
 
-            # --- 7. Region & Timeline (5 points total) ---
-            # Region (3)
-            if target_region and consultant.regions and target_region in consultant.regions:
-                score += MATCHING_WEIGHTS['region_match']
-            # Timeline (2)
-            if target_timeline in ['urgent', '1month'] and (consultant.rating or 0) >= 4.5:
-                score += MATCHING_WEIGHTS['timeline_fit']
+                # --- 7. Region & Timeline (5 points total) ---
+                # Region (3)
+                if target_region and consultant.regions and target_region in consultant.regions:
+                    score += MATCHING_WEIGHTS['region_match']
+                # Timeline (2)
+                if target_timeline in ['urgent', '1month'] and (consultant.rating or 0) >= 4.5:
+                    score += MATCHING_WEIGHTS['timeline_fit']
 
-            scored_consultants.append({
-                'consultant': consultant,
-                'score': score,
-                'match_details': match_details
-            })
+                scored_consultants.append({
+                    'consultant': consultant,
+                    'score': score,
+                    'match_details': match_details
+                })
+            except Exception as e:
+                print(f"[MatchingService] Error processing consultant {getattr(consultant, 'id', 'unknown')}: {e}")
+                continue
             
         # Sort by score desc
         scored_consultants.sort(key=lambda x: x['score'], reverse=True)
