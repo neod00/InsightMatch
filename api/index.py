@@ -581,6 +581,12 @@ def register_consultant():
     consultant.detailed_certifications = json.dumps(detailed_certs)
     consultant.recent_projects = json.dumps(recent_projects)
     
+    # 새 필드들 추가
+    consultant.regions = data.get('regions', '')  # 콤마로 구분된 지역 문자열
+    consultant.phone = data.get('phone', '')
+    consultant.company_name = data.get('company_name', '')
+    consultant.email = data.get('email', '')
+    
     # 신규 등록 시 초기값 설정
     if consultant.rating is None:
         consultant.rating = 0.0
