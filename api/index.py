@@ -42,6 +42,22 @@ def request_entity_too_large(error):
         'message': '제안서 파일 크기를 줄이거나 50MB 이하의 파일을 선택해주세요.'
     }), 413
 
+@app.errorhandler(Exception)
+def handle_exception(e):
+    # Pass through HTTP errors
+    if hasattr(e, 'code') and e.code < 500:
+        return jsonify({'message': str(e)}), e.code
+    
+    # Handle non-HTTP exceptions only
+    import traceback
+    error_msg = traceback.format_exc()
+    print(f"DEBUG - EXCEPTION: {error_msg}")
+    return jsonify({
+        'message': 'Internal Server Error',
+        'error': str(e),
+        'traceback': error_msg if not os.environ.get('VERCEL') else 'Log checked in Vercel'
+    }), 500
+
 # Database Config - Use SQLite for local development, PostgreSQL for production
 is_local_dev = not os.environ.get('VERCEL')  # Vercel sets this env var in production
 
@@ -616,48 +632,52 @@ def handle_projects():
         if not user_id:
             return jsonify({'message': 'User ID required'}), 400
         
-        # 컨설턴트인 경우: user_id로 Consultant 테이블에서 consultant_id 조회
-        consultant = Consultant.query.filter_by(user_id=user_id).first()
-        consultant_id = consultant.id if consultant else None
-        
-        # 필터링: company_id가 user_id이거나, consultant_id가 조회된 consultant의 id인 프로젝트
-        if consultant_id:
-            projects = Project.query.filter(
-                (Project.company_id == user_id) | (Project.consultant_id == consultant_id)
-            ).all()
-        else:
-            projects = Project.query.filter(Project.company_id == user_id).all()
+        try:
+            # 컨설턴트인 경우: user_id로 Consultant 테이블에서 consultant_id 조회
+            consultant = Consultant.query.filter_by(user_id=user_id).first()
+            consultant_id = consultant.id if consultant else None
+            
+            # 필터링
+            if consultant_id:
+                projects = Project.query.filter(
+                    (Project.company_id == user_id) | (Project.consultant_id == consultant_id)
+                ).all()
+            else:
+                projects = Project.query.filter(Project.company_id == user_id).all()
+        except Exception as e:
+            return jsonify({'message': 'Query failed', 'error': str(e)}), 500
         
         results = []
         for p in projects:
-            consultant_info = Consultant.query.get(p.consultant_id)
-            company_user = User.query.get(p.company_id)
-            
-            results.append({
-                'id': p.id,
-                'title': p.title,
-                'session_id': getattr(p, 'session_id', None),
-                'status': p.status,
-                'consultant_id': p.consultant_id,
-                'consultant_name': consultant_info.name if consultant_info else 'Unknown',
-                'profile_image_url': consultant_info.profile_image_url if consultant_info else None,
-                'company_id': p.company_id,
-                'company_name': company_user.name if company_user else 'Unknown Company',
-                'start_date': p.start_date.isoformat() if p.start_date else None,
-                'created_at': p.created_at.isoformat() if hasattr(p, 'created_at') and p.created_at else None,
-                # 제안서 관련 필드 (① 견적 비교용)
-                'proposal_price': getattr(p, 'proposal_price', None),
-                'proposal_duration': getattr(p, 'proposal_duration', None),
-                'proposal_message': getattr(p, 'proposal_message', None),
-                'proposal_file_url': getattr(p, 'proposal_file_url', None),
-                'proposal_submitted_at': p.proposal_submitted_at.isoformat() if hasattr(p, 'proposal_submitted_at') and p.proposal_submitted_at else None,
-                # 일정 관련 필드 (③ 일정 워크플로우용)
-                'schedule_status': getattr(p, 'schedule_status', 'pending'),
-                # 취소 관련 필드 (④ 취소 이력)
-                'cancelled_at': p.cancelled_at.isoformat() if hasattr(p, 'cancelled_at') and p.cancelled_at else None,
-                'cancelled_reason': getattr(p, 'cancelled_reason', None),
-                'milestones': [m.to_dict() for m in p.milestones]
-            })
+            try:
+                consultant_info = Consultant.query.get(p.consultant_id) if p.consultant_id else None
+                company_user = User.query.get(p.company_id) if p.company_id else None
+                
+                results.append({
+                    'id': p.id,
+                    'title': p.title,
+                    'session_id': getattr(p, 'session_id', None),
+                    'status': p.status or 'proposal_pending',
+                    'consultant_id': p.consultant_id,
+                    'consultant_name': consultant_info.name if consultant_info else 'Unknown',
+                    'profile_image_url': consultant_info.profile_image_url if consultant_info else None,
+                    'company_id': p.company_id,
+                    'company_name': company_user.name if company_user else 'Unknown Company',
+                    'start_date': p.start_date.isoformat() if hasattr(p.start_date, 'isoformat') else None,
+                    'created_at': p.created_at.isoformat() if hasattr(p.created_at, 'isoformat') else None,
+                    'proposal_price': getattr(p, 'proposal_price', None),
+                    'proposal_duration': getattr(p, 'proposal_duration', None),
+                    'proposal_message': getattr(p, 'proposal_message', None),
+                    'proposal_file_url': getattr(p, 'proposal_file_url', None),
+                    'proposal_submitted_at': p.proposal_submitted_at.isoformat() if hasattr(p.proposal_submitted_at, 'isoformat') else None,
+                    'schedule_status': getattr(p, 'schedule_status', 'pending'),
+                    'cancelled_at': p.cancelled_at.isoformat() if hasattr(p, 'cancelled_at', 'isoformat') else None,
+                    'cancelled_reason': getattr(p, 'cancelled_reason', None),
+                    'milestones': [m.to_dict() for m in p.milestones] if hasattr(p, 'milestones') else []
+                })
+            except Exception as e:
+                print(f"Error processing project {getattr(p, 'id', 'unknown')}: {e}")
+                continue
         return jsonify(results)
         
     elif request.method == 'POST':
