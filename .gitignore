@@ -50,3 +50,19 @@ full_models_list.txt
 
 # Agent config (local only)
 .agent/
+AGENTS.md
+directives/
+execution/
+docs/ontology.md
+docs/topology.md
+
+# Automation/Testing (local only)
+verify_phase*.py
+verify_db.py
+setup_*.py
+migrate_*.py
+repro_*.py
+fix_db_*.py
+verification_report.md
+test_load_*.py
+poll_*.py
