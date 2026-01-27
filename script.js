@@ -1188,10 +1188,28 @@ document.addEventListener('DOMContentLoaded', () => {
                      <i data-lucide="clock" style="width: 10px; height: 10px;"></i> 검토중
                    </span>`;
 
-            // Add selected class if consultant is selected
-            if (isSelected) {
-                card.classList.add('selected');
+            // B1, B2, B4: 전문성 태그 생성
+            let tagsHTML = '<div class="consultant-tags">';
+
+            // 1. 경험 연차 태그 (B1)
+            const expYears = parseInt(c.experience) || 0;
+            if (expYears >= 15) {
+                tagsHTML += '<span class="match-tag match-tag-senior">15년+ 베테랑</span>';
+            } else if (expYears >= 10) {
+                tagsHTML += '<span class="match-tag match-tag-senior">10년+ 상급전문가</span>';
             }
+
+            // 2. 역할 가산점 태그 (B4)
+            if (c.roles && (c.roles.includes('Lead Auditor') || c.roles.includes('심사원'))) {
+                tagsHTML += '<span class="match-tag match-tag-primary">심사원 자격보유</span>';
+            }
+
+            // 3. 기업 규모 태그 (B2) - 현재 매칭된 컨텍스트가 있으면 좋지만, 일반적인 경험 노출
+            if (c.industryExperience && c.industryExperience.length > 0) {
+                tagsHTML += `<span class="match-tag match-tag-accent">${c.industryExperience[0]} 전문</span>`;
+            }
+
+            tagsHTML += '</div>';
 
             card.innerHTML = `
                 <div class="consultant-select-checkbox">
@@ -1214,6 +1232,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="consultant-specialty">${c.specialty || '종합'} 전문</span>
                     </div>
                 </div>
+                
+                ${tagsHTML}
                 
                 <div class="consultant-match-reason">
                     ${c.matchReason || '매칭 전문가'}

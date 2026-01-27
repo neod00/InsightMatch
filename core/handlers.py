@@ -14,6 +14,8 @@ from .responses import (
     success_response, error_response, not_found, 
     unauthorized, bad_request, server_error, validation_error
 )
+from api.constants import ISSUE_NAMES  # A4: 중앙 상수 임포트
+
 
 
 class AuthHandler:
@@ -258,33 +260,6 @@ class ConsultantHandler:
 class MatchingHandler:
     """Handles consultant matching logic."""
     
-    # Issue ID to Korean name mapping
-    ISSUE_NAMES = {
-        'quality_defect': '품질 불량',
-        'customer_complaint': '고객 클레임',
-        'process_inefficiency': '프로세스 비효율',
-        'supplier_quality': '공급업체 품질',
-        'safety_incident': '안전사고',
-        'env_regulation': '환경 규제',
-        'energy_cost': '에너지 비용',
-        'work_condition': '작업환경',
-        'esg_demand': 'ESG 요구',
-        'carbon_report': '탄소 보고',
-        'carbon_neutral': '탄소중립',
-        'esg_disclosure': 'ESG 공시',
-        'security_incident': '정보보안',
-        'privacy_need': '개인정보',
-        'cloud_security': '클라우드 보안',
-        'ai_risk': 'AI 리스크',
-        'supply_unstable': '공급망 불안정',
-        'crisis_response': '위기 대응',
-        'compliance_risk': '컴플라이언스',
-        'corruption_prevent': '부패 방지',
-        'turnover': '이직률',
-        'burnout': '번아웃',
-        'knowledge_loss': '지식 유실'
-    }
-    
     def __init__(self, matching_service):
         self.matching_service = matching_service
     
@@ -334,9 +309,9 @@ class MatchingHandler:
         # Get matched consultants
         matched_consultants = self.matching_service.match_consultants(criteria)
         
-        # Build issues summary
+        # Build issues summary - A4: 클래스 변수 대신 임포트된 ISSUE_NAMES 사용
         issues_summary = ', '.join([
-            self.ISSUE_NAMES.get(issue.get('id'), issue.get('id', '')) 
+            ISSUE_NAMES.get(issue.get('id'), issue.get('id', '')) 
             for issue in issues[:5]
         ])
         

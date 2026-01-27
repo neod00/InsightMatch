@@ -18,6 +18,7 @@ import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, AnalysisJob, Consultant, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken
 from services import AIService, MatchingService, ProposalService, EmailService
+from constants import ISSUE_NAMES  # A4: Centralized constants
 
 # Load environment variables
 # Load from project root directory
@@ -415,34 +416,8 @@ def direct_match():
     # Get matched consultants
     matched_consultants = matching_service.match_consultants(criteria)
     
-    # Build issues summary
-    issue_names = {
-        'quality_defect': '품질 불량',
-        'customer_complaint': '고객 클레임',
-        'process_inefficiency': '프로세스 비효율',
-        'supplier_quality': '공급업체 품질',
-        'safety_incident': '안전사고',
-        'env_regulation': '환경 규제',
-        'energy_cost': '에너지 비용',
-        'work_condition': '작업환경',
-        'esg_demand': 'ESG 요구',
-        'carbon_report': '탄소 보고',
-        'carbon_neutral': '탄소중립',
-        'esg_disclosure': 'ESG 공시',
-        'security_incident': '정보보안',
-        'privacy_need': '개인정보',
-        'cloud_security': '클라우드 보안',
-        'ai_risk': 'AI 리스크',
-        'supply_unstable': '공급망 불안정',
-        'crisis_response': '위기 대응',
-        'compliance_risk': '컴플라이언스',
-        'corruption_prevent': '부패 방지',
-        'turnover': '이직률',
-        'burnout': '번아웃',
-        'knowledge_loss': '지식 유실'
-    }
-    
-    issues_summary = ', '.join([issue_names.get(issue.get('id'), issue.get('id', '')) for issue in issues[:5]])
+    # Build issues summary - A4: Using centralized constant
+    issues_summary = ', '.join([ISSUE_NAMES.get(issue.get('id'), issue.get('id', '')) for issue in issues[:5]])
     
     # Build result
     result = {
