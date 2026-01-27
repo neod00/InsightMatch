@@ -586,6 +586,7 @@ def register_consultant():
     consultant.phone = data.get('phone', '')
     consultant.company_name = data.get('company_name', '')
     consultant.email = data.get('email', '')
+    consultant.profile_image_url = data.get('profile_image_url', consultant.profile_image_url)
     
     # 신규 등록 시 초기값 설정
     if consultant.rating is None:
@@ -1673,26 +1674,56 @@ def delete_admin_job(job_id):
 def approve_consultant(consultant_id):
     consultant = Consultant.query.get_or_404(consultant_id)
     consultant.verified = True
+    consultant.status = 'verified'
     consultant.trust_score = max(consultant.trust_score or 50, 70)
+    # Clear rejection info if previously rejected
+    consultant.rejection_reason = None
+    consultant.rejected_at = None
     db.session.commit()
-    return jsonify({'message': 'Consultant approved successfully', 'verified': True})
+    return jsonify({'message': 'Consultant approved successfully', 'verified': True, 'status': 'verified'})
 
 @app.route('/api/admin/consultants/<int:consultant_id>/reject', methods=['POST'])
 def reject_consultant(consultant_id):
     data = request.json
     reason = data.get('reason', 'No reason provided')
     consultant = Consultant.query.get_or_404(consultant_id)
-    db.session.delete(consultant)
+    # Don't delete - just mark as rejected
+    consultant.status = 'rejected'
+    consultant.verified = False
+    consultant.rejection_reason = reason
+    consultant.rejected_at = datetime.datetime.utcnow()
     db.session.commit()
-    return jsonify({'message': f'Consultant rejected: {reason}'})
+    return jsonify({
+        'message': f'Consultant rejected: {reason}',
+        'status': 'rejected',
+        'rejectionReason': reason
+    })
 
 @app.route('/api/admin/consultants/<int:consultant_id>/revoke', methods=['POST'])
 def revoke_consultant_verification(consultant_id):
     consultant = Consultant.query.get_or_404(consultant_id)
     consultant.verified = False
+    consultant.status = 'pending'
     consultant.trust_score = min(consultant.trust_score or 50, 50)
     db.session.commit()
-    return jsonify({'message': 'Consultant verification revoked', 'verified': False})
+    return jsonify({'message': 'Consultant verification revoked', 'verified': False, 'status': 'pending'})
+
+@app.route('/api/admin/consultants/<int:consultant_id>/restore', methods=['POST'])
+def restore_consultant(consultant_id):
+    """거부된 컨설턴트를 승인 대기 상태로 복구"""
+    consultant = Consultant.query.get_or_404(consultant_id)
+    if consultant.status != 'rejected':
+        return jsonify({'message': 'Only rejected consultants can be restored'}), 400
+    
+    consultant.status = 'pending'
+    consultant.verified = False
+    # Keep rejection history for reference, but clear the active rejection
+    # Optionally clear: consultant.rejection_reason = None, consultant.rejected_at = None
+    db.session.commit()
+    return jsonify({
+        'message': 'Consultant restored to pending status',
+        'status': 'pending'
+    })
 
 # --- Consultant Detail Endpoint ---
 @app.route('/api/consultants/<int:consultant_id>', methods=['GET'])

@@ -274,17 +274,22 @@
                 <span style="color: var(--text-muted); font-size: 0.9rem;">필터:</span>
                 <button class="btn btn-sm consultant-filter-btn active" data-filter="all"
                     onclick="filterConsultants('all')">
-                    전체
+                    전체 <span id="filter-count-all" style="opacity: 0.7;"></span>
                 </button>
                 <button class="btn btn-sm btn-ghost consultant-filter-btn" data-filter="pending"
                     onclick="filterConsultants('pending')">
                     <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
-                    승인 대기
+                    승인 대기 <span id="filter-count-pending" style="opacity: 0.7;"></span>
                 </button>
                 <button class="btn btn-sm btn-ghost consultant-filter-btn" data-filter="verified"
                     onclick="filterConsultants('verified')">
                     <i data-lucide="badge-check" style="width: 14px; height: 14px;"></i>
-                    검증됨
+                    검증됨 <span id="filter-count-verified" style="opacity: 0.7;"></span>
+                </button>
+                <button class="btn btn-sm btn-ghost consultant-filter-btn" data-filter="rejected"
+                    onclick="filterConsultants('rejected')" style="color: var(--error);">
+                    <i data-lucide="user-x" style="width: 14px; height: 14px;"></i>
+                    거부됨 <span id="filter-count-rejected" style="opacity: 0.7;"></span>
                 </button>
             </div>
 
@@ -295,172 +300,330 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Side Panel for Details -->
-    <div class="side-panel-overlay" id="side-panel-overlay" onclick="closeSidePanel()"></div>
-    <div class="side-panel" id="side-panel">
-        <div class="side-panel-header">
-            <div>
-                <h3 id="panel-company-name">업체 상세 정보</h3>
-                <p id="panel-request-date" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;"></p>
+        <!-- Side Panel for Details -->
+        <div class="side-panel-overlay" id="side-panel-overlay" onclick="closeSidePanel()"></div>
+        <div class="side-panel" id="side-panel">
+            <div class="side-panel-header">
+                <div>
+                    <h3 id="panel-company-name">업체 상세 정보</h3>
+                    <p id="panel-request-date" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">
+                    </p>
+                </div>
+                <button class="close-panel-btn" onclick="closeSidePanel()" title="닫기">
+                    <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+                </button>
             </div>
-            <button class="close-panel-btn" onclick="closeSidePanel()" title="닫기">
-                <i data-lucide="x" style="width: 20px; height: 20px;"></i>
-            </button>
+            <div class="side-panel-body" id="panel-content">
+                <!-- Content will be injected by JS -->
+            </div>
+            <div class="side-panel-footer" id="panel-footer">
+                <button class="btn btn-secondary" onclick="closeSidePanel()">닫기</button>
+            </div>
         </div>
-        <div class="side-panel-body" id="panel-content">
-            <!-- Content will be injected by JS -->
+
+        <!-- Rejection Panel -->
+        <div class="side-panel-overlay" id="reject-panel-overlay" onclick="closeRejectPanel()"></div>
+        <div class="side-panel" id="reject-panel" style="max-width: 500px;">
+            <div class="side-panel-header"
+                style="background: rgba(239, 68, 68, 0.1); border-bottom: 1px solid rgba(239, 68, 68, 0.2);">
+                <div>
+                    <h3 style="color: #ef4444; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="user-x" style="width: 22px; height: 22px;"></i>
+                        컨설턴트 등록 거부
+                    </h3>
+                    <p id="reject-consultant-name"
+                        style="font-size: 0.9rem; color: var(--text-muted); margin-top: 4px;"></p>
+                </div>
+                <button class="close-panel-btn" onclick="closeRejectPanel()" title="닫기">
+                    <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+                </button>
+            </div>
+            <div class="side-panel-body" style="padding: 24px;">
+                <input type="hidden" id="reject-consultant-id" value="">
+
+                <div style="margin-bottom: 24px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 16px; color: var(--text-primary);">
+                        거부 사유 선택
+                    </label>
+
+                    <div id="reject-reasons" style="display: flex; flex-direction: column; gap: 10px;">
+                        <label class="reject-reason-option">
+                            <input type="radio" name="reject_reason" value="자격증/경력 증빙 서류 미제출">
+                            <span class="reason-radio"></span>
+                            <span class="reason-text">자격증/경력 증빙 서류 미제출</span>
+                        </label>
+                        <label class="reject-reason-option">
+                            <input type="radio" name="reject_reason" value="ISO 전문 분야 미기재 또는 부정확">
+                            <span class="reason-radio"></span>
+                            <span class="reason-text">ISO 전문 분야 미기재 또는 부정확</span>
+                        </label>
+                        <label class="reject-reason-option">
+                            <input type="radio" name="reject_reason" value="연락처 정보 불완전 (이메일/전화번호)">
+                            <span class="reason-radio"></span>
+                            <span class="reason-text">연락처 정보 불완전 (이메일/전화번호)</span>
+                        </label>
+                        <label class="reject-reason-option">
+                            <input type="radio" name="reject_reason" value="프로필 정보 부족 (경력, 산업 경험 등)">
+                            <span class="reason-radio"></span>
+                            <span class="reason-text">프로필 정보 부족 (경력, 산업 경험 등)</span>
+                        </label>
+                        <label class="reject-reason-option">
+                            <input type="radio" name="reject_reason" value="등록 정책 위반">
+                            <span class="reason-radio"></span>
+                            <span class="reason-text">등록 정책 위반</span>
+                        </label>
+                        <label class="reject-reason-option">
+                            <input type="radio" name="reject_reason" value="custom" id="custom-reason-radio">
+                            <span class="reason-radio"></span>
+                            <span class="reason-text">기타 (직접 입력)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <label
+                        style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--text-muted); font-size: 0.9rem;">
+                        상세 사유 또는 추가 메모
+                    </label>
+                    <textarea id="reject-custom-reason" rows="4" placeholder="추가 설명을 입력하세요... (선택사항)"
+                        style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; color: var(--text-primary); font-size: 0.95rem; resize: vertical;"></textarea>
+                </div>
+
+                <div
+                    style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.15); border-radius: 8px; padding: 12px; display: flex; align-items: flex-start; gap: 10px;">
+                    <i data-lucide="info"
+                        style="width: 18px; height: 18px; color: #f97316; flex-shrink: 0; margin-top: 2px;"></i>
+                    <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; margin: 0;">
+                        거부 사유는 해당 컨설턴트에게 이메일로 전달됩니다. 구체적인 사유를 작성하면 재등록 시 도움이 됩니다.
+                    </p>
+                </div>
+            </div>
+            <div class="side-panel-footer" style="border-top: 1px solid rgba(239, 68, 68, 0.2);">
+                <button class="btn btn-secondary" onclick="closeRejectPanel()">취소</button>
+                <button class="btn" id="confirm-reject-btn" onclick="confirmReject()"
+                    style="flex: 1; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i data-lucide="user-x" style="width: 18px; height: 18px;"></i>
+                    거부 처리
+                </button>
+            </div>
         </div>
-        <div class="side-panel-footer" id="panel-footer">
-            <button class="btn btn-secondary" onclick="closeSidePanel()">닫기</button>
-        </div>
-    </div>
 
-    <script>
-        lucide.createIcons();
-
-        // Mobile Menu Toggle
-        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
-        const mobileNav = document.getElementById('mobile-nav');
-
-        function toggleMobileMenu() {
-            mobileMenuBtn.classList.toggle('active');
-            mobileNav.classList.toggle('active');
-            document.body.style.overflow = mobileNav.classList.contains('active') ? 'hidden' : '';
-        }
-
-        function closeMobileMenu() {
-            mobileMenuBtn.classList.remove('active');
-            mobileNav.classList.remove('active');
-            document.body.style.overflow = '';
-        }
-
-        mobileMenuBtn.addEventListener('click', toggleMobileMenu);
-
-        window.addEventListener('resize', () => {
-            if (window.innerWidth > 768) {
-                closeMobileMenu();
+        <style>
+            /* Rejection Panel Styles */
+            .reject-reason-option {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 14px 16px;
+                background: rgba(255, 255, 255, 0.03);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: 10px;
+                cursor: pointer;
+                transition: all 0.2s ease;
             }
-        });
 
-        // Global State
-        let currentTab = 'analysis';
-        let allConsultantsAdmin = [];
-        let allJobsAdmin = []; // Store all matching requests
-        let currentFilter = 'all';
-        let expandedJobId = null;
-
-        // Tab Switching
-        function switchTab(tab) {
-            currentTab = tab;
-
-            // Update tab buttons
-            document.querySelectorAll('.admin-tab').forEach(btn => btn.classList.remove('active'));
-            document.querySelector(`.admin-tab[onclick="switchTab('${tab}')"]`).classList.add('active');
-
-            // Show/hide content
-            document.getElementById('analysis-tab').style.display = tab === 'analysis' ? 'block' : 'none';
-            document.getElementById('consultants-tab').style.display = tab === 'consultants' ? 'block' : 'none';
-            document.getElementById('stats-cards').style.display = tab === 'analysis' ? 'grid' : 'none';
-
-            if (tab === 'consultants') {
-                fetchConsultantsAdmin();
+            .reject-reason-option:hover {
+                background: rgba(255, 255, 255, 0.06);
+                border-color: rgba(255, 255, 255, 0.15);
             }
-        }
 
-        // --- Analysis Jobs ---
-        async function fetchJobs() {
-            try {
-                const response = await fetch('/api/admin/jobs');
-                allJobsAdmin = await response.json();
-                renderJobs(allJobsAdmin);
-                updateStats(allJobsAdmin);
-            } catch (error) {
-                console.error('Error fetching jobs:', error);
-                document.getElementById('job-list').innerHTML = `
+            .reject-reason-option:has(input:checked) {
+                background: rgba(239, 68, 68, 0.1);
+                border-color: rgba(239, 68, 68, 0.3);
+            }
+
+            .reject-reason-option input[type="radio"] {
+                display: none;
+            }
+
+            .reason-radio {
+                width: 20px;
+                height: 20px;
+                border: 2px solid rgba(255, 255, 255, 0.3);
+                border-radius: 50%;
+                position: relative;
+                flex-shrink: 0;
+                transition: all 0.2s ease;
+            }
+
+            .reject-reason-option:has(input:checked) .reason-radio {
+                border-color: #ef4444;
+            }
+
+            .reason-radio::after {
+                content: '';
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) scale(0);
+                width: 10px;
+                height: 10px;
+                background: #ef4444;
+                border-radius: 50%;
+                transition: transform 0.2s ease;
+            }
+
+            .reject-reason-option:has(input:checked) .reason-radio::after {
+                transform: translate(-50%, -50%) scale(1);
+            }
+
+            .reason-text {
+                color: var(--text-primary);
+                font-size: 0.95rem;
+            }
+
+            #reject-custom-reason:focus {
+                outline: none;
+                border-color: rgba(239, 68, 68, 0.5);
+                box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+            }
+        </style>
+
+        <script>
+            lucide.createIcons();
+
+            // Mobile Menu Toggle
+            const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+            const mobileNav = document.getElementById('mobile-nav');
+
+            function toggleMobileMenu() {
+                mobileMenuBtn.classList.toggle('active');
+                mobileNav.classList.toggle('active');
+                document.body.style.overflow = mobileNav.classList.contains('active') ? 'hidden' : '';
+            }
+
+            function closeMobileMenu() {
+                mobileMenuBtn.classList.remove('active');
+                mobileNav.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+
+            mobileMenuBtn.addEventListener('click', toggleMobileMenu);
+
+            window.addEventListener('resize', () => {
+                if (window.innerWidth > 768) {
+                    closeMobileMenu();
+                }
+            });
+
+            // Global State
+            let currentTab = 'analysis';
+            let allConsultantsAdmin = [];
+            let allJobsAdmin = []; // Store all matching requests
+            let currentFilter = 'all';
+            let expandedJobId = null;
+
+            // Tab Switching
+            function switchTab(tab) {
+                currentTab = tab;
+
+                // Update tab buttons
+                document.querySelectorAll('.admin-tab').forEach(btn => btn.classList.remove('active'));
+                document.querySelector(`.admin-tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+
+                // Show/hide content
+                document.getElementById('analysis-tab').style.display = tab === 'analysis' ? 'block' : 'none';
+                document.getElementById('consultants-tab').style.display = tab === 'consultants' ? 'block' : 'none';
+                document.getElementById('stats-cards').style.display = tab === 'analysis' ? 'grid' : 'none';
+
+                if (tab === 'consultants') {
+                    fetchConsultantsAdmin();
+                }
+            }
+
+            // --- Analysis Jobs ---
+            async function fetchJobs() {
+                try {
+                    const response = await fetch('/api/admin/jobs');
+                    allJobsAdmin = await response.json();
+                    renderJobs(allJobsAdmin);
+                    updateStats(allJobsAdmin);
+                } catch (error) {
+                    console.error('Error fetching jobs:', error);
+                    document.getElementById('job-list').innerHTML = `
                     <div class="card" style="text-align: center; padding: 40px;">
                         <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: var(--error); margin-bottom: 16px;"></i>
                         <p style="color: var(--text-muted);">데이터를 불러오지 못했습니다.</p>
                     </div>
                 `;
-                lucide.createIcons();
+                    lucide.createIcons();
+                }
             }
-        }
 
-        function updateStats(jobs) {
-            document.getElementById('stat-total').textContent = jobs.length;
-            document.getElementById('stat-pending').textContent = jobs.filter(j => j.status === 'processing').length;
-            document.getElementById('stat-completed').textContent = jobs.filter(j => j.status === 'completed').length;
-            document.getElementById('analysis-count').textContent = jobs.filter(j => j.status === 'processing').length;
-        }
+            function updateStats(jobs) {
+                document.getElementById('stat-total').textContent = jobs.length;
+                document.getElementById('stat-pending').textContent = jobs.filter(j => j.status === 'processing').length;
+                document.getElementById('stat-completed').textContent = jobs.filter(j => j.status === 'completed').length;
+                document.getElementById('analysis-count').textContent = jobs.filter(j => j.status === 'processing').length;
+            }
 
-        function renderJobs(jobs) {
-            const container = document.getElementById('job-list');
-            container.innerHTML = '';
+            function renderJobs(jobs) {
+                const container = document.getElementById('job-list');
+                container.innerHTML = '';
 
-            if (jobs.length === 0) {
-                container.innerHTML = `
+                if (jobs.length === 0) {
+                    container.innerHTML = `
                     <div class="card" style="text-align: center; padding: 60px;">
                         <i data-lucide="inbox" style="width: 48px; height: 48px; color: var(--text-muted); margin-bottom: 16px;"></i>
                         <p style="color: var(--text-muted);">매칭 요청이 없습니다.</p>
                     </div>
                 `;
-                lucide.createIcons();
-                return;
-            }
+                    lucide.createIcons();
+                    return;
+                }
 
-            jobs.forEach((job, index) => {
-                const card = document.createElement('div');
-                card.className = 'job-card fade-in-up';
-                card.style.animationDelay = `${index * 0.05}s`;
-                card.id = `job-card-${job.id}`;
+                jobs.forEach((job, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'job-card fade-in-up';
+                    card.style.animationDelay = `${index * 0.05}s`;
+                    card.id = `job-card-${job.id}`;
 
-                const date = new Date(job.created_at).toLocaleString('ko-KR');
+                    const date = new Date(job.created_at).toLocaleString('ko-KR');
 
-                const statusConfig = {
-                    'processing': { text: '대기 중', class: 'status-planning', icon: 'clock' },
-                    'analyzing': { text: '진행 중', class: 'status-planning', icon: 'loader' },
-                    'completed': { text: '완료', class: 'status-completed', icon: 'check-circle' },
-                    'failed': { text: '실패', class: '', icon: 'x-circle', style: 'background: rgba(239, 68, 68, 0.15); color: var(--error);' },
-                    'deleted': { text: '삭제됨', class: '', icon: 'trash-2', style: 'background: rgba(107, 114, 128, 0.15); color: var(--text-muted);' }
-                };
-                const status = statusConfig[job.status] || statusConfig['processing'];
+                    const statusConfig = {
+                        'processing': { text: '대기 중', class: 'status-planning', icon: 'clock' },
+                        'analyzing': { text: '진행 중', class: 'status-planning', icon: 'loader' },
+                        'completed': { text: '완료', class: 'status-completed', icon: 'check-circle' },
+                        'failed': { text: '실패', class: '', icon: 'x-circle', style: 'background: rgba(239, 68, 68, 0.15); color: var(--error);' },
+                        'deleted': { text: '삭제됨', class: '', icon: 'trash-2', style: 'background: rgba(107, 114, 128, 0.15); color: var(--text-muted);' }
+                    };
+                    const status = statusConfig[job.status] || statusConfig['processing'];
 
-                // Build matching info from intake_data
-                const intake = job.intake_data || {};
-                const standards = intake.standards || [];
-                const standardsText = standards.length > 0
-                    ? standards.map(s => typeof s === 'string' ? s : s.code || s).join(', ')
-                    : '미지정';
+                    // Build matching info from intake_data
+                    const intake = job.intake_data || {};
+                    const standards = intake.standards || [];
+                    const standardsText = standards.length > 0
+                        ? standards.map(s => typeof s === 'string' ? s : s.code || s).join(', ')
+                        : '미지정';
 
-                // Related projects/consultants
-                const projects = job.related_projects || [];
-                const projectCount = job.project_count || 0;
+                    // Related projects/consultants
+                    const projects = job.related_projects || [];
+                    const projectCount = job.project_count || 0;
 
-                // Consultants section grouped by ISO Standard
-                let consultantsHtml = '';
-                if (projectCount > 0) {
-                    // Grouping logic for standard-centric view
-                    const groupedByStandard = {};
-                    projects.forEach(p => {
-                        // Extract ISO standard from title
-                        const isoMatch = p.title ? p.title.match(/(ISO[\s\/]?\w+[:\s]?\d*)/i) : null;
-                        const isoStandard = isoMatch ? isoMatch[1].trim().toUpperCase() : '기타/미지정';
+                    // Consultants section grouped by ISO Standard
+                    let consultantsHtml = '';
+                    if (projectCount > 0) {
+                        // Grouping logic for standard-centric view
+                        const groupedByStandard = {};
+                        projects.forEach(p => {
+                            // Extract ISO standard from title
+                            const isoMatch = p.title ? p.title.match(/(ISO[\s\/]?\w+[:\s]?\d*)/i) : null;
+                            const isoStandard = isoMatch ? isoMatch[1].trim().toUpperCase() : '기타/미지정';
 
-                        if (!groupedByStandard[isoStandard]) {
-                            groupedByStandard[isoStandard] = [];
-                        }
-                        groupedByStandard[isoStandard].push(p);
-                    });
+                            if (!groupedByStandard[isoStandard]) {
+                                groupedByStandard[isoStandard] = [];
+                            }
+                            groupedByStandard[isoStandard].push(p);
+                        });
 
-                    let standardsHtml = '';
-                    // Sort standards alphabetically
-                    const sortedStandards = Object.keys(groupedByStandard).sort();
+                        let standardsHtml = '';
+                        // Sort standards alphabetically
+                        const sortedStandards = Object.keys(groupedByStandard).sort();
 
-                    sortedStandards.forEach(std => {
-                        const stdProjects = groupedByStandard[std];
-                        standardsHtml += `
+                        sortedStandards.forEach(std => {
+                            const stdProjects = groupedByStandard[std];
+                            standardsHtml += `
                             <div style="margin-bottom: 20px; background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
                                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
                                     <span style="background: var(--primary-gradient); color: white; padding: 2px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.5px;">
@@ -470,19 +633,19 @@
                                 </div>
                                 <ul style="list-style: none; padding: 0; margin: 0;">
                                     ${stdProjects.map(p => {
-                            const statusText = p.status === 'contracted' ? '계약 완료'
-                                : p.status === 'in_progress' ? '진행중'
-                                    : p.status === 'proposal_pending' ? '견적 대기'
-                                        : p.status === 'proposal_submitted' ? '견적 발송 완료'
-                                            : p.status === 'awaiting_signature' ? '서명 대기'
-                                                : p.status === 'completed' ? '완료'
-                                                    : p.status;
+                                const statusText = p.status === 'contracted' ? '계약 완료'
+                                    : p.status === 'in_progress' ? '진행중'
+                                        : p.status === 'proposal_pending' ? '견적 대기'
+                                            : p.status === 'proposal_submitted' ? '견적 발송 완료'
+                                                : p.status === 'awaiting_signature' ? '서명 대기'
+                                                    : p.status === 'completed' ? '완료'
+                                                        : p.status;
 
-                            const statusStyle = p.status === 'in_progress' || p.status === 'contracted'
-                                ? 'color: var(--secondary); font-weight: 500;'
-                                : 'color: var(--text-muted);';
+                                const statusStyle = p.status === 'in_progress' || p.status === 'contracted'
+                                    ? 'color: var(--secondary); font-weight: 500;'
+                                    : 'color: var(--text-muted);';
 
-                            return `
+                                return `
                                             <li style="padding: 6px 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
                                                 <div style="display: flex; align-items: center; gap: 8px;">
                                                     <div style="width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: var(--text-primary);">
@@ -493,13 +656,13 @@
                                                 <span style="font-size: 0.8rem; ${statusStyle}">[${statusText}]</span>
                                             </li>
                                         `;
-                        }).join('')}
+                            }).join('')}
                                 </ul>
                             </div>
                         `;
-                    });
+                        });
 
-                    consultantsHtml = `
+                        consultantsHtml = `
                         <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
                             <h5 style="font-size: 0.95rem; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; color: var(--text-primary);">
                                 <i data-lucide="layers" style="width: 18px; height: 18px; color: var(--primary);"></i>
@@ -510,8 +673,8 @@
                             </div>
                         </div>
                     `;
-                } else {
-                    consultantsHtml = `
+                    } else {
+                        consultantsHtml = `
                         <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);">
                             <h5 style="font-size: 0.95rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--text-muted);">
                                 <i data-lucide="users" style="width: 16px; height: 16px;"></i>
@@ -520,9 +683,9 @@
                             <p style="color: var(--text-muted); font-size: 0.9rem;">아직 매칭된 컨설턴트가 없습니다.</p>
                         </div>
                     `;
-                }
+                    }
 
-                let detailHtml = `
+                    let detailHtml = `
                     <div class="detail-view" id="detail-${job.id}">
                         <!-- 요청 정보 섹션 -->
                         <div style="margin-bottom: 16px;">
@@ -573,7 +736,7 @@
                     </div>
                 `;
 
-                card.innerHTML = `
+                    card.innerHTML = `
                     <div class="job-header" onclick="toggleDetail('${job.id}')">
                         <div class="job-info">
                             <h3 style="display: flex; align-items: center; gap: 8px;">
@@ -596,129 +759,202 @@
                     </div>
                     ${detailHtml}
                 `;
-                container.appendChild(card);
-            });
+                    container.appendChild(card);
+                });
 
-            lucide.createIcons();
-        }
+                lucide.createIcons();
+            }
 
-        function toggleDetail(id) {
-            const el = document.getElementById(`detail-${id}`);
-            const chevron = document.getElementById(`chevron-${id}`);
+            function toggleDetail(id) {
+                const el = document.getElementById(`detail-${id}`);
+                const chevron = document.getElementById(`chevron-${id}`);
 
-            if (el) {
-                const isActive = el.classList.contains('active');
+                if (el) {
+                    const isActive = el.classList.contains('active');
 
-                // Close all other details
-                document.querySelectorAll('.detail-view').forEach(d => d.classList.remove('active'));
-                document.querySelectorAll('[id^="chevron-"]').forEach(c => c.style.transform = 'rotate(0deg)');
+                    // Close all other details
+                    document.querySelectorAll('.detail-view').forEach(d => d.classList.remove('active'));
+                    document.querySelectorAll('[id^="chevron-"]').forEach(c => c.style.transform = 'rotate(0deg)');
 
-                if (!isActive) {
-                    el.classList.add('active');
-                    if (chevron) chevron.style.transform = 'rotate(180deg)';
-                    expandedJobId = id; // Remember which card is expanded
-                } else {
-                    expandedJobId = null; // Card was closed
+                    if (!isActive) {
+                        el.classList.add('active');
+                        if (chevron) chevron.style.transform = 'rotate(180deg)';
+                        expandedJobId = id; // Remember which card is expanded
+                    } else {
+                        expandedJobId = null; // Card was closed
+                    }
                 }
             }
-        }
 
-        // --- Consultants Management ---
-        async function fetchConsultantsAdmin() {
-            try {
-                const response = await fetch('/api/consultants');
-                allConsultantsAdmin = await response.json();
-                updateConsultantStats();
-                renderConsultantsAdmin();
-            } catch (error) {
-                console.error('Error fetching consultants:', error);
-                document.getElementById('consultant-list-admin').innerHTML = `
+            // --- Consultants Management ---
+            async function fetchConsultantsAdmin() {
+                try {
+                    const response = await fetch('/api/consultants');
+                    allConsultantsAdmin = await response.json();
+                    updateConsultantStats();
+                    renderConsultantsAdmin();
+                } catch (error) {
+                    console.error('Error fetching consultants:', error);
+                    document.getElementById('consultant-list-admin').innerHTML = `
                     <div class="card" style="text-align: center; padding: 40px;">
                         <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: var(--error); margin-bottom: 16px;"></i>
                         <p style="color: var(--text-muted);">컨설턴트 목록을 불러오지 못했습니다.</p>
                     </div>
                 `;
-                lucide.createIcons();
-            }
-        }
-
-        function updateConsultantStats() {
-            const total = allConsultantsAdmin.length;
-            const pending = allConsultantsAdmin.filter(c => !c.verified).length;
-            const verified = allConsultantsAdmin.filter(c => c.verified).length;
-
-            document.getElementById('consultant-stat-total').textContent = total;
-            document.getElementById('consultant-stat-pending').textContent = pending;
-            document.getElementById('consultant-stat-verified').textContent = verified;
-            document.getElementById('consultant-count').textContent = pending;
-        }
-
-        function filterConsultants(filter) {
-            currentFilter = filter;
-
-            // Update filter buttons
-            document.querySelectorAll('.consultant-filter-btn').forEach(btn => {
-                btn.classList.remove('active');
-                btn.classList.add('btn-ghost');
-            });
-            const activeBtn = document.querySelector(`.consultant-filter-btn[data-filter="${filter}"]`);
-            if (activeBtn) {
-                activeBtn.classList.add('active');
-                activeBtn.classList.remove('btn-ghost');
+                    lucide.createIcons();
+                }
             }
 
-            renderConsultantsAdmin();
-        }
+            function updateConsultantStats() {
+                const total = allConsultantsAdmin.length;
+                // Use status field for accurate counting
+                const pending = allConsultantsAdmin.filter(c => c.status === 'pending' || (!c.status && !c.verified)).length;
+                const verified = allConsultantsAdmin.filter(c => c.status === 'verified' || (!c.status && c.verified)).length;
+                const rejected = allConsultantsAdmin.filter(c => c.status === 'rejected').length;
 
-        function renderConsultantsAdmin() {
-            const container = document.getElementById('consultant-list-admin');
-            container.innerHTML = '';
+                document.getElementById('consultant-stat-total').textContent = total;
+                document.getElementById('consultant-stat-pending').textContent = pending;
+                document.getElementById('consultant-stat-verified').textContent = verified;
+                document.getElementById('consultant-count').textContent = pending;
 
-            let consultantsToShow = allConsultantsAdmin;
-
-            if (currentFilter === 'pending') {
-                consultantsToShow = allConsultantsAdmin.filter(c => !c.verified);
-            } else if (currentFilter === 'verified') {
-                consultantsToShow = allConsultantsAdmin.filter(c => c.verified);
+                // Update filter button counts
+                document.getElementById('filter-count-all').textContent = `(${total})`;
+                document.getElementById('filter-count-pending').textContent = `(${pending})`;
+                document.getElementById('filter-count-verified').textContent = `(${verified})`;
+                document.getElementById('filter-count-rejected').textContent = `(${rejected})`;
             }
 
-            if (consultantsToShow.length === 0) {
-                container.innerHTML = `
+            function filterConsultants(filter) {
+                currentFilter = filter;
+
+                // Update filter buttons
+                document.querySelectorAll('.consultant-filter-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                    btn.classList.add('btn-ghost');
+                });
+                const activeBtn = document.querySelector(`.consultant-filter-btn[data-filter="${filter}"]`);
+                if (activeBtn) {
+                    activeBtn.classList.add('active');
+                    activeBtn.classList.remove('btn-ghost');
+                }
+
+                renderConsultantsAdmin();
+            }
+
+            function renderConsultantsAdmin() {
+                const container = document.getElementById('consultant-list-admin');
+                container.innerHTML = '';
+
+                let consultantsToShow = allConsultantsAdmin;
+
+                // Status-based filtering
+                if (currentFilter === 'pending') {
+                    consultantsToShow = allConsultantsAdmin.filter(c => c.status === 'pending' || (!c.status && !c.verified && c.status !== 'rejected'));
+                } else if (currentFilter === 'verified') {
+                    consultantsToShow = allConsultantsAdmin.filter(c => c.status === 'verified' || (!c.status && c.verified));
+                } else if (currentFilter === 'rejected') {
+                    consultantsToShow = allConsultantsAdmin.filter(c => c.status === 'rejected');
+                }
+
+                if (consultantsToShow.length === 0) {
+                    container.innerHTML = `
                     <div class="card" style="text-align: center; padding: 60px;">
                         <i data-lucide="users" style="width: 48px; height: 48px; color: var(--text-muted); margin-bottom: 16px;"></i>
                         <p style="color: var(--text-muted);">해당 조건의 컨설턴트가 없습니다.</p>
                     </div>
                 `;
-                lucide.createIcons();
-                return;
-            }
-
-            consultantsToShow.forEach((consultant, index) => {
-                const card = document.createElement('div');
-                card.className = 'consultant-approval-card fade-in-up';
-                card.style.animationDelay = `${index * 0.05}s`;
-
-                const statusClass = consultant.verified ? 'verified' : 'pending';
-                const statusText = consultant.verified ? '검증됨' : '승인 대기';
-
-                // Parse ISO experience
-                let isoList = [];
-                if (consultant.isoExperience && typeof consultant.isoExperience === 'object') {
-                    isoList = Object.keys(consultant.isoExperience);
+                    lucide.createIcons();
+                    return;
                 }
 
-                // Parse industry experience
-                let industryList = consultant.industryExperience || [];
+                consultantsToShow.forEach((consultant, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'consultant-approval-card fade-in-up';
+                    card.style.animationDelay = `${index * 0.05}s`;
 
-                // Avatar logic
-                const avatarContent = consultant.profileImageUrl
-                    ? `<img src="${consultant.profileImageUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
-                    : (consultant.avatar || consultant.name[0]);
+                    // Status-based styling
+                    const status = consultant.status || (consultant.verified ? 'verified' : 'pending');
+                    let statusClass = 'pending';
+                    let statusText = '승인 대기';
 
-                card.innerHTML = `
+                    if (status === 'verified') {
+                        statusClass = 'verified';
+                        statusText = '검증됨';
+                    } else if (status === 'rejected') {
+                        statusClass = 'rejected';
+                        statusText = '거부됨';
+                        card.style.opacity = '0.7';
+                        card.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                    }
+
+                    // Parse ISO experience
+                    let isoList = [];
+                    if (consultant.isoExperience && typeof consultant.isoExperience === 'object') {
+                        isoList = Object.keys(consultant.isoExperience);
+                    }
+
+                    // Parse industry experience
+                    let industryList = consultant.industryExperience || [];
+
+                    // Avatar logic
+                    const avatarContent = consultant.profileImageUrl
+                        ? `<img src="${consultant.profileImageUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
+                        : (consultant.avatar || consultant.name[0]);
+
+                    // Rejection info (for rejected consultants)
+                    const rejectionInfo = status === 'rejected' ? `
+                        <div style="margin-top: 12px; padding: 10px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; border-left: 3px solid #ef4444;">
+                            <div style="font-size: 0.8rem; color: var(--error); font-weight: 500; margin-bottom: 4px;">거부 사유:</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">${consultant.rejectionReason || '사유 미기재'}</div>
+                            ${consultant.rejectedAt ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">거부일: ${new Date(consultant.rejectedAt).toLocaleDateString('ko-KR')}</div>` : ''}
+                        </div>
+                    ` : '';
+
+                    // Action buttons based on status
+                    let actionButtons = '';
+                    if (status === 'rejected') {
+                        actionButtons = `
+                            <button class="btn btn-secondary btn-sm" onclick="viewConsultantDetails('${consultant.id}')">
+                                <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+                                상세 보기
+                            </button>
+                            <button class="btn btn-sm" style="background: rgba(16, 185, 129, 0.15); color: var(--primary);" onclick="restoreConsultant(${consultant.id})">
+                                <i data-lucide="rotate-ccw" style="width: 16px; height: 16px;"></i>
+                                복구
+                            </button>
+                        `;
+                    } else if (status === 'verified') {
+                        actionButtons = `
+                            <button class="btn btn-secondary btn-sm" onclick="viewConsultantDetails('${consultant.id}')">
+                                <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+                                상세 보기
+                            </button>
+                            <button class="btn btn-ghost btn-sm" onclick="revokeVerification(${consultant.id})">
+                                <i data-lucide="shield-off" style="width: 16px; height: 16px;"></i>
+                                검증 취소
+                            </button>
+                        `;
+                    } else {
+                        actionButtons = `
+                            <button class="btn btn-secondary btn-sm" onclick="viewConsultantDetails('${consultant.id}')">
+                                <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+                                상세 보기
+                            </button>
+                            <button class="btn btn-approve btn-sm" onclick="approveConsultant(${consultant.id})">
+                                <i data-lucide="check" style="width: 16px; height: 16px;"></i>
+                                승인
+                            </button>
+                            <button class="btn btn-reject btn-sm" onclick="rejectConsultant(${consultant.id})">
+                                <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+                                거부
+                            </button>
+                        `;
+                    }
+
+                    card.innerHTML = `
                     <div class="consultant-approval-header">
                         <div class="consultant-approval-info">
-                            <div class="consultant-approval-avatar">${avatarContent}</div>
+                            <div class="consultant-approval-avatar" ${status === 'rejected' ? 'style="filter: grayscale(50%);"' : ''}>${avatarContent}</div>
                             <div class="consultant-approval-details">
                                 <h3>${consultant.name}</h3>
                                 <p>${consultant.specialty || '종합'} 전문 · 경력 ${consultant.experience || '-'}</p>
@@ -744,230 +980,410 @@
                             <label>리뷰 수</label>
                             <span>${consultant.reviews || 0}개</span>
                         </div>
+                        ${rejectionInfo}
                     </div>
                     
                     <div class="consultant-approval-actions">
-                        <button class="btn btn-secondary btn-sm" onclick="viewConsultantDetails('${consultant.id}')">
-                            <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
-                            상세 보기
-                        </button>
-                        ${!consultant.verified ? `
-                            <button class="btn btn-approve btn-sm" onclick="approveConsultant(${consultant.id})">
-                                <i data-lucide="check" style="width: 16px; height: 16px;"></i>
-                                승인
-                            </button>
-                            <button class="btn btn-reject btn-sm" onclick="rejectConsultant(${consultant.id})">
-                                <i data-lucide="x" style="width: 16px; height: 16px;"></i>
-                                거부
-                            </button>
-                        ` : `
-                            <button class="btn btn-ghost btn-sm" onclick="revokeVerification(${consultant.id})">
-                                <i data-lucide="shield-off" style="width: 16px; height: 16px;"></i>
-                                검증 취소
-                            </button>
-                        `}
+                        ${actionButtons}
                     </div>
                 `;
 
-                container.appendChild(card);
-            });
-
-            lucide.createIcons();
-        }
-
-        // Consultant Approval Actions
-        async function approveConsultant(id) {
-            if (!confirm('이 컨설턴트를 승인하시겠습니까?')) return;
-
-            try {
-                const response = await fetch(`/api/admin/consultants/${id}/approve`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    container.appendChild(card);
                 });
 
-                if (response.ok) {
-                    showNotification('컨설턴트가 승인되었습니다.', 'success');
-                    fetchConsultantsAdmin();
-                } else {
-                    showNotification('승인 처리 중 오류가 발생했습니다.', 'error');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                showNotification('서버 연결에 실패했습니다.', 'error');
+                lucide.createIcons();
             }
-        }
 
-        async function rejectConsultant(id) {
-            const reason = prompt('거부 사유를 입력해주세요:');
-            if (!reason) return;
+            // Consultant Approval Actions
+            async function approveConsultant(id) {
+                if (!confirm('이 컨설턴트를 승인하시겠습니까?')) return;
 
-            try {
-                const response = await fetch(`/api/admin/consultants/${id}/reject`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ reason })
-                });
+                try {
+                    const response = await fetch(`/api/admin/consultants/${id}/approve`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
 
-                if (response.ok) {
-                    showNotification('컨설턴트 등록이 거부되었습니다.', 'success');
-                    fetchConsultantsAdmin();
-                } else {
-                    showNotification('처리 중 오류가 발생했습니다.', 'error');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                showNotification('서버 연결에 실패했습니다.', 'error');
-            }
-        }
-
-        async function revokeVerification(id) {
-            if (!confirm('이 컨설턴트의 검증을 취소하시겠습니까?')) return;
-
-            try {
-                const response = await fetch(`/api/admin/consultants/${id}/revoke`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-
-                if (response.ok) {
-                    showNotification('검증이 취소되었습니다.', 'success');
-                    fetchConsultantsAdmin();
-                } else {
-                    showNotification('처리 중 오류가 발생했습니다.', 'error');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                showNotification('서버 연결에 실패했습니다.', 'error');
-            }
-        }
-
-        // Delete Job (Matching Request)
-        async function deleteJob(jobId, companyName) {
-            // Custom confirmation
-            const confirmed = confirm(`"${companyName}" 매칭 요청을 삭제하시겠습니까?\n\n삭제된 요청은 복구할 수 없습니다.`);
-            if (!confirmed) return;
-
-            try {
-                const response = await fetch(`/api/admin/jobs/${jobId}`, {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    showNotification(`"${companyName}" 매칭 요청이 삭제되었습니다.`, 'success');
-                    // Remove card from UI with animation
-                    const card = document.getElementById(`job-card-${jobId}`);
-                    if (card) {
-                        card.style.transition = 'opacity 0.3s, transform 0.3s';
-                        card.style.opacity = '0';
-                        card.style.transform = 'translateX(20px)';
-                        setTimeout(() => {
-                            card.remove();
-                            // Refresh stats
-                            fetchJobs();
-                        }, 300);
+                    if (response.ok) {
+                        showNotification('컨설턴트가 승인되었습니다.', 'success');
+                        fetchConsultantsAdmin();
                     } else {
-                        fetchJobs();
+                        showNotification('승인 처리 중 오류가 발생했습니다.', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showNotification('서버 연결에 실패했습니다.', 'error');
+                }
+            }
+            // Rejection Panel Functions
+            function rejectConsultant(id) {
+                const consultant = allConsultantsAdmin.find(c => c.id == id);
+                if (!consultant) return;
+
+                // Set consultant info
+                document.getElementById('reject-consultant-id').value = id;
+                document.getElementById('reject-consultant-name').textContent = `${consultant.name} 전문가`;
+
+                // Reset form
+                document.querySelectorAll('input[name="reject_reason"]').forEach(r => r.checked = false);
+                document.getElementById('reject-custom-reason').value = '';
+
+                // Open panel
+                openRejectPanel();
+            }
+
+            function openRejectPanel() {
+                document.getElementById('reject-panel-overlay').classList.add('active');
+                document.getElementById('reject-panel').classList.add('active');
+                document.body.style.overflow = 'hidden';
+                lucide.createIcons();
+            }
+
+            function closeRejectPanel() {
+                document.getElementById('reject-panel-overlay').classList.remove('active');
+                document.getElementById('reject-panel').classList.remove('active');
+                document.body.style.overflow = '';
+            }
+
+            async function confirmReject() {
+                const id = document.getElementById('reject-consultant-id').value;
+                const selectedReason = document.querySelector('input[name="reject_reason"]:checked');
+                const customReason = document.getElementById('reject-custom-reason').value.trim();
+
+                if (!selectedReason) {
+                    showNotification('거부 사유를 선택해주세요.', 'error');
+                    return;
+                }
+
+                let reason = selectedReason.value;
+
+                // If custom is selected, use the textarea value
+                if (reason === 'custom') {
+                    if (!customReason) {
+                        showNotification('거부 사유를 직접 입력해주세요.', 'error');
+                        return;
+                    }
+                    reason = customReason;
+                } else if (customReason) {
+                    // Append additional notes if provided
+                    reason = reason + ' - ' + customReason;
+                }
+
+                // Show loading state
+                const confirmBtn = document.getElementById('confirm-reject-btn');
+                const originalHTML = confirmBtn.innerHTML;
+                confirmBtn.innerHTML = '<div class="loading-spinner" style="width: 18px; height: 18px;"></div> 처리 중...';
+                confirmBtn.disabled = true;
+
+                try {
+                    const response = await fetch(`/api/admin/consultants/${id}/reject`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reason })
+                    });
+
+                    if (response.ok) {
+                        closeRejectPanel();
+                        showNotification('컨설턴트 등록이 거부되었습니다.', 'success');
+                        fetchConsultantsAdmin();
+                    } else {
+                        showNotification('처리 중 오류가 발생했습니다.', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showNotification('서버 연결에 실패했습니다.', 'error');
+                } finally {
+                    confirmBtn.innerHTML = originalHTML;
+                    confirmBtn.disabled = false;
+                    lucide.createIcons();
+                }
+            }
+
+            async function revokeVerification(id) {
+                if (!confirm('이 컨설턴트의 검증을 취소하시겠습니까?')) return;
+
+                try {
+                    const response = await fetch(`/api/admin/consultants/${id}/revoke`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    if (response.ok) {
+                        showNotification('검증이 취소되었습니다.', 'success');
+                        fetchConsultantsAdmin();
+                    } else {
+                        showNotification('처리 중 오류가 발생했습니다.', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showNotification('서버 연결에 실패했습니다.', 'error');
+                }
+            }
+
+            async function restoreConsultant(id) {
+                if (!confirm('이 컨설턴트를 승인 대기 상태로 복구하시겠습니까?')) return;
+
+                try {
+                    const response = await fetch(`/api/admin/consultants/${id}/restore`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    if (response.ok) {
+                        showNotification('컨설턴트가 승인 대기 상태로 복구되었습니다.', 'success');
+                        fetchConsultantsAdmin();
+                    } else {
+                        const data = await response.json();
+                        showNotification(data.message || '처리 중 오류가 발생했습니다.', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showNotification('서버 연결에 실패했습니다.', 'error');
+                }
+            }
+
+            // Delete Job (Matching Request)
+            async function deleteJob(jobId, companyName) {
+                // Custom confirmation
+                const confirmed = confirm(`"${companyName}" 매칭 요청을 삭제하시겠습니까?\n\n삭제된 요청은 복구할 수 없습니다.`);
+                if (!confirmed) return;
+
+                try {
+                    const response = await fetch(`/api/admin/jobs/${jobId}`, {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        showNotification(`"${companyName}" 매칭 요청이 삭제되었습니다.`, 'success');
+                        // Remove card from UI with animation
+                        const card = document.getElementById(`job-card-${jobId}`);
+                        if (card) {
+                            card.style.transition = 'opacity 0.3s, transform 0.3s';
+                            card.style.opacity = '0';
+                            card.style.transform = 'translateX(20px)';
+                            setTimeout(() => {
+                                card.remove();
+                                // Refresh stats
+                                fetchJobs();
+                            }, 300);
+                        } else {
+                            fetchJobs();
+                        }
+                    } else {
+                        showNotification(data.message || '삭제 중 오류가 발생했습니다.', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showNotification('서버 연결에 실패했습니다.', 'error');
+                }
+            }
+
+            // View Consultant Details - Show in side panel
+            function viewConsultantDetails(consultantId) {
+                const consultant = allConsultantsAdmin.find(c => c.id == consultantId);
+                if (!consultant) return;
+
+                // Set Header Title
+                document.getElementById('panel-company-name').textContent = '컨설턴트 상세 정보';
+                document.getElementById('panel-request-date').textContent = `${consultant.name} 전문가`;
+
+                // Parse ISO experience with roles
+                let isoHtml = '';
+                if (consultant.isoExperience && typeof consultant.isoExperience === 'object') {
+                    const isoEntries = Object.entries(consultant.isoExperience);
+                    if (isoEntries.length > 0) {
+                        isoHtml = isoEntries.map(([code, role]) => {
+                            const roleText = role === 'Lead Auditor' ? '선임심사원'
+                                : role === 'Auditor' ? '심사원'
+                                    : role === 'Consultant' ? '컨설턴트'
+                                        : role === 'Trainer' ? '교육강사'
+                                            : role || '미지정';
+                            return `<span style="display: inline-flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.1); padding: 6px 12px; border-radius: 16px; font-size: 0.85rem; margin: 4px 4px 4px 0;">
+                            <span style="font-weight: 600; color: var(--primary);">ISO ${code}</span>
+                            <span style="color: var(--text-muted);">(${roleText})</span>
+                        </span>`;
+                        }).join('');
+                    } else {
+                        isoHtml = '<span style="color: var(--text-muted);">미지정</span>';
                     }
                 } else {
-                    showNotification(data.message || '삭제 중 오류가 발생했습니다.', 'error');
+                    isoHtml = '<span style="color: var(--text-muted);">미지정</span>';
                 }
-            } catch (error) {
-                console.error('Error:', error);
-                showNotification('서버 연결에 실패했습니다.', 'error');
-            }
-        }
 
-        // View Consultant Details - Show in side panel
-        function viewConsultantDetails(consultantId) {
-            const consultant = allConsultantsAdmin.find(c => c.id == consultantId);
-            if (!consultant) return;
+                // Parse other arrays
+                const industryList = consultant.industryExperience || [];
+                const projectTypes = consultant.projectTypes || [];
+                const orgSizes = consultant.orgSizeExperience || [];
+                const roles = consultant.roles || [];
+                const regions = consultant.regions ? consultant.regions.split(',').filter(r => r.trim()) : [];
 
-            // Set Header Title
-            document.getElementById('panel-company-name').textContent = '컨설턴트 상세 정보';
-            document.getElementById('panel-request-date').textContent = `${consultant.name} 전문가`;
+                // Helper for tags
+                const renderTags = (items, emptyText = '미지정') => {
+                    if (!items || items.length === 0) return `<span style="color: var(--text-muted);">${emptyText}</span>`;
+                    return items.map(item => `<span style="display: inline-block; background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; margin: 3px 3px 3px 0; border: 1px solid rgba(255,255,255,0.1);">${item}</span>`).join('');
+                };
 
-            // Parse ISO experience
-            let isoList = [];
-            if (consultant.isoExperience && typeof consultant.isoExperience === 'object') {
-                isoList = Object.keys(consultant.isoExperience).map(iso => 'ISO ' + iso);
-            }
+                // Translate project types
+                const projectTypeLabels = {
+                    'New': '신규 인증', 'Renewal': '갱신 심사', 'Transition': '전환 심사',
+                    'Integration': '통합 심사', 'Surveillance': '사후 심사'
+                };
+                const translatedProjectTypes = projectTypes.map(pt => projectTypeLabels[pt] || pt);
 
-            // Set Header with Avatar
-            const avatarContent = consultant.profileImageUrl
-                ? `<img src="${consultant.profileImageUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">`
-                : `<div class="consultant-approval-avatar" style="width: 80px; height: 80px; border-radius: 12px; font-size: 1.5rem;">${consultant.avatar || consultant.name[0]}</div>`;
+                // Translate org sizes
+                const orgSizeLabels = {
+                    'Small': '소기업', 'Medium': '중소기업', 'MidLarge': '중견기업', 'Large': '대기업'
+                };
+                const translatedOrgSizes = orgSizes.map(os => orgSizeLabels[os] || os);
 
-            document.getElementById('panel-content').innerHTML = `
+                // Translate roles
+                const roleLabels = {
+                    'Audit': '심사', 'Consulting': '컨설팅', 'Training': '교육훈련',
+                    'InternalAudit': '내부심사 대행', 'Documentation': '문서화 지원'
+                };
+                const translatedRoles = roles.map(r => roleLabels[r] || r);
+
+                // Set Header with Avatar
+                const avatarContent = consultant.profileImageUrl
+                    ? `<img src="${consultant.profileImageUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">`
+                    : `<div class="consultant-approval-avatar" style="width: 80px; height: 80px; border-radius: 12px; font-size: 1.5rem;">${consultant.avatar || consultant.name[0]}</div>`;
+
+                const contentHtml = `
                 <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 32px; padding: 20px; background: rgba(255,255,255,0.03); border-radius: 16px;">
                     <div style="width: 80px; height: 80px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
                         ${avatarContent} 
                     </div>
-                    <div>
+                    <div style="flex: 1;">
                         <h2 style="font-size: 1.5rem; margin-bottom: 4px;">${consultant.name}</h2>
                         <p style="color: var(--text-muted); font-size: 0.95rem;">${consultant.specialty || '종합'} 전문 · 경력 ${consultant.experience || '-'}</p>
+                        ${consultant.companyName ? `<p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">🏢 ${consultant.companyName}</p>` : ''}
                     </div>
+                    <span class="consultant-approval-status ${consultant.verified ? 'verified' : 'pending'}" style="font-size: 0.9rem;">
+                        ${consultant.verified ? '✓ 검증됨' : '⏳ 승인 대기'}
+                    </span>
                 </div>
 
+                <!-- 연락처 정보 -->
                 <div class="info-group">
-                    <h4 style="margin-bottom: 16px; color: var(--primary); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
-                        컨설턴트 전문성
+                    <h4 style="margin-bottom: 16px; color: var(--secondary); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="contact" style="width: 18px; height: 18px;"></i>
+                        연락처 정보
                     </h4>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div>
-                            <label class="info-label">보유 규격</label>
-                            <div class="info-value">${isoList.join(', ') || '미지정'}</div>
+                            <label class="info-label">📧 이메일</label>
+                            <div class="info-value">${consultant.email || '미등록'}</div>
                         </div>
                         <div>
-                            <label class="info-label">총 경력</label>
-                            <div class="info-value">${consultant.experience || '신입'}</div>
-                        </div>
-                        <div style="grid-column: span 2;">
-                            <label class="info-label">산업 경험</label>
-                            <div class="info-value">${(consultant.industryExperience || []).join(', ') || '미지정'}</div>
+                            <label class="info-label">📞 연락처</label>
+                            <div class="info-value">${consultant.phone || '미등록'}</div>
                         </div>
                     </div>
                 </div>
 
-                <div class="info-group">
-                    <label class="info-label">자기소개 (Bio)</label>
-                    <div class="info-value" style="background: rgba(255,255,255,0.03); padding: 16px; border-radius: 8px; font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap;">
-                        ${consultant.bio || '등록된 자기소개가 없습니다.'}
+                <!-- 전문 분야 (ISO) -->
+                <div class="info-group" style="margin-top: 24px;">
+                    <h4 style="margin-bottom: 16px; color: var(--primary); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="award" style="width: 18px; height: 18px;"></i>
+                        전문 분야 (ISO 규격)
+                    </h4>
+                    <div style="margin-bottom: 12px;">
+                        ${isoHtml}
                     </div>
                 </div>
 
+                <!-- 활동 지역 -->
+                <div class="info-group" style="margin-top: 24px;">
+                    <h4 style="margin-bottom: 12px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="map-pin" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
+                        활동 가능 지역
+                    </h4>
+                    <div>${renderTags(regions)}</div>
+                </div>
+
+                <!-- 산업 경험 -->
+                <div class="info-group" style="margin-top: 24px;">
+                    <h4 style="margin-bottom: 12px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="factory" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
+                        경험 산업군
+                    </h4>
+                    <div>${renderTags(industryList)}</div>
+                </div>
+
+                <!-- 프로젝트 유형/조직 규모 -->
+                <div class="info-group" style="margin-top: 24px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                        <div>
+                            <h4 style="margin-bottom: 12px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; font-size: 0.95rem;">
+                                <i data-lucide="folder-check" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
+                                프로젝트 유형
+                            </h4>
+                            <div>${renderTags(translatedProjectTypes)}</div>
+                        </div>
+                        <div>
+                            <h4 style="margin-bottom: 12px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; font-size: 0.95rem;">
+                                <i data-lucide="users" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
+                                조직 규모 경험
+                            </h4>
+                            <div>${renderTags(translatedOrgSizes)}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 수행 가능 역할 -->
+                <div class="info-group" style="margin-top: 24px;">
+                    <h4 style="margin-bottom: 12px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="user-check" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
+                        수행 가능 역할
+                    </h4>
+                    <div>${renderTags(translatedRoles)}</div>
+                </div>
+
+                <!-- 한줄 소개 -->
+                <div class="info-group" style="margin-top: 24px;">
+                    <h4 style="margin-bottom: 12px; color: var(--text-primary);">💬 한줄 소개</h4>
+                    <div class="info-value" style="background: rgba(16, 185, 129, 0.05); padding: 16px; border-radius: 8px; font-size: 0.95rem; line-height: 1.6; border-left: 3px solid var(--primary);">
+                        ${consultant.matchReason || '등록된 소개가 없습니다.'}
+                    </div>
+                </div>
+
+                <!-- 성과 지표 -->
                 <div class="info-group" style="margin-top: 32px;">
-                    <h4 style="margin-bottom: 16px; color: var(--warning); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+                    <h4 style="margin-bottom: 16px; color: var(--warning); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="bar-chart-3" style="width: 18px; height: 18px;"></i>
                         성과 및 지표
                     </h4>
                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; text-align: center;">
-                        <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px;">
-                            <div class="info-label" style="margin-bottom: 4px;">신뢰 점수</div>
-                            <div class="info-value" style="color: var(--primary); font-size: 1.2rem;">${consultant.trustScore || 50}점</div>
+                        <div style="background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px;">
+                            <div class="info-label" style="margin-bottom: 8px;">신뢰 점수</div>
+                            <div class="info-value" style="color: var(--primary); font-size: 1.5rem; font-weight: 700;">${consultant.trustScore || 50}</div>
                         </div>
-                        <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px;">
-                            <div class="info-label" style="margin-bottom: 4px;">리뷰 수</div>
-                            <div class="info-value" style="font-size: 1.2rem;">${consultant.reviews || 0}개</div>
+                        <div style="background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px;">
+                            <div class="info-label" style="margin-bottom: 8px;">평점</div>
+                            <div class="info-value" style="font-size: 1.5rem; font-weight: 700;">⭐ ${consultant.rating || 0}</div>
                         </div>
-                        <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px;">
-                            <div class="info-label" style="margin-bottom: 4px;">매칭 이력</div>
-                            <div class="info-value" style="font-size: 1.2rem;">${consultant.projects_count || 0}건</div>
+                        <div style="background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px;">
+                            <div class="info-label" style="margin-bottom: 8px;">리뷰</div>
+                            <div class="info-value" style="font-size: 1.5rem; font-weight: 700;">${consultant.reviews || 0}개</div>
                         </div>
                     </div>
                 </div>
             `;
 
-            document.getElementById('panel-content').innerHTML = contentHtml;
+                document.getElementById('panel-content').innerHTML = contentHtml;
 
-            // Update Footer Buttons
-            let footerHtml = `
+                // Update Footer Buttons
+                let footerHtml = `
                 <button class="btn btn-secondary" onclick="closeSidePanel()">닫기</button>
+                ${consultant.email ? `
                 <a href="mailto:${consultant.email}" class="btn btn-secondary" style="display: flex; align-items: center; gap: 8px;">
                     <i data-lucide="mail" style="width: 18px; height: 18px;"></i>
                     메일 보내기
                 </a>
+                ` : ''}
                 ${!consultant.verified ? `
                     <button class="btn btn-primary" style="flex: 1;" onclick="approveConsultant(${consultant.id}); closeSidePanel();">
                         <i data-lucide="check-circle" style="width: 18px; height: 18px;"></i>
@@ -979,42 +1395,43 @@
                     </button>
                 `}
             `;
-            document.getElementById('panel-footer').innerHTML = footerHtml;
+                document.getElementById('panel-footer').innerHTML = footerHtml;
 
-            // Re-create icons
-            lucide.createIcons();
+                // Re-create icons
+                lucide.createIcons();
 
-            // Open Panel
-            openSidePanel();
-        }
+                // Open Panel
+                openSidePanel();
+            }
 
-        // Side Panel Controls
-        function openSidePanel() {
-            document.getElementById('side-panel-overlay').classList.add('active');
-            document.getElementById('side-panel').classList.add('active');
-            document.body.style.overflow = 'hidden';
-        }
 
-        function closeSidePanel() {
-            document.getElementById('side-panel-overlay').classList.remove('active');
-            document.getElementById('side-panel').classList.remove('active');
-            document.body.style.overflow = '';
-        }
+            // Side Panel Controls
+            function openSidePanel() {
+                document.getElementById('side-panel-overlay').classList.add('active');
+                document.getElementById('side-panel').classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
 
-        // View Job Details - Navigate to dashboard or show side panel
-        function viewJobDetails(jobId) {
-            const job = allJobsAdmin.find(j => j.id === jobId);
-            if (!job) return;
+            function closeSidePanel() {
+                document.getElementById('side-panel-overlay').classList.remove('active');
+                document.getElementById('side-panel').classList.remove('active');
+                document.body.style.overflow = '';
+            }
 
-            const intake = job.intake_data || {};
-            const date = new Date(job.created_at).toLocaleString('ko-KR');
+            // View Job Details - Navigate to dashboard or show side panel
+            function viewJobDetails(jobId) {
+                const job = allJobsAdmin.find(j => j.id === jobId);
+                if (!job) return;
 
-            // Set Header
-            document.getElementById('panel-company-name').textContent = job.company_name;
-            document.getElementById('panel-request-date').textContent = `요청 일시: ${date}`;
+                const intake = job.intake_data || {};
+                const date = new Date(job.created_at).toLocaleString('ko-KR');
 
-            // Build Body Content
-            let contentHtml = `
+                // Set Header
+                document.getElementById('panel-company-name').textContent = job.company_name;
+                document.getElementById('panel-request-date').textContent = `요청 일시: ${date}`;
+
+                // Build Body Content
+                let contentHtml = `
                 <div class="info-group">
                     <h4 style="margin-bottom: 16px; color: var(--primary); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
                         매칭 요청 원문
@@ -1059,12 +1476,12 @@
                         매칭된 컨설턴트 상세
                     </h4>
                     ${job.related_projects && job.related_projects.length > 0 ?
-                    job.related_projects.map(p => {
-                        const avatarContent = p.profile_image_url
-                            ? `<img src="${p.profile_image_url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
-                            : (p.consultant_name?.charAt(0) || '?');
+                        job.related_projects.map(p => {
+                            const avatarContent = p.profile_image_url
+                                ? `<img src="${p.profile_image_url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
+                                : (p.consultant_name?.charAt(0) || '?');
 
-                        return `
+                            return `
                             <div class="consultant-item" style="padding: 16px;">
                                 <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 12px;">
                                     <div class="consultant-approval-avatar" style="width: 40px; height: 40px; font-size: 1rem; flex-shrink: 0;">${avatarContent}</div>
@@ -1084,15 +1501,15 @@
                                 </div>
                             </div>
                         `;
-                    }).join('') : '<p style="color: var(--text-muted); text-align: center; padding: 20px;">매칭된 컨설턴트 데이터가 없습니다.</p>'
-                }
+                        }).join('') : '<p style="color: var(--text-muted); text-align: center; padding: 20px;">매칭된 컨설턴트 데이터가 없습니다.</p>'
+                    }
                 </div>
             `;
 
-            document.getElementById('panel-content').innerHTML = contentHtml;
+                document.getElementById('panel-content').innerHTML = contentHtml;
 
-            // Update Footer Buttons
-            let footerHtml = `
+                // Update Footer Buttons
+                let footerHtml = `
                 <button class="btn btn-secondary" onclick="closeSidePanel()">닫기</button>
                 ${intake.contact_email ? `
                     <a href="mailto:${intake.contact_email}" class="btn btn-primary" style="flex: 1; display: flex; justify-content: center; align-items: center; gap: 8px;">
@@ -1104,24 +1521,24 @@
                     삭제
                 </button>
             `;
-            document.getElementById('panel-footer').innerHTML = footerHtml;
+                document.getElementById('panel-footer').innerHTML = footerHtml;
 
-            // Re-create icons
-            lucide.createIcons();
+                // Re-create icons
+                lucide.createIcons();
 
-            // Open Panel
-            openSidePanel();
-        }
+                // Open Panel
+                openSidePanel();
+            }
 
-        // Notification
-        function showNotification(message, type) {
-            const existing = document.querySelector('.notification');
-            if (existing) existing.remove();
+            // Notification
+            function showNotification(message, type) {
+                const existing = document.querySelector('.notification');
+                if (existing) existing.remove();
 
-            const notification = document.createElement('div');
-            const bgColor = type === 'success' ? 'rgba(16, 185, 129, 0.9)' : 'rgba(239, 68, 68, 0.9)';
+                const notification = document.createElement('div');
+                const bgColor = type === 'success' ? 'rgba(16, 185, 129, 0.9)' : 'rgba(239, 68, 68, 0.9)';
 
-            notification.style.cssText = `
+                notification.style.cssText = `
                 position: fixed;
                 top: 100px;
                 right: 24px;
@@ -1135,24 +1552,24 @@
                 box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
                 max-width: 400px;
             `;
-            notification.textContent = message;
-            document.body.appendChild(notification);
+                notification.textContent = message;
+                document.body.appendChild(notification);
 
-            setTimeout(() => notification.remove(), 4000);
-        }
-
-        // Manual Refresh Function
-        function refreshData() {
-            fetchJobs();
-            if (currentTab === 'consultants') {
-                fetchConsultantsAdmin();
+                setTimeout(() => notification.remove(), 4000);
             }
-            showNotification('데이터를 갱신했습니다.', 'success');
-        }
 
-        // Initial fetch only
-        fetchJobs();
-    </script>
+            // Manual Refresh Function
+            function refreshData() {
+                fetchJobs();
+                if (currentTab === 'consultants') {
+                    fetchConsultantsAdmin();
+                }
+                showNotification('데이터를 갱신했습니다.', 'success');
+            }
+
+            // Initial fetch only
+            fetchJobs();
+        </script>
 </body>
 
 </html>

@@ -61,6 +61,11 @@ class Consultant(db.Model):
     pending_changes = db.Column(db.Text)  # JSON: {"name": "새이름", "iso_experience": {...}, ...}
     pending_changes_at = db.Column(db.DateTime)  # 검토 요청 시각
     
+    # ⑤ Status & Rejection Fields
+    status = db.Column(db.String(20), default='pending')  # pending, verified, rejected
+    rejection_reason = db.Column(db.Text)  # 거부 사유
+    rejected_at = db.Column(db.DateTime)  # 거부 시각
+    
     def to_dict(self):
         return {
             'id': self.id,
@@ -78,6 +83,7 @@ class Consultant(db.Model):
             'isoExperience': json.loads(self.iso_experience) if self.iso_experience else {},
             'industryExperience': json.loads(self.industry_experience) if self.industry_experience else [],
             'projectTypes': json.loads(self.project_types) if self.project_types else [],
+            'orgSizeExperience': json.loads(self.org_size_experience) if self.org_size_experience else [],
             'roles': json.loads(self.roles) if self.roles else [],
             # Profile fields
             'profileImageUrl': self.profile_image_url,
@@ -89,7 +95,11 @@ class Consultant(db.Model):
             'companyName': self.company_name,
             # Pending changes
             'pendingChanges': json.loads(self.pending_changes) if self.pending_changes else None,
-            'pendingChangesAt': self.pending_changes_at.isoformat() if self.pending_changes_at else None
+            'pendingChangesAt': self.pending_changes_at.isoformat() if self.pending_changes_at else None,
+            # Status & Rejection
+            'status': self.status or ('verified' if self.verified else 'pending'),
+            'rejectionReason': self.rejection_reason,
+            'rejectedAt': self.rejected_at.isoformat() if self.rejected_at else None
         }
 
 # 프로필 변경 이력 모델

@@ -207,6 +207,7 @@
             accent-color: var(--primary);
         }
 
+        /* ISO Standard Info */
         .iso-standard-info {
             flex: 1;
         }
@@ -223,26 +224,41 @@
             margin-top: 2px;
         }
 
-        .iso-role-select {
-            min-width: 140px;
-            padding: 8px 12px;
+        /* Profile Photo Upload Style */
+        .profile-photo-upload {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            margin-bottom: 32px;
+            padding: 24px;
             background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            color: var(--text-primary);
-            font-size: 0.85rem;
-            cursor: pointer;
-            opacity: 0.5;
-            transition: opacity 0.2s;
+            border-radius: var(--radius-md);
+            border: 1px dashed var(--border);
         }
 
-        .iso-role-select:enabled {
-            opacity: 1;
+        .profile-photo-preview {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
         }
 
-        .iso-role-select:focus {
-            outline: none;
-            border-color: var(--primary);
+        .profile-photo-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .profile-photo-preview i {
+            color: var(--text-muted);
+            width: 32px;
+            height: 32px;
         }
 
         /* Checkbox Grid for industries, regions, etc */
@@ -410,12 +426,8 @@
             .iso-standard-item {
                 flex-wrap: wrap;
             }
-
-            .iso-role-select {
-                width: 100%;
-                margin-top: 8px;
-            }
         }
+
 
         @media (max-width: 480px) {
             .register-container h1 {
@@ -495,14 +507,10 @@
             </div>
             <div class="step-item" data-step="2">
                 <div class="step-number">2</div>
-                <span class="step-label">전문 분야</span>
+                <span class="step-label">전문 분야 & 경력</span>
             </div>
             <div class="step-item" data-step="3">
                 <div class="step-number">3</div>
-                <span class="step-label">경력 & 자격</span>
-            </div>
-            <div class="step-item" data-step="4">
-                <div class="step-number">4</div>
                 <span class="step-label">검토 & 제출</span>
             </div>
         </div>
@@ -516,6 +524,26 @@
                         <i data-lucide="user"></i>
                         기본 정보
                     </h3>
+
+                    <div class="profile-photo-upload">
+                        <div class="profile-photo-preview" id="photo-preview">
+                            <i data-lucide="camera"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="display: block; font-weight: 600; margin-bottom: 8px; font-size: 0.95rem;">프로필
+                                사진 <small style="color: var(--text-muted); font-weight: 400;">(선택)</small></label>
+                            <input type="file" id="profile-photo-input" accept="image/*" style="display: none;"
+                                onchange="handlePhotoSelect(event)">
+                            <button type="button" class="btn btn-outline btn-sm"
+                                onclick="document.getElementById('profile-photo-input').click()">
+                                <i data-lucide="upload" style="width: 14px; height: 14px;"></i>
+                                사진 선택
+                            </button>
+                            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;">JPG, PNG / 최대
+                                100KB</p>
+                            <input type="hidden" name="profile_image_url" id="profile-image-url">
+                        </div>
+                    </div>
 
                     <div class="form-grid">
                         <div class="form-group">
@@ -575,13 +603,13 @@
 
                     <div class="step-navigation">
                         <button type="button" class="btn btn-primary btn-lg" onclick="nextStep()">
-                            다음: 전문 분야 선택
+                            다음: 전문 분야 & 경력
                             <i data-lucide="arrow-right" style="width: 18px; height: 18px;"></i>
                         </button>
                     </div>
                 </div>
 
-                <!-- Step 2: 전문 분야 (ISO 규격) -->
+                <!-- Step 2: 전문 분야 & 경력 (통합) -->
                 <div class="step-content" data-step="2">
                     <h3 class="form-section-title">
                         <i data-lucide="award"></i>
@@ -589,38 +617,19 @@
                         <span class="selection-counter" id="iso-counter">0개 선택</span>
                     </h3>
                     <p style="color: var(--text-muted); margin-bottom: 24px; font-size: 0.9rem;">
-                        경험이 있는 ISO 규격을 선택하고, 해당 규격에서의 역할을 지정해주세요.
+                        경험이 있는 ISO 규격을 선택해주세요.
                     </p>
 
                     <!-- ISO Categories - 동적으로 생성됨 -->
                     <div id="iso-categories-container"></div>
 
-                    <div class="step-navigation">
-                        <button type="button" class="btn btn-outline btn-lg" onclick="prevStep()">
-                            <i data-lucide="arrow-left" style="width: 18px; height: 18px;"></i>
-                            이전
-                        </button>
-                        <button type="button" class="btn btn-primary btn-lg" onclick="nextStep()">
-                            다음: 경력 & 자격
-                            <i data-lucide="arrow-right" style="width: 18px; height: 18px;"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Step 3: 경력 & 자격 -->
-                <div class="step-content" data-step="3">
-                    <h3 class="form-section-title">
-                        <i data-lucide="briefcase"></i>
-                        경력 & 자격
-                    </h3>
-
                     <!-- 산업 경험 -->
-                    <div class="form-subsection">
-                        <div class="form-subsection-title">
-                            <i data-lucide="factory" style="width: 18px; height: 18px;"></i>
+                    <div class="form-subsection" style="margin-top: 40px;">
+                        <h3 class="form-section-title" style="margin-bottom: 16px;">
+                            <i data-lucide="factory"></i>
                             경험 산업군 *
                             <span class="selection-counter" id="industry-counter">0개 선택</span>
-                        </div>
+                        </h3>
                         <div class="checkbox-grid">
                             <label><input type="checkbox" name="industry_experience" value="IT/Software">
                                 IT/소프트웨어</label>
@@ -640,65 +649,24 @@
                         </div>
                     </div>
 
-                    <!-- 프로젝트 유형 -->
-                    <div class="form-subsection">
-                        <div class="form-subsection-title">
-                            <i data-lucide="folder-check" style="width: 18px; height: 18px;"></i>
-                            프로젝트 유형 경험
-                        </div>
-                        <div class="checkbox-grid">
-                            <label><input type="checkbox" name="project_types" value="New"> 신규 인증</label>
-                            <label><input type="checkbox" name="project_types" value="Renewal"> 갱신 심사</label>
-                            <label><input type="checkbox" name="project_types" value="Transition"> 전환 심사</label>
-                            <label><input type="checkbox" name="project_types" value="Integration"> 통합 심사</label>
-                            <label><input type="checkbox" name="project_types" value="Surveillance"> 사후 심사</label>
-                        </div>
-                    </div>
-
-                    <!-- 조직 규모 경험 -->
-                    <div class="form-subsection">
-                        <div class="form-subsection-title">
-                            <i data-lucide="users" style="width: 18px; height: 18px;"></i>
-                            조직 규모 경험
-                        </div>
-                        <div class="checkbox-grid">
-                            <label><input type="checkbox" name="org_size_experience" value="Small"> 소기업 (50인 미만)</label>
-                            <label><input type="checkbox" name="org_size_experience" value="Medium"> 중소기업
-                                (50~200인)</label>
-                            <label><input type="checkbox" name="org_size_experience" value="MidLarge"> 중견기업
-                                (200~500인)</label>
-                            <label><input type="checkbox" name="org_size_experience" value="Large"> 대기업 (500인
-                                이상)</label>
-                        </div>
-                    </div>
-
-                    <!-- 수행 역할 -->
-                    <div class="form-subsection">
-                        <div class="form-subsection-title">
-                            <i data-lucide="user-check" style="width: 18px; height: 18px;"></i>
-                            수행 가능 역할
-                        </div>
-                        <div class="checkbox-grid">
-                            <label><input type="checkbox" name="roles" value="Audit"> 심사</label>
-                            <label><input type="checkbox" name="roles" value="Consulting"> 컨설팅</label>
-                            <label><input type="checkbox" name="roles" value="Training"> 교육훈련</label>
-                            <label><input type="checkbox" name="roles" value="InternalAudit"> 내부심사 대행</label>
-                            <label><input type="checkbox" name="roles" value="Documentation"> 문서화 지원</label>
-                        </div>
-                    </div>
-
-                    <!-- 자격증 상세 -->
-                    <div class="form-group" style="margin-top: 24px;">
-                        <label>보유 자격 상세</label>
-                        <textarea name="detailed_certifications" rows="3"
-                            placeholder="예: ISO 9001 선임심사원 (KAR-12345), ISO 14001 심사원 (KAR-23456)&#10;기술사 자격 보유 (품질관리기술사 제123호)"></textarea>
+                    <!-- 보유 자격 상세 -->
+                    <div class="form-group" style="margin-top: 40px;">
+                        <h3 class="form-section-title" style="margin-bottom: 16px;">
+                            <i data-lucide="file-badge"></i>
+                            보유 자격 상세
+                        </h3>
+                        <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 0.9rem;">
+                            심사원/컨설턴트 자격과 역할(선임심사원, 심사원, 컨설턴트, 교육강사 등)을 자유롭게 기재해주세요.
+                        </p>
+                        <textarea name="detailed_certifications" rows="4"
+                            placeholder="예:&#10;• ISO 9001 선임심사원 (KAR-12345) - 10년 경력&#10;• ISO 14001 심사원 (KAR-23456) - 5년 경력&#10;• ISO 45001 컨설턴트 - 7년 경력&#10;• 품질관리기술사 제123호&#10;• IRCA 등록 심사원"></textarea>
                     </div>
 
                     <!-- 주요 프로젝트 이력 -->
-                    <div class="form-group">
+                    <div class="form-group" style="margin-top: 24px;">
                         <label>주요 프로젝트 이력 *</label>
                         <textarea name="major_projects" rows="4" required
-                            placeholder="예: 현대자동차 ISO 9001/14001 통합 인증 프로젝트 (2023)&#10;LG화학 ISO 45001 구축 프로젝트 (2024)&#10;SK하이닉스 ISO 27001 인증 프로젝트 (2022)"></textarea>
+                            placeholder="예:&#10;• 현대자동차 ISO 9001/14001 통합 인증 프로젝트 (2023)&#10;• LG화학 ISO 45001 구축 프로젝트 (2024)&#10;• SK하이닉스 ISO 27001 인증 프로젝트 (2022)"></textarea>
                     </div>
 
                     <div class="step-navigation">
@@ -713,8 +681,8 @@
                     </div>
                 </div>
 
-                <!-- Step 4: 검토 & 제출 -->
-                <div class="step-content" data-step="4">
+                <!-- Step 3: 검토 & 제출 -->
+                <div class="step-content" data-step="3">
                     <h3 class="form-section-title">
                         <i data-lucide="check-circle"></i>
                         프로필 검토 & 제출
@@ -853,20 +821,12 @@
             }
         ];
 
-        const ROLE_OPTIONS = [
-            { value: '', label: '역할 선택' },
-            { value: 'Lead Auditor', label: '선임심사원' },
-            { value: 'Auditor', label: '심사원' },
-            { value: 'Consultant', label: '컨설턴트' },
-            { value: 'Trainer', label: '교육강사' }
-        ];
-
         // ===== Lucide Icons =====
         lucide.createIcons();
 
         // ===== Step Navigation =====
         let currentStep = 1;
-        const totalSteps = 4;
+        const totalSteps = 3;
 
         function updateStepUI() {
             // Update step indicators
@@ -889,8 +849,8 @@
             // Scroll to top
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
-            // Update summary on step 4
-            if (currentStep === 4) {
+            // Update summary on step 3
+            if (currentStep === 3) {
                 updateSummary();
             }
 
@@ -934,13 +894,13 @@
                 }
             } else if (step === 2) {
                 const isoChecked = document.querySelectorAll('input[name^="iso_"]:checked');
+                const industries = document.querySelectorAll('input[name="industry_experience"]:checked');
+                const majorProjects = document.querySelector('textarea[name="major_projects"]').value;
+
                 if (isoChecked.length === 0) {
                     showNotification('최소 하나의 ISO 규격을 선택해주세요.', 'error');
                     return false;
                 }
-            } else if (step === 3) {
-                const industries = document.querySelectorAll('input[name="industry_experience"]:checked');
-                const majorProjects = document.querySelector('textarea[name="major_projects"]').value;
                 if (industries.length === 0) {
                     showNotification('경험 산업군을 하나 이상 선택해주세요.', 'error');
                     return false;
@@ -975,19 +935,11 @@
                                        name="iso_${std.code}" 
                                        value="${std.code}"
                                        id="iso_${std.code}"
-                                       onchange="handleISOChange('${std.code}')">
+                                       onchange="updateISOCount()">
                                 <div class="iso-standard-info">
                                     <div class="code">${std.fullCode}</div>
                                     <div class="name">${std.name}</div>
                                 </div>
-                                <select class="iso-role-select" 
-                                        name="iso_role_${std.code}" 
-                                        id="role_${std.code}"
-                                        disabled>
-                                    ${ROLE_OPTIONS.map(opt =>
-                    `<option value="${opt.value}">${opt.label}</option>`
-                ).join('')}
-                                </select>
                             </div>
                         `).join('')}
                     </div>
@@ -1003,19 +955,7 @@
             category.classList.toggle('expanded');
         }
 
-        function handleISOChange(code) {
-            const checkbox = document.getElementById(`iso_${code}`);
-            const roleSelect = document.getElementById(`role_${code}`);
-
-            roleSelect.disabled = !checkbox.checked;
-            if (!checkbox.checked) {
-                roleSelect.value = '';
-            }
-
-            updateISOCounter();
-        }
-
-        function updateISOCounter() {
+        function updateISOCount() {
             const count = document.querySelectorAll('input[name^="iso_"]:checked').length;
             document.getElementById('iso-counter').textContent = `${count}개 선택`;
         }
@@ -1057,8 +997,6 @@
             const isoTags = [];
             document.querySelectorAll('input[name^="iso_"]:checked').forEach(cb => {
                 const code = cb.value;
-                const roleSelect = document.getElementById(`role_${code}`);
-                const role = roleSelect.value || '미지정';
 
                 // Find full name
                 let fullCode = code;
@@ -1068,7 +1006,7 @@
                     });
                 });
 
-                isoTags.push(`<span class="summary-tag">${fullCode} (${role})</span>`);
+                isoTags.push(`<span class="summary-tag">${fullCode}</span>`);
             });
             document.getElementById('summary-iso').innerHTML = isoTags.join('') || '<span style="color: var(--text-muted);">선택 없음</span>';
 
@@ -1111,7 +1049,59 @@
             }
         });
 
-        // ===== Auth Check & Prefill =====
+        async function handlePhotoSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Size validation (100KB)
+            if (file.size > 100 * 1024) {
+                showNotification('이미지 크기는 100KB 이하여야 합니다.', 'error');
+                event.target.value = '';
+                return;
+            }
+
+            // Preview
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const preview = document.getElementById('photo-preview');
+                preview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+            };
+            reader.readAsDataURL(file);
+
+            // Upload immediately
+            showNotification('이미지 업로드 중...', 'success');
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                const user = JSON.parse(localStorage.getItem('user'));
+                formData.append('user_id', user ? user.id : 'temp');
+
+                const API_BASE_URL = (() => {
+                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                        return 'http://localhost:5000';
+                    }
+                    return '';
+                })();
+
+                const response = await fetch(`${API_BASE_URL}/api/upload/profile-image`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    document.getElementById('profile-image-url').value = result.url;
+                    showNotification('이미지가 성공적으로 업로드되었습니다.', 'success');
+                } else {
+                    showNotification('이미지 업로드에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                console.error('Upload Error:', error);
+                showNotification('이미지 업로드 중 오류가 발생했습니다.', 'error');
+            }
+        }
         function checkLoginAndPrefill() {
             const user = JSON.parse(localStorage.getItem('user'));
             const token = localStorage.getItem('token');
@@ -1173,12 +1163,11 @@
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="loading-spinner" style="width: 20px; height: 20px; border-width: 2px;"></span> 처리 중...';
 
-            // Collect ISO experience with roles
+            // Collect ISO experience (without roles)
             const isoExperience = {};
             document.querySelectorAll('input[name^="iso_"]:checked').forEach(cb => {
                 const code = cb.value;
-                const roleSelect = document.getElementById(`role_${code}`);
-                isoExperience[code] = roleSelect.value || 'Consultant';
+                isoExperience[code] = true;  // 단순 선택 여부만 저장
             });
 
             // Collect checkbox arrays
@@ -1195,14 +1184,12 @@
                 regions: getCheckedValues('regions').join(','),
                 iso_experience: isoExperience,
                 industry_experience: getCheckedValues('industry_experience'),
-                project_types: getCheckedValues('project_types'),
-                org_size_experience: getCheckedValues('org_size_experience'),
-                roles: getCheckedValues('roles'),
                 detailed_certifications: document.querySelector('textarea[name="detailed_certifications"]').value,
                 recent_projects: document.querySelector('textarea[name="major_projects"]').value,
                 match_reason: document.querySelector('input[name="match_reason"]').value,
                 specialty: getCheckedValues('industry_experience').join(', '),
-                avatar: document.querySelector('input[name="name"]').value.charAt(0)
+                avatar: document.querySelector('input[name="name"]').value.charAt(0),
+                profile_image_url: document.getElementById('profile-image-url').value
             };
 
             try {

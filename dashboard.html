@@ -1124,7 +1124,7 @@
                     </div>
 
                     <div style="margin-top: 16px;">
-                        <span style="font-size: 0.8rem; color: var(--text-muted);">ISO 자격/경력</span>
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">ISO 전문 분야</span>
                         <div id="verified-iso-experience"
                             style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px;">
                             <!-- Dynamic ISO badges -->
@@ -1132,10 +1132,25 @@
                     </div>
 
                     <div style="margin-top: 16px;">
-                        <span style="font-size: 0.8rem; color: var(--text-muted);">전문 역할</span>
-                        <div id="verified-roles" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px;">
-                            <!-- Dynamic role badges -->
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">경험 산업군</span>
+                        <div id="verified-industries"
+                            style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px;">
+                            <!-- Dynamic industry badges -->
                         </div>
+                    </div>
+
+                    <div style="margin-top: 16px;">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">보유 자격 상세</span>
+                        <p id="verified-qualifications"
+                            style="font-size: 0.9rem; white-space: pre-line; margin-top: 4px; color: var(--text-secondary); line-height: 1.5;">
+                            -</p>
+                    </div>
+
+                    <div style="margin-top: 16px;">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">주요 프로젝트 이력</span>
+                        <p id="verified-projects"
+                            style="font-size: 0.9rem; white-space: pre-line; margin-top: 4px; color: var(--text-secondary); line-height: 1.5;">
+                            -</p>
                     </div>
                 </div>
 
@@ -1748,32 +1763,44 @@
                 document.getElementById('verified-name').textContent = profile.name || '-';
                 document.getElementById('verified-trust-score').textContent = profile.trustScore ? `${profile.trustScore}점` : '-';
 
-                // ISO 자격/경력 뱃지
+                // ISO 전문 분야 뱃지
                 const isoContainer = document.getElementById('verified-iso-experience');
                 const isoExp = profile.isoExperience || {};
                 if (Object.keys(isoExp).length > 0) {
-                    isoContainer.innerHTML = Object.entries(isoExp).map(([iso, years]) => `
+                    isoContainer.innerHTML = Object.keys(isoExp).map(iso => `
                         <span style="background: rgba(16, 185, 129, 0.1); color: var(--primary); padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 500;">
                             <i data-lucide="award" style="width: 12px; height: 12px; display: inline;"></i>
-                            ${iso} (${years}년)
+                            ISO ${iso}
                         </span>
                     `).join('');
                 } else {
-                    isoContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">등록된 자격이 없습니다</span>';
+                    isoContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">등록된 분야가 없습니다</span>';
                 }
 
-                // 전문 역할 뱃지
-                const rolesContainer = document.getElementById('verified-roles');
-                const roles = profile.roles || [];
-                if (roles.length > 0) {
-                    rolesContainer.innerHTML = roles.map(role => `
+                // 경험 산업군 뱃지
+                const industriesContainer = document.getElementById('verified-industries');
+                const industries = profile.industryExperience || [];
+                if (industries.length > 0) {
+                    industriesContainer.innerHTML = industries.map(ind => `
                         <span style="background: var(--bg-secondary); border: 1px solid var(--border); padding: 4px 10px; border-radius: 20px; font-size: 0.8rem;">
-                            ${role}
+                            ${ind}
                         </span>
                     `).join('');
                 } else {
-                    rolesContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">등록된 역할이 없습니다</span>';
+                    industriesContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">등록된 산업군이 없습니다</span>';
                 }
+
+                // 보유 자격 상세
+                const qualificationsEl = document.getElementById('verified-qualifications');
+                qualificationsEl.textContent = profile.detailedCertifications && profile.detailedCertifications.length > 0
+                    ? profile.detailedCertifications.join('\n')
+                    : '등록된 자격 정보가 없습니다';
+
+                // 주요 프로젝트 이력
+                const projectsEl = document.getElementById('verified-projects');
+                projectsEl.textContent = profile.recentProjects && profile.recentProjects.length > 0
+                    ? profile.recentProjects.join('\n')
+                    : '등록된 프로젝트 이력이 없습니다';
 
                 // ✏️ 편집 가능 정보 채우기
                 document.getElementById('profile-specialty').value = profile.specialty || '';
