@@ -290,6 +290,10 @@
 
                 const tagsHtml = post.tags.map(tag => `<span class="blog-tag">#${tag.trim()}</span>`).join('');
 
+                // Strip HTML tags and truncate for excerpt
+                const excerptRaw = post.content.replace(/<[^>]*>?/gm, '').replace(/\n/g, ' ').trim();
+                const excerpt = excerptRaw.length > 120 ? excerptRaw.substring(0, 120) + '...' : excerptRaw;
+
                 card.innerHTML = `
                     <img src="${post.image_url || 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=1000'}" 
                          alt="${post.title}" 
@@ -298,7 +302,7 @@
                     <div class="blog-content">
                         <div class="blog-tags">${tagsHtml}</div>
                         <h3 class="blog-title">${post.title}</h3>
-                        <p class="blog-excerpt">${post.content}</p>
+                        <p class="blog-excerpt">${excerpt}</p>
                         <div class="blog-meta">
                             <span>
                                 <i data-lucide="user" style="width: 14px; height: 14px; display: inline; vertical-align: middle; margin-right: 4px;"></i>
