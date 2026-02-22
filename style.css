@@ -4715,6 +4715,35 @@ body:has(.selection-bar.active) .footer {
     border: 1px solid var(--border);
 }
 
+/* Mini CTA in collapsed card */
+.iso-card-mini-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 20px;
+    margin: 0 28px 4px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.06));
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    border-radius: 8px;
+    color: var(--primary);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.25s ease;
+}
+
+.iso-card-mini-cta:hover {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+}
+
+.iso-std-card.expanded .iso-card-mini-cta {
+    display: none;
+}
+
 /* Expand Trigger */
 .iso-std-toggle {
     padding: 14px 28px;

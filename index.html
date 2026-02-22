@@ -1350,11 +1350,116 @@
         </div>
     </footer>
 
+    <!-- Floating CTA Button -->
+    <a href="#diagnosis" id="floating-cta" class="floating-cta" aria-label="무료 상담 신청">
+        <span class="floating-cta-pulse"></span>
+        <i data-lucide="message-circle" style="width: 22px; height: 22px;"></i>
+        <span class="floating-cta-text">무료 상담 신청</span>
+    </a>
+
+    <style>
+        .floating-cta {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 24px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-decoration: none;
+            box-shadow: 0 8px 32px rgba(16, 185, 129, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transform: translateY(20px) scale(0.9);
+            pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .floating-cta.visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+
+        .floating-cta:hover {
+            transform: translateY(-3px) scale(1.03);
+            box-shadow: 0 12px 40px rgba(16, 185, 129, 0.45), 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .floating-cta-pulse {
+            position: absolute;
+            inset: -4px;
+            border-radius: 50px;
+            background: rgba(16, 185, 129, 0.3);
+            animation: floatingPulse 2.5s ease-in-out infinite;
+            z-index: -1;
+        }
+
+        @keyframes floatingPulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 0.5;
+            }
+
+            50% {
+                transform: scale(1.08);
+                opacity: 0;
+            }
+        }
+
+        .floating-cta-text {
+            white-space: nowrap;
+        }
+
+        @media (max-width: 768px) {
+            .floating-cta {
+                bottom: 20px;
+                right: 16px;
+                padding: 12px 20px;
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+
     <!-- Scripts -->
     <script src="script.js"></script>
     <script>
         // Initialize Lucide icons
         lucide.createIcons();
+
+        // Floating CTA visibility logic
+        (function () {
+            const floatingCta = document.getElementById('floating-cta');
+            const hero = document.querySelector('.hero');
+            const diagnosis = document.getElementById('diagnosis');
+            if (!floatingCta || !hero) return;
+
+            let ticking = false;
+            window.addEventListener('scroll', function () {
+                if (!ticking) {
+                    requestAnimationFrame(function () {
+                        const heroBottom = hero.getBoundingClientRect().bottom;
+                        const diagRect = diagnosis ? diagnosis.getBoundingClientRect() : null;
+                        const isInDiagnosis = diagRect && diagRect.top < window.innerHeight * 0.6 && diagRect.bottom > window.innerHeight * 0.3;
+
+                        if (heroBottom < -100 && !isInDiagnosis) {
+                            floatingCta.classList.add('visible');
+                        } else {
+                            floatingCta.classList.remove('visible');
+                        }
+                        ticking = false;
+                    });
+                    ticking = true;
+                }
+            });
+        })();
 
         // Mobile Menu Toggle
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
