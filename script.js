@@ -257,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // If no valid saved results, show notification and proceed to form
-            showNotification('이전 분석 결과가 만료되었습니다. 새로 매칭을 시작해주세요.', 'info');
+            showNotification('이전 분석 결과가 만료되었습니다. 새로 상담을 시작해주세요.', 'info');
             window.history.replaceState({}, document.title, window.location.pathname);
         }
         return false;
@@ -626,7 +626,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } catch (error) {
                 console.error('Error:', error);
-                showNotification('매칭 중 오류가 발생했습니다. 다시 시도해주세요.', 'error');
+                showNotification('분석 중 오류가 발생했습니다. 다시 시도해주세요.', 'error');
                 if (loadingOverlay) {
                     loadingOverlay.classList.add('hidden');
                     loadingOverlay.style.display = 'none';
@@ -1236,7 +1236,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${tagsHTML}
                 
                 <div class="consultant-match-reason">
-                    ${c.matchReason || '매칭 전문가'}
+                    ${c.matchReason || 'ISO 컨설턴트'}
                 </div>
                 
                 <div style="margin-bottom: 16px;">
@@ -1252,7 +1252,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="consultant-stats">
                     <span>경력 ${c.experience || '정보없음'}</span>
                     <span>후기 ${c.reviews || 0}개</span>
-                    <span class="match-score">매칭률 ${c.matchScore || 95}%</span>
+                    <span class="match-score">적합도 ${c.matchScore || 95}%</span>
                 </div>
                 
                 <div style="display: flex; gap: 8px; margin-top: 16px;">
@@ -1556,7 +1556,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             `).join('')}
                         </tr>
                         <tr>
-                            <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">매칭률</td>
+                            <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">적합도</td>
                             ${consultants.map(c => `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--primary);">${c.matchScore || 95}%</td>`).join('')}
                         </tr>
                         <tr>
@@ -1571,7 +1571,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('')}
                         </tr>
                         <tr>
-                            <td style="padding: 12px; color: var(--text-secondary);">매칭 이유</td>
+                            <td style="padding: 12px; color: var(--text-secondary);">소개 사유</td>
                             ${consultants.map(c => `<td style="padding: 12px; text-align: center; font-size: 0.85rem; color: var(--text-muted);">${c.matchReason || '-'}</td>`).join('')}
                         </tr>
                     </tbody>

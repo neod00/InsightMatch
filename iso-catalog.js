@@ -45,8 +45,8 @@
                         <div class="iso-detail-box"><h4>📋 주요 요구사항</h4><ul>${s.detail.require.map(r => `<li>${r}</li>`).join('')}</ul></div>
                     </div>
                     <div class="iso-detail-cta">
-                        <p>이 인증에 대해 더 자세한 상담이 필요하신가요? 전문 컨설턴트를 무료로 매칭해 드립니다.</p>
-                        <a href="#diagnosis" class="btn btn-primary">${s.num.split(':')[0]} 전문가 매칭</a>
+                        <p>이 인증에 대해 더 자세한 상담이 필요하신가요? ISO 컨설턴트를 무료로 소개해 드립니다.</p>
+                        <a href="#diagnosis" class="btn btn-primary">${s.num.split(':')[0]} 컨설턴트 소개받기</a>
                     </div>
                 </div>
             </div>
