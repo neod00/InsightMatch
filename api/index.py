@@ -1896,10 +1896,32 @@ def handle_posts():
         db.session.commit()
         return jsonify({'message': 'Post created', 'id': new_post.id}), 201
 
-@app.route('/api/posts/<int:post_id>', methods=['GET'])
+@app.route('/api/posts/<int:post_id>', methods=['GET', 'PUT', 'DELETE'])
 def get_post(post_id):
     post = Post.query.get_or_404(post_id)
-    return jsonify(post.to_dict())
+    
+    if request.method == 'GET':
+        return jsonify(post.to_dict())
+    
+    elif request.method == 'PUT':
+        data = request.json
+        if data.get('title'):
+            post.title = data['title']
+        if 'content' in data:
+            post.content = data['content']
+        if 'author' in data:
+            post.author = data['author']
+        if 'tags' in data:
+            post.tags = data['tags']
+        if 'image_url' in data:
+            post.image_url = data['image_url']
+        db.session.commit()
+        return jsonify({'message': 'Post updated', 'post': post.to_dict()})
+    
+    elif request.method == 'DELETE':
+        db.session.delete(post)
+        db.session.commit()
+        return jsonify({'message': 'Post deleted', 'id': post_id})
 
 # --- SEO Endpoints ---
 @app.route('/api/sitemap.xml')

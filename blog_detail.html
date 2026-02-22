@@ -358,8 +358,8 @@
             const container = document.getElementById('post-container');
             const tagsHtml = post.tags.map(tag => `<span class="blog-tag">#${tag.trim()}</span>`).join('');
 
-            // Convert newlines to paragraphs
-            const contentHtml = post.content.split('\n').filter(line => line.trim()).map(line => `<p>${line}</p>`).join('');
+            // Render content as HTML directly (content contains HTML markup)
+            const contentHtml = post.content;
 
             container.innerHTML = `
                 <article class="fade-in-up">

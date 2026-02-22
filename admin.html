@@ -219,6 +219,11 @@
                 컨설턴트 승인
                 <span class="badge-count" id="consultant-count">-</span>
             </button>
+            <button class="admin-tab" onclick="switchTab('blog')">
+                <i data-lucide="file-text" style="width: 18px; height: 18px;"></i>
+                블로그 관리
+                <span class="badge-count" id="blog-count">-</span>
+            </button>
         </div>
 
         <!-- Stats Cards -->
@@ -297,6 +302,109 @@
                 <div class="card" style="text-align: center; padding: 60px;">
                     <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
                     <p style="color: var(--text-muted);">컨설턴트 목록을 불러오는 중...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Blog Management Tab Content -->
+        <div id="blog-tab" class="tab-content" style="display: none;">
+            <!-- Blog Stats -->
+            <div class="features-grid fade-in-up" style="margin-bottom: 32px;">
+                <div class="feature-card" style="text-align: center;">
+                    <div id="blog-stat-total" style="font-size: 2.5rem; font-weight: 800; color: var(--primary);">-
+                    </div>
+                    <p style="color: var(--text-muted);">전체 게시글</p>
+                </div>
+                <div class="feature-card" style="text-align: center;">
+                    <div id="blog-stat-recent" style="font-size: 2.5rem; font-weight: 800; color: var(--accent);">-
+                    </div>
+                    <p style="color: var(--text-muted);">이번 달 작성</p>
+                </div>
+                <div class="feature-card" style="text-align: center; cursor: pointer;" onclick="showBlogEditor()">
+                    <div style="font-size: 2.5rem; font-weight: 800; color: var(--success);">+</div>
+                    <p style="color: var(--text-muted);">새 글 작성</p>
+                </div>
+            </div>
+
+            <!-- Blog Editor (hidden by default) -->
+            <div id="blog-editor" class="card-glass fade-in-up"
+                style="display: none; padding: 32px; margin-bottom: 32px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                    <h3 id="editor-title" style="display: flex; align-items: center; gap: 8px;"><i
+                            data-lucide="pen-line" style="width: 20px; height: 20px; color: var(--primary);"></i> 새 글 작성
+                    </h3>
+                    <button class="btn btn-ghost btn-sm" onclick="hideBlogEditor()" style="color: var(--text-muted);"><i
+                            data-lucide="x" style="width: 18px; height: 18px;"></i></button>
+                </div>
+                <input type="hidden" id="blog-edit-id" value="">
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                    <div>
+                        <label
+                            style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">제목
+                            *</label>
+                        <input type="text" id="blog-input-title" placeholder="블로그 제목을 입력하세요"
+                            style="width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-primary); font-size: 1rem;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div>
+                            <label
+                                style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">작성자</label>
+                            <input type="text" id="blog-input-author" value="Admin" placeholder="작성자"
+                                style="width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem;">
+                        </div>
+                        <div>
+                            <label
+                                style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">태그
+                                (쉼표 구분)</label>
+                            <input type="text" id="blog-input-tags" placeholder="ISO 9001,품질경영,트렌드"
+                                style="width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem;">
+                        </div>
+                    </div>
+                    <div>
+                        <label
+                            style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">대표
+                            이미지 URL</label>
+                        <input type="text" id="blog-input-image" placeholder="https://images.unsplash.com/..."
+                            style="width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem;">
+                    </div>
+                    <div>
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <label style="font-size: 0.85rem; color: var(--text-muted);">본문 (HTML 지원) *</label>
+                            <div style="display: flex; gap: 6px;">
+                                <button type="button" class="btn btn-ghost"
+                                    style="padding: 4px 10px; font-size: 0.75rem;"
+                                    onclick="insertBlogTag('h2')">&lt;h2&gt;</button>
+                                <button type="button" class="btn btn-ghost"
+                                    style="padding: 4px 10px; font-size: 0.75rem;"
+                                    onclick="insertBlogTag('strong')">&lt;b&gt;</button>
+                                <button type="button" class="btn btn-ghost"
+                                    style="padding: 4px 10px; font-size: 0.75rem;"
+                                    onclick="insertBlogTag('img')">이미지</button>
+                                <button type="button" class="btn btn-ghost"
+                                    style="padding: 4px 10px; font-size: 0.75rem;" onclick="insertBlogTag('tip')">팁
+                                    박스</button>
+                            </div>
+                        </div>
+                        <textarea id="blog-input-content" rows="16" placeholder="블로그 본문 내용을 입력하세요..."
+                            style="width: 100%; padding: 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem; line-height: 1.7; resize: vertical; font-family: var(--font-sans);"></textarea>
+                    </div>
+                    <div style="display: flex; gap: 12px; justify-content: flex-end; padding-top: 8px;">
+                        <button class="btn btn-secondary" onclick="hideBlogEditor()">취소</button>
+                        <button class="btn btn-primary" onclick="saveBlogPost()"
+                            style="display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="save" style="width: 16px; height: 16px;"></i>
+                            <span id="blog-save-btn-text">발행하기</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Blog List -->
+            <div id="blog-list-admin">
+                <div class="card" style="text-align: center; padding: 60px;">
+                    <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
+                    <p style="color: var(--text-muted);">블로그 게시글을 불러오는 중...</p>
                 </div>
             </div>
         </div>
@@ -525,10 +633,14 @@
                 // Show/hide content
                 document.getElementById('analysis-tab').style.display = tab === 'analysis' ? 'block' : 'none';
                 document.getElementById('consultants-tab').style.display = tab === 'consultants' ? 'block' : 'none';
+                document.getElementById('blog-tab').style.display = tab === 'blog' ? 'block' : 'none';
                 document.getElementById('stats-cards').style.display = tab === 'analysis' ? 'grid' : 'none';
 
                 if (tab === 'consultants') {
                     fetchConsultantsAdmin();
+                }
+                if (tab === 'blog') {
+                    fetchBlogPostsAdmin();
                 }
             }
 
@@ -1564,7 +1676,215 @@
                 if (currentTab === 'consultants') {
                     fetchConsultantsAdmin();
                 }
+                if (currentTab === 'blog') {
+                    fetchBlogPostsAdmin();
+                }
                 showNotification('데이터를 갱신했습니다.', 'success');
+            }
+
+            // ========================================
+            // Blog Management Functions
+            // ========================================
+            let allBlogPosts = [];
+
+            async function fetchBlogPostsAdmin() {
+                try {
+                    const response = await fetch('/api/posts');
+                    allBlogPosts = await response.json();
+                    updateBlogStats();
+                    renderBlogListAdmin();
+                } catch (error) {
+                    console.error('Error fetching blog posts:', error);
+                    document.getElementById('blog-list-admin').innerHTML = `
+                        <div class="card" style="text-align: center; padding: 40px;">
+                            <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: var(--error); margin-bottom: 16px;"></i>
+                            <p style="color: var(--text-muted);">블로그 데이터를 불러오지 못했습니다.</p>
+                        </div>
+                    `;
+                    lucide.createIcons();
+                }
+            }
+
+            function updateBlogStats() {
+                document.getElementById('blog-stat-total').textContent = allBlogPosts.length;
+                document.getElementById('blog-count').textContent = allBlogPosts.length;
+                const thisMonth = new Date().toISOString().substring(0, 7);
+                const recentCount = allBlogPosts.filter(p => p.created_at && p.created_at.startsWith(thisMonth.substring(0, 4))).length;
+                document.getElementById('blog-stat-recent').textContent = recentCount;
+            }
+
+            function renderBlogListAdmin() {
+                const container = document.getElementById('blog-list-admin');
+                container.innerHTML = '';
+
+                if (allBlogPosts.length === 0) {
+                    container.innerHTML = `
+                        <div class="card" style="text-align: center; padding: 60px;">
+                            <i data-lucide="file-text" style="width: 48px; height: 48px; color: var(--text-muted); margin-bottom: 16px;"></i>
+                            <p style="color: var(--text-muted); margin-bottom: 16px;">아직 작성된 블로그 글이 없습니다.</p>
+                            <button class="btn btn-primary" onclick="showBlogEditor()">첫 글 작성하기</button>
+                        </div>
+                    `;
+                    lucide.createIcons();
+                    return;
+                }
+
+                allBlogPosts.forEach((post, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'job-card fade-in-up';
+                    card.style.animationDelay = `${index * 0.05}s`;
+
+                    const tagsHtml = (post.tags || []).map(t => `<span class="blog-tag">#${t.trim()}</span>`).join(' ');
+                    const excerptRaw = (post.content || '').replace(/<[^>]*>?/gm, '').replace(/\n/g, ' ').trim();
+                    const excerpt = excerptRaw.length > 100 ? excerptRaw.substring(0, 100) + '...' : excerptRaw;
+
+                    card.innerHTML = `
+                        <div style="display: flex; gap: 20px; align-items: flex-start; padding: 20px;">
+                            ${post.image_url ? `<img src="${post.image_url}" alt="" style="width: 120px; height: 80px; object-fit: cover; border-radius: 8px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.1);" onerror="this.style.display='none'">` : ''}
+                            <div style="flex: 1; min-width: 0;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                    <h4 style="font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${post.title}</h4>
+                                </div>
+                                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 8px; line-height: 1.5;">${excerpt}</p>
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <span style="font-size: 0.8rem; color: var(--text-muted);">${tagsHtml}</span>
+                                    <span style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 12px; height: 12px;"></i> ${post.author}</span>
+                                    <span style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px;"><i data-lucide="calendar" style="width: 12px; height: 12px;"></i> ${post.created_at}</span>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 8px; flex-shrink: 0; align-items: center;">
+                                <a href="blog_detail.html?id=${post.id}" target="_blank" class="btn btn-ghost btn-sm" title="미리보기" style="padding: 8px;"><i data-lucide="external-link" style="width: 16px; height: 16px;"></i></a>
+                                <button class="btn btn-secondary btn-sm" onclick="editBlogPost(${post.id})" title="수정" style="padding: 8px;"><i data-lucide="pencil" style="width: 16px; height: 16px;"></i></button>
+                                <button class="btn btn-sm" onclick="deleteBlogPost(${post.id}, '${post.title.replace(/'/g, "\\'").substring(0, 30)}')" title="삭제" style="padding: 8px; background: rgba(239,68,68,0.15); color: var(--error);"><i data-lucide="trash-2" style="width: 16px; height: 16px;"></i></button>
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+
+                lucide.createIcons();
+            }
+
+            function showBlogEditor(post = null) {
+                document.getElementById('blog-editor').style.display = 'block';
+                if (post) {
+                    document.getElementById('editor-title').innerHTML = '<i data-lucide="pencil" style="width: 20px; height: 20px; color: var(--accent);"></i> 글 수정';
+                    document.getElementById('blog-edit-id').value = post.id;
+                    document.getElementById('blog-input-title').value = post.title;
+                    document.getElementById('blog-input-author').value = post.author || 'Admin';
+                    document.getElementById('blog-input-tags').value = (post.tags || []).join(',');
+                    document.getElementById('blog-input-image').value = post.image_url || '';
+                    document.getElementById('blog-input-content').value = post.content || '';
+                    document.getElementById('blog-save-btn-text').textContent = '수정 저장';
+                } else {
+                    document.getElementById('editor-title').innerHTML = '<i data-lucide="pen-line" style="width: 20px; height: 20px; color: var(--primary);"></i> 새 글 작성';
+                    document.getElementById('blog-edit-id').value = '';
+                    document.getElementById('blog-input-title').value = '';
+                    document.getElementById('blog-input-author').value = 'Admin';
+                    document.getElementById('blog-input-tags').value = '';
+                    document.getElementById('blog-input-image').value = '';
+                    document.getElementById('blog-input-content').value = '';
+                    document.getElementById('blog-save-btn-text').textContent = '발행하기';
+                }
+                lucide.createIcons();
+                document.getElementById('blog-editor').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+
+            function hideBlogEditor() {
+                document.getElementById('blog-editor').style.display = 'none';
+            }
+
+            async function editBlogPost(id) {
+                try {
+                    const response = await fetch(`/api/posts/${id}`);
+                    const post = await response.json();
+                    // tags come as array, join them
+                    showBlogEditor(post);
+                } catch (error) {
+                    showNotification('글 정보를 불러오지 못했습니다.', 'error');
+                }
+            }
+
+            async function saveBlogPost() {
+                const editId = document.getElementById('blog-edit-id').value;
+                const title = document.getElementById('blog-input-title').value.trim();
+                const content = document.getElementById('blog-input-content').value.trim();
+                const author = document.getElementById('blog-input-author').value.trim() || 'Admin';
+                const tags = document.getElementById('blog-input-tags').value.trim();
+                const image_url = document.getElementById('blog-input-image').value.trim();
+
+                if (!title || !content) {
+                    showNotification('제목과 본문은 필수입니다.', 'error');
+                    return;
+                }
+
+                const payload = { title, content, author, tags, image_url };
+
+                try {
+                    let response;
+                    if (editId) {
+                        response = await fetch(`/api/posts/${editId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                    } else {
+                        response = await fetch('/api/posts', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                    }
+
+                    if (!response.ok) throw new Error('Failed to save');
+
+                    showNotification(editId ? '글이 수정되었습니다.' : '새 글이 발행되었습니다!', 'success');
+                    hideBlogEditor();
+                    fetchBlogPostsAdmin();
+                } catch (error) {
+                    showNotification('저장 중 오류가 발생했습니다.', 'error');
+                }
+            }
+
+            async function deleteBlogPost(id, title) {
+                if (!confirm(`"${title}..." 글을 정말 삭제하시겠습니까?`)) return;
+
+                try {
+                    const response = await fetch(`/api/posts/${id}`, { method: 'DELETE' });
+                    if (!response.ok) throw new Error('Failed to delete');
+                    showNotification('게시글이 삭제되었습니다.', 'success');
+                    fetchBlogPostsAdmin();
+                } catch (error) {
+                    showNotification('삭제 중 오류가 발생했습니다.', 'error');
+                }
+            }
+
+            function insertBlogTag(type) {
+                const textarea = document.getElementById('blog-input-content');
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const selected = textarea.value.substring(start, end);
+                let insertion = '';
+
+                switch (type) {
+                    case 'h2':
+                        insertion = `<h2>${selected || '소제목'}</h2>`;
+                        break;
+                    case 'strong':
+                        insertion = `<strong>${selected || '굵은 텍스트'}</strong>`;
+                        break;
+                    case 'img':
+                        insertion = `\n<img src="https://images.unsplash.com/photo-...?q=80&w=1200" alt="설명" style="width:100%; border-radius:12px; margin: 24px 0;">\n`;
+                        break;
+                    case 'tip':
+                        insertion = `\n<div style="background-color: rgba(16, 185, 129, 0.1); padding: 20px; border-radius: 8px; border-left: 4px solid #10b981; margin: 20px 0;">\n<strong>💡 팁:</strong> ${selected || '여기에 팁 내용을 입력하세요.'}\n</div>\n`;
+                        break;
+                }
+
+                textarea.value = textarea.value.substring(0, start) + insertion + textarea.value.substring(end);
+                textarea.focus();
+                textarea.selectionStart = start + insertion.length;
+                textarea.selectionEnd = start + insertion.length;
             }
 
             // Initial fetch only
