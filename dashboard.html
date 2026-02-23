@@ -2002,7 +2002,7 @@
                         <!-- 요약 정보 -->
                         <div style="background: var(--bg-secondary); padding: 16px; border-radius: var(--radius-sm); margin-bottom: 20px;">
                             <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 8px;">요청 사항:</p>
-                            <p style="font-size: 0.95rem;">${project.description || '상세 요청 내용이 없습니다. 제안서를 작성하여 구체적인 논의를 시작해보세요.'}</p>
+                            <p style="font-size: 0.95rem; white-space: pre-line;">${project.description || '상세 요청 내용이 없습니다. 제안서를 작성하여 구체적인 논의를 시작해보세요.'}</p>
                         </div>
                         `}
                         
@@ -3612,6 +3612,18 @@
             };
             const readinessText = readinessMap[project.readiness] || project.readiness || '-';
 
+            // 이슈 태그 생성
+            const issuesTags = (project.issues || []).map(issue => {
+                const name = typeof issue === 'object' ? issue.name : issue;
+                const relatedISO = typeof issue === 'object' && issue.relatedISO ? issue.relatedISO.join(', ') : '';
+                return `<span class="detail-tag" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.2);" ${relatedISO ? `title="관련 ISO: ${relatedISO}"` : ''}>${name}</span>`;
+            }).join('');
+
+            // 인증 사유 태그 생성
+            const reasonsTags = (project.reasons || []).map(r =>
+                `<span class="detail-tag" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-color: rgba(59, 130, 246, 0.2);">${r}</span>`
+            ).join('');
+
             body.innerHTML = `
                 ${project.status === 'cancelled_by_company' ? `
                 <!-- 취소 정보 섹션 -->
@@ -3648,6 +3660,10 @@
                             <div class="detail-item-value">${project.employees || '-'}</div>
                         </div>
                         <div class="detail-item">
+                            <div class="detail-item-label">지역</div>
+                            <div class="detail-item-value">${project.region || '-'}</div>
+                        </div>
+                        <div class="detail-item">
                             <div class="detail-item-label">요청일</div>
                             <div class="detail-item-value">${project.created_at ? new Date(project.created_at).toLocaleDateString() : '-'}</div>
                         </div>
@@ -3678,11 +3694,41 @@
                             <div class="detail-item-value">${project.target_date ? new Date(project.target_date).toLocaleDateString() : '미정'}</div>
                         </div>
                         <div class="detail-item">
+                            <div class="detail-item-label">희망 일정</div>
+                            <div class="detail-item-value">${project.timeline_text || '-'}</div>
+                        </div>
+                        <div class="detail-item">
                             <div class="detail-item-label">예산 범위</div>
                             <div class="detail-item-value highlight">${budgetText}</div>
                         </div>
                     </div>
                 </div>
+                
+                ${(project.reasons && project.reasons.length > 0) ? `
+                <!-- 인증 사유 섹션 -->
+                <div class="detail-section">
+                    <div class="detail-section-title">
+                        <i data-lucide="target" style="width: 16px; height: 16px;"></i>
+                        인증 추진 사유
+                    </div>
+                    <div class="detail-tags" style="margin-top: 4px;">
+                        ${reasonsTags}
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${(project.issues && project.issues.length > 0) ? `
+                <!-- 기업 이슈 섹션 -->
+                <div class="detail-section">
+                    <div class="detail-section-title">
+                        <i data-lucide="alert-triangle" style="width: 16px; height: 16px;"></i>
+                        기업이 겪고 있는 이슈
+                    </div>
+                    <div class="detail-tags" style="margin-top: 4px;">
+                        ${issuesTags}
+                    </div>
+                </div>
+                ` : ''}
                 
                 <!-- 요청 내용 섹션 -->
                 <div class="detail-section">
@@ -3690,10 +3736,54 @@
                         <i data-lucide="message-square" style="width: 16px; height: 16px;"></i>
                         요청 내용
                     </div>
-                    <div class="detail-description">
+                    <div class="detail-description" style="white-space: pre-line;">
                         ${project.description || '별도로 작성된 요청 내용이 없습니다.'}
                     </div>
                 </div>
+                
+                ${project.additional_notes ? `
+                <!-- 추가 요청사항 섹션 -->
+                <div class="detail-section">
+                    <div class="detail-section-title">
+                        <i data-lucide="file-text" style="width: 16px; height: 16px;"></i>
+                        추가 요청사항
+                    </div>
+                    <div class="detail-description" style="background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 8px; padding: 16px;">
+                        ${project.additional_notes}
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${project.ai_diagnosis ? `
+                <!-- AI 진단 결과 섹션 -->
+                <div class="detail-section">
+                    <div class="detail-section-title">
+                        <i data-lucide="brain" style="width: 16px; height: 16px;"></i>
+                        AI 진단 결과
+                    </div>
+                    <div class="detail-grid">
+                        ${project.ai_diagnosis.risk_level ? `
+                        <div class="detail-item">
+                            <div class="detail-item-label">위험 수준</div>
+                            <div class="detail-item-value" style="color: ${project.ai_diagnosis.risk_level === 'high' ? '#ef4444' : project.ai_diagnosis.risk_level === 'medium' ? '#f59e0b' : '#10b981'};">
+                                ${project.ai_diagnosis.risk_level === 'high' ? '⚠️ 높음' : project.ai_diagnosis.risk_level === 'medium' ? '⚡ 보통' : '✅ 낮음'}
+                            </div>
+                        </div>
+                        ` : ''}
+                        ${project.ai_diagnosis.estimated_duration ? `
+                        <div class="detail-item">
+                            <div class="detail-item-label">예상 소요 기간</div>
+                            <div class="detail-item-value">${project.ai_diagnosis.estimated_duration}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    ${project.ai_diagnosis.summary ? `
+                    <div class="detail-description" style="margin-top: 12px; font-size: 0.9rem;">
+                        ${project.ai_diagnosis.summary}
+                    </div>
+                    ` : ''}
+                </div>
+                ` : ''}
                 
             `;
         }

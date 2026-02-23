@@ -1185,6 +1185,46 @@ def get_project_detail(project_id):
                    (company_user.name if company_user else None) or \
                    (project.title.split(' - ')[0] if project.title and ' - ' in project.title else None)
     
+    # issues 파싱
+    issues = intake_data.get('issues', [])
+    issue_names = {
+        'quality_defect': '품질 불량', 'customer_complaint': '고객 클레임',
+        'process_inefficiency': '프로세스 비효율', 'supplier_quality': '공급업체 품질',
+        'safety_incident': '안전사고', 'env_regulation': '환경 규제',
+        'energy_cost': '에너지 비용', 'work_condition': '작업환경',
+        'esg_demand': 'ESG 요구', 'carbon_report': '탄소 보고',
+        'carbon_neutral': '탄소중립', 'esg_disclosure': 'ESG 공시',
+        'security_incident': '정보보안', 'privacy_need': '개인정보',
+        'cloud_security': '클라우드 보안', 'ai_risk': 'AI 리스크',
+        'supply_unstable': '공급망 불안정', 'crisis_response': '위기 대응',
+        'compliance_risk': '컴플라이언스', 'corruption_prevent': '부패 방지',
+        'turnover': '이직률', 'burnout': '번아웃', 'knowledge_loss': '지식 유실'
+    }
+    parsed_issues = []
+    for issue in issues:
+        if isinstance(issue, dict):
+            issue_id = issue.get('id', '')
+            parsed_issues.append({
+                'id': issue_id,
+                'name': issue_names.get(issue_id, issue_id),
+                'relatedISO': issue.get('relatedISO', [])
+            })
+        elif isinstance(issue, str):
+            parsed_issues.append({'id': issue, 'name': issue_names.get(issue, issue)})
+    
+    # reasons 파싱
+    reasons = intake_data.get('reasons', [])
+    reason_names = {
+        'regulation': '법/규제 요구', 'customer': '거래처 요구', 'improve': '프로세스 개선',
+        'competitive': '경쟁력 강화', 'export': '수출 요건', 'esg': 'ESG 대응', 'other': '기타'
+    }
+    parsed_reasons = [reason_names.get(r, r) for r in reasons] if isinstance(reasons, list) else []
+    
+    # timeline 파싱
+    timeline = intake_data.get('timeline')
+    timeline_map = {'urgent': '긴급 (1개월 이내)', '3months': '3개월 이내', '6months': '6개월 이내', 'flexible': '유연함'}
+    timeline_text = timeline_map.get(timeline, timeline) if timeline else None
+    
     return jsonify({
         'id': project.id,
         'title': project.title,
@@ -1197,6 +1237,8 @@ def get_project_detail(project_id):
         'company_name': company_name,
         'industry': intake_data.get('industry'),
         'employees': intake_data.get('employees'),
+        'region': intake_data.get('region'),
+        'contact_email': intake_data.get('contactEmail'),
         
         # 인증 요구사항
         'standards': standards,
@@ -1204,6 +1246,13 @@ def get_project_detail(project_id):
         'readiness': intake_data.get('readiness'),
         'target_date': intake_data.get('targetDate'),
         'budget': intake_data.get('budget'),
+        'timeline': timeline,
+        'timeline_text': timeline_text,
+        
+        # 기업 요청 상세
+        'issues': parsed_issues,
+        'reasons': parsed_reasons,
+        'additional_notes': intake_data.get('additionalNotes'),
         
         # AI 진단 결과
         'ai_diagnosis': ai_diagnosis,
@@ -1221,7 +1270,11 @@ def get_project_detail(project_id):
         'proposal_submitted_at': project.proposal_submitted_at.isoformat() if project.proposal_submitted_at else None,
         
         # 일정 정보
-        'schedule_status': project.schedule_status
+        'schedule_status': project.schedule_status,
+        
+        # 취소 정보
+        'cancelled_at': project.cancelled_at.isoformat() if hasattr(project, 'cancelled_at') and project.cancelled_at else None,
+        'cancelled_reason': getattr(project, 'cancelled_reason', None)
     })
 
 # ========================================
@@ -1827,10 +1880,45 @@ def request_quotes():
         
         # Create a project for each consultant
         try:
+            # Build description from analysis_context
+            description_parts = []
+            if analysis_context.get('industry'):
+                description_parts.append(f"업종: {analysis_context['industry']}")
+            if analysis_context.get('employees'):
+                description_parts.append(f"직원 수: {analysis_context['employees']}")
+            if analysis_context.get('region'):
+                description_parts.append(f"지역: {analysis_context['region']}")
+            if analysis_context.get('certStatus'):
+                cert_map = {'none': '미보유', 'expired': '만료됨', 'expiring': '갱신 예정', 'valid': '유효', 'initial': '신규 인증'}
+                description_parts.append(f"인증 상태: {cert_map.get(analysis_context['certStatus'], analysis_context['certStatus'])}")
+            if analysis_context.get('timeline'):
+                timeline_map = {'urgent': '긴급 (1개월 이내)', '3months': '3개월 이내', '6months': '6개월 이내', 'flexible': '유연함'}
+                description_parts.append(f"희망 일정: {timeline_map.get(analysis_context['timeline'], analysis_context['timeline'])}")
+            if analysis_context.get('budget'):
+                budget_map = {'under500': '500만원 미만', '500-1000': '500~1,000만원', '1000-2000': '1,000~2,000만원', '2000-3000': '2,000~3,000만원', 'over3000': '3,000만원 이상', 'negotiable': '협의 가능'}
+                description_parts.append(f"예산: {budget_map.get(analysis_context['budget'], analysis_context['budget'])}")
+            if analysis_context.get('issues_summary'):
+                description_parts.append(f"주요 이슈: {analysis_context['issues_summary']}")
+            if analysis_context.get('additionalNotes'):
+                description_parts.append(f"추가 요청: {analysis_context['additionalNotes']}")
+            
+            # Also extract from reasons
+            reasons = analysis_context.get('reasons', [])
+            if reasons:
+                reason_names = {
+                    'regulation': '법/규제 요구', 'customer': '거래처 요구', 'improve': '프로세스 개선',
+                    'competitive': '경쟁력 강화', 'export': '수출 요건', 'esg': 'ESG 대응', 'other': '기타'
+                }
+                reason_text = ', '.join([reason_names.get(r, r) for r in reasons[:5]])
+                description_parts.append(f"인증 사유: {reason_text}")
+            
+            project_description = '\n'.join(description_parts) if description_parts else None
+            
             new_project = Project(
                 company_id=user_id,
                 consultant_id=consultant.id,
                 title=project_title,
+                description=project_description,
                 status='proposal_pending',  # 계약 전 상태
             )
             # Set optional fields if they exist
