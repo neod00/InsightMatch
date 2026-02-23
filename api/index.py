@@ -516,28 +516,93 @@ def get_consultants():
 
 @app.route('/api/consultants/register', methods=['POST'])
 def register_consultant():
-    data = request.json
-    new_consultant = Consultant(
-        name=data.get('name'),
-        avatar=data.get('avatar', 'N'),
-        specialty=data.get('specialty'),
-        experience=f"{data.get('experience')}년",
-        rating=5.0,
-        reviews=0,
-        match_reason=data.get('match_reason'),
-        certifications=data.get('certifications'),
-        iso_experience=json.dumps(data.get('iso_experience', {})),
-        industry_experience=json.dumps(data.get('industry_experience', [])),
-        project_types=json.dumps(data.get('project_types', [])),
-        org_size_experience=json.dumps(data.get('org_size_experience', [])),
-        roles=json.dumps(data.get('roles', [])),
-        detailed_certifications=json.dumps(data.get('detailed_certifications', [])),
-        verified=False,
-        trust_score=50.0
-    )
-    db.session.add(new_consultant)
-    db.session.commit()
-    return jsonify({'message': 'Consultant registered successfully', 'id': new_consultant.id}), 201
+    try:
+        # JWT 토큰에서 user_id 추출
+        user_id = None
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+            try:
+                payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+                user_id = payload.get('user_id')
+            except jwt.ExpiredSignatureError:
+                return jsonify({'message': '세션이 만료되었습니다. 다시 로그인해주세요.'}), 401
+            except jwt.InvalidTokenError:
+                return jsonify({'message': '유효하지 않은 인증 정보입니다.'}), 401
+        
+        if not user_id:
+            return jsonify({'message': '로그인이 필요합니다.'}), 401
+        
+        # 중복 등록 체크
+        existing = Consultant.query.filter_by(user_id=user_id).first()
+        if existing:
+            return jsonify({'message': '이미 컨설턴트 프로필이 존재합니다.', 'consultant_id': existing.id}), 409
+        
+        data = request.json
+        
+        # detailed_certifications 처리: 문자열이면 그대로, 리스트/딕셔너리면 JSON 직렬화
+        detailed_certs = data.get('detailed_certifications', '')
+        if isinstance(detailed_certs, (list, dict)):
+            detailed_certs = json.dumps(detailed_certs)
+        
+        # iso_experience 처리
+        iso_exp = data.get('iso_experience', {})
+        if isinstance(iso_exp, dict):
+            iso_exp = json.dumps(iso_exp)
+        
+        # industry_experience 처리
+        industry_exp = data.get('industry_experience', [])
+        if isinstance(industry_exp, list):
+            industry_exp = json.dumps(industry_exp)
+        
+        new_consultant = Consultant(
+            user_id=user_id,
+            name=data.get('name'),
+            avatar=data.get('avatar', data.get('name', 'N')[0] if data.get('name') else 'N'),
+            specialty=data.get('specialty'),
+            experience=f"{data.get('experience')}년",
+            rating=5.0,
+            reviews=0,
+            match_reason=data.get('match_reason'),
+            regions=data.get('regions', ''),
+            phone=data.get('phone', ''),
+            email=data.get('email', ''),
+            company_name=data.get('company_name', ''),
+            certifications=data.get('certifications'),
+            iso_experience=iso_exp,
+            industry_experience=industry_exp,
+            project_types=json.dumps(data.get('project_types', [])),
+            org_size_experience=json.dumps(data.get('org_size_experience', [])),
+            roles=json.dumps(data.get('roles', [])),
+            detailed_certifications=detailed_certs,
+            recent_projects=data.get('recent_projects', ''),
+            profile_image_url=data.get('profile_image_url', ''),
+            verified=False,
+            trust_score=50.0,
+            status='pending'
+        )
+        db.session.add(new_consultant)
+        db.session.commit()
+        
+        # User 테이블에서도 consultant 프로필 연결 정보 업데이트
+        user = User.query.get(user_id)
+        if user and not user.company_name and data.get('company_name'):
+            user.company_name = data.get('company_name')
+        if user and not user.phone and data.get('phone'):
+            user.phone = data.get('phone')
+        db.session.commit()
+        
+        return jsonify({
+            'message': '전문가 등록 신청이 완료되었습니다! 관리자 검토 후 승인됩니다.',
+            'consultant_id': new_consultant.id
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        print(f"[Consultant Register] Error: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'message': f'등록 처리 중 오류가 발생했습니다: {str(e)}'}), 500
 
 # --- Project Endpoints ---
 @app.route('/api/projects', methods=['GET', 'POST'])
