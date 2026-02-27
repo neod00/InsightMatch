@@ -1621,6 +1621,15 @@
             return '';
         })();
 
+        // JWT 인증 헬퍼
+        function authFetch(url, options = {}) {
+            const headers = options.headers || {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            return fetch(url, { ...options, headers });
+        }
+
         // 프로젝트 상태 설정
         const STATUS_CONFIG = {
             'proposal_pending': { text: '제안서 대기', stage: 1, stageText: '제안서 대기' },
@@ -1650,7 +1659,7 @@
         async function fetchProjects() {
             try {
                 const apiUrl = `${API_BASE_URL}/api/projects?user_id=${user.id}`;
-                const response = await fetch(apiUrl);
+                const response = await authFetch(apiUrl);
 
                 if (!response.ok) {
                     throw new Error('Failed to fetch projects');
@@ -1740,7 +1749,7 @@
 
             try {
                 // 먼저 컨설턴트 ID 조회 (user_id로)
-                const consultantsRes = await fetch(`${API_BASE_URL}/api/consultants`);
+                const consultantsRes = await authFetch(`${API_BASE_URL}/api/consultants`);
                 const consultants = await consultantsRes.json();
                 const myConsultant = consultants.find(c => c.user_id === user.id);
 
@@ -1756,7 +1765,7 @@
                 consultantId = myConsultant.id;
 
                 // 프로필 상세 조회
-                const profileRes = await fetch(`${API_BASE_URL}/api/consultants/${consultantId}/profile`);
+                const profileRes = await authFetch(`${API_BASE_URL}/api/consultants/${consultantId}/profile`);
                 const profile = await profileRes.json();
 
                 // 🔒 검증된 정보 채우기
@@ -1843,7 +1852,7 @@
             };
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/consultants/${consultantId}/profile`, {
+                const response = await authFetch(`${API_BASE_URL}/api/consultants/${consultantId}/profile`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
@@ -1890,7 +1899,7 @@
                 formData.append('file', file);
                 formData.append('user_id', user.id);
 
-                const response = await fetch(`${API_BASE_URL}/api/upload/profile-image`, {
+                const response = await authFetch(`${API_BASE_URL}/api/upload/profile-image`, {
                     method: 'POST',
                     body: formData
                 });
@@ -2426,7 +2435,7 @@
 
         async function viewConsultantProfile(consultantId) {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/consultants/${consultantId}`);
+                const response = await authFetch(`${API_BASE_URL}/api/consultants/${consultantId}`);
                 if (!response.ok) throw new Error('Failed to fetch consultant');
 
                 const consultant = await response.json();
@@ -2507,7 +2516,7 @@
 
             try {
                 // 계약서 초안 생성 API 호출
-                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/contract/draft`, {
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${projectId}/contract/draft`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({})
@@ -2560,7 +2569,7 @@
             }
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/negotiate`, {
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${projectId}/negotiate`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2593,7 +2602,7 @@
             document.getElementById('contract-modal').classList.remove('hidden');
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/contract/preview`);
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${projectId}/contract/preview`);
                 const data = await response.json();
 
                 // 계약서 미리보기 렌더링
@@ -2685,7 +2694,7 @@
             if (!confirm('계약서에 서명하시겠습니까? 서명 후에는 취소할 수 없습니다.')) return;
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/contract/sign`, {
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${projectId}/contract/sign`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ signer })
@@ -2715,7 +2724,7 @@
             if (!confirm(`조건 협의를 ${actionTexts[action]}하시겠습니까?`)) return;
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/negotiate/respond`, {
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${projectId}/negotiate/respond`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action })
@@ -2749,7 +2758,7 @@
 
         async function submitCounterOffer(projectId, counterPrice, counterDuration, message) {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/negotiate/respond`, {
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${projectId}/negotiate/respond`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2968,7 +2977,7 @@
 
             try {
                 // 해당 세션 또는 title을 가진 모든 프로젝트 조회
-                const response = await fetch(`${API_BASE_URL}/api/projects?user_id=${user.id}`);
+                const response = await authFetch(`${API_BASE_URL}/api/projects?user_id=${user.id}`);
                 const projects = await response.json();
 
                 // session_id가 있으면 해당 세션의 프로젝트만, 없으면 title 기반으로 필터링
@@ -2990,7 +2999,7 @@
                 // 모든 프로젝트 삭제
                 let successCount = 0;
                 for (const project of projectsToDelete) {
-                    const deleteResponse = await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
+                    const deleteResponse = await authFetch(`${API_BASE_URL}/api/projects/${project.id}`, {
                         method: 'DELETE'
                     });
                     if (deleteResponse.ok) {
@@ -3064,7 +3073,7 @@
             }
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${currentCancellingProjectId}/cancel`, {
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${currentCancellingProjectId}/cancel`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ reason: reason })
@@ -3101,7 +3110,7 @@
 
             // 전문가 추천 조회 (세션 기반 선별 로직 적용)
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(title)}/available-consultants?user_id=${user.id}&session_id=${currentAddSessionId}`);
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${encodeURIComponent(title)}/available-consultants?user_id=${user.id}&session_id=${currentAddSessionId}`);
                 const consultants = await response.json();
 
                 if (!Array.isArray(consultants) || consultants.length === 0) {
@@ -3168,7 +3177,7 @@
             if (!user) return;
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/add-consultant`, {
+                const response = await authFetch(`${API_BASE_URL}/api/projects/add-consultant`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -3247,7 +3256,7 @@
                 const fileName = `up_${Date.now()}_${user.id}.${fileExt}`;
                 const uploadUrl = `${SUPABASE_URL}/storage/v1/object/proposals/${fileName}`;
 
-                const response = await fetch(uploadUrl, {
+                const response = await authFetch(uploadUrl, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
@@ -3295,7 +3304,7 @@
             }
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/submit-proposal`, {
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${projectId}/submit-proposal`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -3326,7 +3335,7 @@
             if (!confirm('이 요청을 거절하시겠습니까?')) return;
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/cancel`, {
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${projectId}/cancel`, {
                     method: 'POST'
                 });
 
@@ -3354,7 +3363,7 @@
 
             try {
                 // 프로젝트의 마일스톤 정보 가져오기
-                const response = await fetch(`${API_BASE_URL}/api/projects?user_id=${user.id}`);
+                const response = await authFetch(`${API_BASE_URL}/api/projects?user_id=${user.id}`);
                 const projects = await response.json();
                 const project = projects.find(p => p.id === projectId);
 
@@ -3397,7 +3406,7 @@
             }
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${currentScheduleProjectId}/propose-schedule`, {
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${currentScheduleProjectId}/propose-schedule`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ schedule })
@@ -3422,7 +3431,7 @@
             currentScheduleProjectId = projectId;
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects?user_id=${user.id}`);
+                const response = await authFetch(`${API_BASE_URL}/api/projects?user_id=${user.id}`);
                 const projects = await response.json();
                 const project = projects.find(p => p.id === projectId);
 
@@ -3450,7 +3459,7 @@
 
         window.confirmSchedule = async function () {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${currentScheduleProjectId}/confirm-schedule`, {
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${currentScheduleProjectId}/confirm-schedule`, {
                     method: 'POST'
                 });
 
@@ -3473,7 +3482,7 @@
             if (reason === null) return; // 취소
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${currentScheduleProjectId}/reject-schedule`, {
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${currentScheduleProjectId}/reject-schedule`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ reason })
@@ -3501,7 +3510,7 @@
         // 내 제안 보기
         window.viewMyProposal = async function (projectId) {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/proposal`);
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${projectId}/proposal`);
                 const proposal = await response.json();
 
                 alert(`제안 금액: ${proposal.proposal_price?.toLocaleString() || '-'}원\n예상 기간: ${proposal.proposal_duration || '-'}\n메시지: ${proposal.proposal_message || '-'}`);
@@ -3534,7 +3543,7 @@
 
             try {
                 // 프로젝트 상세 정보 조회
-                const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/detail`);
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${projectId}/detail`);
 
                 if (!response.ok) {
                     throw new Error('Failed to fetch project details');
@@ -3873,7 +3882,7 @@
 
         async function fetchNotifications() {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/notifications?user_id=${user.id}`);
+                const response = await authFetch(`${API_BASE_URL}/api/notifications?user_id=${user.id}`);
                 const data = await response.json();
 
                 notificationsData = data.notifications || [];
@@ -3938,7 +3947,7 @@
         window.handleNotificationClick = async function (notificationId, link) {
             // 읽음 처리
             try {
-                await fetch(`${API_BASE_URL}/api/notifications/${notificationId}/read`, {
+                await authFetch(`${API_BASE_URL}/api/notifications/${notificationId}/read`, {
                     method: 'POST'
                 });
             } catch (error) {
@@ -3955,7 +3964,7 @@
 
         window.markAllNotificationsRead = async function () {
             try {
-                await fetch(`${API_BASE_URL}/api/notifications/read-all`, {
+                await authFetch(`${API_BASE_URL}/api/notifications/read-all`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user_id: user.id })
@@ -4001,7 +4010,7 @@
             const container = document.getElementById('message-list');
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${currentMessageProjectId}/messages`);
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${currentMessageProjectId}/messages`);
                 const messages = await response.json();
 
                 if (!Array.isArray(messages) || messages.length === 0) {
@@ -4029,7 +4038,7 @@
                 container.scrollTop = container.scrollHeight;
 
                 // 읽음 처리
-                await fetch(`${API_BASE_URL}/api/projects/${currentMessageProjectId}/messages/read`, {
+                await authFetch(`${API_BASE_URL}/api/projects/${currentMessageProjectId}/messages/read`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user_id: user.id })
@@ -4048,7 +4057,7 @@
             if (!content || !currentMessageProjectId) return;
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/projects/${currentMessageProjectId}/messages`, {
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${currentMessageProjectId}/messages`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
