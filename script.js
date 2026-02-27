@@ -312,6 +312,10 @@ document.addEventListener('DOMContentLoaded', () => {
             refreshContainer.classList.add('hidden');
         }
 
+        // Clear consultant selection (BUG-025 Fix)
+        selectedConsultants.clear();
+        currentSessionId = null;
+
         // ===== Auto-fill user info =====
         prefillUserInfo();
 
@@ -567,12 +571,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Generate new session ID for this diagnosis (UUID v4 format)
-            currentSessionId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-                const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
-            console.log('New diagnosis session started:', currentSessionId);
+            // Session ID will be set from backend /api/match response
+            currentSessionId = null;
 
             // Hide form, show simple loading
             if (intakeForm) {
@@ -599,6 +599,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!response.ok) throw new Error('Matching request failed');
 
                 const result = await response.json();
+
+                // Use backend-generated session_id (BUG-006 Fix)
+                if (result.session_id) {
+                    currentSessionId = result.session_id;
+                    console.log('Session ID from backend:', currentSessionId);
+                }
 
                 // Quick progress animation
                 const progressFill = document.getElementById('progress-fill');
@@ -1438,13 +1444,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const response = await fetch('/api/quotes/request', {
+            const response = await authFetch('/api/quotes/request', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     consultant_ids: selectedIds,
                     analysis_context: analysisContext,
-                    user_id: user.id,
                     session_id: currentSessionId  // Include session ID for grouping
                 })
             });

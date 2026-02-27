@@ -1,8 +1,12 @@
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 
 db = SQLAlchemy()
+
+def utc_now():
+    """Timezone-aware UTC now (BUG-003 Fix)"""
+    return datetime.now(timezone.utc)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -12,7 +16,7 @@ class User(db.Model):
     name = db.Column(db.String(100))  # 이름 (담당자명/컨설턴트명)
     company_name = db.Column(db.String(100))  # 회사명 (기업 필수, 컨설턴트 선택)
     phone = db.Column(db.String(20))  # For find-email feature
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utc_now)
 
 class Company(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -22,7 +26,7 @@ class Company(db.Model):
     industry = db.Column(db.String(100))
     employees = db.Column(db.String(50))
     email = db.Column(db.String(120)) # Keep for contact info even if in User
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utc_now)
 
 class Consultant(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -109,7 +113,7 @@ class ProfileChangeLog(db.Model):
     field_name = db.Column(db.String(50), nullable=False)  # 변경된 필드명
     old_value = db.Column(db.Text)  # 이전 값
     new_value = db.Column(db.Text)  # 새 값
-    changed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    changed_at = db.Column(db.DateTime, default=utc_now)
     changed_by = db.Column(db.Integer, db.ForeignKey('user.id'))  # 변경한 사용자
     
     def to_dict(self):
@@ -132,7 +136,7 @@ class Notification(db.Model):
     message = db.Column(db.Text)
     link = db.Column(db.String(500))  # 클릭 시 이동할 URL
     is_read = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utc_now)
     
     def to_dict(self):
         return {
@@ -152,7 +156,7 @@ class Message(db.Model):
     sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
     is_read = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utc_now)
     
     def to_dict(self):
         return {
@@ -174,7 +178,7 @@ class Project(db.Model):
     status = db.Column(db.String(50), default='proposal_pending') # proposal_pending, proposal_submitted, contracted, in_progress, completed, cancelled_by_company
     start_date = db.Column(db.DateTime)
     end_date = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utc_now)
     
     # Consultant Proposal Fields (② 컨설턴트 직접 견적)
     proposal_price = db.Column(db.Integer)  # 제안 금액 (원)
@@ -259,7 +263,7 @@ class Post(db.Model):
     author = db.Column(db.String(100), default='Admin')
     tags = db.Column(db.String(200)) # Comma separated tags
     image_url = db.Column(db.String(500))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utc_now)
     
     def to_dict(self):
         return {
@@ -279,7 +283,7 @@ class AnalysisJob(db.Model):
     status = db.Column(db.String(20), default='processing') # processing, completed, failed, deleted
     result = db.Column(db.Text) # JSON string
     intake_data = db.Column(db.Text) # JSON string for raw input
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utc_now)
     deleted_at = db.Column(db.DateTime, nullable=True) # Soft delete timestamp
 
     def set_result(self, result_dict):
@@ -302,4 +306,4 @@ class PasswordResetToken(db.Model):
     token = db.Column(db.String(100), unique=True, nullable=False)
     expires_at = db.Column(db.DateTime, nullable=False)
     used = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utc_now)

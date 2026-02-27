@@ -31,8 +31,14 @@ class MatchingService:
         target_region = criteria.get('region', '')
         target_timeline = criteria.get('timeline', 'flexible')
         
-        # Get all consultants
-        all_consultants = Consultant.query.all()
+        # BUG-007 Fix: 검증된 컨설턴트만 매칭 (상태가 'verified'이거나 verified=True)
+        all_consultants = Consultant.query.filter(
+            (Consultant.verified == True) | (Consultant.status == 'verified')
+        ).all()
+        
+        # Fallback: 검증된 컨설턴트가 없으면 전체 포함
+        if not all_consultants:
+            all_consultants = Consultant.query.all()
         
         scored_consultants = []
         
@@ -40,9 +46,11 @@ class MatchingService:
             score = 0
             match_details = []
             
-            # 1. ISO Match (30 points)
-            iso_score = 0
-            consultant_iso = json.loads(consultant.iso_experience) if consultant.iso_experience else {}
+            # BUG-008 Fix: JSON 파싱 에러 핸들링
+            try:
+                consultant_iso = json.loads(consultant.iso_experience) if consultant.iso_experience else {}
+            except (json.JSONDecodeError, TypeError):
+                consultant_iso = {}
             matched_iso = []
             for iso in target_iso:
                 if iso in consultant_iso:
@@ -56,7 +64,10 @@ class MatchingService:
                     match_details.append(f"ISO {', '.join(matched_iso)} 경험")
 
             # 2. Industry Match (20 points - reduced from 25)
-            consultant_industries = json.loads(consultant.industry_experience) if consultant.industry_experience else []
+            try:
+                consultant_industries = json.loads(consultant.industry_experience) if consultant.industry_experience else []
+            except (json.JSONDecodeError, TypeError):
+                consultant_industries = []
             if self._is_industry_match(consultant_industries, target_industry):
                 score += 20
                 match_details.append(f"{target_industry} 분야 전문")
@@ -65,7 +76,10 @@ class MatchingService:
                 match_details.append(f"{target_industry} 관련 경험")
 
             # 3. Project Type Match (15 points)
-            consultant_projects = json.loads(consultant.project_types) if consultant.project_types else []
+            try:
+                consultant_projects = json.loads(consultant.project_types) if consultant.project_types else []
+            except (json.JSONDecodeError, TypeError):
+                consultant_projects = []
             if target_project_type and target_project_type in consultant_projects:
                 score += 15
                 match_details.append(f"{target_project_type} 프로젝트 경험")
@@ -129,7 +143,11 @@ class MatchingService:
                     'matchReason': "분야별 최우수 전문가 (강력 추천)",
                     'matchScore': 95, # Artificial high score for fallback
                     'verified': c.verified,
-                    'trustScore': c.trust_score
+                    'trustScore': c.trust_score,
+                    # BUG-009 Fix: 프로필 정보 추가
+                    'profileImageUrl': c.profile_image_url,
+                    'bio': c.bio,
+                    'companyName': c.company_name
                 })
              return results
 
@@ -149,7 +167,11 @@ class MatchingService:
                 'matchReason': item['match_details'][0] if item['match_details'] else c.match_reason,
                 'matchScore': round(item['score']),
                 'verified': c.verified,
-                'trustScore': c.trust_score
+                'trustScore': c.trust_score,
+                # BUG-009 Fix: 프로필 정보 추가
+                'profileImageUrl': c.profile_image_url,
+                'bio': c.bio,
+                'companyName': c.company_name
             })
             
         return results

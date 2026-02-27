@@ -10,14 +10,15 @@ import uuid
 import json
 import datetime
 import re
-from flask import Flask, request, jsonify, send_file, Response
+from functools import wraps
+from flask import Flask, request, jsonify, send_file, Response, g
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, AnalysisJob, Consultant, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken
-from services import AIService, MatchingService, ProposalService, EmailService
+from services import AIService, MatchingService, ProposalService, EmailService, AdvancedDiagnosticService
 
 # Load environment variables
 # Load from project root directory
@@ -60,7 +61,11 @@ else:
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-123')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+if not app.config['SECRET_KEY']:
+    import warnings
+    warnings.warn('SECRET_KEY 환경변수가 설정되지 않았습니다. 프로덕션에서는 반드시 설정해주세요.', stacklevel=1)
+    app.config['SECRET_KEY'] = 'dev-only-insecure-key-' + os.urandom(8).hex()
 
 db.init_app(app)
 
@@ -69,6 +74,7 @@ ai_service = AIService()
 matching_service = MatchingService()
 proposal_service = ProposalService()
 email_service = EmailService()
+diagnostic_service = AdvancedDiagnosticService()
 
 # Create tables on first request
 @app.before_request
@@ -76,6 +82,49 @@ def create_tables():
     if not hasattr(app, '_tables_created'):
         db.create_all()
         app._tables_created = True
+
+# --- Helper: JWT Authentication Decorators ---
+def token_required(f):
+    """JWT 토큰 필수 검증 데코레이터"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ', 1)[1]
+        
+        if not token:
+            return jsonify({'message': '로그인이 필요합니다.'}), 401
+        
+        try:
+            payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+            current_user = User.query.get(payload['user_id'])
+            if not current_user:
+                return jsonify({'message': '유효하지 않은 사용자입니다.'}), 401
+            g.current_user = current_user
+        except jwt.ExpiredSignatureError:
+            return jsonify({'message': '세션이 만료되었습니다. 다시 로그인해주세요.'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'message': '유효하지 않은 인증 토큰입니다.'}), 401
+        
+        return f(*args, **kwargs)
+    return decorated
+
+def token_optional(f):
+    """JWT 토큰 선택적 검증 (비로그인도 허용)"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        g.current_user = None
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ', 1)[1]
+            try:
+                payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+                g.current_user = User.query.get(payload['user_id'])
+            except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+                pass
+        return f(*args, **kwargs)
+    return decorated
 
 # --- Helper: Email Validation ---
 def is_valid_email(email):
@@ -89,7 +138,7 @@ def is_valid_email(email):
 @app.route('/api/auth/signup', methods=['POST'])
 def signup():
     data = request.json
-    email = data.get('email')
+    email = data.get('email', '').strip().lower()  # BUG-004 Fix: 이메일 정규화
     password = data.get('password')
     name = data.get('name')  # 이름 (담당자명/컨설턴트명)
     company_name = data.get('company_name', '').strip()  # 회사명
@@ -149,7 +198,7 @@ def signup():
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     data = request.json
-    email = data.get('email')
+    email = data.get('email', '').strip().lower()  # BUG-004 Fix: 이메일 정규화
     password = data.get('password')
     
     user = User.query.filter_by(email=email).first()
@@ -160,7 +209,7 @@ def login():
     token = jwt.encode({
         'user_id': user.id,
         'role': user.role,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+        'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=24)
     }, app.config['SECRET_KEY'], algorithm="HS256")
     
     return jsonify({
@@ -195,7 +244,7 @@ def request_password_reset():
         
         # Generate secure token
         token = str(uuid.uuid4())
-        expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
+        expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=30)
         
         # Invalidate any existing tokens for this user
         try:
@@ -262,7 +311,7 @@ def reset_password():
         return jsonify({'message': '유효하지 않거나 이미 사용된 링크입니다.'}), 400
     
     # Check expiration
-    if reset_token.expires_at < datetime.datetime.utcnow():
+    if reset_token.expires_at < datetime.datetime.now(datetime.timezone.utc):
         return jsonify({'message': '링크가 만료되었습니다. 다시 요청해주세요.'}), 400
     
     # Update password
@@ -367,6 +416,82 @@ def get_analysis_status(job_id):
         'status': job.status,
         'result': job.get_result()
     })
+
+# ============================================================
+# Advanced Diagnostic Engine Endpoints (정밀 진단 엔진 API)
+# ============================================================
+
+@app.route('/api/diagnostic/industries', methods=['GET'])
+def get_diagnostic_industries():
+    """사용 가능한 산업코드(KSIC) 목록 반환"""
+    try:
+        industries = diagnostic_service.get_available_industries()
+        return jsonify({'industries': industries})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/diagnostic/questions/<ksic_code>', methods=['GET'])
+def get_diagnostic_questions(ksic_code):
+    """특정 업종의 자기진단 질문지 반환 (공정별 필터링 지원)"""
+    try:
+        main_process = request.args.get('process', None)
+        questions = diagnostic_service.get_diagnostic_questions(ksic_code, main_process)
+        return jsonify(questions)
+    except FileNotFoundError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/diagnostic/report', methods=['POST'])
+def generate_diagnostic_report():
+    """자기진단 응답을 기반으로 Gap Analysis 리포트 생성"""
+    try:
+        data = request.json
+        ksic_code = data.get('industry_code')
+        user_answers = data.get('answers', [])
+        user_context = data.get('context', {})
+        
+        if not ksic_code:
+            return jsonify({'error': '업종 코드(industry_code)가 필요합니다.'}), 400
+        if not user_answers:
+            return jsonify({'error': '진단 응답(answers)이 필요합니다.'}), 400
+        
+        full_report = data.get('full_report', False)
+        
+        report = diagnostic_service.generate_gap_report(
+            ksic_code=ksic_code,
+            user_answers=user_answers,
+            user_context=user_context,
+            full_report=full_report
+        )
+        
+        # DB에 진단 결과 저장 (리드 추적용)
+        try:
+            job_id = str(uuid.uuid4())
+            new_job = AnalysisJob(
+                id=job_id,
+                company_name=user_context.get('company_name', '미입력 (자기진단)'),
+                url='',
+                status='completed'
+            )
+            new_job.set_intake_data(data)
+            new_job.set_result(report)
+            db.session.add(new_job)
+            db.session.commit()
+            report['session_id'] = job_id
+        except Exception as db_err:
+            print(f'[Diagnostic] DB save error (non-critical): {db_err}')
+            db.session.rollback()
+        
+        return jsonify(report)
+    except FileNotFoundError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        import traceback
+        print(f'[Diagnostic] Report generation error: {e}')
+        print(traceback.format_exc())
+        return jsonify({'error': f'리포트 생성 중 오류: {str(e)}'}), 500
+
 
 # --- Direct Matching Endpoint (Survey-Based, No AI) ---
 @app.route('/api/match', methods=['POST'])
@@ -606,8 +731,9 @@ def register_consultant():
 
 # --- Project Endpoints ---
 @app.route('/api/projects', methods=['GET', 'POST'])
+@token_required
 def handle_projects():
-    user_id = request.args.get('user_id')
+    user_id = str(g.current_user.id)
     
     if request.method == 'GET':
         if not user_id:
@@ -633,7 +759,7 @@ def handle_projects():
             results.append({
                 'id': p.id,
                 'title': p.title,
-                'session_id': getattr(p, 'session_id', None),
+                'session_id': p.session_id,
                 'status': p.status,
                 'consultant_id': p.consultant_id,
                 'consultant_name': consultant_info.name if consultant_info else 'Unknown',
@@ -641,18 +767,16 @@ def handle_projects():
                 'company_id': p.company_id,
                 'company_name': company_user.name if company_user else 'Unknown Company',
                 'start_date': p.start_date.isoformat() if p.start_date else None,
-                'created_at': p.created_at.isoformat() if hasattr(p, 'created_at') and p.created_at else None,
-                # 제안서 관련 필드 (① 견적 비교용)
-                'proposal_price': getattr(p, 'proposal_price', None),
-                'proposal_duration': getattr(p, 'proposal_duration', None),
-                'proposal_message': getattr(p, 'proposal_message', None),
-                'proposal_file_url': getattr(p, 'proposal_file_url', None),
-                'proposal_submitted_at': p.proposal_submitted_at.isoformat() if hasattr(p, 'proposal_submitted_at') and p.proposal_submitted_at else None,
-                # 일정 관련 필드 (③ 일정 워크플로우용)
-                'schedule_status': getattr(p, 'schedule_status', 'pending'),
-                # 취소 관련 필드 (④ 취소 이력)
-                'cancelled_at': p.cancelled_at.isoformat() if hasattr(p, 'cancelled_at') and p.cancelled_at else None,
-                'cancelled_reason': getattr(p, 'cancelled_reason', None),
+                'created_at': p.created_at.isoformat() if p.created_at else None,
+                # BUG-029 Fix: 불필요한 getattr 제거
+                'proposal_price': p.proposal_price,
+                'proposal_duration': p.proposal_duration,
+                'proposal_message': p.proposal_message,
+                'proposal_file_url': p.proposal_file_url,
+                'proposal_submitted_at': p.proposal_submitted_at.isoformat() if p.proposal_submitted_at else None,
+                'schedule_status': p.schedule_status,
+                'cancelled_at': p.cancelled_at.isoformat() if p.cancelled_at else None,
+                'cancelled_reason': p.cancelled_reason,
                 'milestones': [m.to_dict() for m in p.milestones]
             })
         return jsonify(results)
@@ -682,7 +806,7 @@ def handle_projects():
             consultant_id=data.get('consultant_id'),
             title=data.get('title'),
             status='planning',
-            start_date=datetime.datetime.utcnow()
+            start_date=datetime.datetime.now(datetime.timezone.utc)
         )
         db.session.add(new_project)
         db.session.commit()
@@ -697,6 +821,7 @@ def handle_projects():
 
 # --- Project Delete Endpoint ---
 @app.route('/api/projects/<int:project_id>', methods=['DELETE'])
+@token_required
 def delete_project(project_id):
     """Delete a project (only if not contracted)"""
     project = Project.query.get_or_404(project_id)
@@ -705,8 +830,9 @@ def delete_project(project_id):
     if project.status in ['contracted', 'in_progress', 'completed']:
         return jsonify({'message': '계약된 프로젝트는 삭제할 수 없습니다.'}), 400
     
-    # Delete related milestones
+    # BUG-026 Fix: 관련 데이터도 삭제
     Milestone.query.filter_by(project_id=project_id).delete()
+    Message.query.filter_by(project_id=project_id).delete()
     
     # Delete project
     db.session.delete(project)
@@ -715,6 +841,7 @@ def delete_project(project_id):
     return jsonify({'message': '프로젝트가 삭제되었습니다.'})
 
 @app.route('/api/projects/<int:project_id>/proposal', methods=['GET'])
+@token_required
 def download_proposal(project_id):
     project = Project.query.get_or_404(project_id)
     
@@ -738,7 +865,9 @@ def download_proposal(project_id):
     )
 
 @app.route('/api/projects/<int:project_id>/sign', methods=['POST'])
+@token_required
 def sign_contract(project_id):
+    """간편 계약 (BUG-018: 표준 계약 경로(/contract/draft + /contract/sign) 사용 권장)"""
     project = Project.query.get_or_404(project_id)
     
     # 제안서가 제출되지 않은 경우 계약 불가
@@ -747,7 +876,7 @@ def sign_contract(project_id):
     
     # 상태를 'contracted'로 변경
     project.status = 'contracted'
-    project.start_date = datetime.datetime.utcnow()
+    project.start_date = datetime.datetime.now(datetime.timezone.utc)
     
     # 계약 후 마일스톤이 없으면 생성
     if not project.milestones:
@@ -764,12 +893,21 @@ def sign_contract(project_id):
 # ========================================
 
 @app.route('/api/projects/<int:project_id>/negotiate', methods=['POST'])
+@token_required
 def request_negotiation(project_id):
     """기업이 전문가에게 조건 협의 요청"""
     project = Project.query.get_or_404(project_id)
     
-    # 제안서가 제출된 상태에서만 협의 가능
-    if project.status != 'proposal_submitted':
+    # BUG-015 Fix: 기업(프로젝트 소유자)만 협의 요청 가능
+    if g.current_user.id != project.company_id:
+        return jsonify({'message': '해당 프로젝트의 기업만 조건 협의를 요청할 수 있습니다.'}), 403
+    
+    # 제안서가 제출된 상태 또는 역제안(counter) 상태에서 협의 가능 (BUG-016 Fix)
+    negotiation_data_existing = json.loads(project.negotiation_data) if project.negotiation_data else {}
+    if project.status == 'negotiating' and negotiation_data_existing.get('counter_price'):
+        # 역제안에 대한 기업 응답 — 허용
+        pass
+    elif project.status != 'proposal_submitted':
         return jsonify({'message': '제안서가 제출된 프로젝트만 조건 협의가 가능합니다.'}), 400
     
     data = request.json
@@ -791,7 +929,7 @@ def request_negotiation(project_id):
     
     project.negotiation_data = json.dumps(negotiation_data)
     project.negotiation_status = 'pending'
-    project.negotiation_requested_at = datetime.datetime.utcnow()
+    project.negotiation_requested_at = datetime.datetime.now(datetime.timezone.utc)
     project.status = 'negotiating'
     
     db.session.commit()
@@ -806,7 +944,7 @@ def request_negotiation(project_id):
                 user_id=consultant.user_id,
                 type='negotiation_requested',
                 title=f'{company_name}에서 조건 협의를 요청했습니다',
-                message=f'희망 금액: {requested_price:,}원' if requested_price else f'희망 기간: {requested_duration}',
+                message=f'희망 금액: {int(requested_price):,}원' if requested_price else f'희망 기간: {requested_duration}',
                 link='/dashboard.html'
             )
             db.session.add(notification)
@@ -821,9 +959,15 @@ def request_negotiation(project_id):
     })
 
 @app.route('/api/projects/<int:project_id>/negotiate/respond', methods=['POST'])
+@token_required
 def respond_negotiation(project_id):
     """전문가가 협의 요청에 응답 (수락/역제안/거절)"""
     project = Project.query.get_or_404(project_id)
+    
+    # BUG-015 Fix: 컨설턴트만 응답 가능
+    consultant = Consultant.query.get(project.consultant_id)
+    if not consultant or g.current_user.id != consultant.user_id:
+        return jsonify({'message': '해당 프로젝트의 컨설턴트만 협의에 응답할 수 있습니다.'}), 403
     
     if project.status != 'negotiating':
         return jsonify({'message': '협의 중인 프로젝트가 아닙니다.'}), 400
@@ -869,7 +1013,7 @@ def respond_negotiation(project_id):
         project.status = 'proposal_submitted'  # 다시 제안 완료 상태로
         message = '조건 협의가 거절되었습니다.'
     
-    project.negotiation_responded_at = datetime.datetime.utcnow()
+    project.negotiation_responded_at = datetime.datetime.now(datetime.timezone.utc)
     db.session.commit()
     
     # 기업에게 알림 발송
@@ -901,6 +1045,7 @@ def respond_negotiation(project_id):
 # ========================================
 
 @app.route('/api/projects/<int:project_id>/contract/draft', methods=['POST'])
+@token_required
 def create_contract_draft(project_id):
     """계약서 초안 생성"""
     project = Project.query.get_or_404(project_id)
@@ -937,7 +1082,7 @@ def create_contract_draft(project_id):
                         type='not_selected',
                         title='프로젝트 미선정 안내',
                         message=f'"{other.title}" 프로젝트에서 다른 전문가가 선정되었습니다. 다음 기회에 좋은 결과가 있기를 바랍니다.',
-                        related_project_id=other.id
+                        link='/dashboard.html'
                     )
                     db.session.add(notification)
     
@@ -949,6 +1094,7 @@ def create_contract_draft(project_id):
     })
 
 @app.route('/api/projects/<int:project_id>/contract/sign', methods=['POST'])
+@token_required
 def sign_contract_step(project_id):
     """계약서 서명 (기업 또는 전문가)"""
     project = Project.query.get_or_404(project_id)
@@ -962,7 +1108,7 @@ def sign_contract_step(project_id):
     if signer not in ['company', 'consultant']:
         return jsonify({'message': '서명자 정보가 필요합니다.'}), 400
     
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
     
     if signer == 'company':
         project.company_signed_at = now
@@ -982,6 +1128,31 @@ def sign_contract_step(project_id):
                 db.session.add(m)
         
         message = '양측 서명이 완료되어 계약이 체결되었습니다!'
+        
+        # BUG-019 Fix: 계약 체결 알림 발송
+        try:
+            company_user = User.query.get(project.company_id)
+            contract_consultant = Consultant.query.get(project.consultant_id)
+            if company_user:
+                notification = Notification(
+                    user_id=company_user.id,
+                    type='contract_signed',
+                    title='계약이 체결되었습니다!',
+                    message=f'"{project.title}" 프로젝트 계약이 완료되었습니다.',
+                    link='/dashboard.html'
+                )
+                db.session.add(notification)
+            if contract_consultant and contract_consultant.user_id:
+                notification = Notification(
+                    user_id=contract_consultant.user_id,
+                    type='contract_signed',
+                    title='계약이 체결되었습니다!',
+                    message=f'"{project.title}" 프로젝트 계약이 완료되었습니다.',
+                    link='/dashboard.html'
+                )
+                db.session.add(notification)
+        except Exception as e:
+            print(f"[Notification] Contract signed notification failed: {e}")
     else:
         project.status = 'awaiting_signature'
         other_party = '전문가' if signer == 'company' else '기업'
@@ -997,6 +1168,7 @@ def sign_contract_step(project_id):
     })
 
 @app.route('/api/projects/<int:project_id>/contract/preview', methods=['GET'])
+@token_required
 def get_contract_preview(project_id):
     """계약서 미리보기 데이터 반환"""
     project = Project.query.get_or_404(project_id)
@@ -1024,16 +1196,18 @@ def get_contract_preview(project_id):
 # ========================================
 
 @app.route('/api/projects/<int:project_id>/submit-proposal', methods=['POST'])
+@token_required
 def submit_proposal(project_id):
     """컨설턴트가 제안서(금액, 기간, 메시지, 파일) 제출"""
     project = Project.query.get_or_404(project_id)
     
-    # 이미 제출된 경우
-    if project.status == 'proposal_submitted':
-        return jsonify({'message': '이미 제안서가 제출되었습니다.'}), 400
+    # BUG-014 Fix: 해당 프로젝트의 컨설턴트 본인만 제안서 제출 가능
+    consultant = Consultant.query.get(project.consultant_id)
+    if not consultant or g.current_user.id != consultant.user_id:
+        return jsonify({'message': '해당 프로젝트의 컨설턴트만 제안서를 제출할 수 있습니다.'}), 403
     
-    # 이미 계약된 경우
-    if project.status in ['contracted', 'in_progress', 'completed']:
+    # BUG-013 Fix: 이미 제출된 경우에도 '수정' 허용 (계약 전까지)
+    if project.status in ['contracted', 'in_progress', 'completed', 'pending_contract', 'awaiting_signature']:
         return jsonify({'message': '이미 계약된 프로젝트입니다.'}), 400
     
     data = request.json
@@ -1048,7 +1222,7 @@ def submit_proposal(project_id):
     project.proposal_duration = data.get('proposal_duration', '')
     project.proposal_message = data.get('proposal_message', '')
     project.proposal_file_url = data.get('proposal_file_url', '')  # 파일 업로드는 별도 처리
-    project.proposal_submitted_at = datetime.datetime.utcnow()
+    project.proposal_submitted_at = datetime.datetime.now(datetime.timezone.utc)
     project.status = 'proposal_submitted'
     
     db.session.commit()
@@ -1087,6 +1261,7 @@ def submit_proposal(project_id):
     })
 
 @app.route('/api/projects/<int:project_id>/proposal', methods=['GET'])
+@token_required
 def get_proposal(project_id):
     """특정 프로젝트의 제안서 상세 조회"""
     project = Project.query.get_or_404(project_id)
@@ -1105,6 +1280,7 @@ def get_proposal(project_id):
     })
 
 @app.route('/api/projects/<int:project_id>/detail', methods=['GET'])
+@token_required
 def get_project_detail(project_id):
     """프로젝트 상세 정보 조회 (컨설턴트용)"""
     project = Project.query.get_or_404(project_id)
@@ -1130,23 +1306,22 @@ def get_project_detail(project_id):
             except:
                 pass
     
-    # 2차: session_id로 못 찾으면, company_user의 이메일로 AnalysisJob 검색
+    # 2차: session_id로 못 찾으면, company_user의 이메일로 AnalysisJob 검색 (BUG-027 Fix: 성능 개선)
     if not analysis_job and company_user:
-        # 가장 최근의 해당 사용자 AnalysisJob 검색
-        all_jobs = AnalysisJob.query.filter(
-            AnalysisJob.deleted_at.is_(None)
-        ).order_by(AnalysisJob.created_at.desc()).all()
+        # 이메일로 직접 검색 (LIKE 쿼리로 제한 — 전체 순회 제거)
+        if company_user.email:
+            # intake_data는 JSON이므로 LIKE로 이메일 검색
+            analysis_job = AnalysisJob.query.filter(
+                AnalysisJob.deleted_at.is_(None),
+                AnalysisJob.intake_data.like(f'%{company_user.email.lower()}%')
+            ).order_by(AnalysisJob.created_at.desc()).first()
         
-        for job in all_jobs:
-            job_intake = job.get_intake_data() if job.intake_data else {}
-            contact_email = job_intake.get('contactEmail', '')
-            company_name_in_job = job_intake.get('companyName', '')
-            
-            # 이메일 매칭 또는 회사명 매칭
-            if (contact_email and company_user.email and contact_email.lower() == company_user.email.lower()) or \
-               (company_name_in_job and company_user.name and company_name_in_job == company_user.name):
-                analysis_job = job
-                break
+        # 이메일로 못 찾으면 회사명으로 검색
+        if not analysis_job and company_user.name:
+            analysis_job = AnalysisJob.query.filter(
+                AnalysisJob.deleted_at.is_(None),
+                AnalysisJob.intake_data.like(f'%{company_user.name}%')
+            ).order_by(AnalysisJob.created_at.desc()).first()
     
     # intake_data에서 정보 파싱
     if analysis_job:
@@ -1282,9 +1457,15 @@ def get_project_detail(project_id):
 # ========================================
 
 @app.route('/api/projects/<int:project_id>/propose-schedule', methods=['POST'])
+@token_required
 def propose_schedule(project_id):
     """컨설턴트가 마일스톤별 일정 제안"""
     project = Project.query.get_or_404(project_id)
+    
+    # BUG-021 Fix: 컨설턴트만 일정 제안 가능
+    consultant = Consultant.query.get(project.consultant_id)
+    if not consultant or g.current_user.id != consultant.user_id:
+        return jsonify({'message': '해당 프로젝트의 컨설턴트만 일정을 제안할 수 있습니다.'}), 403
     
     # 계약된 프로젝트만 일정 제안 가능
     if project.status not in ['contracted', 'in_progress']:
@@ -1305,9 +1486,25 @@ def propose_schedule(project_id):
     
     project.schedule_data = json.dumps(schedule)
     project.schedule_status = 'proposed'
-    project.schedule_proposed_at = datetime.datetime.utcnow()
+    project.schedule_proposed_at = datetime.datetime.now(datetime.timezone.utc)
     
     db.session.commit()
+    
+    # BUG-022 Fix: 기업에게 일정 제안 알림
+    try:
+        company_user = User.query.get(project.company_id)
+        if company_user:
+            notification = Notification(
+                user_id=company_user.id,
+                type='schedule_proposed',
+                title='컨설턴트가 일정을 제안했습니다',
+                message=f'"{project.title}" 프로젝트의 일정을 확인해주세요.',
+                link='/dashboard.html'
+            )
+            db.session.add(notification)
+            db.session.commit()
+    except Exception as e:
+        print(f"[Notification] Schedule proposed notification failed: {e}")
     
     return jsonify({
         'message': '일정이 제안되었습니다. 기업의 확인을 기다려주세요.',
@@ -1315,18 +1512,39 @@ def propose_schedule(project_id):
     })
 
 @app.route('/api/projects/<int:project_id>/confirm-schedule', methods=['POST'])
+@token_required
 def confirm_schedule(project_id):
     """기업이 제안된 일정 승인"""
     project = Project.query.get_or_404(project_id)
+    
+    # BUG-021 Fix: 기업(프로젝트 소유자)만 일정 확정 가능
+    if g.current_user.id != project.company_id:
+        return jsonify({'message': '해당 프로젝트의 기업만 일정을 확정할 수 있습니다.'}), 403
     
     if project.schedule_status != 'proposed':
         return jsonify({'message': '제안된 일정이 없습니다.'}), 400
     
     project.schedule_status = 'confirmed'
-    project.schedule_confirmed_at = datetime.datetime.utcnow()
+    project.schedule_confirmed_at = datetime.datetime.now(datetime.timezone.utc)
     project.status = 'in_progress'  # 일정 확정 시 프로젝트 시작
     
     db.session.commit()
+    
+    # BUG-022 Fix: 컨설턴트에게 일정 확정 알림
+    try:
+        sched_consultant = Consultant.query.get(project.consultant_id)
+        if sched_consultant and sched_consultant.user_id:
+            notification = Notification(
+                user_id=sched_consultant.user_id,
+                type='schedule_confirmed',
+                title='일정이 확정되었습니다!',
+                message=f'"{project.title}" 프로젝트의 일정이 확정되었습니다. 프로젝트가 시작됩니다.',
+                link='/dashboard.html'
+            )
+            db.session.add(notification)
+            db.session.commit()
+    except Exception as e:
+        print(f"[Notification] Schedule confirmed notification failed: {e}")
     
     return jsonify({
         'message': '일정이 확정되었습니다. 프로젝트가 시작됩니다.',
@@ -1335,9 +1553,14 @@ def confirm_schedule(project_id):
     })
 
 @app.route('/api/projects/<int:project_id>/reject-schedule', methods=['POST'])
+@token_required
 def reject_schedule(project_id):
     """기업이 제안된 일정 거절 (재조율 요청)"""
     project = Project.query.get_or_404(project_id)
+    
+    # BUG-021 Fix: 기업(프로젝트 소유자)만 일정 거절 가능
+    if g.current_user.id != project.company_id:
+        return jsonify({'message': '해당 프로젝트의 기업만 일정을 거절할 수 있습니다.'}), 403
     
     if project.schedule_status != 'proposed':
         return jsonify({'message': '제안된 일정이 없습니다.'}), 400
@@ -1350,6 +1573,23 @@ def reject_schedule(project_id):
     
     db.session.commit()
     
+    # BUG-022 Fix: 컨설턴트에게 일정 거절 알림 발송
+    try:
+        sched_consultant = Consultant.query.get(project.consultant_id)
+        if sched_consultant and sched_consultant.user_id:
+            reason_text = f' (사유: {rejection_reason})' if rejection_reason else ''
+            notification = Notification(
+                user_id=sched_consultant.user_id,
+                type='schedule_rejected',
+                title='제안하신 일정이 거절되었습니다',
+                message=f'"{project.title}" 프로젝트의 일정 재조율이 요청되었습니다.{reason_text}',
+                link='/dashboard.html'
+            )
+            db.session.add(notification)
+            db.session.commit()
+    except Exception as e:
+        print(f"[Notification] Schedule rejection failed: {e}")
+    
     return jsonify({
         'message': '일정 조율을 요청했습니다. 컨설턴트가 새로운 일정을 제안할 것입니다.',
         'schedule_status': project.schedule_status
@@ -1357,6 +1597,7 @@ def reject_schedule(project_id):
 
 # --- Cancel Consultant Request ---
 @app.route('/api/projects/<int:project_id>/cancel', methods=['POST'])
+@token_required
 def cancel_consultant_request(project_id):
     """특정 컨설턴트에 대한 요청 취소 (Soft Delete + 알림)"""
     project = Project.query.get_or_404(project_id)
@@ -1375,7 +1616,7 @@ def cancel_consultant_request(project_id):
     
     # Soft Delete: 상태를 cancelled_by_company로 변경
     project.status = 'cancelled_by_company'
-    project.cancelled_at = datetime.datetime.utcnow()
+    project.cancelled_at = datetime.datetime.now(datetime.timezone.utc)
     project.cancelled_reason = cancelled_reason
     
     # 컨설턴트에게 알림 생성
@@ -1407,27 +1648,29 @@ def cancel_consultant_request(project_id):
 
 # --- Add Consultant to Existing Quote Request ---
 @app.route('/api/projects/add-consultant', methods=['POST'])
+@token_required
 def add_consultant_to_request():
     """기존 견적 요청 그룹에 컨설턴트 추가"""
     data = request.json
-    user_id = data.get('user_id')
+    user_id = str(g.current_user.id)  # BUG-001 Fix: JWT에서 추출
     consultant_id = data.get('consultant_id')
     title = data.get('title')  # 기존 프로젝트 제목 사용
     session_id = data.get('session_id') # 세션 ID 추가
     
-    if not user_id or not consultant_id or not title:
-        return jsonify({'message': 'user_id, consultant_id, title이 필요합니다.'}), 400
+    if not consultant_id or not title:
+        return jsonify({'message': 'consultant_id, title이 필요합니다.'}), 400
     
     # 컨설턴트 확인
     consultant = Consultant.query.get(consultant_id)
     if not consultant:
         return jsonify({'message': '컨설턴트를 찾을 수 없습니다.'}), 404
     
-    # 이미 해당 컨설턴트에게 같은 제목으로 요청한 적 있는지 확인
-    existing = Project.query.filter_by(
-        company_id=user_id, 
-        consultant_id=consultant_id,
-        title=title
+    # BUG-030 Fix: 취소된 프로젝트는 중복으로 간주하지 않음
+    existing = Project.query.filter(
+        Project.company_id == user_id, 
+        Project.consultant_id == consultant_id,
+        Project.title == title,
+        Project.status.notin_(['cancelled_by_company', 'not_selected'])
     ).first()
     
     if existing:
@@ -1468,6 +1711,7 @@ def add_consultant_to_request():
 
 # --- Get Available Consultants for Adding to Project ---
 @app.route('/api/projects/<string:title>/available-consultants', methods=['GET'])
+@token_required
 def get_available_consultants(title):
     """이미 요청되지 않은 컨설턴트 목록 조회 (선별 로직 적용)"""
     user_id = request.args.get('user_id')
@@ -1709,7 +1953,7 @@ def delete_admin_job(job_id):
                 }), 400
     
     # Soft delete
-    job.deleted_at = datetime.datetime.utcnow()
+    job.deleted_at = datetime.datetime.now(datetime.timezone.utc)
     job.status = 'deleted'
     db.session.commit()
     
@@ -1773,6 +2017,7 @@ def get_consultant_detail(consultant_id):
 
 # --- Quote Request Endpoints ---
 @app.route('/api/quotes/request', methods=['POST'])
+@token_required
 def request_quotes():
     data = request.json
     consultant_ids = data.get('consultant_ids', [])
@@ -1793,8 +2038,8 @@ def request_quotes():
     if len(consultants) != len(consultant_ids):
         return jsonify({'message': 'Some consultants not found'}), 404
     
-    # Get user info (if logged in)
-    user_id = request.args.get('user_id') or data.get('user_id')
+    # Get user from JWT token (BUG-001 Fix)
+    user_id = str(g.current_user.id)
     
     if not user_id:
         return jsonify({'message': 'User ID required. Please log in first.'}), 401
@@ -1859,7 +2104,7 @@ def request_quotes():
     for consultant in consultants:
         # === Duplicate Prevention ===
         # Check if an ACTIVE project with same company+consultant+title already exists
-        active_statuses = ['planning', 'proposal_pending', 'proposal_submitted', 'contracted', 'in_progress']
+        active_statuses = ['planning', 'proposal_pending', 'proposal_submitted', 'negotiating', 'pending_contract', 'awaiting_signature', 'contracted', 'in_progress']
         existing = Project.query.filter(
             Project.company_id == user_id,
             Project.consultant_id == consultant.id,
@@ -1955,6 +2200,31 @@ def request_quotes():
     except Exception as e:
         db.session.rollback()
         return jsonify({'message': f'Failed to save projects: {str(e)}'}), 500
+    
+    # --- BUG-010 Fix: 인앱 알림 생성 ---
+    for consultant in consultants:
+        # 이 컨설턴트에 대한 프로젝트가 실제로 생성된 경우에만 알림 발송
+        project_info = next(
+            (p for p in created_projects if p['consultant_id'] == consultant.id),
+            None
+        )
+        if project_info and consultant.user_id:
+            try:
+                notification = Notification(
+                    user_id=consultant.user_id,
+                    type='quote_request',
+                    title=f'{company_name}에서 견적을 요청했습니다',
+                    message=f'"{project_title}" 프로젝트에 대한 견적 요청이 도착했습니다. 대시보드에서 확인해주세요.',
+                    link='/dashboard.html'
+                )
+                db.session.add(notification)
+            except Exception as e:
+                print(f"[Notification] Failed to create quote request notification: {e}")
+    
+    try:
+        db.session.commit()
+    except Exception as e:
+        print(f"[Notification] Commit failed for notifications: {e}")
     
     # --- 이메일 발송 ---
     email_results = []
@@ -2117,7 +2387,7 @@ def robots():
 # --- Health Check ---
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    return jsonify({'status': 'healthy', 'timestamp': datetime.datetime.utcnow().isoformat()})
+    return jsonify({'status': 'healthy', 'timestamp': datetime.datetime.now(datetime.timezone.utc).isoformat()})
 
 # --- Seed Data Endpoint (Admin only) ---
 @app.route('/api/admin/seed', methods=['POST'])
@@ -2284,9 +2554,10 @@ def seed_data():
 # ========================================
 
 @app.route('/api/notifications', methods=['GET'])
+@token_required
 def get_notifications():
     """사용자 알림 목록 조회"""
-    user_id = request.args.get('user_id')
+    user_id = str(g.current_user.id)
     if not user_id:
         return jsonify({'message': 'User ID required'}), 400
     
@@ -2299,6 +2570,7 @@ def get_notifications():
     })
 
 @app.route('/api/notifications/<int:notification_id>/read', methods=['POST'])
+@token_required
 def mark_notification_read(notification_id):
     """알림 읽음 처리"""
     notification = Notification.query.get_or_404(notification_id)
@@ -2307,10 +2579,10 @@ def mark_notification_read(notification_id):
     return jsonify({'message': 'Marked as read'})
 
 @app.route('/api/notifications/read-all', methods=['POST'])
+@token_required
 def mark_all_notifications_read():
     """모든 알림 읽음 처리"""
-    data = request.json or {}
-    user_id = data.get('user_id')
+    user_id = str(g.current_user.id)
     if not user_id:
         return jsonify({'message': 'User ID required'}), 400
     
@@ -2395,7 +2667,7 @@ def manage_portfolio(consultant_id):
         new_file = {
             'name': data.get('name'),
             'url': data.get('url'),
-            'uploaded_at': datetime.datetime.utcnow().isoformat()
+            'uploaded_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
         }
         current_files.append(new_file)
         consultant.portfolio_files = json.dumps(current_files)
@@ -2605,6 +2877,7 @@ def upload_proposal_file():
 # ========================================
 
 @app.route('/api/projects/<int:project_id>/messages', methods=['GET', 'POST'])
+@token_required
 def handle_messages(project_id):
     """프로젝트 메시지 조회/전송"""
     project = Project.query.get_or_404(project_id)
@@ -2677,10 +2950,10 @@ def handle_messages(project_id):
         return jsonify({'message': '메시지가 전송되었습니다.', 'id': message.id})
 
 @app.route('/api/projects/<int:project_id>/messages/read', methods=['POST'])
+@token_required
 def mark_messages_read(project_id):
     """해당 프로젝트의 메시지 읽음 처리"""
-    data = request.json or {}
-    user_id = data.get('user_id')
+    user_id = str(g.current_user.id)
     
     if not user_id:
         return jsonify({'message': 'User ID required'}), 400
@@ -2696,9 +2969,10 @@ def mark_messages_read(project_id):
     return jsonify({'message': 'Messages marked as read'})
 
 @app.route('/api/messages/unread-count', methods=['GET'])
+@token_required
 def get_unread_message_count():
     """읽지 않은 메시지 수 조회"""
-    user_id = request.args.get('user_id')
+    user_id = str(g.current_user.id)
     if not user_id:
         return jsonify({'message': 'User ID required'}), 400
     
@@ -2730,6 +3004,7 @@ def get_unread_message_count():
 
 # C. 계약 후에만 연락처 공개
 @app.route('/api/projects/<int:project_id>/contact-info', methods=['GET'])
+@token_required
 def get_contact_info(project_id):
     """계약 완료된 프로젝트의 컨설턴트 연락처 조회"""
     project = Project.query.get_or_404(project_id)
