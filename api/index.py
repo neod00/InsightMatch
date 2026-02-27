@@ -2384,6 +2384,19 @@ def robots():
     ]
     return Response('\n'.join(lines), mimetype='text/plain')
 
+# --- Blog Posts API ---
+@app.route('/api/posts', methods=['GET'])
+def get_posts():
+    """블로그 게시글 목록 조회 (공개)"""
+    posts = Post.query.order_by(Post.created_at.desc()).all()
+    return jsonify([p.to_dict() for p in posts])
+
+@app.route('/api/posts/<int:post_id>', methods=['GET'])
+def get_post_detail(post_id):
+    """블로그 게시글 상세 조회 (공개)"""
+    post = Post.query.get_or_404(post_id)
+    return jsonify(post.to_dict())
+
 # --- Health Check ---
 @app.route('/api/health', methods=['GET'])
 def health_check():
