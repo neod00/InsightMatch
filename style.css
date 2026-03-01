@@ -3,55 +3,94 @@
    Modern Dark Theme with Glass Effects
    =================================== */
 
-/* CSS Variables */
+/* CSS Variables - Mapped to Editorial Design System (Tailwind) */
 :root {
-    /* Colors */
-    --bg-primary: #0a0a0f;
-    --bg-secondary: #0f1419;
-    --bg-card: rgba(255, 255, 255, 0.03);
-    --bg-card-hover: rgba(255, 255, 255, 0.06);
+    /* Base Light Mode Colors (Brand) */
+    --bg-primary: #Fdfcf7;
+    /* brand.paper */
+    --bg-secondary: #ffffff;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f3f0e8;
 
-    --primary: #10b981;
-    --primary-light: #34d399;
-    --primary-dark: #059669;
-    --primary-glow: rgba(16, 185, 129, 0.3);
+    --primary: #1A1A1A;
+    /* brand.ink */
+    --primary-light: #4A4A4A;
+    --primary-dark: #000000;
+    --primary-glow: rgba(26, 26, 26, 0.1);
 
-    --accent: #06b6d4;
-    --accent-light: #22d3ee;
+    --accent: #C5A880;
+    /* brand.gold */
+    --accent-light: #d8c3a5;
 
-    --text-primary: #f8fafc;
-    --text-secondary: #94a3b8;
-    --text-muted: #64748b;
+    --text-primary: #1A1A1A;
+    /* brand.ink */
+    --text-secondary: #4a4a4a;
+    --text-muted: #888888;
 
-    --border: rgba(255, 255, 255, 0.08);
-    --border-hover: rgba(255, 255, 255, 0.15);
+    --border: #EAE6DF;
+    /* brand.stone */
+    --border-hover: #C5A880;
+    /* brand.gold */
 
-    --success: #22c55e;
-    --warning: #f59e0b;
-    --error: #ef4444;
+    --success: #276749;
+    /* Dark green for editorial */
+    --warning: #C5A880;
+    /* Brand gold */
+    --error: #9B2C2C;
+    /* Dark red for editorial */
 
     /* Typography */
-    --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-display: 'Plus Jakarta Sans', var(--font-sans);
+    --font-sans: 'Noto Sans KR', sans-serif;
+    --font-display: 'Noto Serif KR', serif;
 
     /* Spacing */
-    --section-padding: 120px;
+    --section-padding: 80px;
     --container-max: 1200px;
 
-    /* Effects */
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 20px;
-    --radius-xl: 32px;
+    /* Effects (Flatter, more editorial) */
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
 
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 16px 64px rgba(0, 0, 0, 0.5);
-    --shadow-glow: 0 0 60px var(--primary-glow);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.05);
+    --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.08);
+    --shadow-glow: none;
+    /* Removed neon glow for print feel */
 
-    --transition-fast: 0.15s ease;
+    --transition-fast: 0.2s ease;
     --transition-base: 0.3s ease;
     --transition-slow: 0.5s ease;
+}
+
+/* Dark Mode Overrides for Legacy CSS */
+.dark {
+    --bg-primary: #0F0F11;
+    /* brand.darkBg */
+    --bg-secondary: #161619;
+    /* brand.darkSurface */
+    --bg-card: #161619;
+    --bg-card-hover: #1f1f23;
+
+    --primary: #ffffff;
+    --primary-light: #e0e0e0;
+    --primary-dark: #d0d0d0;
+    --primary-glow: rgba(255, 255, 255, 0.05);
+
+    --accent: #d8c3a5;
+    --text-primary: #E0E0E0;
+    /* brand.darkText */
+    --text-secondary: #9CA3AF;
+    /* brand.darkMuted */
+    --text-muted: #6b7280;
+
+    --border: #27272A;
+    /* brand.darkBorder */
+    --border-hover: #d8c3a5;
+
+    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.6);
 }
 
 /* Reset & Base */
@@ -1519,95 +1558,8 @@ a {
    RESPONSIVE DESIGN
    =================================== */
 
-/* Mobile Menu Button */
-.mobile-menu-btn {
-    display: none;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    width: 44px;
-    height: 44px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: 8px;
-    z-index: 1001;
-    border-radius: var(--radius-sm);
-    transition: var(--transition-fast);
-}
+/* Note: Mobile Navigation styles have been replaced by Tailwind CSS utility classes in index.html */
 
-.mobile-menu-btn:hover {
-    background: var(--bg-card);
-}
-
-.mobile-menu-btn span {
-    display: block;
-    width: 24px;
-    height: 2px;
-    background: var(--text-primary);
-    border-radius: 2px;
-    transition: var(--transition-base);
-}
-
-.mobile-menu-btn span:nth-child(1) {
-    margin-bottom: 6px;
-}
-
-.mobile-menu-btn span:nth-child(3) {
-    margin-top: 6px;
-}
-
-/* Hamburger Animation */
-.mobile-menu-btn.active span:nth-child(1) {
-    transform: rotate(45deg) translate(6px, 6px);
-}
-
-.mobile-menu-btn.active span:nth-child(2) {
-    opacity: 0;
-}
-
-.mobile-menu-btn.active span:nth-child(3) {
-    transform: rotate(-45deg) translate(6px, -6px);
-}
-
-/* Mobile Navigation Overlay */
-.mobile-nav {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100vh;
-    background: rgba(10, 10, 15, 0.98);
-    backdrop-filter: blur(20px);
-    z-index: 999;
-    padding: 100px 24px 40px;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 8px;
-    overflow-y: auto;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
-}
-
-.mobile-nav.active {
-    opacity: 1;
-    visibility: visible;
-}
-
-.mobile-nav a {
-    display: block;
-    width: 100%;
-    max-width: 400px;
-    padding: 16px 24px;
-    font-size: 1.1rem;
-    color: var(--text-secondary);
-    text-align: center;
-    border-radius: var(--radius-md);
-    transition: var(--transition-fast);
-}
 
 .mobile-nav a:hover,
 .mobile-nav a.active {
