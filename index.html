@@ -12,271 +12,425 @@
     <link rel="icon" type="image/png" sizes="16x16" href="images/logo2.png">
     <link rel="apple-touch-icon" href="images/logo2.png">
 
-    <!-- Fonts -->
+    <!-- Google Fonts: Noto Serif KR & Noto Sans KR -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@400;600;700&display=swap"
         rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        serif: ['"Noto Serif KR"', 'serif'],
+                        sans: ['"Noto Sans KR"', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            paper: '#Fdfcf7', // Warm off-white background
+                            ink: '#1A1A1A',   // Deep black for text
+                            navy: '#112233',  // Dark navy for contrast sections
+                            gold: '#C5A880',  // Muted gold for accents
+                            stone: '#EAE6DF', // Light border/accent color
+
+                            // Sophisticated Dark mode colors (Editorial style)
+                            darkBg: '#0F0F11',       // Very deep charcoal, not pure black
+                            darkSurface: '#161619',  // Slightly lighter for contrast sections
+                            darkText: '#E0E0E0',     // Soft white for readability
+                            darkMuted: '#9CA3AF',    // Muted gray for secondary text
+                            darkBorder: '#27272A'    // Subtle borders
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        /* Subtle noise texture for a print feel */
+        .texture-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: 50;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+        
+        /* Reduce noise opacity slightly in dark mode */
+        .dark .texture-overlay {
+            opacity: 0.015; 
+        }
+
+        /* Elegant Thin lines typical in editorial design */
+        .editorial-border-t { @apply border-t border-brand-stone; }
+        .editorial-border-b { @apply border-b border-brand-stone; }
+        .editorial-border-l { @apply border-l border-brand-stone; }
+
+        /* Dark Mode borders */
+        .dark .editorial-border-t { @apply border-brand-darkBorder; }
+        .dark .editorial-border-b { @apply border-brand-darkBorder; }
+        .dark .editorial-border-l { @apply border-brand-darkBorder; }
+
+        .drop-cap::first-letter {
+            font-family: 'Noto Serif KR', serif;
+            font-size: 3.5rem;
+            float: left;
+            line-height: 0.8;
+            padding-right: 0.5rem;
+            padding-top: 0.2rem;
+            @apply text-brand-gold;
+        }
+
+        /* Essential Legacy overrides to prevent style.css from breaking Tailwind */
+        body { margin: 0; padding: 0; }
+        .section { padding-top: 4rem; padding-bottom: 4rem; } 
+        /* Keep legacy CSS for the form/iso catalog, but allow Tailwind to run */
+    </style>
 
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- Styles -->
+    <!-- Legacy Styles (Kept for forms/ISO catalog) -->
     <link rel="stylesheet" href="style.css">
 </head>
 
-<body>
-    <!-- Background Effects -->
-    <div class="bg-gradient"></div>
-    <div class="bg-grid"></div>
+<body
+    class="font-sans antialiased bg-brand-paper text-brand-ink dark:bg-brand-darkBg dark:text-brand-darkText transition-colors duration-400 break-keep">
 
-    <!-- Navigation -->
-    <nav class="navbar" id="navbar">
-        <div class="container nav-content">
-            <a href="#" class="logo">
-                <img src="images/logo2.png" alt="InsightMatch" class="logo-image">
-                <div class="logo-text">
-                    <span>InsightMatch</span>
-                    <span>by OpenBrain</span>
-                </div>
-            </a>
+    <div class="texture-overlay"></div>
 
-            <div class="nav-links">
-                <a href="#iso-catalog">ISO 표준 가이드</a>
-                <a href="#how-it-works">프로세스</a>
-                <a href="#diagnosis">컨설턴트 소개</a>
-                <a href="#faq">FAQ</a>
-                <a href="blog.html">블로그</a>
+    <!-- Minimal Header -->
+    <header
+        class="w-full px-6 py-6 md:px-12 flex justify-between items-center editorial-border-b sticky top-0 bg-brand-paper/90 dark:bg-brand-darkBg/90 backdrop-blur-sm z-40 transition-colors duration-400">
+        <a href="#"
+            class="font-serif text-xl md:text-2xl font-bold tracking-tight hover:text-brand-gold transition-colors">InsightMatch.</a>
+        <nav class="hidden md:flex space-x-10 text-sm font-medium text-brand-ink/80 dark:text-brand-darkMuted">
+            <a href="#iso-catalog" class="hover:text-brand-ink dark:hover:text-white transition-colors">ISO 표준 가이드</a>
+            <a href="#how-it-works" class="hover:text-brand-ink dark:hover:text-white transition-colors">프로세스</a>
+            <a href="#diagnosis" class="hover:text-brand-ink dark:hover:text-white transition-colors">무료 상담</a>
+            <a href="#faq" class="hover:text-brand-ink dark:hover:text-white transition-colors">FAQ</a>
+            <a href="blog.html" class="hover:text-brand-ink dark:hover:text-white transition-colors">블로그</a>
+        </nav>
+        <div class="flex items-center gap-4">
+            <!-- Theme Toggle Button -->
+            <button id="theme-toggle" class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                aria-label="Toggle Dark Mode">
+                <!-- Sun Icon -->
+                <svg id="theme-toggle-light-icon" class="hidden w-5 h-5 text-yellow-500" fill="currentColor"
+                    viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd"
+                        d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 3.22a1 1 0 011.415 0l.708.707a1 1 0 01-1.414 1.414l-.708-.707a1 1 0 010-1.414zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zm-3.22 4.22a1 1 0 010 1.415l-.707.708a1 1 0 01-1.414-1.414l.707-.708a1 1 0 011.415 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.22-3.22a1 1 0 01-1.415 0l-.708-.707a1 1 0 011.414-1.414l.708.707a1 1 0 010 1.414zM2 10a1 1 0 011-1h1a1 1 0 110 2H3a1 1 0 01-1-1zm3.22-4.22a1 1 0 010-1.415l.707-.708a1 1 0 011.414 1.414l-.707.708a1 1 0 01-1.415 0zM10 6a4 4 0 100 8 4 4 0 000-8z"
+                        clip-rule="evenodd"></path>
+                </svg>
+                <!-- Moon Icon -->
+                <svg id="theme-toggle-dark-icon" class="w-5 h-5 text-gray-700" fill="currentColor" viewBox="0 0 20 20"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
+                </svg>
+            </button>
+            <div id="nav-actions" class="hidden md:flex gap-3">
+                <a href="login.html"
+                    class="text-sm font-medium px-4 py-2 hover:text-brand-gold transition-colors dark:text-brand-darkMuted dark:hover:text-white">로그인</a>
+                <a href="#diagnosis"
+                    class="text-sm font-bold px-6 py-2 border border-brand-ink dark:border-brand-darkBorder dark:text-brand-darkText hover:bg-brand-ink hover:text-brand-paper dark:hover:bg-brand-darkBorder dark:hover:text-white transition-all">도입
+                    문의</a>
             </div>
 
-            <div class="nav-actions" id="nav-actions">
-                <!-- Will be populated by JavaScript based on login status -->
-                <a href="login.html" class="btn btn-ghost">로그인</a>
-                <a href="#diagnosis" class="btn btn-primary">무료 상담 신청</a>
-            </div>
-
-            <!-- Mobile Menu Button -->
-            <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="메뉴 열기">
-                <span></span>
-                <span></span>
-                <span></span>
+            <!-- Mobile Menu Button (Lucide Menu Icon) -->
+            <button class="md:hidden p-2 text-brand-ink dark:text-brand-darkText" id="mobile-menu-btn"
+                aria-label="메뉴 열기">
+                <i data-lucide="menu"></i>
             </button>
         </div>
-    </nav>
+    </header>
 
-    <!-- Mobile Navigation -->
-    <div class="mobile-nav" id="mobile-nav">
-        <a href="#iso-catalog" onclick="closeMobileMenu()">ISO 표준 가이드</a>
-        <a href="#how-it-works" onclick="closeMobileMenu()">프로세스</a>
-        <a href="#diagnosis" onclick="closeMobileMenu()">컨설턴트 소개</a>
-        <a href="#faq" onclick="closeMobileMenu()">FAQ</a>
-        <a href="blog.html">블로그</a>
-        <div class="nav-divider"></div>
-        <div id="mobile-nav-actions">
-            <a href="login.html" class="btn btn-secondary">로그인</a>
-            <a href="#diagnosis" class="btn btn-primary" onclick="closeMobileMenu()">무료 상담 신청</a>
+    <!-- Tailwind Mobile Navigation Overlay -->
+    <div class="fixed inset-0 bg-brand-paper/95 dark:bg-brand-darkBg/95 backdrop-blur-md z-50 flex flex-col justify-center items-center gap-8 text-xl font-medium opacity-0 pointer-events-none transition-opacity duration-300"
+        id="mobile-nav">
+        <button class="absolute top-6 right-6 p-2 text-brand-ink dark:text-white" id="close-mobile-nav">
+            <i data-lucide="x"></i>
+        </button>
+        <a href="#iso-catalog" class="mobile-nav-link hover:text-brand-gold transition-colors dark:text-white">ISO 표준
+            가이드</a>
+        <a href="#how-it-works" class="mobile-nav-link hover:text-brand-gold transition-colors dark:text-white">프로세스</a>
+        <a href="#diagnosis" class="mobile-nav-link hover:text-brand-gold transition-colors dark:text-white">무료 상담</a>
+        <a href="#faq" class="mobile-nav-link hover:text-brand-gold transition-colors dark:text-white">FAQ</a>
+        <a href="blog.html" class="mobile-nav-link hover:text-brand-gold transition-colors dark:text-white">블로그</a>
+        <div class="h-px w-32 bg-brand-stone dark:bg-brand-darkBorder my-4"></div>
+        <div class="flex flex-col w-full max-w-xs gap-4" id="mobile-nav-actions">
+            <a href="login.html"
+                class="text-center py-3 border border-brand-stone dark:border-brand-darkBorder hover:bg-black/5 dark:hover:bg-white/5 transition-colors dark:text-white">로그인</a>
+            <a href="#diagnosis"
+                class="text-center py-3 bg-brand-ink text-brand-paper dark:bg-white dark:text-brand-darkBg font-bold">도입
+                문의</a>
         </div>
     </div>
 
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="hero-visual">
-            <div class="hero-glow"></div>
-            <div class="hero-glow"></div>
-        </div>
-
-        <div class="hero-content fade-in-up">
-            <div class="hero-badge">
-                <span>검증된 컨설턴트만 소개합니다</span>
-            </div>
-
-            <h1>
-                ISO 컨설턴트,<br>
-                <span class="highlight">아직도 검색으로</span><br>
-                찾고 계신가요?
+    <!-- Editorial Hero Section -->
+    <main
+        class="w-full px-6 md:px-12 py-16 md:py-24 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center max-w-[1400px] mx-auto">
+        <div class="lg:col-span-7 space-y-8 pr-0 lg:pr-12 fade-in-up">
+            <p class="text-sm font-bold text-brand-gold tracking-wide">기업 심사 컨설팅의 실질적 비용</p>
+            <h1 class="font-serif text-5xl md:text-6xl lg:text-6xl font-bold leading-[1.2] tracking-tighter">
+                컨설턴트 한 명 찾는데<br>몇 주 걸리셨나요?
             </h1>
-
-            <p class="hero-subtitle">
-                네이버 검색, 지인 추천, 예전에 했던 곳 다시 연락...<br>
-                어떻게든 찾긴 하는데, <strong>이 컨설턴트가 맞는지</strong> 늘 불안하셨죠.<br>
-                업종·규격·경험까지 검증된 컨설턴트를 5분 만에 소개해 드립니다.
+            <p
+                class="text-lg md:text-xl text-brand-ink/80 dark:text-brand-darkMuted max-w-2xl font-light leading-relaxed drop-cap">
+                평균 3주의 탐색 시간, 그리고 투입 대비 불확실한 결과. 검증된 컨설턴트를 5분 만에 비교하고 시간과 비용 리스크를 혁신적으로 줄여보세요.
             </p>
 
-            <div class="hero-actions">
-                <a href="#diagnosis" class="btn btn-primary btn-lg">
-                    5분 만에 맞는 컨설턴트 찾기
-                    <i data-lucide="arrow-right" style="width: 20px; height: 20px;"></i>
+            <div class="pt-8 flex flex-col sm:flex-row gap-4">
+                <a href="#diagnosis"
+                    class="text-center bg-brand-ink dark:bg-white text-brand-paper dark:text-brand-darkBg px-8 py-4 text-sm font-bold hover:bg-brand-navy dark:hover:bg-gray-200 transition-colors">
+                    5분 만에 검증된 컨설턴트 만나기
                 </a>
-                <a href="#why-different" class="btn btn-secondary btn-lg">
-                    자세히 알아보기
+                <a href="#how-it-works"
+                    class="flex items-center justify-center gap-4 px-4 py-2 cursor-pointer hover:bg-brand-stone/20 dark:hover:bg-white/5 transition-colors rounded-lg">
+                    <div
+                        class="w-12 h-12 rounded-full border border-brand-stone dark:border-brand-darkBorder flex justify-center items-center">
+                        <i data-lucide="arrow-down" class="w-4 h-4 text-brand-gold"></i>
+                    </div>
+                    <span class="text-sm font-bold text-brand-ink/80 dark:text-brand-darkMuted">동작 방식 보기</span>
                 </a>
             </div>
         </div>
-    </section>
 
-    <!-- Transition Section: 다른 방법이 있습니다 -->
-    <section class="section" style="background: var(--bg-secondary);">
-        <div class="container">
-            <div class="section-header fade-in-up" style="max-width: 720px; margin: 0 auto; text-align: center;">
-                <p style="font-size: 1.1rem; color: var(--primary); font-weight: 600; margin-bottom: 12px;">더 나은 방법이
-                    있습니다
-                </p>
-                <h2 style="margin-bottom: 20px;">우리 회사에 맞는 컨설턴트,<br>이제 직접 비교하고 선택하세요</h2>
-                <p style="line-height: 1.9; color: var(--text-secondary); font-size: 1.05rem;">
-                    이 업계를 잘 아는 사람들이 만든 매칭 플랫폼입니다.<br>
-                    업종, 규격, 경험, 프로젝트 이력까지 꼼꼼히 확인한 컨설턴트만 소개합니다.<br>
-                    누군가의 추천이 아니라, <strong>데이터를 기반으로 객관적으로</strong> 매칭합니다.
-                </p>
+        <!-- Large Image Area -->
+        <div
+            class="lg:col-span-5 h-[500px] md:h-[650px] w-full bg-brand-stone/50 dark:bg-brand-darkSurface relative p-4 group fade-in-up delay-1">
+            <div class="w-full h-full relative overflow-hidden">
+                <img src="https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=1200&q=80"
+                    alt="Professionals in meeting"
+                    class="w-full h-full object-cover grayscale contrast-125 dark:brightness-75 dark:contrast-100 transition-all duration-500">
+                <div class="absolute inset-0 border border-brand-ink/10 dark:border-white/10 pointer-events-none"></div>
+            </div>
+
+            <div
+                class="absolute bottom-[-20px] left-[-20px] bg-brand-paper dark:bg-brand-darkBg p-6 shadow-xl w-64 border border-brand-stone dark:border-brand-darkBorder transition-colors duration-400">
+                <p class="text-xs font-bold text-brand-gold mb-2">데이터 기반 성과</p>
+                <p class="font-serif text-3xl">98.4%</p>
+                <p class="text-sm text-brand-ink/60 dark:text-brand-darkMuted mt-1">도입 기업 1차 심사 통과율</p>
             </div>
         </div>
-    </section>
+    </main>
 
-    <!-- Why Different Section: 핵심 차별점 3가지 -->
-    <section id="why-different" class="section">
-        <div class="container">
-            <div class="section-header fade-in-up">
-                <h2>InsightMatch가 다른 이유</h2>
-                <p>가격이 아니라, 적합성으로 매칭합니다.</p>
-            </div>
-
-            <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px;">
-                <div class="feature-card fade-in-up delay-1" style="text-align: center; padding: 40px 32px;">
-                    <div class="feature-icon" style="margin: 0 auto 20px;">
-                        <i data-lucide="scan-search"></i>
-                    </div>
-                    <h3>업종·규격 맞춤 매칭</h3>
-                    <p>단순 키워드가 아닌 업종, 필요 규격, 기업 규모, 지역까지 분석하여 가장 적합한 컨설턴트를 추천합니다.</p>
-                </div>
-
-                <div class="feature-card fade-in-up delay-2" style="text-align: center; padding: 40px 32px;">
-                    <div class="feature-icon" style="margin: 0 auto 20px;">
-                        <i data-lucide="shield-check"></i>
-                    </div>
-                    <h3>검증된 컨설턴트만</h3>
-                    <p>자격증, 경력, 실제 프로젝트 이력을 기반으로 내부 검증을 거친 컨설턴트만 등록됩니다. 신뢰점수로 투명하게 평가합니다.</p>
-                </div>
-
-                <div class="feature-card fade-in-up delay-3" style="text-align: center; padding: 40px 32px;">
-                    <div class="feature-icon" style="margin: 0 auto 20px;">
-                        <i data-lucide="circle-dollar-sign"></i>
-                    </div>
-                    <h3>기업은 완전 무료</h3>
-                    <p>컨설턴트 소개부터 제안서 비교까지, 기업에게는 어떤 비용도 청구하지 않습니다. 부담 없이 시작하세요.</p>
-                </div>
-            </div>
+    <!-- "Problem with Existing Methods" Section -->
+    <section
+        class="w-full bg-brand-navy dark:bg-brand-darkSurface text-brand-paper dark:text-brand-darkText py-24 px-6 md:px-12 transition-colors duration-400">
+        <div class="max-w-4xl mx-auto">
+            <p class="mt-8 text-brand-gold font-bold tracking-wide">그래서 InsightMatch를 만들었습니다.</p>
+        </div>
         </div>
     </section>
 
     <!-- Trust Building Section: 미리 반박 처리 -->
-    <section class="section" style="background: var(--bg-secondary);">
-        <div class="container">
-            <div class="section-header fade-in-up">
-                <h2>이런 걱정, 하고 계시죠?</h2>
-                <p>자주 받는 질문에 미리 답해드립니다.</p>
+    <section class="w-full px-6 md:px-12 py-24 bg-brand-stone/20 dark:bg-black/20 transition-colors duration-400">
+        <div class="max-w-7xl mx-auto">
+            <div class="mb-16 fade-in-up text-center">
+                <h2 class="font-serif text-3xl md:text-4xl">이런 걱정, 하고 계시죠?</h2>
+                <p class="text-brand-ink/70 dark:text-brand-darkMuted mt-4 text-lg">새로운 서비스 도입 전 흔히 묻는 질문들에 미리 답해드립니다.
+                </p>
             </div>
 
-            <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
-                <div class="feature-card fade-in-up delay-1" style="padding: 32px;">
-                    <h3 style="color: var(--text-primary); font-size: 1.05rem; margin-bottom: 12px;">
-                        <i data-lucide="message-circle-question"
-                            style="width: 20px; height: 20px; color: var(--primary); vertical-align: middle; margin-right: 8px;"></i>
-                        "추천 컨설턴트가 마음에 안 들면 어떡하나요?"
-                    </h3>
-                    <p>부담 없이 다른 컨설턴트를 다시 소개받으실 수 있습니다. 제안서를 비교한 뒤 마음에 드는 컨설턴트가 없으면 계약 의무 없이 종료하시면 됩니다.</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div
+                    class="bg-brand-paper dark:bg-brand-darkSurface p-8 border border-brand-stone dark:border-brand-darkBorder fade-in-up delay-1">
+                    <div class="w-10 h-10 rounded-full bg-brand-gold/10 flex items-center justify-center mb-6">
+                        <i data-lucide="message-circle-question" class="w-5 h-5 text-brand-gold"></i>
+                    </div>
+                    <h3 class="text-lg font-bold mb-4 font-serif text-brand-ink dark:text-brand-darkText">"추천 컨설턴트가 마음에
+                        안 들면 어떡하나요?"</h3>
+                    <p class="text-brand-ink/70 dark:text-brand-darkMuted leading-relaxed font-light text-sm">
+                        부담 없이 다른 컨설턴트를 다시 소개받으실 수 있습니다. 제안서를 비교한 뒤 마음에 드는 컨설턴트가 없으면 계약 의무 없이 바로 종료하시면 됩니다.
+                    </p>
                 </div>
 
-                <div class="feature-card fade-in-up delay-2" style="padding: 32px;">
-                    <h3 style="color: var(--text-primary); font-size: 1.05rem; margin-bottom: 12px;">
-                        <i data-lucide="message-circle-question"
-                            style="width: 20px; height: 20px; color: var(--primary); vertical-align: middle; margin-right: 8px;"></i>
-                        "정말 무료인가요? 나중에 비용이 생기나요?"
-                    </h3>
-                    <p>기업 사용자에게는 어떤 비용도 없습니다. 컨설턴트 소개, 제안서 비교, 프로젝트 관리까지 모두 무료입니다.</p>
+                <div
+                    class="bg-brand-paper dark:bg-brand-darkSurface p-8 border border-brand-stone dark:border-brand-darkBorder fade-in-up delay-2">
+                    <div class="w-10 h-10 rounded-full bg-brand-gold/10 flex items-center justify-center mb-6">
+                        <i data-lucide="message-circle-question" class="w-5 h-5 text-brand-gold"></i>
+                    </div>
+                    <h3 class="text-lg font-bold mb-4 font-serif text-brand-ink dark:text-brand-darkText">"정말
+                        무료인가요?<br>나중에 비용이 생기나요?"</h3>
+                    <p class="text-brand-ink/70 dark:text-brand-darkMuted leading-relaxed font-light text-sm">
+                        기업 사용자에게는 어떠한 비용도 요구하지 않습니다. 컨설턴트 소개, 제안서 비교, 매칭까지 모두 투명하게 무료로 제공됩니다.
+                    </p>
                 </div>
 
-                <div class="feature-card fade-in-up delay-3" style="padding: 32px;">
-                    <h3 style="color: var(--text-primary); font-size: 1.05rem; margin-bottom: 12px;">
-                        <i data-lucide="message-circle-question"
-                            style="width: 20px; height: 20px; color: var(--primary); vertical-align: middle; margin-right: 8px;"></i>
-                        "여기 컨설턴트도 결국 비슷한 수준 아닌가요?"
-                    </h3>
-                    <p>아닙니다. 자격, 경력, 프로젝트 실적을 기반으로 검증 절차를 거칩니다. 검증이 완료된 컨설턴트에게만 'Verified' 배지가 부여됩니다.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- How It Works Section -->
-    <section id="how-it-works" class="section">
-        <div class="container">
-            <div class="section-header fade-in-up">
-                <h2>5분이면 충분합니다</h2>
-                <p>간단한 4단계로 진행됩니다.</p>
-            </div>
-
-            <div class="process-grid">
-                <div class="process-card fade-in-up delay-1">
-                    <div class="process-number">01</div>
-                    <h3>기업 정보 입력</h3>
-                    <p>업종, 규모, 필요 인증 등 기본 정보를 입력합니다. 3분이면 충분합니다.</p>
-                </div>
-
-                <div class="process-card fade-in-up delay-2">
-                    <div class="process-number">02</div>
-                    <h3>맞춤형 분석</h3>
-                    <p>입력 정보를 바탕으로 기업 상황에 맞는 인증과 리스크를 분석합니다.</p>
-                </div>
-
-                <div class="process-card fade-in-up delay-3">
-                    <div class="process-number">03</div>
-                    <h3>컨설턴트 소개</h3>
-                    <p>업종·규격·경험을 기반으로 검증된 컨설턴트 3~5명을 소개합니다.</p>
-                </div>
-
-                <div class="process-card fade-in-up delay-4">
-                    <div class="process-number">04</div>
-                    <h3>제안서 비교 & 선택</h3>
-                    <p>컨설턴트별 제안서를 비교하고, 가장 적합한 컨설턴트를 직접 선택합니다.</p>
+                <div
+                    class="bg-brand-paper dark:bg-brand-darkSurface p-8 border border-brand-stone dark:border-brand-darkBorder fade-in-up delay-3">
+                    <div class="w-10 h-10 rounded-full bg-brand-gold/10 flex items-center justify-center mb-6">
+                        <i data-lucide="message-circle-question" class="w-5 h-5 text-brand-gold"></i>
+                    </div>
+                    <h3 class="text-lg font-bold mb-4 font-serif text-brand-ink dark:text-brand-darkText">"여기 컨설턴트도 결국
+                        비슷한 수준 아닌가요?"</h3>
+                    <p class="text-brand-ink/70 dark:text-brand-darkMuted leading-relaxed font-light text-sm">
+                        아닙니다. 자격, 경력, 과거 프로젝트 실적을 철저히 정량적으로 분석합니다. 엄격한 사전 검증을 통과한 상위 1% 컨설턴트에게만 자격을 부여합니다.
+                    </p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- ISO Standards Catalog Section (moved down) -->
-    <section id="iso-catalog" class="iso-catalog-section">
-        <div class="container">
-            <div class="section-header fade-in-up">
-                <h2>ISO 인증 표준 가이드</h2>
-                <p>귀사에 필요한 ISO 인증이 무엇인지 확인하세요. 각 표준을 클릭하면 <span class="highlight-text">상세 정보</span>를 확인할 수 있습니다.</p>
+    <!-- The Method (Asymmetrical Grid replacing 'why-different') -->
+    <section id="why-different" class="w-full px-6 md:px-12 py-24 max-w-[1400px] mx-auto">
+        <div class="max-w-7xl mx-auto">
+            <div class="mb-16 fade-in-up">
+                <p class="text-sm font-bold text-brand-gold mb-3">엄격한 선별 기준</p>
+                <h2 class="font-serif text-3xl md:text-5xl">오직 상위 1% 전문가.</h2>
             </div>
 
-            <div class="iso-filter-tabs fade-in-up" id="iso-filter-tabs">
-                <button class="iso-filter-btn active" data-filter="all"><span class="filter-emoji">📋</span> 전체</button>
-                <button class="iso-filter-btn" data-filter="mgmt"><span class="filter-emoji">🏢</span> 경영시스템</button>
-                <button class="iso-filter-btn" data-filter="esg"><span class="filter-emoji">🌍</span> ESG·탄소</button>
-                <button class="iso-filter-btn" data-filter="security"><span class="filter-emoji">🔒</span> 정보보안</button>
-                <button class="iso-filter-btn" data-filter="supply"><span class="filter-emoji">🔗</span>
-                    공급망·리스크</button>
-                <button class="iso-filter-btn" data-filter="industry"><span class="filter-emoji">🏭</span> 산업특화</button>
-                <button class="iso-filter-btn" data-filter="hr"><span class="filter-emoji">👥</span> 인사·윤리</button>
+            <div
+                class="grid grid-cols-1 md:grid-cols-3 gap-0 border-t border-l border-brand-stone dark:border-brand-darkBorder transition-colors">
+
+                <div
+                    class="p-8 md:p-12 border-r border-b border-brand-stone dark:border-brand-darkBorder hover:bg-brand-stone/30 dark:hover:bg-brand-darkSurface/50 transition-colors fade-in-up delay-1">
+                    <div class="text-4xl font-serif text-brand-gold mb-6">01</div>
+                    <h3 class="text-xl font-bold mb-4 font-serif">AI 데이터 기반 매칭</h3>
+                    <p class="text-brand-ink/70 dark:text-brand-darkMuted leading-relaxed font-light">
+                        단순한 자격증 보유자가 아닌, 제조업·IT·바이오 등 타겟 기업과 동일하거나 유사한 산업에서 풍부한 성공 레퍼런스를 구축한 전문가만을 선별합니다.
+                    </p>
+                </div>
+
+                <div
+                    class="p-8 md:p-12 border-r border-b border-brand-stone dark:border-brand-darkBorder hover:bg-brand-stone/30 dark:hover:bg-brand-darkSurface/50 transition-colors fade-in-up delay-2">
+                    <div class="text-4xl font-serif text-brand-gold mb-6">02</div>
+                    <h3 class="text-xl font-bold mb-4 font-serif">철저한 이력 검증 시스템</h3>
+                    <p class="text-brand-ink/70 dark:text-brand-darkMuted leading-relaxed font-light">
+                        KAB 및 국제 인정기구의 정식 심사원 자격 유효성을 확인하고, 과거 프로젝트 진행 시 중대한 결함이나 불만족 사례가 없었는지 철저히 교차 검증합니다.
+                    </p>
+                </div>
+
+                <div
+                    class="p-8 md:p-12 border-r md:border-r-0 border-b md:border-r border-brand-stone dark:border-brand-darkBorder hover:bg-brand-stone/30 dark:hover:bg-brand-darkSurface/50 transition-colors fade-in-up delay-3">
+                    <div class="text-4xl font-serif text-brand-gold mb-6">03</div>
+                    <h3 class="text-xl font-bold mb-4 font-serif">투명한 제안 비교</h3>
+                    <p class="text-brand-ink/70 dark:text-brand-darkMuted leading-relaxed font-light">
+                        기업 규모와 준비 상태에 따른 표준 견적 산출 방식을 제공합니다. 계약된 금액 외에 심사 과정에서 부당하게 추가되는 숨겨진 비용이 없습니다.
+                    </p>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+
+    <!-- How It Works Section (Process) -->
+    <section id="how-it-works"
+        class="w-full bg-brand-navy dark:bg-brand-darkSurface text-brand-paper dark:text-brand-darkText py-24 px-6 md:px-12 transition-colors duration-400">
+        <div class="max-w-7xl mx-auto">
+            <div class="mb-16 fade-in-up md:text-center">
+                <p class="text-sm font-bold text-brand-gold tracking-wide mb-3">간편한 도입 절차</p>
+                <h2 class="font-serif text-3xl md:text-5xl font-light">5분이면 충분합니다.</h2>
             </div>
 
-            <div class="iso-cards-grid" id="iso-cards-grid">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12 font-light">
+
+                <div class="fade-in-up delay-1 relative">
+                    <div class="text-3xl font-serif text-brand-gold mb-4">01</div>
+                    <h3 class="text-lg font-bold mb-3">기업 정보 입력</h3>
+                    <p class="text-brand-paper/70 dark:text-brand-darkMuted text-sm leading-relaxed">
+                        업종, 규모, 희망 인증 등 기본 정보를 입력합니다.
+                    </p>
+                    <div
+                        class="hidden md:block absolute top-6 left-12 right-0 h-px bg-brand-stone/20 dark:bg-brand-darkBorder">
+                    </div>
+                </div>
+
+                <div class="fade-in-up delay-2 relative">
+                    <div class="text-3xl font-serif text-brand-gold mb-4">02</div>
+                    <h3 class="text-lg font-bold mb-3">맞춤형 분석</h3>
+                    <p class="text-brand-paper/70 dark:text-brand-darkMuted text-sm leading-relaxed">
+                        입력된 데이터를 바탕으로 필요 인증 요건과 리스크를 즉시 분석합니다.
+                    </p>
+                    <div
+                        class="hidden md:block absolute top-6 left-12 right-0 h-px bg-brand-stone/20 dark:bg-brand-darkBorder">
+                    </div>
+                </div>
+
+                <div class="fade-in-up delay-3 relative">
+                    <div class="text-3xl font-serif text-brand-gold mb-4">03</div>
+                    <h3 class="text-lg font-bold mb-3">전문가 매칭</h3>
+                    <p class="text-brand-paper/70 dark:text-brand-darkMuted text-sm leading-relaxed">
+                        산업군 레퍼런스가 검증된 상위 1% 컨설턴트 리스트를 제안받습니다.
+                    </p>
+                    <div
+                        class="hidden md:block absolute top-6 left-12 right-0 h-px bg-brand-stone/20 dark:bg-brand-darkBorder">
+                    </div>
+                </div>
+
+                <div class="fade-in-up delay-4">
+                    <div class="text-3xl font-serif text-brand-gold mb-4">04</div>
+                    <h3 class="text-lg font-bold mb-3">비교 및 확정</h3>
+                    <p class="text-brand-paper/70 dark:text-brand-darkMuted text-sm leading-relaxed">
+                        제안서와 확정 견적을 비교한 뒤, 최적의 파트너를 직접 선택합니다.
+                    </p>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ISO Standards Catalog Section -->
+    <section id="iso-catalog"
+        class="w-full px-6 md:px-12 py-24 bg-brand-stone/30 dark:bg-brand-darkSurface/50 transition-colors duration-400">
+        <div class="max-w-[1400px] mx-auto">
+            <div class="mb-12 fade-in-up text-center">
+                <h2 class="font-serif text-3xl md:text-5xl font-light mb-4">ISO 인증 표준 가이드</h2>
+                <p class="text-brand-ink/80 dark:text-brand-darkMuted text-lg font-light">
+                    귀사에 필요한 ISO 인증이 무엇인지 확인하세요. 각 표준을 클릭하면 <span class="font-bold text-brand-gold">상세 정보</span>를 확인할 수
+                    있습니다.
+                </p>
+            </div>
+
+            <div class="flex flex-wrap justify-center gap-3 mb-12 fade-in-up" id="iso-filter-tabs">
+                <button
+                    class="iso-filter-btn active px-5 py-2 rounded-full border border-brand-ink dark:border-white text-brand-paper dark:text-brand-darkBg bg-brand-ink dark:bg-white text-sm font-bold transition-all"
+                    data-filter="all"><span class="mr-1">📋</span> 전체</button>
+                <button
+                    class="iso-filter-btn px-5 py-2 rounded-full border border-brand-stone dark:border-brand-darkBorder text-brand-ink/70 dark:text-brand-darkMuted bg-brand-paper dark:bg-brand-darkBg hover:border-brand-ink dark:hover:border-white hover:text-brand-ink dark:hover:text-white text-sm transition-all"
+                    data-filter="mgmt"><span class="mr-1">🏢</span> 경영시스템</button>
+                <button
+                    class="iso-filter-btn px-5 py-2 rounded-full border border-brand-stone dark:border-brand-darkBorder text-brand-ink/70 dark:text-brand-darkMuted bg-brand-paper dark:bg-brand-darkBg hover:border-brand-ink dark:hover:border-white hover:text-brand-ink dark:hover:text-white text-sm transition-all"
+                    data-filter="esg"><span class="mr-1">🌍</span> ESG·탄소</button>
+                <button
+                    class="iso-filter-btn px-5 py-2 rounded-full border border-brand-stone dark:border-brand-darkBorder text-brand-ink/70 dark:text-brand-darkMuted bg-brand-paper dark:bg-brand-darkBg hover:border-brand-ink dark:hover:border-white hover:text-brand-ink dark:hover:text-white text-sm transition-all"
+                    data-filter="security"><span class="mr-1">🔒</span> 정보보안</button>
+                <button
+                    class="iso-filter-btn px-5 py-2 rounded-full border border-brand-stone dark:border-brand-darkBorder text-brand-ink/70 dark:text-brand-darkMuted bg-brand-paper dark:bg-brand-darkBg hover:border-brand-ink dark:hover:border-white hover:text-brand-ink dark:hover:text-white text-sm transition-all"
+                    data-filter="supply"><span class="mr-1">🔗</span> 공급망·리스크</button>
+                <button
+                    class="iso-filter-btn px-5 py-2 rounded-full border border-brand-stone dark:border-brand-darkBorder text-brand-ink/70 dark:text-brand-darkMuted bg-brand-paper dark:bg-brand-darkBg hover:border-brand-ink dark:hover:border-white hover:text-brand-ink dark:hover:text-white text-sm transition-all"
+                    data-filter="industry"><span class="mr-1">🏭</span> 산업특화</button>
+                <button
+                    class="iso-filter-btn px-5 py-2 rounded-full border border-brand-stone dark:border-brand-darkBorder text-brand-ink/70 dark:text-brand-darkMuted bg-brand-paper dark:bg-brand-darkBg hover:border-brand-ink dark:hover:border-white hover:text-brand-ink dark:hover:text-white text-sm transition-all"
+                    data-filter="hr"><span class="mr-1">👥</span> 인사·윤리</button>
+            </div>
+
+            <!-- The grid container class is kept primarily for JS selection, but we add Tailwind grid classes internally via JS or as a fallback -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" id="iso-cards-grid">
                 <!-- Cards rendered by JavaScript -->
             </div>
         </div>
     </section>
 
     <!-- Diagnosis Form Section -->
-    <section id="diagnosis" class="section">
-        <div class="container">
-            <div class="section-header fade-in-up">
-                <h2>무료 컨설턴트 소개</h2>
-                <p>간단한 설문을 통해 우리 회사에 맞는 ISO 인증과 컨설턴트를 추천받으세요.</p>
+    <section id="diagnosis"
+        class="w-full px-6 md:px-12 py-24 mb-24 max-w-[1400px] mx-auto transition-colors duration-400">
+        <div class="max-w-4xl mx-auto">
+            <div class="mb-12 fade-in-up text-center">
+                <h2 class="font-serif text-3xl md:text-5xl font-light mb-4">무료 컨설턴트 소개</h2>
+                <p class="text-brand-ink/80 dark:text-brand-darkMuted text-lg font-light">
+                    간단한 설문을 통해 우리 회사에 맞는 ISO 인증과 최적의 파트너를 추천받으세요.
+                </p>
             </div>
 
-            <div class="form-section form-container fade-in-up">
+            <div class="form-container fade-in-up">
                 <form id="intake-form">
                     <!-- Step 1: Basic Info -->
                     <div class="form-step active" data-step="1">
@@ -302,17 +456,22 @@
                             </div>
                         </div>
 
-                        <div class="form-grid">
+                        <div class="form-grid mt-8">
                             <div class="form-group">
-                                <label>회사명 *</label>
+                                <label
+                                    class="text-brand-ink dark:text-brand-darkText font-medium text-sm mb-2 block">회사명
+                                    *</label>
                                 <input type="text" id="companyName" required placeholder="예: (주)인사이트매치">
                             </div>
                             <div class="form-group">
-                                <label>담당자 이메일 *</label>
+                                <label
+                                    class="text-brand-ink dark:text-brand-darkText font-medium text-sm mb-2 block">담당자
+                                    이메일 *</label>
                                 <input type="email" id="contactEmail" required placeholder="example@company.com">
                             </div>
                             <div class="form-group">
-                                <label>업종 *</label>
+                                <label class="text-brand-ink dark:text-brand-darkText font-medium text-sm mb-2 block">업종
+                                    *</label>
                                 <select id="industry" required>
                                     <option value="">선택하세요</option>
                                     <option value="IT/Software">IT/소프트웨어</option>
@@ -333,7 +492,8 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label>기업 규모 *</label>
+                                <label class="text-brand-ink dark:text-brand-darkText font-medium text-sm mb-2 block">기업
+                                    규모 *</label>
                                 <select id="employees" required>
                                     <option value="">선택하세요</option>
                                     <option value="1-10">소기업 (1~10명)</option>
@@ -344,7 +504,8 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label>희망 지역 (선택)</label>
+                                <label class="text-brand-ink dark:text-brand-darkText font-medium text-sm mb-2 block">희망
+                                    지역 (선택)</label>
                                 <select id="region">
                                     <option value="">전국</option>
                                     <option value="서울">서울</option>
@@ -368,8 +529,9 @@
                             </div>
                         </div>
 
-                        <div class="flex justify-center mt-8">
-                            <button type="button" class="btn btn-primary next-step">
+                        <div class="flex justify-center mt-12 mb-8">
+                            <button type="button"
+                                class="btn btn-primary next-step bg-brand-ink text-white hover:bg-brand-gold hover:text-brand-ink transition-colors duration-300">
                                 다음 단계
                                 <i data-lucide="arrow-right" style="width: 18px; height: 18px;"></i>
                             </button>
@@ -402,16 +564,18 @@
                             </div>
                         </div>
 
-                        <p style="text-align: center; color: var(--text-muted); margin-bottom: 24px;">관심 있는 인증 분야를
-                            선택해주세요 (복수 선택 가능)</p>
+                        <p class="text-center text-brand-ink/80 dark:text-brand-darkMuted mb-8 font-light text-lg">
+                            관심 있는 인증 분야를 선택해주세요 (복수 선택 가능)
+                        </p>
 
                         <!-- Category: Management Systems -->
                         <div class="iso-category">
                             <div class="iso-category-header">
                                 <span class="iso-category-icon">🏢</span>
                                 <div class="iso-category-title">
-                                    <strong>경영·운영 시스템</strong>
-                                    <small>가장 기본적인 경영시스템 인증</small>
+                                    <strong class="text-brand-ink dark:text-brand-darkText font-serif">경영·운영
+                                        시스템</strong>
+                                    <small class="text-brand-ink/60 dark:text-brand-darkMuted">가장 기본적인 경영시스템 인증</small>
                                 </div>
                             </div>
                             <div class="checkbox-grid checkbox-grid-compact">
@@ -439,8 +603,9 @@
                             <div class="iso-category-header">
                                 <span class="iso-category-icon">🌍</span>
                                 <div class="iso-category-title">
-                                    <strong>ESG·지속가능성·기후변화</strong>
-                                    <small>ESG 경영 및 탄소중립 관련</small>
+                                    <strong
+                                        class="text-brand-ink dark:text-brand-darkText font-serif">ESG·지속가능성·기후변화</strong>
+                                    <small class="text-brand-ink/60 dark:text-brand-darkMuted">ESG 경영 및 탄소중립 관련</small>
                                 </div>
                             </div>
                             <div class="checkbox-grid checkbox-grid-compact">
@@ -476,8 +641,9 @@
                             <div class="iso-category-header">
                                 <span class="iso-category-icon">🔒</span>
                                 <div class="iso-category-title">
-                                    <strong>정보보안·디지털·AI</strong>
-                                    <small>정보보안 및 AI 거버넌스</small>
+                                    <strong
+                                        class="text-brand-ink dark:text-brand-darkText font-serif">정보보안·디지털·AI</strong>
+                                    <small class="text-brand-ink/60 dark:text-brand-darkMuted">정보보안 및 AI 거버넌스</small>
                                 </div>
                             </div>
                             <div class="checkbox-grid checkbox-grid-compact">
@@ -505,8 +671,9 @@
                             <div class="iso-category-header">
                                 <span class="iso-category-icon">🔗</span>
                                 <div class="iso-category-title">
-                                    <strong>공급망·리스크·연속성</strong>
-                                    <small>비즈니스 연속성 및 리스크 관리</small>
+                                    <strong
+                                        class="text-brand-ink dark:text-brand-darkText font-serif">공급망·리스크·연속성</strong>
+                                    <small class="text-brand-ink/60 dark:text-brand-darkMuted">비즈니스 연속성 및 리스크 관리</small>
                                 </div>
                             </div>
                             <div class="checkbox-grid checkbox-grid-compact">
@@ -534,8 +701,8 @@
                             <div class="iso-category-header">
                                 <span class="iso-category-icon">🏭</span>
                                 <div class="iso-category-title">
-                                    <strong>산업·특수 목적</strong>
-                                    <small>특정 산업 맞춤 인증</small>
+                                    <strong class="text-brand-ink dark:text-brand-darkText font-serif">산업·특수 목적</strong>
+                                    <small class="text-brand-ink/60 dark:text-brand-darkMuted">특정 산업 맞춤 인증</small>
                                 </div>
                             </div>
                             <div class="checkbox-grid checkbox-grid-compact">
@@ -563,8 +730,8 @@
                             <div class="iso-category-header">
                                 <span class="iso-category-icon">👥</span>
                                 <div class="iso-category-title">
-                                    <strong>인사·조직·윤리</strong>
-                                    <small>인적자원 및 윤리경영</small>
+                                    <strong class="text-brand-ink dark:text-brand-darkText font-serif">인사·조직·윤리</strong>
+                                    <small class="text-brand-ink/60 dark:text-brand-darkMuted">인적자원 및 윤리경영</small>
                                 </div>
                             </div>
                             <div class="checkbox-grid checkbox-grid-compact">
@@ -593,8 +760,10 @@
                         </div>
 
                         <div class="flex justify-center gap-4 mt-8">
-                            <button type="button" class="btn btn-secondary prev-step">이전</button>
-                            <button type="button" class="btn btn-primary next-step">
+                            <button type="button"
+                                class="btn btn-secondary prev-step border border-brand-stone hover:border-brand-gold text-brand-ink dark:text-brand-darkText transition-colors duration-300">이전</button>
+                            <button type="button"
+                                class="btn btn-primary next-step bg-brand-ink text-white hover:bg-brand-gold hover:text-brand-ink transition-colors duration-300">
                                 다음 단계
                                 <i data-lucide="arrow-right" style="width: 18px; height: 18px;"></i>
                             </button>
@@ -629,7 +798,8 @@
                             </div>
                         </div>
 
-                        <p style="text-align: center; color: var(--text-muted); margin-bottom: 24px;">현재 회사가 직면한 주요 이슈가
+                        <p class="text-center text-brand-ink/80 dark:text-brand-darkMuted mb-8 font-light text-lg">현재
+                            회사가 직면한 주요 이슈가
                             있다면 선택해주세요 (컨설턴트가 맞춤 제안을 드립니다)</p>
 
                         <!-- Business Issues Categories -->
@@ -637,7 +807,9 @@
                             <!-- Quality & Operations -->
                             <div class="issue-category">
                                 <div class="issue-category-header">
-                                    <span>📊 품질·운영</span>
+                                    <span
+                                        class="text-brand-ink dark:text-brand-darkText font-serif font-bold text-lg">📊
+                                        품질·운영</span>
                                 </div>
                                 <div class="issue-list">
                                     <label class="issue-checkbox">
@@ -666,7 +838,9 @@
                             <!-- Safety & Environment -->
                             <div class="issue-category">
                                 <div class="issue-category-header">
-                                    <span>⚠️ 안전·환경</span>
+                                    <span
+                                        class="text-brand-ink dark:text-brand-darkText font-serif font-bold text-lg">⚠️
+                                        안전·환경</span>
                                 </div>
                                 <div class="issue-list">
                                     <label class="issue-checkbox">
@@ -695,7 +869,9 @@
                             <!-- ESG -->
                             <div class="issue-category">
                                 <div class="issue-category-header">
-                                    <span>🌍 ESG·지속가능성</span>
+                                    <span
+                                        class="text-brand-ink dark:text-brand-darkText font-serif font-bold text-lg">🌍
+                                        ESG·지속가능성</span>
                                 </div>
                                 <div class="issue-list">
                                     <label class="issue-checkbox">
@@ -724,7 +900,9 @@
                             <!-- Security -->
                             <div class="issue-category">
                                 <div class="issue-category-header">
-                                    <span>🔒 정보보안·개인정보</span>
+                                    <span
+                                        class="text-brand-ink dark:text-brand-darkText font-serif font-bold text-lg">🔒
+                                        정보보안·개인정보</span>
                                 </div>
                                 <div class="issue-list">
                                     <label class="issue-checkbox">
@@ -753,7 +931,9 @@
                             <!-- Business Continuity -->
                             <div class="issue-category">
                                 <div class="issue-category-header">
-                                    <span>🔗 비즈니스 연속성·리스크</span>
+                                    <span
+                                        class="text-brand-ink dark:text-brand-darkText font-serif font-bold text-lg">🔗
+                                        비즈니스 연속성·리스크</span>
                                 </div>
                                 <div class="issue-list">
                                     <label class="issue-checkbox">
@@ -782,7 +962,9 @@
                             <!-- HR -->
                             <div class="issue-category">
                                 <div class="issue-category-header">
-                                    <span>👥 조직·인력</span>
+                                    <span
+                                        class="text-brand-ink dark:text-brand-darkText font-serif font-bold text-lg">👥
+                                        조직·인력</span>
                                 </div>
                                 <div class="issue-list">
                                     <label class="issue-checkbox">
@@ -803,9 +985,9 @@
                         </div>
 
                         <!-- Certification Reasons -->
-                        <div class="form-group mt-6">
-                            <label style="font-size: 1rem; font-weight: 600; margin-bottom: 12px; display: block;">인증 추진
-                                배경 (복수 선택 가능)</label>
+                        <div class="form-group mt-12 mb-8">
+                            <label class="text-brand-ink dark:text-brand-darkText text-lg font-bold mb-4 block">인증 추진 배경
+                                (복수 선택 가능)</label>
                             <div class="reason-list">
                                 <label class="reason-checkbox">
                                     <input type="checkbox" name="reasons" value="customer_demand">
@@ -846,9 +1028,11 @@
                             <div id="recommended-iso-list"></div>
                         </div>
 
-                        <div class="flex justify-center gap-4 mt-8">
-                            <button type="button" class="btn btn-secondary prev-step">이전</button>
-                            <button type="button" class="btn btn-primary next-step">
+                        <div class="flex justify-center gap-4 mt-8 mb-8">
+                            <button type="button"
+                                class="btn btn-secondary prev-step border border-brand-stone hover:border-brand-gold text-brand-ink dark:text-brand-darkText transition-colors duration-300">이전</button>
+                            <button type="button"
+                                class="btn btn-primary next-step bg-brand-ink text-white hover:bg-brand-gold hover:text-brand-ink transition-colors duration-300">
                                 다음 단계
                                 <i data-lucide="arrow-right" style="width: 18px; height: 18px;"></i>
                             </button>
@@ -885,13 +1069,14 @@
                             </div>
                         </div>
 
-                        <p style="text-align: center; color: var(--text-muted); margin-bottom: 24px;">
+                        <p class="text-center text-brand-ink/80 dark:text-brand-darkMuted mb-8 font-light text-lg">
                             더 정확한 컨설턴트 소개를 위한 추가 정보입니다 (선택사항)
                         </p>
 
                         <div class="form-grid">
                             <div class="form-group">
-                                <label>현재 인증 보유 여부</label>
+                                <label class="text-brand-ink dark:text-brand-darkText font-medium text-sm mb-2 block">현재
+                                    인증 보유 여부</label>
                                 <select id="certStatus">
                                     <option value="None">없음 (신규)</option>
                                     <option value="Expired">만료됨 (갱신 필요)</option>
@@ -899,7 +1084,8 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label>희망 일정</label>
+                                <label class="text-brand-ink dark:text-brand-darkText font-medium text-sm mb-2 block">희망
+                                    일정</label>
                                 <select id="timeline">
                                     <option value="flexible">여유 있음</option>
                                     <option value="6months">6개월 이내</option>
@@ -908,7 +1094,8 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label>예산 범위</label>
+                                <label class="text-brand-ink dark:text-brand-darkText font-medium text-sm mb-2 block">예산
+                                    범위</label>
                                 <select id="budget">
                                     <option value="unknown">잘 모르겠음</option>
                                     <option value="under500">500만원 미만</option>
@@ -919,16 +1106,19 @@
                             </div>
                         </div>
 
-                        <div class="form-group mt-4">
-                            <label>특별히 전달하고 싶은 요청사항 (선택)</label>
+                        <div class="form-group mt-8">
+                            <label class="text-brand-ink dark:text-brand-darkText font-medium text-sm mb-2 block">특별히
+                                전달하고 싶은 요청사항 (선택)</label>
                             <textarea id="additionalNotes" rows="3"
                                 placeholder="예: 삼성전자 협력사 등록을 위해 3개월 내 인증 완료가 필요합니다..."
-                                style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary); resize: vertical;"></textarea>
+                                class="w-full p-3 md:p-4 border border-brand-stone dark:border-brand-darkBorder rounded bg-[#fdfcf7] dark:bg-[#161619] text-brand-ink dark:text-brand-darkText focus:border-brand-gold focus:ring-1 focus:ring-brand-gold transition-colors duration-300 resize-y"></textarea>
                         </div>
 
-                        <div class="flex justify-center gap-4 mt-8">
-                            <button type="button" class="btn btn-secondary prev-step">이전</button>
-                            <button type="submit" class="btn btn-primary btn-lg">
+                        <div class="flex justify-center gap-4 mt-12 mb-8">
+                            <button type="button"
+                                class="btn btn-secondary prev-step border border-brand-stone hover:border-brand-gold text-brand-ink dark:text-brand-darkText transition-colors duration-300">이전</button>
+                            <button type="submit"
+                                class="btn btn-primary btn-lg bg-brand-ink text-white hover:bg-brand-gold hover:text-brand-ink transition-colors duration-300">
                                 <i data-lucide="users" style="width: 20px; height: 20px;"></i>
                                 컨설턴트 추천받기
                             </button>
@@ -1307,22 +1497,70 @@
         </div>
     </section>
 
-    <!-- CTA Section -->
-    <section class="section">
-        <div class="container">
-            <div class="cta-section fade-in-up">
-                <div class="cta-content">
-                    <h2>지금 바로 시작해 보세요</h2>
-                    <p>5분이면 기업 상황에 맞는 검증된 컨설턴트를 소개받습니다.<br>지금 신청하시면 <strong>무료 리스크 분석 리포트</strong>도 함께 제공됩니다.</p>
-                    <div class="flex justify-center gap-4">
-                        <a href="#diagnosis" class="btn btn-primary btn-lg">
-                            무료로 컨설턴트 소개받기
-                        </a>
-                        <a href="mailto:openbrain.main@gmail.com" class="btn btn-secondary btn-lg">
-                            직접 문의하기
-                        </a>
-                    </div>
+    <!-- FAQ Section -->
+    <section id="faq" class="w-full px-6 md:px-12 py-24 max-w-4xl mx-auto transition-colors duration-400">
+        <div class="mb-16 fade-in-up md:text-center text-left">
+            <p class="text-sm font-bold text-brand-gold tracking-wide mb-3">FAQ</p>
+            <h2 class="font-serif text-3xl md:text-5xl font-light text-brand-ink dark:text-brand-darkText">자주 묻는 질문</h2>
+        </div>
+        <div class="space-y-4 fade-in-up">
+            <details class="group border-b border-brand-stone dark:border-brand-darkBorder pb-4">
+                <summary
+                    class="flex justify-between items-center font-bold cursor-pointer list-none text-lg text-brand-ink dark:text-brand-darkText">
+                    <span>컨설턴트 추천까지 얼마나 걸리나요?</span>
+                    <span class="transition group-open:rotate-180">
+                        <i data-lucide="chevron-down" class="w-5 h-5 text-brand-gold"></i>
+                    </span>
+                </summary>
+                <div class="text-brand-ink/80 dark:text-brand-darkMuted mt-4 leading-relaxed font-light">
+                    진단 내용 입력 후 평균 1~3일 내에 기업의 규모와 산업군에 맞는 최적의 컨설턴트 3인을 매칭하여 제안서를 보내드립니다.
                 </div>
+            </details>
+            <details class="group border-b border-brand-stone dark:border-brand-darkBorder pb-4">
+                <summary
+                    class="flex justify-between items-center font-bold cursor-pointer list-none text-lg text-brand-ink dark:text-brand-darkText">
+                    <span>우리 산업군에 대한 이해도가 높은 컨설턴트를 만날 수 있나요?</span>
+                    <span class="transition group-open:rotate-180">
+                        <i data-lucide="chevron-down" class="w-5 h-5 text-brand-gold"></i>
+                    </span>
+                </summary>
+                <div class="text-brand-ink/80 dark:text-brand-darkMuted mt-4 leading-relaxed font-light">
+                    네, 가능합니다. 단순 자격증 보유 여부를 넘어, 제조업·IT·바이오 등 타겟 기업과 유사한 산업에서 풍부한 성공 레퍼런스를 구축한 전문가만을 선별하여 매칭합니다.
+                </div>
+            </details>
+            <details class="group border-b border-brand-stone dark:border-brand-darkBorder pb-4">
+                <summary
+                    class="flex justify-between items-center font-bold cursor-pointer list-none text-lg text-brand-ink dark:text-brand-darkText">
+                    <span>매칭 및 제안서 수령 비용은 얼마인가요?</span>
+                    <span class="transition group-open:rotate-180">
+                        <i data-lucide="chevron-down" class="w-5 h-5 text-brand-gold"></i>
+                    </span>
+                </summary>
+                <div class="text-brand-ink/80 dark:text-brand-darkMuted mt-4 leading-relaxed font-light">
+                    컨설턴트 매칭 및 제안서(확정 견적 포함) 수령까지의 모든 과정은 의뢰 기업에게 100% 무료로 제공됩니다.
+                </div>
+            </details>
+        </div>
+    </section>
+
+    <!-- Final CTA Section -->
+    <section
+        class="w-full bg-brand-ink dark:bg-[#0a0f1d] text-brand-paper py-24 px-6 md:px-12 text-center transition-colors duration-400">
+        <div class="max-w-4xl mx-auto fade-in-up">
+            <h2 class="font-serif text-3xl md:text-5xl font-light mb-8 leading-tight">
+                지금 신청하시면 우리 기업에 맞는<br><span class="text-brand-gold font-bold">무료 리스크 분석 리포트</span>를 제공해드립니다.
+            </h2>
+            <p class="text-lg text-brand-paper/80 font-light mb-12">5분이면 기업 상황에 맞는 검증된 상위 1% 컨설턴트 3인의 제안서를 비교할 수 있습니다.
+            </p>
+            <div class="flex flex-col sm:flex-row justify-center gap-4">
+                <a href="#diagnosis"
+                    class="bg-brand-gold text-brand-ink px-8 py-4 font-bold text-lg hover:bg-[#d4b060] transition-colors rounded-sm">
+                    무료로 컨설턴트 소개받기
+                </a>
+                <a href="mailto:openbrain.main@gmail.com"
+                    class="border border-brand-stone/40 text-brand-paper px-8 py-4 font-bold text-lg hover:bg-white/10 transition-colors rounded-sm">
+                    직접 문의하기
+                </a>
             </div>
         </div>
     </section>
@@ -1483,10 +1721,46 @@
         // Initialize Lucide icons
         lucide.createIcons();
 
+        // -----------------------------------------------------------
+        // Dark Mode / Theme Toggle Logic
+        // -----------------------------------------------------------
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const darkIcon = document.getElementById('theme-toggle-dark-icon');
+        const lightIcon = document.getElementById('theme-toggle-light-icon');
+
+        // Check local storage or system preference on load
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            lightIcon.classList.remove('hidden');
+            darkIcon.classList.add('hidden');
+        } else {
+            document.documentElement.classList.remove('dark');
+            darkIcon.classList.remove('hidden');
+            lightIcon.classList.add('hidden');
+        }
+
+        // Toggle theme on button click
+        themeToggleBtn.addEventListener('click', function () {
+            // toggle icons
+            darkIcon.classList.toggle('hidden');
+            lightIcon.classList.toggle('hidden');
+
+            // toggle dark mode on html element
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.theme = 'light';
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.theme = 'dark';
+            }
+        });
+
+        // -----------------------------------------------------------
         // Floating CTA visibility logic
+        // -----------------------------------------------------------
         (function () {
             const floatingCta = document.getElementById('floating-cta');
-            const hero = document.querySelector('.hero');
+            const hero = document.querySelector('main'); // Updated to target the new main hero
             const diagnosis = document.getElementById('diagnosis');
             if (!floatingCta || !hero) return;
 
@@ -1510,124 +1784,41 @@
             });
         })();
 
-        // Mobile Menu Toggle
+        // -----------------------------------------------------------
+        // Mobile Navigation (Tailwind Overlay)
+        // -----------------------------------------------------------
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const closeMobileNavBtn = document.getElementById('close-mobile-nav');
         const mobileNav = document.getElementById('mobile-nav');
+        const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
 
-        function toggleMobileMenu() {
-            mobileMenuBtn.classList.toggle('active');
-            mobileNav.classList.toggle('active');
-            document.body.style.overflow = mobileNav.classList.contains('active') ? 'hidden' : '';
+        function openMobileMenu() {
+            mobileNav.classList.remove('opacity-0', 'pointer-events-none');
+            document.body.style.overflow = 'hidden';
         }
 
         function closeMobileMenu() {
-            mobileMenuBtn.classList.remove('active');
-            mobileNav.classList.remove('active');
+            mobileNav.classList.add('opacity-0', 'pointer-events-none');
             document.body.style.overflow = '';
         }
 
-        mobileMenuBtn.addEventListener('click', toggleMobileMenu);
+        mobileMenuBtn.addEventListener('click', openMobileMenu);
+        closeMobileNavBtn.addEventListener('click', closeMobileMenu);
 
-        // Close mobile menu on window resize (if desktop)
+        // Close when clicking links
+        mobileNavLinks.forEach(link => {
+            link.addEventListener('click', closeMobileMenu);
+        });
+
         window.addEventListener('resize', () => {
-            if (window.innerWidth > 768) {
+            if (window.innerWidth >= 768) { // md breakpoint
                 closeMobileMenu();
             }
         });
 
-        // Close mobile menu when clicking outside
-        mobileNav.addEventListener('click', (e) => {
-            if (e.target === mobileNav) {
-                closeMobileMenu();
-            }
-        });
-
-        // Check login status and update navigation
-        function updateNavigation() {
-            const user = JSON.parse(localStorage.getItem('user'));
-            const token = localStorage.getItem('token');
-            const navActions = document.getElementById('nav-actions');
-            const mobileNavActions = document.getElementById('mobile-nav-actions');
-
-            if (user && token) {
-                // Determine dashboard link based on role
-                const dashboardLink = user.role === 'admin' ? 'admin.html' : 'dashboard.html';
-                const dashboardText = user.role === 'admin' ? '관리자 대시보드' : '대시보드';
-
-                // User is logged in - show dashboard link and logout button
-                navActions.innerHTML = `
-                    <a href="${dashboardLink}" class="btn btn-ghost">
-                        <i data-lucide="layout-dashboard" style="width: 18px; height: 18px;"></i>
-                        ${dashboardText}
-                    </a>
-                    <span style="color: var(--primary); font-weight: 500;">${user.name}님</span>
-                    <button onclick="logout()" class="btn btn-ghost">
-                        <i data-lucide="log-out" style="width: 18px; height: 18px;"></i>
-                        로그아웃
-                    </button>
-                `;
-                // Update mobile nav
-                mobileNavActions.innerHTML = `
-                    <a href="${dashboardLink}" class="btn btn-secondary" onclick="closeMobileMenu()">
-                        <i data-lucide="layout-dashboard" style="width: 18px; height: 18px;"></i>
-                        ${dashboardText}
-                    </a>
-                    <button onclick="logout(); closeMobileMenu();" class="btn btn-ghost" style="width: 100%;">
-                        <i data-lucide="log-out" style="width: 18px; height: 18px;"></i>
-                        로그아웃
-                    </button>
-                `;
-                lucide.createIcons();
-            } else {
-                // ... (rest same)
-                // User is not logged in - show login button
-                navActions.innerHTML = `
-                    <a href="login.html" class="btn btn-ghost">로그인</a>
-                    <a href="#diagnosis" class="btn btn-primary">무료 상담 신청</a>
-                `;
-                mobileNavActions.innerHTML = `
-                    <a href="login.html" class="btn btn-secondary">로그인</a>
-                    <a href="#diagnosis" class="btn btn-primary" onclick="closeMobileMenu()">무료 상담 신청</a>
-                `;
-            }
-        }
-
-        function logout() {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            updateNavigation();
-        }
-
-        // Initialize navigation on page load
-        updateNavigation();
-
-        // Navbar scroll effect
-        window.addEventListener('scroll', () => {
-            const navbar = document.getElementById('navbar');
-            if (window.scrollY > 50) {
-                navbar.classList.add('scrolled');
-            } else {
-                navbar.classList.remove('scrolled');
-            }
-        });
-
-        // FAQ Toggle
-        function toggleFaq(element) {
-            const faqItem = element.parentElement;
-            const isActive = faqItem.classList.contains('active');
-
-            // Close all other FAQ items
-            document.querySelectorAll('.faq-item').forEach(item => {
-                item.classList.remove('active');
-            });
-
-            // Toggle current item
-            if (!isActive) {
-                faqItem.classList.add('active');
-            }
-        }
-
+        // -----------------------------------------------------------
         // Intersection Observer for animations
+        // -----------------------------------------------------------
         const observerOptions = {
             threshold: 0.1,
             rootMargin: '0px 0px -50px 0px'
@@ -1648,6 +1839,71 @@
             el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
             observer.observe(el);
         });
+
+        // -----------------------------------------------------------
+        // Check login status and update navigation
+        // -----------------------------------------------------------
+        function updateNavigation() {
+            const user = JSON.parse(localStorage.getItem('user'));
+            const token = localStorage.getItem('token');
+            const navActions = document.getElementById('nav-actions');
+            const mobileNavActions = document.getElementById('mobile-nav-actions');
+
+            if (user && token) {
+                // Determine dashboard link based on role
+                const dashboardLink = user.role === 'admin' ? 'admin.html' : 'dashboard.html';
+                const dashboardText = user.role === 'admin' ? '관리자 대시보드' : '대시보드';
+
+                if (navActions) {
+                    navActions.innerHTML = `
+                        <a href="${dashboardLink}" class="flex items-center gap-2 text-sm font-medium px-4 py-2 hover:text-brand-gold transition-colors dark:text-brand-darkMuted dark:hover:text-white">
+                            <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                            ${dashboardText}
+                        </a>
+                        <span class="text-sm font-medium px-2 py-2" style="color: var(--primary);">${user.name}님</span>
+                        <button onclick="logout()" class="flex items-center gap-2 text-sm font-medium px-4 py-2 hover:text-brand-gold transition-colors dark:text-brand-darkMuted dark:hover:text-white">
+                            <i data-lucide="log-out" class="w-4 h-4"></i>
+                            로그아웃
+                        </button>
+                    `;
+                }
+
+                if (mobileNavActions) {
+                    mobileNavActions.innerHTML = `
+                        <a href="${dashboardLink}" class="flex justify-center items-center text-center py-3 border border-brand-stone dark:border-brand-darkBorder hover:bg-black/5 dark:hover:bg-white/5 transition-colors dark:text-white" onclick="closeMobileMenu()">
+                            <i data-lucide="layout-dashboard" class="w-4 h-4 mr-2"></i> ${dashboardText}
+                        </a>
+                        <button onclick="logout(); closeMobileMenu();" class="flex justify-center items-center text-center py-3 bg-brand-ink text-brand-paper dark:bg-white dark:text-brand-darkBg font-bold transition-colors">
+                            <i data-lucide="log-out" class="w-4 h-4 mr-2"></i> 로그아웃
+                        </button>
+                    `;
+                }
+
+                if (window.lucide) { lucide.createIcons(); }
+            } else {
+                if (navActions) {
+                    navActions.innerHTML = `
+                        <a href="login.html" class="text-sm font-medium px-4 py-2 hover:text-brand-gold transition-colors dark:text-brand-darkMuted dark:hover:text-white">로그인</a>
+                        <a href="#diagnosis" class="text-sm font-bold px-6 py-2 border border-brand-ink dark:border-brand-darkBorder dark:text-brand-darkText hover:bg-brand-ink hover:text-brand-paper dark:hover:bg-brand-darkBorder dark:hover:text-white transition-all">도입 문의</a>
+                    `;
+                }
+                if (mobileNavActions) {
+                    mobileNavActions.innerHTML = `
+                        <a href="login.html" class="text-center py-3 border border-brand-stone dark:border-brand-darkBorder hover:bg-black/5 dark:hover:bg-white/5 transition-colors dark:text-white" onclick="closeMobileMenu()">로그인</a>
+                        <a href="#diagnosis" class="text-center py-3 bg-brand-ink text-brand-paper dark:bg-white dark:text-brand-darkBg font-bold transition-colors" onclick="closeMobileMenu()">도입 문의</a>
+                    `;
+                }
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            updateNavigation();
+        }
+
+        // Initialize navigation on page load
+        updateNavigation();
     </script>
 
     <!-- Selection Bar (Fixed Bottom) -->
