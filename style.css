@@ -25,7 +25,7 @@
     --text-primary: #1A1A1A;
     /* brand.ink */
     --text-secondary: #4a4a4a;
-    --text-muted: #888888;
+    --text-muted: #6b7280;
 
     --border: #EAE6DF;
     /* brand.stone */
@@ -197,7 +197,7 @@ a {
     right: 0;
     z-index: 1000;
     padding: 16px 0;
-    background: rgba(10, 10, 15, 0.8);
+    background: var(--bg-primary);
     backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--border);
     transition: var(--transition-base);
@@ -205,7 +205,8 @@ a {
 
 .navbar.scrolled {
     padding: 12px 0;
-    background: rgba(10, 10, 15, 0.95);
+    background: var(--bg-primary);
+    box-shadow: var(--shadow-sm);
 }
 
 .nav-content {

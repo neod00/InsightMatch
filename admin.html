@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <!-- Styles -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=4">
     <style>
         /* Side Panel Styles */
         .side-panel-overlay {
@@ -46,9 +46,9 @@
             width: 100%;
             max-width: 600px;
             height: 100%;
-            background: rgba(23, 23, 23, 0.95);
+            background: var(--bg-card);
             backdrop-filter: blur(20px);
-            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            border-left: 1px solid var(--border);
             z-index: 2001;
             transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
             display: flex;
@@ -62,19 +62,19 @@
 
         .side-panel-header {
             padding: 24px 32px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: rgba(255, 255, 255, 0.02);
+            background: var(--bg-secondary);
         }
 
         .close-panel-btn {
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            background: var(--bg-card);
             color: var(--text-muted);
             display: flex;
             align-items: center;
@@ -99,10 +99,10 @@
 
         .side-panel-footer {
             padding: 24px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid var(--border);
             display: flex;
             gap: 12px;
-            background: rgba(20, 20, 20, 0.5);
+            background: var(--bg-secondary);
         }
 
         .info-group {
@@ -122,8 +122,8 @@
         }
 
         .consultant-item {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
             border-radius: 12px;
             padding: 16px;
             margin-bottom: 12px;
@@ -132,7 +132,7 @@
 
         .consultant-item:hover {
             transform: translateY(-2px);
-            background: rgba(255, 255, 255, 0.05);
+            background: var(--bg-secondary);
         }
     </style>
 </head>
@@ -343,21 +343,21 @@
                             style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">제목
                             *</label>
                         <input type="text" id="blog-input-title" placeholder="블로그 제목을 입력하세요"
-                            style="width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-primary); font-size: 1rem;">
+                            style="width: 100%; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 1rem;">
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div>
                             <label
                                 style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">작성자</label>
                             <input type="text" id="blog-input-author" value="Admin" placeholder="작성자"
-                                style="width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem;">
+                                style="width: 100%; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem;">
                         </div>
                         <div>
                             <label
                                 style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">태그
                                 (쉼표 구분)</label>
                             <input type="text" id="blog-input-tags" placeholder="ISO 9001,품질경영,트렌드"
-                                style="width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem;">
+                                style="width: 100%; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem;">
                         </div>
                     </div>
                     <div>
@@ -365,7 +365,7 @@
                             style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">대표
                             이미지 URL</label>
                         <input type="text" id="blog-input-image" placeholder="https://images.unsplash.com/..."
-                            style="width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem;">
+                            style="width: 100%; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem;">
                     </div>
                     <div>
                         <div
@@ -387,7 +387,7 @@
                             </div>
                         </div>
                         <textarea id="blog-input-content" rows="16" placeholder="블로그 본문 내용을 입력하세요..."
-                            style="width: 100%; padding: 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem; line-height: 1.7; resize: vertical; font-family: var(--font-sans);"></textarea>
+                            style="width: 100%; padding: 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem; line-height: 1.7; resize: vertical; font-family: var(--font-sans);"></textarea>
                     </div>
                     <div style="display: flex; gap: 12px; justify-content: flex-end; padding-top: 8px;">
                         <button class="btn btn-secondary" onclick="hideBlogEditor()">취소</button>
@@ -495,7 +495,7 @@
                         상세 사유 또는 추가 메모
                     </label>
                     <textarea id="reject-custom-reason" rows="4" placeholder="추가 설명을 입력하세요... (선택사항)"
-                        style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; color: var(--text-primary); font-size: 0.95rem; resize: vertical;"></textarea>
+                        style="width: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 12px; color: var(--text-primary); font-size: 0.95rem; resize: vertical;"></textarea>
                 </div>
 
                 <div
@@ -524,16 +524,16 @@
                 align-items: center;
                 gap: 12px;
                 padding: 14px 16px;
-                background: rgba(255, 255, 255, 0.03);
-                border: 1px solid rgba(255, 255, 255, 0.08);
+                background: var(--bg-card);
+                border: 1px solid var(--border);
                 border-radius: 10px;
                 cursor: pointer;
                 transition: all 0.2s ease;
             }
 
             .reject-reason-option:hover {
-                background: rgba(255, 255, 255, 0.06);
-                border-color: rgba(255, 255, 255, 0.15);
+                background: var(--bg-card-hover);
+                border-color: var(--border-hover);
             }
 
             .reject-reason-option:has(input:checked) {
@@ -548,7 +548,7 @@
             .reason-radio {
                 width: 20px;
                 height: 20px;
-                border: 2px solid rgba(255, 255, 255, 0.3);
+                border: 2px solid var(--border);
                 border-radius: 50%;
                 position: relative;
                 flex-shrink: 0;
