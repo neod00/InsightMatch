@@ -791,13 +791,13 @@ a {
 .step-item.active .step-dot {
     background: var(--primary);
     border-color: var(--primary);
-    color: white;
+    color: var(--bg-primary);
 }
 
 .step-item.completed .step-dot {
     background: var(--primary);
     border-color: var(--primary);
-    color: white;
+    color: var(--bg-primary);
 }
 
 .step-line {

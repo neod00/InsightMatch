@@ -106,7 +106,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <!-- Legacy Styles (Kept for forms/ISO catalog) -->
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=3">
 </head>
 
 <body
@@ -541,7 +541,7 @@
 
                         <div class="flex justify-center mt-12 mb-8">
                             <button type="button"
-                                class="btn btn-primary next-step bg-brand-ink text-white hover:bg-brand-gold hover:text-brand-ink transition-colors duration-300">
+                                class="btn btn-primary next-step bg-brand-ink text-white hover:bg-brand-gold hover:text-brand-ink dark:bg-brand-paper dark:text-brand-darkBg dark:hover:bg-brand-gold transition-colors duration-300">
                                 다음 단계
                                 <i data-lucide="arrow-right" style="width: 18px; height: 18px;"></i>
                             </button>
@@ -773,7 +773,7 @@
                             <button type="button"
                                 class="btn btn-secondary prev-step border border-brand-stone hover:border-brand-gold text-brand-ink dark:text-brand-darkText transition-colors duration-300">이전</button>
                             <button type="button"
-                                class="btn btn-primary next-step bg-brand-ink text-white hover:bg-brand-gold hover:text-brand-ink transition-colors duration-300">
+                                class="btn btn-primary next-step bg-brand-ink text-white hover:bg-brand-gold hover:text-brand-ink dark:bg-brand-paper dark:text-brand-darkBg dark:hover:bg-brand-gold transition-colors duration-300">
                                 다음 단계
                                 <i data-lucide="arrow-right" style="width: 18px; height: 18px;"></i>
                             </button>
@@ -1042,7 +1042,7 @@
                             <button type="button"
                                 class="btn btn-secondary prev-step border border-brand-stone hover:border-brand-gold text-brand-ink dark:text-brand-darkText transition-colors duration-300">이전</button>
                             <button type="button"
-                                class="btn btn-primary next-step bg-brand-ink text-white hover:bg-brand-gold hover:text-brand-ink transition-colors duration-300">
+                                class="btn btn-primary next-step bg-brand-ink text-white hover:bg-brand-gold hover:text-brand-ink dark:bg-brand-paper dark:text-brand-darkBg dark:hover:bg-brand-gold transition-colors duration-300">
                                 다음 단계
                                 <i data-lucide="arrow-right" style="width: 18px; height: 18px;"></i>
                             </button>
@@ -1128,7 +1128,7 @@
                             <button type="button"
                                 class="btn btn-secondary prev-step border border-brand-stone hover:border-brand-gold text-brand-ink dark:text-brand-darkText transition-colors duration-300">이전</button>
                             <button type="submit"
-                                class="btn btn-primary btn-lg bg-brand-ink text-white hover:bg-brand-gold hover:text-brand-ink transition-colors duration-300">
+                                class="btn btn-primary btn-lg bg-brand-ink text-white hover:bg-brand-gold hover:text-brand-ink dark:bg-brand-paper dark:text-brand-darkBg dark:hover:bg-brand-gold transition-colors duration-300">
                                 <i data-lucide="users" style="width: 20px; height: 20px;"></i>
                                 컨설턴트 추천받기
                             </button>
@@ -1665,12 +1665,12 @@
             gap: 10px;
             padding: 14px 24px;
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: white;
+            color: var(--bg-primary);
             border-radius: 50px;
             font-weight: 600;
             font-size: 0.95rem;
             text-decoration: none;
-            box-shadow: 0 8px 32px rgba(16, 185, 129, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
             opacity: 0;
             transform: translateY(20px) scale(0.9);
             pointer-events: none;
