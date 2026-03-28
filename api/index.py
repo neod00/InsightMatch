@@ -219,7 +219,8 @@ def login():
             'id': user.id,
             'name': user.name,
             'email': user.email,
-            'role': user.role
+            'role': user.role,
+            'company_name': user.company_name or ''
         }
     })
 

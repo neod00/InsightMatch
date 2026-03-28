@@ -512,23 +512,23 @@
                     <div class="form-group">
                         <label>경영 현황 이슈 (복수 선택)</label>
                         <div class="checkbox-group" id="issue-group">
-                            <label class="checkbox-chip" onclick="this.classList.toggle('active')">
-                                <input type="checkbox" value="quality_defect"> 품질 불량
+                            <label class="checkbox-chip">
+                                <input type="checkbox" value="quality_defect" onchange="this.parentElement.classList.toggle('active', this.checked)"> 품질 불량
                             </label>
-                            <label class="checkbox-chip" onclick="this.classList.toggle('active')">
-                                <input type="checkbox" value="customer_complaint"> 고객 클레임
+                            <label class="checkbox-chip">
+                                <input type="checkbox" value="customer_complaint" onchange="this.parentElement.classList.toggle('active', this.checked)"> 고객 클레임
                             </label>
-                            <label class="checkbox-chip" onclick="this.classList.toggle('active')">
-                                <input type="checkbox" value="supplier_quality"> 공급업체 품질
+                            <label class="checkbox-chip">
+                                <input type="checkbox" value="supplier_quality" onchange="this.parentElement.classList.toggle('active', this.checked)"> 공급업체 품질
                             </label>
-                            <label class="checkbox-chip" onclick="this.classList.toggle('active')">
-                                <input type="checkbox" value="process_inefficiency"> 프로세스 비효율
+                            <label class="checkbox-chip">
+                                <input type="checkbox" value="process_inefficiency" onchange="this.parentElement.classList.toggle('active', this.checked)"> 프로세스 비효율
                             </label>
-                            <label class="checkbox-chip" onclick="this.classList.toggle('active')">
-                                <input type="checkbox" value="safety_incident"> 안전사고
+                            <label class="checkbox-chip">
+                                <input type="checkbox" value="safety_incident" onchange="this.parentElement.classList.toggle('active', this.checked)"> 안전사고
                             </label>
-                            <label class="checkbox-chip" onclick="this.classList.toggle('active')">
-                                <input type="checkbox" value="env_regulation"> 환경 규제
+                            <label class="checkbox-chip">
+                                <input type="checkbox" value="env_regulation" onchange="this.parentElement.classList.toggle('active', this.checked)"> 환경 규제
                             </label>
                         </div>
                     </div>
@@ -633,6 +633,16 @@
         let isPaused = false;  // 일시정지 상태
         let lastSSEParams = null;  // SSE 파라미터 (재개용)
         let lastAppendMode = false;  // 재개 시 appendMode
+
+        // ========== Auto-fill user info ==========
+        (function prefillUserInfo() {
+            try {
+                const userData = JSON.parse(localStorage.getItem('user') || '{}');
+                if (userData.company_name) {
+                    document.getElementById('inp-company').value = userData.company_name;
+                }
+            } catch(e) { /* ignore */ }
+        })();
 
         // ========== Form Submit ==========
         document.getElementById('iso-form').addEventListener('submit', async (e) => {
