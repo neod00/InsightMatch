@@ -19,6 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <style>
+        .hidden { display: none !important; }
         :root {
             --bg-primary: #0F0F11;
             --bg-secondary: #161619;
@@ -533,13 +534,13 @@
                         <label>현장 상세 설명 (선택)</label>
                         <textarea id="inp-custom-issue" placeholder="예: SMT 공정 불량률 5% 이상, 협력업체 관리체계 부재..."></textarea>
                     </div>
-                    <div style="display:flex;gap:8px;">
+                    <div style="display:flex;gap:8px;align-items:center;">
                         <button type="submit" class="btn-generate" id="btn-generate" style="flex:1;">
                             <span class="btn-text">🤖 AI 매뉴얼 생성하기</span>
                             <div class="spinner"></div>
                         </button>
-                        <button type="button" class="btn-generate" id="btn-stop" style="flex:0 0 auto;padding:12px 20px;background:#dc2626;display:none;" onclick="stopGeneration()">
-                            ⏹ 멈춤
+                        <button type="button" id="btn-pause" style="flex:0 0 36px;height:36px;border-radius:8px;background:#dc2626;color:#fff;border:none;cursor:pointer;font-size:14px;display:none;" onclick="togglePause()" title="일시정지">
+                            ⏸
                         </button>
                     </div>
                 </form>
@@ -627,6 +628,9 @@
         let isFullVersion = false;  // 전체 버전(결제 후) 여부
         let currentEventSource = null;  // SSE 연결 참조 (멈춤용)
         let lastFormParams = null;  // 마지막 폼 데이터 (이어서 생성용)
+        let isPaused = false;  // 일시정지 상태
+        let lastSSEParams = null;  // SSE 파라미터 (재개용)
+        let lastAppendMode = false;  // 재개 시 appendMode
 
         // ========== Form Submit ==========
         document.getElementById('iso-form').addEventListener('submit', async (e) => {
@@ -690,7 +694,7 @@
             const btn = document.getElementById('btn-generate');
             btn.classList.add('loading');
             btn.disabled = true;
-            document.getElementById('btn-stop').style.display = 'block';
+            document.getElementById('btn-pause').style.display = 'flex';
 
             document.getElementById('empty-state').classList.add('hidden');
             document.getElementById('upsell-card').classList.add('hidden');
@@ -709,6 +713,13 @@
             const url = `${API_BASE_URL}/api/generate-iso?${params.toString()}`;
             const eventSource = new EventSource(url);
             currentEventSource = eventSource;  // 전역 참조 저장
+            lastSSEParams = params;
+            lastAppendMode = appendMode;
+            isPaused = false;
+            const pauseBtn = document.getElementById('btn-pause');
+            pauseBtn.textContent = '⏸';
+            pauseBtn.title = '일시정지';
+            pauseBtn.style.background = '#dc2626';
 
             eventSource.onmessage = (event) => {
                 const data = event.data;
@@ -782,16 +793,34 @@
             resetButton();
         }
 
-        // ========== Stop Generation ==========
-        function stopGeneration() {
-            if (currentEventSource) {
-                currentEventSource.close();
-                currentEventSource = null;
-            }
-            if (rawMarkdown.length > 0) {
-                finishGeneration();
+        // ========== Pause/Resume Toggle ==========
+        function togglePause() {
+            const pauseBtn = document.getElementById('btn-pause');
+            if (!isPaused) {
+                // 일시정지
+                isPaused = true;
+                if (currentEventSource) {
+                    currentEventSource.close();
+                    currentEventSource = null;
+                }
+                pauseBtn.textContent = '▶';
+                pauseBtn.title = '계속 생성';
+                pauseBtn.style.background = '#16a34a';
+                // 생성 버튼 로딩 해제 (폼으로 스크롤 가능)
+                const btn = document.getElementById('btn-generate');
+                btn.classList.remove('loading');
+                // 마크다운 렌더링 (커서 제거)
+                const viewer = document.getElementById('md-viewer');
+                viewer.innerHTML = marked.parse(rawMarkdown);
             } else {
-                resetButton();
+                // 재개: 새 SSE 연결로 이어서 생성
+                isPaused = false;
+                pauseBtn.textContent = '⏸';
+                pauseBtn.title = '일시정지';
+                pauseBtn.style.background = '#dc2626';
+                if (lastSSEParams) {
+                    startGeneration(lastSSEParams, true);  // appendMode=true로 이어서
+                }
             }
         }
 
@@ -826,7 +855,8 @@
             const btn = document.getElementById('btn-generate');
             btn.classList.remove('loading');
             btn.disabled = false;
-            document.getElementById('btn-stop').style.display = 'none';
+            document.getElementById('btn-pause').style.display = 'none';
+            isPaused = false;
         }
 
         // ========== Update Stats ==========
