@@ -517,7 +517,7 @@ def generate_iso_manual():
         if not current_user:
             raise jwt.InvalidTokenError('User not found')
         # 컨설턴트는 차단 (기업 사용자만 허용)
-        if current_user.user_type == 'consultant':
+        if current_user.role == 'consultant':
             def consultant_error():
                 yield "data: [ERROR] AI 매뉴얼 생성은 기업 사용자 전용 기능입니다.\n\n"
                 yield "data: [DONE]\n\n"
