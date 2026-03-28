@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI ISO 시스템 매뉴얼 생성기 - InsightMatch</title>
+    <meta name="description" content="AI가 ISO 9001/14001/45001 시스템 매뉴얼과 절차서를 즉시 생성합니다. 기업 정보만 입력하면 맞춤형 문서가 실시간으로 만들어집니다.">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="images/logo2.png">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Marked.js for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+        :root {
+            --bg-primary: #0F0F11;
+            --bg-secondary: #161619;
+            --bg-card: #1C1C20;
+            --text-primary: #E0E0E0;
+            --text-secondary: #9CA3AF;
+            --text-muted: #6B7280;
+            --border: #27272A;
+            --primary: #C5A880;
+            --primary-hover: #D4B890;
+            --accent: #10B981;
+            --danger: #EF4444;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: rgba(15, 15, 17, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+        .header-logo img { height: 32px; }
+        .header-logo span { font-weight: 700; font-size: 1.1rem; }
+        .header-badge {
+            background: linear-gradient(135deg, var(--primary), #D4B890);
+            color: #1A1A1A;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        /* Container */
+        .container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+        .hero h1 {
+            font-family: 'Noto Serif KR', serif;
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, var(--primary), #E8D5B8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero p {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            max-width: 640px;
+            margin: 0 auto;
+            line-height: 1.7;
+        }
+
+        /* Two-column layout */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 32px;
+            align-items: start;
+        }
+        @media (max-width: 900px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+
+        /* Form Panel */
+        .form-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            position: sticky;
+            top: 80px;
+        }
+        .form-panel h2 {
+            font-size: 1.15rem;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .form-group { margin-bottom: 20px; }
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+
+        /* Checkbox group */
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; }
+        .checkbox-chip {
+            padding: 6px 14px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .checkbox-chip:hover { border-color: var(--primary); }
+        .checkbox-chip.active {
+            background: rgba(197, 168, 128, 0.15);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .checkbox-chip input { display: none; }
+
+        /* Generate button */
+        .btn-generate {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--primary), #D4B890);
+            color: #1A1A1A;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-generate:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(197, 168, 128, 0.3); }
+        .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-generate .spinner {
+            width: 18px; height: 18px;
+            border: 2px solid transparent;
+            border-top-color: #1A1A1A;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+        .btn-generate.loading .spinner { display: block; }
+        .btn-generate.loading .btn-text { display: none; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Result Panel */
+        .result-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            min-height: 400px;
+            overflow: hidden;
+        }
+        .result-header {
+            padding: 20px 28px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .result-header h3 {
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .result-stats {
+            display: flex;
+            gap: 16px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        .result-stats span { display: flex; align-items: center; gap: 4px; }
+
+        /* Markdown viewer */
+        .md-viewer {
+            padding: 28px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        .md-viewer h1 { font-family: 'Noto Serif KR', serif; font-size: 1.6rem; font-weight: 700; margin: 32px 0 16px; padding-bottom: 8px; border-bottom: 2px solid var(--primary); color: var(--primary); }
+        .md-viewer h2 { font-size: 1.25rem; font-weight: 600; margin: 28px 0 12px; color: #E8D5B8; }
+        .md-viewer h3 { font-size: 1.05rem; font-weight: 600; margin: 20px 0 10px; color: var(--text-primary); }
+        .md-viewer h4 { font-size: 0.95rem; font-weight: 600; margin: 16px 0 8px; color: var(--text-secondary); }
+        .md-viewer p { line-height: 1.8; margin-bottom: 12px; color: var(--text-secondary); }
+        .md-viewer ul, .md-viewer ol { margin: 8px 0 16px 20px; color: var(--text-secondary); line-height: 1.7; }
+        .md-viewer li { margin-bottom: 4px; }
+        .md-viewer table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.88rem; }
+        .md-viewer th { background: rgba(197, 168, 128, 0.1); padding: 10px 12px; text-align: left; border: 1px solid var(--border); font-weight: 600; color: var(--primary); }
+        .md-viewer td { padding: 8px 12px; border: 1px solid var(--border); color: var(--text-secondary); }
+        .md-viewer tr:hover td { background: rgba(255,255,255,0.02); }
+        .md-viewer hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+        .md-viewer strong { color: var(--text-primary); }
+        .md-viewer code { background: rgba(197, 168, 128, 0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.88rem; }
+
+        /* Blur overlay for preview */
+        /* Blurred content section */
+        .blurred-content {
+            position: relative;
+            filter: blur(5px);
+            user-select: none;
+            pointer-events: none;
+            max-height: 300px;
+            overflow: hidden;
+        }
+        .blurred-content::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 150px;
+            background: linear-gradient(to bottom, transparent, var(--bg-card));
+        }
+
+        /* Upsell CTA Card */
+        .upsell-card {
+            margin-top: 24px;
+            background: linear-gradient(145deg, rgba(197,168,128,0.08), rgba(16,185,129,0.06));
+            border: 1px solid rgba(197,168,128,0.25);
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+        }
+        .upsell-card.hidden { display: none; }
+        .upsell-card h3 {
+            font-size: 1.2rem;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+        .upsell-card .upsell-desc {
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .upsell-features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 24px;
+            text-align: left;
+        }
+        .upsell-features .feat {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            padding: 6px 10px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+        }
+        .upsell-features .feat .check { color: #10B981; font-weight: 700; }
+        .upsell-btns { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+        .btn-unlock {
+            padding: 14px 40px;
+            background: linear-gradient(135deg, var(--accent), #059669);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            max-width: 320px;
+        }
+        .btn-unlock:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(16,185,129,0.3); }
+        .btn-consult {
+            color: var(--primary);
+            text-decoration: underline;
+            font-size: 0.85rem;
+            cursor: pointer;
+            background: none;
+            border: none;
+        }
+
+        /* Empty state */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 400px;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 40px;
+        }
+        .empty-state svg { width: 64px; height: 64px; margin-bottom: 16px; opacity: 0.4; }
+        .empty-state p { font-size: 0.95rem; line-height: 1.6; }
+
+        /* Streaming cursor */
+        .streaming-cursor::after {
+            content: '▊';
+            animation: blink 0.8s infinite;
+            color: var(--primary);
+        }
+        @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* Custom scrollbar */
+        .md-viewer::-webkit-scrollbar { width: 6px; }
+        .md-viewer::-webkit-scrollbar-track { background: transparent; }
+        .md-viewer::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        .md-viewer::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        /* Download dropdown */
+        .download-group { position: relative; display: none; }
+        .download-group.visible { display: block; }
+        .btn-download-trigger {
+            padding: 8px 16px;
+            background: rgba(197, 168, 128, 0.1);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-download-trigger:hover { background: rgba(197, 168, 128, 0.2); }
+        .download-menu {
+            position: absolute;
+            top: calc(100% + 4px);
+            right: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            min-width: 180px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+            z-index: 50;
+            display: none;
+        }
+        .download-menu.open { display: block; }
+        .download-menu button {
+            width: 100%;
+            padding: 10px 16px;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            font-size: 0.88rem;
+            text-align: left;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: background 0.15s;
+        }
+        .download-menu button:hover { background: rgba(197, 168, 128, 0.1); }
+        .download-menu button span.tag {
+            font-size: 0.65rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-weight: 700;
+        }
+        .download-menu button .tag-pdf { background: #DC2626; color: white; }
+        .download-menu button .tag-docx { background: #2563EB; color: white; }
+        .download-menu button .tag-md { background: #6B7280; color: white; }
+        .download-menu .divider { height: 1px; background: var(--border); margin: 0; }
+        .btn-exporting {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        .btn-exporting::after {
+            content: '';
+            width: 12px; height: 12px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: inline-block;
+            margin-left: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <a href="index.html" class="header-logo">
+            <img src="images/logo2.png" alt="InsightMatch">
+            <span>InsightMatch</span>
+        </a>
+        <span class="header-badge">AI ISO 매뉴얼 Beta</span>
+    </header>
+
+    <div class="container">
+        <!-- Hero -->
+        <div class="hero">
+            <h1>AI ISO 시스템 매뉴얼 생성기</h1>
+            <p>기업 정보와 경영 현황만 입력하면 ISO 9001/14001/45001 기준에 맞는<br>
+               <strong>맞춤형 시스템 매뉴얼과 절차서</strong>를 AI가 즉시 생성합니다.</p>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="main-grid">
+            <!-- Left: Form -->
+            <div class="form-panel">
+                <h2>📋 기업 정보 입력</h2>
+                <form id="iso-form">
+                    <div class="form-group">
+                        <label>회사명</label>
+                        <input type="text" id="inp-company" placeholder="예: (주)테스트전자" required>
+                    </div>
+                    <div class="form-group">
+                        <label>업종</label>
+                        <select id="inp-industry" required>
+                            <option value="">선택하세요</option>
+                            <option value="전자/반도체 제조">전자/반도체 제조</option>
+                            <option value="자동차/부품 제조">자동차/부품 제조</option>
+                            <option value="기계/금속 제조">기계/금속 제조</option>
+                            <option value="화학/석유화학">화학/석유화학</option>
+                            <option value="식품/음료 제조">식품/음료 제조</option>
+                            <option value="의약/바이오">의약/바이오</option>
+                            <option value="건설/토목">건설/토목</option>
+                            <option value="IT/소프트웨어">IT/소프트웨어</option>
+                            <option value="물류/운송">물류/운송</option>
+                            <option value="서비스업">서비스업</option>
+                            <option value="공공기관">공공기관</option>
+                            <option value="기타">기타</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>규모 (종업원 수)</label>
+                        <select id="inp-employees" required>
+                            <option value="">선택하세요</option>
+                            <option value="10명 미만">10명 미만</option>
+                            <option value="10~50명">10~50명</option>
+                            <option value="50~100명">50~100명</option>
+                            <option value="100~300명">100~300명</option>
+                            <option value="300명 이상">300명 이상</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>타깃 인증</label>
+                        <select id="inp-target-iso" required>
+                            <option value="ISO 9001:2015">ISO 9001:2015 (품질경영)</option>
+                            <option value="ISO 14001:2015">ISO 14001:2015 (환경경영)</option>
+                            <option value="ISO 45001:2018">ISO 45001:2018 (안전보건)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>경영 현황 이슈 (복수 선택)</label>
+                        <div class="checkbox-group" id="issue-group">
+                            <label class="checkbox-chip" onclick="this.classList.toggle('active')">
+                                <input type="checkbox" value="quality_defect"> 품질 불량
+                            </label>
+                            <label class="checkbox-chip" onclick="this.classList.toggle('active')">
+                                <input type="checkbox" value="customer_complaint"> 고객 클레임
+                            </label>
+                            <label class="checkbox-chip" onclick="this.classList.toggle('active')">
+                                <input type="checkbox" value="supplier_quality"> 공급업체 품질
+                            </label>
+                            <label class="checkbox-chip" onclick="this.classList.toggle('active')">
+                                <input type="checkbox" value="process_inefficiency"> 프로세스 비효율
+                            </label>
+                            <label class="checkbox-chip" onclick="this.classList.toggle('active')">
+                                <input type="checkbox" value="safety_incident"> 안전사고
+                            </label>
+                            <label class="checkbox-chip" onclick="this.classList.toggle('active')">
+                                <input type="checkbox" value="env_regulation"> 환경 규제
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>현장 상세 설명 (선택)</label>
+                        <textarea id="inp-custom-issue" placeholder="예: SMT 공정 불량률 5% 이상, 협력업체 관리체계 부재..."></textarea>
+                    </div>
+                    <button type="submit" class="btn-generate" id="btn-generate">
+                        <span class="btn-text">🤖 AI 매뉴얼 생성하기</span>
+                        <div class="spinner"></div>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Right: Result -->
+            <div class="result-panel" id="result-panel">
+                <div class="result-header">
+                    <h3>📄 생성된 매뉴얼</h3>
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <div class="result-stats" id="result-stats">
+                            <span id="stat-time">⏱ --</span>
+                            <span id="stat-chars">📝 --</span>
+                        </div>
+                        <div class="download-group" id="download-group">
+                            <button class="btn-download-trigger" onclick="toggleDownloadMenu()">
+                                ⬇ 다운로드 ▾
+                            </button>
+                            <div class="download-menu" id="download-menu">
+                                <button onclick="exportDocument('pdf')">
+                                    <span class="tag tag-pdf">PDF</span> PDF 다운로드
+                                </button>
+                                <div class="divider"></div>
+                                <button onclick="exportDocument('docx')">
+                                    <span class="tag tag-docx">DOCX</span> Word 다운로드
+                                </button>
+                                <div class="divider"></div>
+                                <button onclick="exportDocument('md')">
+                                    <span class="tag tag-md">MD</span> 마크다운 원본
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty State -->
+                <div class="empty-state" id="empty-state">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p>왼쪽의 기업 정보를 입력하고<br><strong>'AI 매뉴얼 생성하기'</strong> 버튼을 클릭하세요.</p>
+                </div>
+
+                <!-- Markdown Viewer -->
+                <div class="md-viewer hidden" id="md-viewer"></div>
+
+                <!-- Upsell CTA Card -->
+                <div class="upsell-card hidden" id="upsell-card">
+                    <h3>🔒 6절 이후 전체 문서 잠금</h3>
+                    <p class="upsell-desc">
+                        위 미리보기(~5절)를 확인하셨습니다.<br>
+                        전체 매뉴얼, 절차서, 양식을 받으시려면 잠금을 해제하세요.
+                    </p>
+                    <div class="upsell-features">
+                        <div class="feat"><span class="check">✓</span> 전체 매뉴얼 (4~10절)</div>
+                        <div class="feat"><span class="check">✓</span> 절차서 10종</div>
+                        <div class="feat"><span class="check">✓</span> PDF / Word 다운로드</div>
+                        <div class="feat"><span class="check">✓</span> 재생성 3회 포함</div>
+                    </div>
+                    <div class="upsell-btns">
+                        <button class="btn-unlock" onclick="unlockFullManual()">
+                            전체 매뉴얼 잠금 해제 →
+                        </button>
+                        <button class="btn-consult" onclick="window.location.href='index.html'">
+                            💼 컨설턴트 매칭도 함께 받기
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== Configuration ==========
+        const API_BASE_URL = (() => {
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                return 'http://localhost:5001';
+            }
+            return '';
+        })();
+
+        let rawMarkdown = '';
+        let startTime = 0;
+        let isGenerating = false;
+
+        // ========== Form Submit ==========
+        document.getElementById('iso-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (isGenerating) return;
+
+            // Collect form data
+            const company = document.getElementById('inp-company').value.trim();
+            const industry = document.getElementById('inp-industry').value;
+            const employees = document.getElementById('inp-employees').value;
+            const targetIso = document.getElementById('inp-target-iso').value;
+            const customIssue = document.getElementById('inp-custom-issue').value.trim();
+
+            if (!company || !industry || !employees) {
+                alert('회사명, 업종, 규모를 입력해주세요.');
+                return;
+            }
+
+            // Collect checked issues
+            const issues = [];
+            document.querySelectorAll('#issue-group input:checked').forEach(cb => {
+                issues.push(cb.value);
+            });
+
+            // Build URL params
+            const params = new URLSearchParams();
+            params.set('company_name', company);
+            params.set('industry', industry);
+            params.set('employees', employees);
+            params.set('target_iso', targetIso);
+            params.set('custom_issue', customIssue);
+            issues.forEach(i => params.append('issues', i));
+
+            // Start generation
+            startGeneration(params);
+        });
+
+        // ========== SSE Streaming ==========
+        function startGeneration(params) {
+            isGenerating = true;
+            rawMarkdown = '';
+            startTime = Date.now();
+
+            // UI updates
+            const btn = document.getElementById('btn-generate');
+            btn.classList.add('loading');
+            btn.disabled = true;
+
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('upsell-card').classList.add('hidden');
+            document.getElementById('download-group').classList.remove('visible');
+
+            const viewer = document.getElementById('md-viewer');
+            viewer.classList.remove('hidden');
+            viewer.innerHTML = '<p class="streaming-cursor" style="color: var(--text-muted);">AI가 매뉴얼을 생성하고 있습니다...</p>';
+
+            // Open SSE connection
+            const url = `${API_BASE_URL}/api/generate-iso?${params.toString()}`;
+            const eventSource = new EventSource(url);
+
+            eventSource.onmessage = (event) => {
+                const data = event.data;
+
+                if (data === '[DONE]') {
+                    eventSource.close();
+                    finishGeneration();
+                    return;
+                }
+
+                if (data.startsWith('[ERROR]')) {
+                    eventSource.close();
+                    viewer.innerHTML = `<div style="color: var(--danger); padding: 20px;">
+                        <h3>⚠️ 생성 오류</h3><p>${data.substring(7)}</p>
+                        <p style="margin-top:12px;color:var(--text-muted);">다시 시도해주세요.</p>
+                    </div>`;
+                    resetButton();
+                    return;
+                }
+
+                // Unescape newlines
+                const text = data.replace(/\\n/g, '\n');
+                rawMarkdown += text;
+
+                // Render markdown (throttled)
+                renderMarkdown();
+                updateStats();
+            };
+
+            eventSource.onerror = () => {
+                eventSource.close();
+                if (rawMarkdown.length > 0) {
+                    finishGeneration();
+                } else {
+                    viewer.innerHTML = `<div style="color: var(--danger); padding: 20px;">
+                        <h3>⚠️ 연결 오류</h3><p>서버와의 연결이 끊어졌습니다. 다시 시도해주세요.</p>
+                    </div>`;
+                    resetButton();
+                }
+            };
+        }
+
+        // ========== Render Markdown ==========
+        let renderTimer = null;
+        function renderMarkdown() {
+            if (renderTimer) return;
+            renderTimer = setTimeout(() => {
+                const viewer = document.getElementById('md-viewer');
+                viewer.innerHTML = marked.parse(rawMarkdown) + '<span class="streaming-cursor"></span>';
+                // Auto-scroll to bottom
+                viewer.scrollTop = viewer.scrollHeight;
+                renderTimer = null;
+            }, 100);
+        }
+
+        // ========== Finish Generation ==========
+        function finishGeneration() {
+            const viewer = document.getElementById('md-viewer');
+            const fullHtml = marked.parse(rawMarkdown);
+
+            // Split content at section 6 (6th H1 tag)
+            // H1s are: title, 1.표지, 2.목적/적용범위, 3.인용표준, 4.리더십, 5.기획 → 6번째 H1부터 잠금
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = fullHtml;
+
+            const h1Elements = tempDiv.querySelectorAll('h1');
+            const FREE_SECTIONS = 6; // Show up to 5th section (6th H1 = section 6 start)
+
+            if (h1Elements.length > FREE_SECTIONS) {
+                // Find the 6th H1's position and split
+                const cutPoint = h1Elements[FREE_SECTIONS];
+                
+                // Collect nodes before and after cut point
+                const freeContent = document.createElement('div');
+                const lockedContent = document.createElement('div');
+                lockedContent.className = 'blurred-content';
+                
+                let reachedCut = false;
+                Array.from(tempDiv.childNodes).forEach(node => {
+                    if (node === cutPoint || reachedCut) {
+                        reachedCut = true;
+                        lockedContent.appendChild(node.cloneNode(true));
+                    } else {
+                        freeContent.appendChild(node.cloneNode(true));
+                    }
+                });
+
+                viewer.innerHTML = '';
+                viewer.appendChild(freeContent);
+                viewer.appendChild(lockedContent);
+
+                // Show upsell card
+                document.getElementById('upsell-card').classList.remove('hidden');
+            } else {
+                // Content is short enough, show everything
+                viewer.innerHTML = fullHtml;
+                document.getElementById('download-group').classList.add('visible');
+            }
+
+            viewer.scrollTop = 0;
+            updateStats();
+            resetButton();
+        }
+
+        // ========== Unlock Full Manual (placeholder for Polar payment) ==========
+        function unlockFullManual() {
+            // TODO: Integrate Polar payment here
+            // For now, just unlock
+            const blurred = document.querySelector('.blurred-content');
+            if (blurred) {
+                blurred.classList.remove('blurred-content');
+                // Remove the ::after gradient
+                blurred.style.maxHeight = 'none';
+                blurred.style.filter = 'none';
+                blurred.style.userSelect = 'auto';
+                blurred.style.pointerEvents = 'auto';
+            }
+            document.getElementById('upsell-card').classList.add('hidden');
+            document.getElementById('download-group').classList.add('visible');
+            alert('결제 연동 후 자동 잠금 해제됩니다.\n(현재 테스트 모드: 잠금 해제됨)');
+        }
+
+        function resetButton() {
+            isGenerating = false;
+            const btn = document.getElementById('btn-generate');
+            btn.classList.remove('loading');
+            btn.disabled = false;
+        }
+
+        // ========== Update Stats ==========
+        function updateStats() {
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+            const chars = rawMarkdown.length.toLocaleString();
+            document.getElementById('stat-time').textContent = `⏱ ${elapsed}초`;
+            document.getElementById('stat-chars').textContent = `📝 ${chars}자`;
+        }
+
+        // ========== Download / Export ==========
+        function toggleDownloadMenu() {
+            const menu = document.getElementById('download-menu');
+            menu.classList.toggle('open');
+            // Close on outside click
+            if (menu.classList.contains('open')) {
+                setTimeout(() => {
+                    document.addEventListener('click', closeMenuOnOutside);
+                }, 0);
+            }
+        }
+        function closeMenuOnOutside(e) {
+            const group = document.getElementById('download-group');
+            if (!group.contains(e.target)) {
+                document.getElementById('download-menu').classList.remove('open');
+                document.removeEventListener('click', closeMenuOnOutside);
+            }
+        }
+
+        async function exportDocument(format) {
+            const menu = document.getElementById('download-menu');
+            menu.classList.remove('open');
+
+            const company = document.getElementById('inp-company').value || 'ISO매뉴얼';
+            const iso = document.getElementById('inp-target-iso').value;
+            const safeIso = iso.replace(/[:\s]/g, '_');
+
+            // Markdown: direct download (no API call)
+            if (format === 'md') {
+                const blob = new Blob([rawMarkdown], { type: 'text/markdown;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${company}_${safeIso}_매뉴얼.md`;
+                a.click();
+                URL.revokeObjectURL(url);
+                return;
+            }
+
+            // PDF or DOCX: call API
+            const trigger = document.querySelector('.btn-download-trigger');
+            const origText = trigger.textContent;
+            trigger.textContent = format === 'pdf' ? 'PDF 변환 중...' : 'Word 변환 중...';
+            trigger.classList.add('btn-exporting');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/export-iso`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        markdown: rawMarkdown,
+                        format: format,
+                        company_name: company,
+                        target_iso: iso
+                    })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || '변환 실패');
+                }
+
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const ext = format === 'docx' ? 'docx' : 'pdf';
+                a.href = url;
+                a.download = `${company}_${safeIso}_매뉴얼.${ext}`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert(`다운로드 실패: ${err.message}`);
+            } finally {
+                trigger.textContent = origText;
+                trigger.classList.remove('btn-exporting');
+            }
+        }
+
+        // ========== Auto-fill from URL params (from index.html redirect) ==========
+        (function autoFillFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('company_name')) {
+                document.getElementById('inp-company').value = params.get('company_name');
+            }
+            if (params.get('industry')) {
+                const sel = document.getElementById('inp-industry');
+                const val = params.get('industry');
+                // Try exact match first, then partial match (skip empty options)
+                for (let opt of sel.options) {
+                    if (!opt.value) continue;
+                    if (opt.value === val || opt.value.includes(val) || val.includes(opt.value)) {
+                        sel.value = opt.value;
+                        break;
+                    }
+                }
+            }
+            if (params.get('employees')) {
+                const sel = document.getElementById('inp-employees');
+                const val = params.get('employees');
+                for (let opt of sel.options) {
+                    if (opt.value === val || opt.value.includes(val)) {
+                        sel.value = opt.value;
+                        break;
+                    }
+                }
+            }
+            if (params.get('target_iso')) {
+                const sel = document.getElementById('inp-target-iso');
+                const val = params.get('target_iso');
+                for (let opt of sel.options) {
+                    if (opt.value === val || opt.value.includes(val)) {
+                        sel.value = opt.value;
+                        break;
+                    }
+                }
+            }
+        })();
+    </script>
+</body>
+</html>

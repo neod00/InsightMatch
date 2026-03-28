@@ -8,4 +8,5 @@ requests
 beautifulsoup4
 pyjwt
 reportlab
-
+openai>=1.0.0
+python-docx

@@ -698,6 +698,34 @@ document.addEventListener('DOMContentLoaded', () => {
             aiSummaryTitle.innerHTML = '<i data-lucide="clipboard-list" style="width: 20px; height: 20px; color: var(--primary);"></i> 요청 요약';
         }
 
+        // Show AI ISO Manual CTA Banner
+        const aiBanner = document.getElementById('ai-manual-banner');
+        if (aiBanner) {
+            const selectedStandards = result.selected_standards || [];
+            const isoStandards = selectedStandards.filter(s => 
+                s.includes('9001') || s.includes('14001') || s.includes('45001')
+            );
+            if (isoStandards.length > 0) {
+                aiBanner.classList.remove('hidden');
+                const bannerStdEl = document.getElementById('banner-iso-standard');
+                if (bannerStdEl) {
+                    bannerStdEl.textContent = isoStandards.join(', ');
+                }
+                // Pass form data to ai-manual.html via URL params
+                const linkEl = document.getElementById('btn-go-ai-manual');
+                if (linkEl) {
+                    const manualParams = new URLSearchParams();
+                    manualParams.set('company_name', result.company_name || '');
+                    manualParams.set('industry', result.industry || '');
+                    manualParams.set('employees', result.employees || '');
+                    manualParams.set('target_iso', isoStandards[0] || 'ISO 9001:2015');
+                    linkEl.href = `ai-manual.html?${manualParams.toString()}`;
+                }
+            } else {
+                aiBanner.classList.add('hidden');
+            }
+        }
+
         // Fetch & Display Consultants
         allConsultants = result.consultants || [];
         currentConsultantIndex = 0;

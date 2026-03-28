@@ -19,6 +19,7 @@ import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, AnalysisJob, Consultant, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken
 from services import AIService, MatchingService, ProposalService, EmailService, AdvancedDiagnosticService
+from services.iso_manual_service import generate_iso_manual_stream
 
 # Load environment variables
 # Load from project root directory
@@ -492,6 +493,87 @@ def generate_diagnostic_report():
         print(traceback.format_exc())
         return jsonify({'error': f'리포트 생성 중 오류: {str(e)}'}), 500
 
+
+# --- ISO Manual Generation SSE Endpoint ---
+@app.route('/api/generate-iso', methods=['GET'])
+def generate_iso_manual():
+    """
+    AI ISO 시스템 매뉴얼/절차서를 SSE 스트리밍으로 생성.
+    GET 파라미터로 기업 정보를 받아 gpt-5.4로 문서를 생성합니다.
+    """
+    # Query Parameters에서 데이터 수집
+    form_data = {
+        'company_name': request.args.get('company_name', ''),
+        'industry': request.args.get('industry', ''),
+        'employees': request.args.get('employees', ''),
+        'target_iso': request.args.get('target_iso', 'ISO 9001:2015'),
+        'reasons': request.args.getlist('reasons'),
+        'issues': [{'id': i} for i in request.args.getlist('issues')],
+        'custom_issue': request.args.get('custom_issue', ''),
+        'cert_status': request.args.get('cert_status', 'None'),
+        'timeline': request.args.get('timeline', 'flexible'),
+    }
+    
+    def event_stream():
+        for chunk in generate_iso_manual_stream(form_data):
+            yield chunk
+    
+    return Response(
+        event_stream(),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no',  # Nginx/Vercel buffering 비활성화
+            'Access-Control-Allow-Origin': '*',
+        }
+    )
+
+
+# --- ISO Manual Export (PDF / DOCX) ---
+@app.route('/api/export-iso', methods=['POST'])
+def export_iso_manual():
+    """
+    마크다운 텍스트를 PDF 또는 DOCX로 변환하여 파일로 반환.
+    POST body: { markdown, format: "pdf"|"docx", company_name, target_iso }
+    """
+    try:
+        data = request.json or {}
+        markdown_text = data.get('markdown', '')
+        export_format = data.get('format', 'pdf').lower()
+        company_name = data.get('company_name', 'ISO매뉴얼')
+        target_iso = data.get('target_iso', '')
+
+        if not markdown_text:
+            return jsonify({'error': 'markdown 내용이 없습니다.'}), 400
+
+        from services.document_export_service import markdown_to_pdf, markdown_to_docx
+
+        # Safe filename
+        safe_company = re.sub(r'[^\w가-힣\s]', '', company_name).strip() or 'ISO매뉴얼'
+        safe_iso = re.sub(r'[:\s]', '_', target_iso)
+
+        if export_format == 'docx':
+            buffer = markdown_to_docx(markdown_text, company_name, target_iso)
+            filename = f"{safe_company}_{safe_iso}_매뉴얼.docx"
+            mimetype = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        else:
+            buffer = markdown_to_pdf(markdown_text, company_name, target_iso)
+            filename = f"{safe_company}_{safe_iso}_매뉴얼.pdf"
+            mimetype = 'application/pdf'
+
+        return send_file(
+            buffer,
+            mimetype=mimetype,
+            as_attachment=True,
+            download_name=filename
+        )
+
+    except Exception as e:
+        print(f"[Export Error] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'파일 변환 중 오류: {str(e)}'}), 500
 
 # --- Direct Matching Endpoint (Survey-Based, No AI) ---
 @app.route('/api/match', methods=['POST'])
