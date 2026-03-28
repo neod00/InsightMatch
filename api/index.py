@@ -499,8 +499,37 @@ def generate_diagnostic_report():
 def generate_iso_manual():
     """
     AI ISO 시스템 매뉴얼/절차서를 SSE 스트리밍으로 생성.
-    GET 파라미터로 기업 정보를 받아 gpt-5.4로 문서를 생성합니다.
+    회원가입한 사용자(기업)만 사용 가능. SSE는 Authorization 헤더를 지원하지 않으므로
+    query parameter ?token=로 JWT를 전달받습니다.
     """
+    # --- JWT 인증 (query param) ---
+    token = request.args.get('token', '')
+    if not token:
+        def auth_error():
+            yield "data: [ERROR] 로그인이 필요합니다. 회원가입 후 이용해주세요.\n\n"
+            yield "data: [DONE]\n\n"
+        return Response(auth_error(), mimetype='text/event-stream',
+                       headers={'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*'})
+
+    try:
+        payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+        current_user = User.query.get(payload['user_id'])
+        if not current_user:
+            raise jwt.InvalidTokenError('User not found')
+        # 컨설턴트는 차단 (기업 사용자만 허용)
+        if current_user.user_type == 'consultant':
+            def consultant_error():
+                yield "data: [ERROR] AI 매뉴얼 생성은 기업 사용자 전용 기능입니다.\n\n"
+                yield "data: [DONE]\n\n"
+            return Response(consultant_error(), mimetype='text/event-stream',
+                           headers={'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*'})
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+        def token_error():
+            yield "data: [ERROR] 세션이 만료되었습니다. 다시 로그인해주세요.\n\n"
+            yield "data: [DONE]\n\n"
+        return Response(token_error(), mimetype='text/event-stream',
+                       headers={'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*'})
+
     # Query Parameters에서 데이터 수집
     form_data = {
         'company_name': request.args.get('company_name', ''),
@@ -512,6 +541,7 @@ def generate_iso_manual():
         'custom_issue': request.args.get('custom_issue', ''),
         'cert_status': request.args.get('cert_status', 'None'),
         'timeline': request.args.get('timeline', 'flexible'),
+        'max_sections': 5,  # 무료: 5절까지만 생성
     }
     
     def event_stream():

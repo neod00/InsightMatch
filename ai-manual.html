@@ -637,6 +637,15 @@
                 return;
             }
 
+            // 로그인 체크
+            const token = localStorage.getItem('token');
+            if (!token) {
+                if (confirm('회원 로그인이 필요합니다.\n\n로그인 페이지로 이동하시겠습니까?')) {
+                    window.location.href = 'login.html?redirect=ai-manual.html';
+                }
+                return;
+            }
+
             // Collect checked issues
             const issues = [];
             document.querySelectorAll('#issue-group input:checked').forEach(cb => {
@@ -650,6 +659,7 @@
             params.set('employees', employees);
             params.set('target_iso', targetIso);
             params.set('custom_issue', customIssue);
+            params.set('token', token);  // JWT 인증 토큰
             issues.forEach(i => params.append('issues', i));
 
             // Start generation
@@ -736,48 +746,13 @@
         // ========== Finish Generation ==========
         function finishGeneration() {
             const viewer = document.getElementById('md-viewer');
-            const fullHtml = marked.parse(rawMarkdown);
-
-            // Split content at section 6 (6th H1 tag)
-            // H1s are: title, 1.표지, 2.목적/적용범위, 3.인용표준, 4.리더십, 5.기획 → 6번째 H1부터 잠금
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = fullHtml;
-
-            const h1Elements = tempDiv.querySelectorAll('h1');
-            const FREE_SECTIONS = 6; // Show up to 5th section (6th H1 = section 6 start)
-
-            if (h1Elements.length > FREE_SECTIONS) {
-                // Find the 6th H1's position and split
-                const cutPoint = h1Elements[FREE_SECTIONS];
-                
-                // Collect nodes before and after cut point
-                const freeContent = document.createElement('div');
-                const lockedContent = document.createElement('div');
-                lockedContent.className = 'blurred-content';
-                
-                let reachedCut = false;
-                Array.from(tempDiv.childNodes).forEach(node => {
-                    if (node === cutPoint || reachedCut) {
-                        reachedCut = true;
-                        lockedContent.appendChild(node.cloneNode(true));
-                    } else {
-                        freeContent.appendChild(node.cloneNode(true));
-                    }
-                });
-
-                viewer.innerHTML = '';
-                viewer.appendChild(freeContent);
-                viewer.appendChild(lockedContent);
-
-                // Show upsell card
-                document.getElementById('upsell-card').classList.remove('hidden');
-            } else {
-                // Content is short enough, show everything
-                viewer.innerHTML = fullHtml;
-                document.getElementById('download-group').classList.add('visible');
-            }
-
+            viewer.innerHTML = marked.parse(rawMarkdown);
             viewer.scrollTop = 0;
+
+            // 무료 버전: 서버가 5절까지만 생성했으므로 업셀 CTA 표시
+            // 다운로드는 결제 후에만 가능
+            document.getElementById('upsell-card').classList.remove('hidden');
+
             updateStats();
             resetButton();
         }

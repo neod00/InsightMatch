@@ -60,6 +60,29 @@ KAB(한국인정기구) 공인 심사원 자격을 보유하고 있으며, 500�
 - 문서 자체로 완결되어야 함
 """
 
+# 무료 버전: 1~5절(표지, 경영방침, 4절, 5절, 6절)까지만 생성
+FREE_SYSTEM_PROMPT = SYSTEM_PROMPT.replace(
+    """## 매뉴얼 구조 (반드시 이 순서로 작성)
+1. 표지 (문서번호, 개정이력, 승인란)
+2. 경영방침 선언 (최고경영자 명의)
+3. 조직 상황 분석 (4절)
+4. 리더십 및 의지표명 (5절)
+5. 기획 - 리스크/기회 관리 (6절)
+6. 지원 관리 (7절) - 문서관리 절차서, 교육훈련 절차서 포함
+7. 운용 절차 (8절) - 해당 업종에 맞는 핵심 프로세스 절차서 포함
+8. 성과 평가 (9절) - 내부심사 절차서, 경영검토 절차서 포함
+9. 개선 절차 (10절) - 시정조치 절차서 포함
+10. 부록: 문서 양식 목록""",
+    """## 매뉴얼 구조 (아래 5개 섹션만 작성)
+1. 표지 (문서번호, 개정이력, 승인란)
+2. 경영방침 선언 (최고경영자 명의)
+3. 조직 상황 분석 (4절)
+4. 리더십 및 의지표명 (5절)
+5. 기획 - 리스크/기회 관리 (6절)
+
+※ 6~10절(지원 관리, 운용 절차, 성과 평가, 개선 절차, 부록)은 포함하지 마세요."""
+)
+
 
 def _load_iso_standard_text(standard_code):
     """ISO 표준 요구사항 텍스트를 파일에서 로드 (본문 4.1절~10절)"""
@@ -177,7 +200,7 @@ def _build_user_prompt(form_data, iso_standard_text):
 def generate_iso_manual_stream(form_data):
     """
     ISO 매뉴얼을 SSE 스트리밍으로 생성하는 제너레이터.
-    requests 라이브러리로 OpenAI API를 직접 호출하여 SSE 스트리밍 처리.
+    max_sections: 5이면 무료(5절까지), None이면 전체 생성.
     """
     api_key = os.environ.get('OPENAI_API_KEY')
     if not api_key:
@@ -185,12 +208,17 @@ def generate_iso_manual_stream(form_data):
         yield "data: [DONE]\n\n"
         return
     
+    max_sections = form_data.get('max_sections', None)
     target_iso = form_data.get('target_iso', 'ISO 9001:2015')
     iso_text = _load_iso_standard_text(target_iso)
     print(f"[ISO Manual] Loaded {len(iso_text) if iso_text else 0} chars of {target_iso}")
+    print(f"[ISO Manual] Max sections: {max_sections or 'full'}")
     
     user_prompt = _build_user_prompt(form_data, iso_text)
     print(f"[ISO Manual] User prompt: {len(user_prompt)} chars")
+    
+    # 무료면 축약 프롬프트 사용
+    system_prompt = FREE_SYSTEM_PROMPT if max_sections == 5 else SYSTEM_PROMPT
     
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -200,12 +228,12 @@ def generate_iso_manual_stream(form_data):
     payload = {
         "model": "gpt-5.4",
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
         "stream": True,
         "temperature": 0.3,
-        "max_completion_tokens": 16000,
+        "max_completion_tokens": 8000 if max_sections == 5 else 16000,
     }
     
     try:
