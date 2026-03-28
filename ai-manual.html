@@ -214,7 +214,7 @@
             border: 1px solid var(--border);
             border-radius: 16px;
             min-height: 400px;
-            overflow: hidden;
+            overflow: visible;
         }
         .result-header {
             padding: 20px 28px;
@@ -222,6 +222,8 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            background: var(--bg-card);
+            border-radius: 16px 16px 0 0;
         }
         .result-header h3 {
             font-size: 1rem;
@@ -785,8 +787,10 @@
                 // 전체 버전: 다운로드 허용
                 document.getElementById('download-group').classList.add('visible');
             } else {
-                // 무료 버전: 업셀 CTA 표시
-                document.getElementById('upsell-card').classList.remove('hidden');
+                // 무료 버전: 업셀 CTA 표시 + 스크롤
+                const upsellCard = document.getElementById('upsell-card');
+                upsellCard.classList.remove('hidden');
+                setTimeout(() => upsellCard.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
             }
 
             updateStats();
