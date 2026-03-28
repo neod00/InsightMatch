@@ -541,8 +541,15 @@ def generate_iso_manual():
         'custom_issue': request.args.get('custom_issue', ''),
         'cert_status': request.args.get('cert_status', 'None'),
         'timeline': request.args.get('timeline', 'flexible'),
-        'max_sections': 5,  # 무료: 5절까지만 생성
     }
+    
+    # continue_from이 있으면 이어서 생성 (결제 후), 없으면 무료(5절까지)
+    continue_from = request.args.get('continue_from', '')
+    if continue_from:
+        form_data['continue_from'] = int(continue_from)
+        form_data['max_sections'] = None  # 전체 생성
+    else:
+        form_data['max_sections'] = 5  # 무료: 5절까지만
     
     def event_stream():
         for chunk in generate_iso_manual_stream(form_data):

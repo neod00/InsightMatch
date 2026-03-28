@@ -533,10 +533,15 @@
                         <label>현장 상세 설명 (선택)</label>
                         <textarea id="inp-custom-issue" placeholder="예: SMT 공정 불량률 5% 이상, 협력업체 관리체계 부재..."></textarea>
                     </div>
-                    <button type="submit" class="btn-generate" id="btn-generate">
-                        <span class="btn-text">🤖 AI 매뉴얼 생성하기</span>
-                        <div class="spinner"></div>
-                    </button>
+                    <div style="display:flex;gap:8px;">
+                        <button type="submit" class="btn-generate" id="btn-generate" style="flex:1;">
+                            <span class="btn-text">🤖 AI 매뉴얼 생성하기</span>
+                            <div class="spinner"></div>
+                        </button>
+                        <button type="button" class="btn-generate" id="btn-stop" style="flex:0 0 auto;padding:12px 20px;background:#dc2626;display:none;" onclick="stopGeneration()">
+                            ⏹ 멈춤
+                        </button>
+                    </div>
                 </form>
             </div>
 
@@ -619,6 +624,9 @@
         let rawMarkdown = '';
         let startTime = 0;
         let isGenerating = false;
+        let isFullVersion = false;  // 전체 버전(결제 후) 여부
+        let currentEventSource = null;  // SSE 연결 참조 (멈춤용)
+        let lastFormParams = null;  // 마지막 폼 데이터 (이어서 생성용)
 
         // ========== Form Submit ==========
         document.getElementById('iso-form').addEventListener('submit', async (e) => {
@@ -662,20 +670,27 @@
             params.set('token', token);  // JWT 인증 토큰
             issues.forEach(i => params.append('issues', i));
 
+            // Save params for continue generation
+            lastFormParams = params;
+            isFullVersion = false;
+
             // Start generation
             startGeneration(params);
         });
 
         // ========== SSE Streaming ==========
-        function startGeneration(params) {
+        function startGeneration(params, appendMode = false) {
             isGenerating = true;
-            rawMarkdown = '';
-            startTime = Date.now();
+            if (!appendMode) {
+                rawMarkdown = '';
+                startTime = Date.now();
+            }
 
             // UI updates
             const btn = document.getElementById('btn-generate');
             btn.classList.add('loading');
             btn.disabled = true;
+            document.getElementById('btn-stop').style.display = 'block';
 
             document.getElementById('empty-state').classList.add('hidden');
             document.getElementById('upsell-card').classList.add('hidden');
@@ -683,11 +698,17 @@
 
             const viewer = document.getElementById('md-viewer');
             viewer.classList.remove('hidden');
-            viewer.innerHTML = '<p class="streaming-cursor" style="color: var(--text-muted);">AI가 매뉴얼을 생성하고 있습니다...</p>';
+            if (!appendMode) {
+                viewer.innerHTML = '<p class="streaming-cursor" style="color: var(--text-muted);">AI가 매뉴얼을 생성하고 있습니다...</p>';
+            } else {
+                // 이어서 생성 모드: 기존 내용 유지하고 커서 추가
+                viewer.innerHTML = marked.parse(rawMarkdown) + '<p class="streaming-cursor" style="color: var(--text-muted);">6~10절을 이어서 생성하고 있습니다...</p>';
+            }
 
             // Open SSE connection
             const url = `${API_BASE_URL}/api/generate-iso?${params.toString()}`;
             const eventSource = new EventSource(url);
+            currentEventSource = eventSource;  // 전역 참조 저장
 
             eventSource.onmessage = (event) => {
                 const data = event.data;
@@ -747,39 +768,65 @@
         function finishGeneration() {
             const viewer = document.getElementById('md-viewer');
             viewer.innerHTML = marked.parse(rawMarkdown);
-            viewer.scrollTop = 0;
+            viewer.scrollTop = isFullVersion ? viewer.scrollHeight : 0;
 
-            // 무료 버전: 서버가 5절까지만 생성했으므로 업셀 CTA 표시
-            // 다운로드는 결제 후에만 가능
-            document.getElementById('upsell-card').classList.remove('hidden');
+            if (isFullVersion) {
+                // 전체 버전: 다운로드 허용
+                document.getElementById('download-group').classList.add('visible');
+            } else {
+                // 무료 버전: 업셀 CTA 표시
+                document.getElementById('upsell-card').classList.remove('hidden');
+            }
 
             updateStats();
             resetButton();
         }
 
-        // ========== Unlock Full Manual (placeholder for Polar payment) ==========
-        function unlockFullManual() {
-            // TODO: Integrate Polar payment here
-            // For now, just unlock
-            const blurred = document.querySelector('.blurred-content');
-            if (blurred) {
-                blurred.classList.remove('blurred-content');
-                // Remove the ::after gradient
-                blurred.style.maxHeight = 'none';
-                blurred.style.filter = 'none';
-                blurred.style.userSelect = 'auto';
-                blurred.style.pointerEvents = 'auto';
+        // ========== Stop Generation ==========
+        function stopGeneration() {
+            if (currentEventSource) {
+                currentEventSource.close();
+                currentEventSource = null;
             }
+            if (rawMarkdown.length > 0) {
+                finishGeneration();
+            } else {
+                resetButton();
+            }
+        }
+
+        // ========== Unlock Full Manual (이어서 생성) ==========
+        function unlockFullManual() {
+            // TODO: Polar 결제 연동 후 이 함수 호출
+            // 현재는 테스트 모드로 바로 이어서 생성
+            if (!lastFormParams) {
+                alert('먼저 매뉴얼을 생성해주세요.');
+                return;
+            }
+
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('로그인이 필요합니다.');
+                return;
+            }
+
+            // 6절부터 이어서 생성하는 파라미터 설정
+            const continueParams = new URLSearchParams(lastFormParams);
+            continueParams.set('token', token);
+            continueParams.set('continue_from', '6');  // 6절부터 이어서
+
+            isFullVersion = true;
             document.getElementById('upsell-card').classList.add('hidden');
-            document.getElementById('download-group').classList.add('visible');
-            alert('결제 연동 후 자동 잠금 해제됩니다.\n(현재 테스트 모드: 잠금 해제됨)');
+            startGeneration(continueParams, true);  // appendMode = true
         }
 
         function resetButton() {
             isGenerating = false;
+            currentEventSource = null;
             const btn = document.getElementById('btn-generate');
             btn.classList.remove('loading');
             btn.disabled = false;
+            document.getElementById('btn-stop').style.display = 'none';
         }
 
         // ========== Update Stats ==========

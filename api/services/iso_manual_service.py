@@ -209,16 +209,48 @@ def generate_iso_manual_stream(form_data):
         return
     
     max_sections = form_data.get('max_sections', None)
+    continue_from = form_data.get('continue_from', None)
     target_iso = form_data.get('target_iso', 'ISO 9001:2015')
     iso_text = _load_iso_standard_text(target_iso)
     print(f"[ISO Manual] Loaded {len(iso_text) if iso_text else 0} chars of {target_iso}")
-    print(f"[ISO Manual] Max sections: {max_sections or 'full'}")
+    print(f"[ISO Manual] Max sections: {max_sections or 'full'}, continue_from: {continue_from}")
     
     user_prompt = _build_user_prompt(form_data, iso_text)
     print(f"[ISO Manual] User prompt: {len(user_prompt)} chars")
     
-    # 무료면 축약 프롬프트 사용
-    system_prompt = FREE_SYSTEM_PROMPT if max_sections == 5 else SYSTEM_PROMPT
+    # 프롬프트 분기: 무료(5절) / 이어서(6~10절) / 전체
+    if continue_from:
+        # 이어서 생성: 6~10절만
+        system_prompt = SYSTEM_PROMPT.replace(
+            """## 매뉴얼 구조 (반드시 이 순서로 작성)
+1. 표지 (문서번호, 개정이력, 승인란)
+2. 경영방침 선언 (최고경영자 명의)
+3. 조직 상황 분석 (4절)
+4. 리더십 및 의지표명 (5절)
+5. 기획 - 리스크/기회 관리 (6절)
+6. 지원 관리 (7절) - 문서관리 절차서, 교육훈련 절차서 포함
+7. 운용 절차 (8절) - 해당 업종에 맞는 핵심 프로세스 절차서 포함
+8. 성과 평가 (9절) - 내부심사 절차서, 경영검토 절차서 포함
+9. 개선 절차 (10절) - 시정조치 절차서 포함
+10. 부록: 문서 양식 목록""",
+            """## 매뉴얼 구조 (아래 섹션만 이어서 작성 — 1~5절은 이미 작성됨, 6절부터 작성)
+6. 지원 관리 (7절) - 문서관리 절차서, 교육훈련 절차서 포함
+7. 운용 절차 (8절) - 해당 업종에 맞는 핵심 프로세스 절차서 포함
+8. 성과 평가 (9절) - 내부심사 절차서, 경영검토 절차서 포함
+9. 개선 절차 (10절) - 시정조치 절차서 포함
+10. 부록: 문서 양식 목록
+
+※ 1~5절(표지, 경영방침, 4절, 5절, 6절)은 이미 작성되었으므로 포함하지 마세요.
+※ 바로 "# 6. 지원 관리 (7절)"부터 시작하세요."""
+        )
+        user_prompt += "\n\n## 중요 지시사항\n1~5절(표지~기획)은 이미 작성 완료되었습니다. **6절(지원 관리)부터 이어서 작성**해주세요."
+        max_tokens = 16000
+    elif max_sections == 5:
+        system_prompt = FREE_SYSTEM_PROMPT
+        max_tokens = 8000
+    else:
+        system_prompt = SYSTEM_PROMPT
+        max_tokens = 16000
     
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -233,7 +265,7 @@ def generate_iso_manual_stream(form_data):
         ],
         "stream": True,
         "temperature": 0.3,
-        "max_completion_tokens": 8000 if max_sections == 5 else 16000,
+        "max_completion_tokens": max_tokens,
     }
     
     try:
