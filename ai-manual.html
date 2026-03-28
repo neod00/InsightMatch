@@ -641,6 +641,18 @@
                 if (userData.company_name) {
                     document.getElementById('inp-company').value = userData.company_name;
                 }
+                if (userData.industry) {
+                    const industryEl = document.getElementById('inp-industry');
+                    for (const opt of industryEl.options) {
+                        if (opt.value === userData.industry) { industryEl.value = userData.industry; break; }
+                    }
+                }
+                if (userData.employees) {
+                    const empEl = document.getElementById('inp-employees');
+                    for (const opt of empEl.options) {
+                        if (opt.value === userData.employees) { empEl.value = userData.employees; break; }
+                    }
+                }
             } catch(e) { /* ignore */ }
         })();
 

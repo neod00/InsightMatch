@@ -99,6 +99,35 @@
                             style="color: var(--text-muted); display: none;">(선택)</small></label>
                     <input type="text" id="companyName" required placeholder="(주)인사이트매치">
                 </div>
+                <div class="form-group" id="industry-group">
+                    <label>업종</label>
+                    <select id="industry" required style="width:100%;padding:12px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:var(--text-primary);font-size:0.95rem;">
+                        <option value="">선택하세요</option>
+                        <option value="전자/반도체">전자/반도체</option>
+                        <option value="자동차/부품 제조">자동차/부품 제조</option>
+                        <option value="기계/금속 제조">기계/금속 제조</option>
+                        <option value="화학/석유화학">화학/석유화학</option>
+                        <option value="식품/음료 제조">식품/음료 제조</option>
+                        <option value="의약/바이오">의약/바이오</option>
+                        <option value="건설/토목">건설/토목</option>
+                        <option value="IT/소프트웨어">IT/소프트웨어</option>
+                        <option value="물류/운송">물류/운송</option>
+                        <option value="서비스업">서비스업</option>
+                        <option value="공공기관">공공기관</option>
+                        <option value="기타">기타</option>
+                    </select>
+                </div>
+                <div class="form-group" id="employees-group">
+                    <label>규모 (종업원 수)</label>
+                    <select id="employees" required style="width:100%;padding:12px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:var(--text-primary);font-size:0.95rem;">
+                        <option value="">선택하세요</option>
+                        <option value="10명 미만">10명 미만</option>
+                        <option value="10~50명">10~50명</option>
+                        <option value="50~100명">50~100명</option>
+                        <option value="100~300명">100~300명</option>
+                        <option value="300명 이상">300명 이상</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label>이메일</label>
                     <input type="text" id="email" required placeholder="name@company.com 또는 윤태호@example.com">
@@ -244,13 +273,19 @@
 
         function updateCompanyNameRequired() {
             const role = document.querySelector('input[name="role"]:checked').value;
-            if (role === 'consultant') {
+            const isCompany = role === 'company';
+            if (!isCompany) {
                 companyNameInput.required = false;
                 companyLabelOptional.style.display = 'inline';
             } else {
                 companyNameInput.required = true;
                 companyLabelOptional.style.display = 'none';
             }
+            // 업종/규모 토글 (기업만 표시)
+            document.getElementById('industry-group').style.display = isCompany ? '' : 'none';
+            document.getElementById('employees-group').style.display = isCompany ? '' : 'none';
+            document.getElementById('industry').required = isCompany;
+            document.getElementById('employees').required = isCompany;
         }
 
         roleInputs.forEach(input => {
@@ -301,10 +336,13 @@
 
                 const phone = document.getElementById('phone').value;
 
+                const industry = document.getElementById('industry').value;
+                const employees = document.getElementById('employees').value;
+
                 const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, company_name: companyName, email, password, role, phone })
+                    body: JSON.stringify({ name, company_name: companyName, email, password, role, phone, industry, employees })
                 });
 
                 const data = await response.json();

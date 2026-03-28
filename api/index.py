@@ -178,7 +178,9 @@ def signup():
     db.session.commit()
     
     if role == 'company':
-        new_company = Company(user_id=new_user.id, name=company_name, industry='Unknown')
+        industry = data.get('industry', 'Unknown')
+        employees = data.get('employees', '')
+        new_company = Company(user_id=new_user.id, name=company_name, industry=industry, employees=employees)
         db.session.add(new_company)
         db.session.commit()
     elif role == 'consultant':
@@ -213,6 +215,9 @@ def login():
         'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=24)
     }, app.config['SECRET_KEY'], algorithm="HS256")
     
+    # Company 정보 조회
+    company = Company.query.filter_by(user_id=user.id).first()
+    
     return jsonify({
         'token': token,
         'user': {
@@ -220,7 +225,9 @@ def login():
             'name': user.name,
             'email': user.email,
             'role': user.role,
-            'company_name': user.company_name or ''
+            'company_name': user.company_name or '',
+            'industry': company.industry if company else '',
+            'employees': company.employees if company else ''
         }
     })
 
