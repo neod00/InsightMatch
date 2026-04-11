@@ -553,13 +553,13 @@ def generate_iso_manual():
         'timeline': request.args.get('timeline', 'flexible'),
     }
     
-    # continue_from이 있으면 이어서 생성 (결제 후), 없으면 무료(5절까지)
+    # Phase 분할: continue_from=7이면 Phase 2(7절~10절+부록), 없으면 Phase 1(표지~6절)
     continue_from = request.args.get('continue_from', '')
     if continue_from:
         form_data['continue_from'] = int(continue_from)
-        form_data['max_sections'] = None  # 전체 생성
+        form_data['max_sections'] = None  # Phase 2: 7절~10절+부록
     else:
-        form_data['max_sections'] = 5  # 무료: 5절까지만
+        form_data['max_sections'] = 5  # Phase 1: 표지~6절(기획)까지
     
     def event_stream():
         for chunk in generate_iso_manual_stream(form_data):

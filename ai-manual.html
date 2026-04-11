@@ -577,6 +577,9 @@
                 <div class="result-header">
                     <h3>📄 생성된 매뉴얼</h3>
                     <div style="display:flex;align-items:center;gap:12px;">
+                        <div class="phase-indicator hidden" id="phase-indicator" style="display:none;padding:4px 10px;border-radius:8px;font-size:0.72rem;font-weight:600;background:rgba(197,168,128,0.15);color:var(--primary);border:1px solid rgba(197,168,128,0.3);white-space:nowrap;">
+                            <span id="phase-text">1단계</span> / 2단계
+                        </div>
                         <div class="result-stats" id="result-stats">
                             <span id="stat-time">⏱ --</span>
                             <span id="stat-chars">📝 --</span>
@@ -615,9 +618,9 @@
 
                 <!-- Upsell CTA Card -->
                 <div class="upsell-card hidden" id="upsell-card">
-                    <h3>📋 미리보기 완료! 다음 단계를 선택하세요</h3>
+                    <h3>📋 1단계 미리보기 완료! 다음 단계를 선택하세요</h3>
                     <p class="upsell-desc">
-                        5절까지의 매뉴얼을 확인하셨습니다. 전체 문서를 받거나, 전문가의 검토를 받아보세요.
+                        표지~6절(기획)까지의 매뉴얼 초안을 확인하셨습니다. 7절~10절(지원/운용/성과평가/개선) + 부록을 이어서 받거나, 전문가 검토를 받아보세요.
                     </p>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px;">
                         <!-- Option A: 전체 매뉴얼 -->
@@ -625,7 +628,7 @@
                             <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px;">옵션 A</p>
                             <h4 style="font-size:1rem;color:var(--text-primary);margin-bottom:12px;">전체 매뉴얼 받기</h4>
                             <div style="font-size:0.82rem;color:var(--text-secondary);text-align:left;margin-bottom:16px;">
-                                <div style="margin-bottom:4px;">✓ 6~10절 이어서 생성</div>
+                                <div style="margin-bottom:4px;">✓ 7~10절 + 부록 이어서 생성</div>
                                 <div style="margin-bottom:4px;">✓ PDF / Word 다운로드</div>
                                 <div>✓ 재생성 3회</div>
                             </div>
@@ -641,14 +644,15 @@
                             <div style="font-size:0.82rem;color:var(--text-secondary);text-align:left;margin-bottom:16px;">
                                 <div style="margin-bottom:4px;">✓ 전체 매뉴얼 포함</div>
                                 <div style="margin-bottom:4px;">✓ ISO 전문가가 직접 검토</div>
-                                <div>✓ 맞춤형 컨설턴트 매칭</div>
+                                <div style="margin-bottom:4px;">✓ 맞춤형 컨설턴트 매칭</div>
+                                <div>✓ 절차서(Level 2) 패키지 안내</div>
                             </div>
                             <button onclick="window.location.href='index.html#diagnosis'" style="width:100%;max-width:320px;padding:12px 20px;background:linear-gradient(135deg, #C5A880, #D4B896);color:#1A1A1A;border:none;border-radius:12px;font-size:0.9rem;font-weight:700;cursor:pointer;transition:all 0.3s;">
                                 전문가 매칭 받기 →
                             </button>
                         </div>
                     </div>
-                    <p style="font-size:0.75rem;color:var(--text-muted);margin-top:16px;">💡 AI 매뉴얼은 좋은 시작점이지만, 실제 인증 심사에는 전문가의 맞춤 검토가 필수입니다.</p>
+                    <p style="font-size:0.75rem;color:var(--text-muted);margin-top:16px;">💡 AI 매뉴얼은 Level 1 초안입니다. 인증 심사 통과를 위해서는 Level 2 절차서(15종) 및 Level 3~4 양식 패키지가 필요합니다.</p>
                 </div>
             </div>
         </div>
@@ -672,6 +676,7 @@
         let isPaused = false;  // 일시정지 상태
         let lastSSEParams = null;  // SSE 파라미터 (재개용)
         let lastAppendMode = false;  // 재개 시 appendMode
+        let currentPhase = 1;  // 현재 생성 단계 (1 or 2)
 
         // ========== Auto-fill user info ==========
         (function prefillUserInfo() {
@@ -780,7 +785,15 @@
             if (!appendMode) {
                 rawMarkdown = '';
                 startTime = Date.now();
+                currentPhase = 1;
             }
+
+            // Phase indicator UI
+            const phaseIndicator = document.getElementById('phase-indicator');
+            phaseIndicator.style.display = 'inline-block';
+            const phaseText = document.getElementById('phase-text');
+            phaseText.textContent = currentPhase === 1 ? '1단계' : '2단계';
+            phaseText.style.fontWeight = '800';
 
             // UI updates
             const btn = document.getElementById('btn-generate');
@@ -795,16 +808,16 @@
             const viewer = document.getElementById('md-viewer');
             viewer.classList.remove('hidden');
             if (!appendMode) {
-                viewer.innerHTML = '<p class="streaming-cursor" style="color: var(--text-muted);">AI가 매뉴얼을 생성하고 있습니다...</p>';
+                viewer.innerHTML = '<p class="streaming-cursor" style="color: var(--text-muted);">AI가 매뉴얼(표지~6절)을 생성하고 있습니다...</p>';
             } else {
-                // 이어서 생성 모드: 기존 내용 유지하고 커서 추가
-                viewer.innerHTML = marked.parse(rawMarkdown) + '<p class="streaming-cursor" style="color: var(--text-muted);">6~10절을 이어서 생성하고 있습니다...</p>';
+                // Phase 2 이어서 생성 모드
+                viewer.innerHTML = marked.parse(rawMarkdown) + '<p class="streaming-cursor" style="color: var(--text-muted);">7절~10절 + 부록을 이어서 생성하고 있습니다...</p>';
             }
 
             // Open SSE connection
             const url = `${API_BASE_URL}/api/generate-iso?${params.toString()}`;
             const eventSource = new EventSource(url);
-            currentEventSource = eventSource;  // 전역 참조 저장
+            currentEventSource = eventSource;
             lastSSEParams = params;
             lastAppendMode = appendMode;
             isPaused = false;
@@ -822,13 +835,25 @@
                     return;
                 }
 
+                // Phase 완료 시그널 처리
+                if (data.startsWith('[PHASE_COMPLETE:')) {
+                    const completedPhase = parseInt(data.match(/\d+/)?.[0] || '1');
+                    console.log(`[ISO Manual] Phase ${completedPhase} completed`);
+                    return;  // [DONE]을 기다림
+                }
+
                 if (data.startsWith('[ERROR]')) {
                     eventSource.close();
-                    viewer.innerHTML = `<div style="color: var(--danger); padding: 20px;">
-                        <h3>⚠️ 생성 오류</h3><p>${data.substring(7)}</p>
-                        <p style="margin-top:12px;color:var(--text-muted);">다시 시도해주세요.</p>
-                    </div>`;
-                    resetButton();
+                    if (rawMarkdown.length > 100) {
+                        // 이미 상당량 생성된 경우: 부분 결과라도 보여줌
+                        finishGeneration();
+                    } else {
+                        viewer.innerHTML = `<div style="color: var(--danger); padding: 20px;">
+                            <h3>⚠️ 생성 오류</h3><p>${data.substring(7)}</p>
+                            <p style="margin-top:12px;color:var(--text-muted);">다시 시도해주세요.</p>
+                        </div>`;
+                        resetButton();
+                    }
                     return;
                 }
 
@@ -843,7 +868,8 @@
 
             eventSource.onerror = () => {
                 eventSource.close();
-                if (rawMarkdown.length > 0) {
+                if (rawMarkdown.length > 100) {
+                    // 연결 끊김이지만 데이터가 있으면 정상 완료 처리
                     finishGeneration();
                 } else {
                     viewer.innerHTML = `<div style="color: var(--danger); padding: 20px;">
@@ -871,16 +897,36 @@
         function finishGeneration() {
             const viewer = document.getElementById('md-viewer');
             viewer.innerHTML = marked.parse(rawMarkdown);
-            viewer.scrollTop = isFullVersion ? viewer.scrollHeight : 0;
 
-            if (isFullVersion) {
-                // 전체 버전: 다운로드 허용
-                document.getElementById('download-group').classList.add('visible');
-            } else {
-                // 무료 버전: 업셀 CTA 표시 + 스크롤
+            if (currentPhase === 1 && !isFullVersion) {
+                // Phase 1 완료 + 무료: 업셀 CTA 표시
+                viewer.scrollTop = 0;
                 const upsellCard = document.getElementById('upsell-card');
                 upsellCard.classList.remove('hidden');
                 setTimeout(() => upsellCard.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+                // Phase indicator 업데이트
+                document.getElementById('phase-text').textContent = '1단계 완료';
+            } else if (currentPhase === 1 && isFullVersion) {
+                // Phase 1 완료 + 전체버전: 자동으로 Phase 2 트리거
+                console.log('[ISO Manual] Phase 1 done → auto-triggering Phase 2...');
+                currentPhase = 2;
+                const token = localStorage.getItem('token');
+                const continueParams = new URLSearchParams(lastFormParams);
+                continueParams.set('token', token);
+                continueParams.set('continue_from', '7');
+                // 잠깐 딜레이 후 Phase 2 시작 (사용자에게 전환 인지시키기)
+                setTimeout(() => {
+                    startGeneration(continueParams, true);
+                }, 500);
+                return;  // resetButton하지 않음 — Phase 2가 계속 진행
+            } else if (currentPhase === 2) {
+                // Phase 2 완료: 전체 문서 완성
+                viewer.scrollTop = viewer.scrollHeight;
+                document.getElementById('download-group').classList.add('visible');
+                document.getElementById('phase-text').textContent = '완료';
+                document.getElementById('phase-indicator').style.background = 'rgba(16,185,129,0.15)';
+                document.getElementById('phase-indicator').style.color = '#10B981';
+                document.getElementById('phase-indicator').style.borderColor = 'rgba(16,185,129,0.3)';
             }
 
             updateStats();
@@ -933,13 +979,16 @@
                 return;
             }
 
-            // 6절부터 이어서 생성하는 파라미터 설정
+            // 전체 버전 플래그 ON → Phase 2 자동 트리거용
+            isFullVersion = true;
+            currentPhase = 2;
+            document.getElementById('upsell-card').classList.add('hidden');
+
+            // 7절부터 이어서 생성하는 파라미터 설정
             const continueParams = new URLSearchParams(lastFormParams);
             continueParams.set('token', token);
-            continueParams.set('continue_from', '6');  // 6절부터 이어서
+            continueParams.set('continue_from', '7');  // 7절(지원)부터 이어서
 
-            isFullVersion = true;
-            document.getElementById('upsell-card').classList.add('hidden');
             startGeneration(continueParams, true);  // appendMode = true
         }
 
@@ -951,6 +1000,7 @@
             btn.disabled = false;
             document.getElementById('btn-pause').style.display = 'none';
             isPaused = false;
+            // Phase indicator는 유지 (완료 상태 표시)
         }
 
         // ========== Update Stats ==========

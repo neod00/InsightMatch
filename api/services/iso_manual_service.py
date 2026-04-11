@@ -1,12 +1,78 @@
 """
-ISO Manual Generation Service (v2 — 실전 컨설팅 고도화 버전)
-실제 ISO 심사 통과 절차서를 기반으로 구축한 Few-Shot 프롬프트 적용.
-제조/건설/엔지니어링 특화 + 맞춤 KPI 자동 생성.
+ISO Manual Generation Service (v3 — 구조 교정 + 멀티에이전트 기반)
+=================================================================
+v2 대비 주요 변경:
+  1. ISO HLS(High Level Structure) 조항 번호(4~10절)와 매뉴얼 목차를 일치시킴
+  2. 매뉴얼(Level 1)과 절차서(Level 2)를 명확히 분리
+     - 매뉴얼은 방침/원칙/프로세스 상호관계를 기술하고 절차서를 '참조'
+     - 절차서는 별도 doc_type='procedure'로 생성 (향후 유료 기능)
+  3. 멀티에이전트 생성을 위한 문서 유형(DOC_TYPES) 상수 체계 정립
+  4. Phase 1/2 분할 아키텍처 최적화 (Vercel 60초 제한 대응)
 """
 import os
 import json
 import re
 import requests as http_requests  # Flask의 request와 이름 충돌 방지
+
+# ─────────────────────────────────────────────────────────────
+# 문서 유형 상수 (멀티에이전트 확장용)
+# ─────────────────────────────────────────────────────────────
+DOC_TYPES = {
+    'manual': {
+        'level': 1,
+        'name': '통합경영매뉴얼',
+        'doc_id_prefix': 'SMS-M',
+        'description': '회사의 경영방침, ISO 조항별 대응 원칙, 프로세스 상호관계를 기술하는 최상위 문서'
+    },
+    'common_procedure': {
+        'level': 2,
+        'name': '공통관리 절차서',
+        'doc_id_prefix': 'SMS-CP',
+        'description': '부서 공통으로 적용되는 관리 절차 (리스크관리, 문서관리, 내부심사 등)'
+    },
+    'operation_procedure': {
+        'level': 2,
+        'name': '운용(품질) 절차서',
+        'doc_id_prefix': 'SMS-QP',
+        'description': '업종별 핵심 운용 프로세스 절차 (영업, 설계, 구매, 생산, 검사 등)'
+    },
+    'instruction': {
+        'level': 3,
+        'name': '작업지침서',
+        'doc_id_prefix': 'SMS-WI',
+        'description': '현장 작업표준, 기계 조작법, 안전 작업 요령 등'
+    },
+    'form': {
+        'level': 4,
+        'name': '양식/기록물',
+        'doc_id_prefix': 'SMS-F',
+        'description': '실제 작성하는 점검표, 검사성적서, 회의록 양식 등'
+    },
+}
+
+# 절차서 목록 (향후 개별 생성 대상)
+PROCEDURE_LIST = {
+    'common': [
+        {'id': 'CP00', 'name': '리스크관리 절차서', 'iso_clause': '6.1'},
+        {'id': 'CP01', 'name': '경영 계획수립 및 검토 절차서', 'iso_clause': '5.1, 9.3'},
+        {'id': 'CP02', 'name': '조직 및 업무분장 절차서', 'iso_clause': '5.3'},
+        {'id': 'CP03', 'name': '교육훈련 절차서', 'iso_clause': '7.2'},
+        {'id': 'CP04', 'name': '의사소통 관리 절차서', 'iso_clause': '7.4'},
+        {'id': 'CP05', 'name': '문서화된 정보관리 절차서', 'iso_clause': '7.5'},
+        {'id': 'CP06', 'name': '내부심사 절차서', 'iso_clause': '9.2'},
+        {'id': 'CP07', 'name': '시정조치 절차서', 'iso_clause': '10.2'},
+    ],
+    'operation': [
+        {'id': 'QP00', 'name': '인프라관리 절차서', 'iso_clause': '7.1.3'},
+        {'id': 'QP01', 'name': '영업관리 절차서', 'iso_clause': '8.2'},
+        {'id': 'QP02', 'name': '설계관리 절차서', 'iso_clause': '8.3'},
+        {'id': 'QP03', 'name': '협력업체/구매관리 절차서', 'iso_clause': '8.4'},
+        {'id': 'QP04', 'name': '프로젝트(생산)관리 절차서', 'iso_clause': '8.5'},
+        {'id': 'QP05', 'name': '검사 및 시험 절차서', 'iso_clause': '8.6'},
+        {'id': 'QP06', 'name': '부적합 출력 관리 절차서', 'iso_clause': '8.7'},
+    ],
+}
+
 
 # ISO 표준별 파일 매핑
 ISO_STANDARD_INFO = {
@@ -97,61 +163,92 @@ ISSUE_KPI_MAP = {
 }
 
 # ─────────────────────────────────────────────────────────────
-# SYSTEM PROMPT v2: 실전 컨설팅 데이터 기반 Few-Shot
+# SYSTEM PROMPT v3: ISO HLS 조항번호 정렬 + 매뉴얼/절차서 분리
 # ─────────────────────────────────────────────────────────────
-SYSTEM_PROMPT = """당신은 30년 경력의 수석 ISO 심사원이며, 한국의 제조·건설·엔지니어링 기업의 경영시스템 구축 전문가입니다.
+
+# ── 전체(10절) 생성용 시스템 프롬프트 ──
+SYSTEM_PROMPT_FULL = """당신은 30년 경력의 수석 ISO 심사원이며, 한국의 제조·건설·엔지니어링 기업의 경영시스템 구축 전문가입니다.
 KAB(한국인정기구) 공인 심사원 자격을 보유하고 있으며, 500개 이상의 기업 인증 컨설팅을 수행했습니다.
 
 ## 당신의 역할
-사용자가 제공한 기업 정보와 ISO 표준 요구사항 원문을 기반으로, 해당 기업에 맞춤화된 **ISO 시스템 매뉴얼 및 절차서 초안**을 작성합니다.
+사용자가 제공한 기업 정보와 ISO 표준 요구사항 원문을 기반으로, 해당 기업에 맞춤화된 **ISO 시스템 매뉴얼(Level 1)** 초안을 작성합니다.
 
-## 핵심 작성 원칙
+## ⚠️ 중요: 매뉴얼(Level 1)의 역할
+매뉴얼은 회사의 **경영방침, ISO 조항별 대응 원칙, 프로세스 상호관계**를 기술하는 최상위 문서입니다.
+- 각 절(Clause)에서 회사가 "무엇을(What)" 하는지의 방침과 원칙을 선언합니다.
+- "어떻게(How)" 하는지의 세부 절차는 **별도 절차서(Level 2)**에서 다루므로, 매뉴얼에서는 해당 절차서를 **문서번호로 참조**만 합니다.
+- 예: "교육훈련의 세부 절차는 「SMS-CP03 교육훈련 절차서」에 따른다."
 
-### 1. 문서 체계 (Document Hierarchy)
+## 문서 체계 (Document Hierarchy)
 모든 문서는 아래의 문서번호 체계를 따릅니다:
-- **SMS-M**: 통합경영매뉴얼 (1~10절 전체)
+- **SMS-M**: 통합경영매뉴얼 (본 문서)
 - **SMS-CP00~07**: 공통 관리 절차서 (Common Procedures)
-  - CP00: 리스크관리 절차서
-  - CP01: 경영 계획수립 및 검토 절차서
-  - CP02: 조직 및 업무분장 절차서
-  - CP03: 교육훈련 절차서
-  - CP04: 의사소통 관리 절차서
-  - CP05: 문서화된 정보관리 절차서
-  - CP06: 내부심사 절차서
-  - CP07: 시정조치 절차서
+  - CP00: 리스크관리 | CP01: 경영계획/검토 | CP02: 조직/업무분장
+  - CP03: 교육훈련 | CP04: 의사소통 | CP05: 문서화된 정보관리
+  - CP06: 내부심사 | CP07: 시정조치
 - **SMS-QP00~06**: 운용(품질) 절차서 (Quality Procedures)
-  - QP00: 인프라관리 절차서
-  - QP01: 영업관리 절차서
-  - QP02: 설계관리 절차서
-  - QP03: 협력업체/구매관리 절차서
-  - QP04: 프로젝트(생산)관리 절차서
-  - QP05: 검사 및 시험 절차서
-  - QP06: 부적합 출력 관리 절차서
+  - QP00: 인프라관리 | QP01: 영업관리 | QP02: 설계관리
+  - QP03: 구매/협력업체관리 | QP04: 생산/프로젝트관리
+  - QP05: 검사 및 시험 | QP06: 부적합품 관리
+- **SMS-WI**: 작업지침서 | **SMS-F**: 양식서식
 
-### 2. 각 절차서의 필수 구조 (반드시 이 순서로 작성)
-```
-[표지]
-■ 문서번호: SMS-XX##
-■ 제(개)정일자: YYYY.MM.DD
-■ 개정번호: 0
+## 매뉴얼 목차 구조 (ISO HLS에 맞추어 반드시 이 순서로 작성)
 
-[제·개정 이력]
-| Rev | 개정일자 | 개정 사유 및 내용 | 작성자 | 검토자 | 승인자 |
+### 표지부
+- 문서번호: SMS-M
+- 제(개)정일자 / 개정번호 / 제·개정 이력표
+- 경영방침 선언문 (최고경영자 명의, 서명란)
 
-[목차]
-1. 목적 및 적용범위
-2. 용어의 정의
-3. 책임과 권한
-4. 업무절차
-   4.1 업무흐름도
-   4.2 업무절차 상세
-5. 주요 성과지표 (KPI)
-6. 기록관리
-```
+### 본문 (ISO 조항 순서)
+**4. 조직 상황 (Context of the Organization)**
+  4.1 조직과 조직 상황의 이해 — PESTEL 분석표 포함
+  4.2 이해관계자의 니즈와 기대 이해 — 이해관계자 요구파악표 포함
+  4.3 경영시스템의 적용범위 결정 — 적용범위 선언, 적용 제외 항목 및 타당성
+  4.4 경영시스템과 그 프로세스 — 핵심 프로세스 상호관계도(Process Map) 포함
 
-### 3. 리스크 평가 (6절 기획 시 반드시 포함하는 표 양식)
+**5. 리더십 (Leadership)**
+  5.1 리더십과 의지표명 — 최고경영자의 역할 기술
+  5.2 방침 — 경영방침의 수립·전달·유지 방법
+  5.3 조직의 역할, 책임 및 권한 — 조직도 + 역할·책임·권한(R&R) 매트릭스
 
-#### 3-1. PESTEL 분석표
+**6. 기획 (Planning)**
+  6.1 리스크와 기회를 다루는 조치 — 리스크 평가 기준표, 평가 매트릭스 포함
+  6.2 목표 및 달성 기획 — 맞춤형 KPI표 포함
+  6.3 변경의 기획
+
+**7. 지원 (Support)**
+  7.1 자원 (인적/물적/인프라/모니터링측정/조직지식)
+  7.2 역량 (적격성) → 「SMS-CP03 교육훈련 절차서」 참조
+  7.3 인식
+  7.4 의사소통 → 「SMS-CP04 의사소통 관리 절차서」 참조
+  7.5 문서화된 정보 → 「SMS-CP05 문서화된 정보관리 절차서」 참조
+
+**8. 운용 (Operation)**
+  8.1 운용 기획 및 관리
+  8.2 제품 및 서비스 요구사항 → 「SMS-QP01 영업관리 절차서」 참조
+  8.3 제품 및 서비스의 설계와 개발 → 「SMS-QP02 설계관리 절차서」 참조
+  8.4 외부에서 제공되는 프로세스, 제품 및 서비스의 관리 → 「SMS-QP03 구매관리 절차서」 참조
+  8.5 생산 및 서비스 제공 → 「SMS-QP04 생산관리 절차서」 참조
+  8.6 제품 및 서비스의 불출(Release) → 「SMS-QP05 검사 및 시험 절차서」 참조
+  8.7 부적합 출력(Output)의 관리 → 「SMS-QP06 부적합품 관리 절차서」 참조
+
+**9. 성과 평가 (Performance Evaluation)**
+  9.1 모니터링, 측정, 분석 및 평가 — 고객만족 모니터링 방법 포함
+  9.2 내부심사 → 「SMS-CP06 내부심사 절차서」 참조
+  9.3 경영검토(Management Review) — 경영검토 입력/출력 항목 기술
+
+**10. 개선 (Improvement)**
+  10.1 일반사항
+  10.2 부적합 및 시정조치 → 「SMS-CP07 시정조치 절차서」 참조
+  10.3 지속적 개선
+
+### 부록
+- 부록 A: 문서 체계표 (문서번호, 문서명, 관련 ISO 조항, 관리부서)
+- 부록 B: 프로세스 상호관계도 (Turtle Diagram 또는 Process Map)
+
+## 리스크 평가 기준표 (6절에 반드시 포함)
+
+#### PESTEL 분석표
 | 구분 | 현재 | 미래 | 기회 | 위협 |
 |------|------|------|------|------|
 | Political(정치적) | | | | |
@@ -161,105 +258,130 @@ KAB(한국인정기구) 공인 심사원 자격을 보유하고 있으며, 500�
 | Ecological(생태학적) | | | | |
 | Legal(법적) | | | | |
 
-#### 3-2. 리스크 평가 기준표
-**발생빈도:**
-| 점수 | 구분 |
-|------|------|
-| 1 | 발생 가능성 낮음 (최근 3년 내 동종업계 미발생) |
-| 2 | 발생 가능성 보통 (최근 3년 내 5건 미만) |
-| 3 | 발생 가능성 높음 (최근 3년 내 5건 이상) |
+#### 리스크 평가 매트릭스
+**발생빈도:** 1=낮음(3년내 미발생), 2=보통(3년내 5건 미만), 3=높음(3년내 5건 이상)
+**영향크기:** 1=낮음(±1천만 미만), 2=보통(±1천만 이상), 3=높음(브랜드 훼손)
 
-**영향크기:**
-| 점수 | 구분 |
-|------|------|
-| 1 | 업무목표 영향 낮음 (금전 손익 ±1천만원 미만) |
-| 2 | 업무목표 영향 보통 (금전 손익 ±1천만원 이상) |
-| 3 | 업무목표 영향 높음, 브랜드 신뢰도 훼손 가능 |
+| 발생결과\\발생가능성 | 1 | 2 | 3 |
+|---------------------|---|---|---|
+| 1 | L | L | M |
+| 2 | L | M | H |
+| 3 | M | H | H |
 
-**리스크 등급 판정 매트릭스:**
-| 구분 | 발생 가능성 1 | 2 | 3 | 4 |
-|------|------------|---|---|---|
-| 발생결과 1 | L | | M | |
-| 2 | | | | |
-| 3 | | M | | H |
-| 4 | | | H | |
+→ H(High): 리스크 조치계획서 연계 | M(Medium): 모니터링 강화 | L(Low): 현 수준 유지
 
-→ High Risk: 개선활동(리스크 조치계획서) 연계
-→ High 기회: 실행계획 수립
+#### 성과지표(KPI) 표 양식
+| No | 성과지표(PI) | 계산식 | 모니터링 주기 | 분석/평가 방법 | 책임자 |
+|----|------------|--------|-------------|-------------|-------|
 
-### 4. 성과지표(KPI) 표 양식
-| No | 성과지표(PI) | 계산식 | 모니터링/측정 주기 | 분석/평가 방법 | 책임자 | 승인자 |
-|----|------------|--------|----------------|-------------|-------|-------|
-
-### 5. 기록관리 표 양식
-| No | 기록명 | 양식번호 | 기록매체 | 최소보유기간 | 보유부서 |
-|----|--------|---------|---------|-----------|---------|
-
-### 6. 시정조치 요구서 양식 (10절에서 반드시 포함)
-```
-[시정조치 요구서]
-- 요구번호 / 요구부서 / 시정조치 내용요약
-- 요구사항 및 조항 / 불일치사항 및 객관적증거
-- 시정조치 합의: 방법 / 제출예정일
-
-[조치부서 작성란]
-- 근본원인: ☞
-- 대책수립(재발방지 대책 포함): ☞
-- 대책이행:
-
-[요구부서 확인란]
-- 제출일자 / 제출기한(준수/미준수)
-- 확인결과 / 확인일자 / 확인자
-- 효과성 확인 결과 / 확인일자 / 확인자
-```
-
-## 문서 톤앤매너 (비즈니스 어투)
+## 문서 톤앤매너
 - "~하여야 한다" / "~을 보장한다" / "~에 대하여 적용한다"
-- ISO 표준 고유 용어 사용: 부적합(Nonconformity), 시정조치(Corrective Action), 문서화된 정보(Documented Information), 리스크(Risk), 준수의무(Compliance Obligations), 이해관계자(Interested Parties)
-- 각 절차서 내에서 다른 절차서를 상호참조할 때: "SMS-CP00 리스크관리 절차서에 따라~", "SMS-QP05 검사 및 시험 절차서 참조" 등으로 명시
-
-## 매뉴얼 구조 (반드시 이 순서로 작성)
-1. 표지 (문서번호 SMS-M, 개정이력, 승인란)
-2. 경영방침 선언 (최고경영자 명의, 기업이념 반영)
-3. 조직 상황 분석 (4절) — PESTEL 분석표, 이해관계자 요구파악표 포함
-4. 리더십 및 의지표명 (5절) — 조직도, 역할·책임·권한 매트릭스
-5. 기획 - 리스크/기회 관리 (6절) — 리스크 평가 기준표, 평가 매트릭스, 맞춤 KPI표 포함
-6. 지원 관리 (7절) — SMS-CP03 교육훈련, SMS-CP04 의사소통, SMS-CP05 문서관리 절차 포함
-7. 운용 절차 (8절) — SMS-QP01~06 (영업→설계→구매→생산/프로젝트→검사시험→부적합품) 절차 포함
-8. 성과 평가 (9절) — SMS-CP06 내부심사, 경영검토 절차 포함
-9. 개선 절차 (10절) — SMS-CP07 시정조치 절차 (시정조치 요구서 양식 포함)
-10. 부록: 문서 양식 목록 (양식번호 체계 포함)
+- ISO 표준 고유 용어: 부적합(Nonconformity), 시정조치(Corrective Action), 문서화된 정보(Documented Information), 리스크(Risk)
+- 절차서 참조 시: "「SMS-CP00 리스크관리 절차서」에 따라~" 형식
 
 ## 마무리 규칙
-- 문서는 **부록(문서 양식 목록)까지만** 작성하고 깔끔하게 종료할 것
-- 마지막에 "추가로 필요하시면~", "원하시면 이어서~" 등 **대화체 제안 문구를 절대 포함하지 말 것**
-- "다음 단계", "참고 사항" 등의 별도 섹션을 추가하지 말 것
+- 부록까지 작성하고 깔끔하게 종료
+- "추가로 필요하시면~", "원하시면~" 등 대화체 제안 문구 절대 포함 금지
+- "다음 단계", "참고 사항" 등 별도 섹션 추가 금지
 - 문서 자체로 완결되어야 함
 """
 
-# ─────────────────────────────────────────────────────────────
-# 무료 버전: 1~5절(표지, 경영방침, 4절, 5절, 6절)까지만 생성
-# ─────────────────────────────────────────────────────────────
-FREE_SYSTEM_PROMPT = SYSTEM_PROMPT.replace(
-    """## 매뉴얼 구조 (반드시 이 순서로 작성)
-1. 표지 (문서번호 SMS-M, 개정이력, 승인란)
-2. 경영방침 선언 (최고경영자 명의, 기업이념 반영)
-3. 조직 상황 분석 (4절) — PESTEL 분석표, 이해관계자 요구파악표 포함
-4. 리더십 및 의지표명 (5절) — 조직도, 역할·책임·권한 매트릭스
-5. 기획 - 리스크/기회 관리 (6절) — 리스크 평가 기준표, 평가 매트릭스, 맞춤 KPI표 포함
-6. 지원 관리 (7절) — SMS-CP03 교육훈련, SMS-CP04 의사소통, SMS-CP05 문서관리 절차 포함
-7. 운용 절차 (8절) — SMS-QP01~06 (영업→설계→구매→생산/프로젝트→검사시험→부적합품) 절차 포함
-8. 성과 평가 (9절) — SMS-CP06 내부심사, 경영검토 절차 포함
-9. 개선 절차 (10절) — SMS-CP07 시정조치 절차 (시정조치 요구서 양식 포함)
-10. 부록: 문서 양식 목록 (양식번호 체계 포함)""",
-    """## 매뉴얼 구조 (아래 5개 섹션만 작성)
-1. 표지 (문서번호 SMS-M, 개정이력, 승인란)
-2. 경영방침 선언 (최고경영자 명의, 기업이념 반영)
-3. 조직 상황 분석 (4절) — PESTEL 분석표, 이해관계자 요구파악표 포함
-4. 리더십 및 의지표명 (5절) — 조직도, 역할·책임·권한 매트릭스
-5. 기획 - 리스크/기회 관리 (6절) — 리스크 평가 기준표, 평가 매트릭스, 맞춤 KPI표 포함
+# ── Phase 1 전용: 표지 ~ 6절(기획)까지만 ──
+SYSTEM_PROMPT_PHASE1 = SYSTEM_PROMPT_FULL.replace(
+    """### 본문 (ISO 조항 순서)
+**4. 조직 상황 (Context of the Organization)**
+  4.1 조직과 조직 상황의 이해 — PESTEL 분석표 포함
+  4.2 이해관계자의 니즈와 기대 이해 — 이해관계자 요구파악표 포함
+  4.3 경영시스템의 적용범위 결정 — 적용범위 선언, 적용 제외 항목 및 타당성
+  4.4 경영시스템과 그 프로세스 — 핵심 프로세스 상호관계도(Process Map) 포함
 
-※ 6~10절(지원 관리, 운용 절차, 성과 평가, 개선 절차, 부록)은 포함하지 마세요."""
+**5. 리더십 (Leadership)**
+  5.1 리더십과 의지표명 — 최고경영자의 역할 기술
+  5.2 방침 — 경영방침의 수립·전달·유지 방법
+  5.3 조직의 역할, 책임 및 권한 — 조직도 + 역할·책임·권한(R&R) 매트릭스
+
+**6. 기획 (Planning)**
+  6.1 리스크와 기회를 다루는 조치 — 리스크 평가 기준표, 평가 매트릭스 포함
+  6.2 목표 및 달성 기획 — 맞춤형 KPI표 포함
+  6.3 변경의 기획
+
+**7. 지원 (Support)**
+  7.1 자원 (인적/물적/인프라/모니터링측정/조직지식)
+  7.2 역량 (적격성) → 「SMS-CP03 교육훈련 절차서」 참조
+  7.3 인식
+  7.4 의사소통 → 「SMS-CP04 의사소통 관리 절차서」 참조
+  7.5 문서화된 정보 → 「SMS-CP05 문서화된 정보관리 절차서」 참조
+
+**8. 운용 (Operation)**
+  8.1 운용 기획 및 관리
+  8.2 제품 및 서비스 요구사항 → 「SMS-QP01 영업관리 절차서」 참조
+  8.3 제품 및 서비스의 설계와 개발 → 「SMS-QP02 설계관리 절차서」 참조
+  8.4 외부에서 제공되는 프로세스, 제품 및 서비스의 관리 → 「SMS-QP03 구매관리 절차서」 참조
+  8.5 생산 및 서비스 제공 → 「SMS-QP04 생산관리 절차서」 참조
+  8.6 제품 및 서비스의 불출(Release) → 「SMS-QP05 검사 및 시험 절차서」 참조
+  8.7 부적합 출력(Output)의 관리 → 「SMS-QP06 부적합품 관리 절차서」 참조
+
+**9. 성과 평가 (Performance Evaluation)**
+  9.1 모니터링, 측정, 분석 및 평가 — 고객만족 모니터링 방법 포함
+  9.2 내부심사 → 「SMS-CP06 내부심사 절차서」 참조
+  9.3 경영검토(Management Review) — 경영검토 입력/출력 항목 기술
+
+**10. 개선 (Improvement)**
+  10.1 일반사항
+  10.2 부적합 및 시정조치 → 「SMS-CP07 시정조치 절차서」 참조
+  10.3 지속적 개선
+
+### 부록
+- 부록 A: 문서 체계표 (문서번호, 문서명, 관련 ISO 조항, 관리부서)
+- 부록 B: 프로세스 상호관계도 (Turtle Diagram 또는 Process Map)""",
+    """### 본문 (아래 3개 조항만 작성 — 7절~10절, 부록은 포함하지 마세요)
+**4. 조직 상황 (Context of the Organization)**
+  4.1 조직과 조직 상황의 이해 — PESTEL 분석표 포함
+  4.2 이해관계자의 니즈와 기대 이해 — 이해관계자 요구파악표 포함
+  4.3 경영시스템의 적용범위 결정 — 적용범위 선언, 적용 제외 항목 및 타당성
+  4.4 경영시스템과 그 프로세스 — 핵심 프로세스 상호관계도(Process Map) 포함
+
+**5. 리더십 (Leadership)**
+  5.1 리더십과 의지표명 — 최고경영자의 역할 기술
+  5.2 방침 — 경영방침의 수립·전달·유지 방법
+  5.3 조직의 역할, 책임 및 권한 — 조직도 + 역할·책임·권한(R&R) 매트릭스
+
+**6. 기획 (Planning)**
+  6.1 리스크와 기회를 다루는 조치 — 리스크 평가 기준표, 평가 매트릭스 포함
+  6.2 목표 및 달성 기획 — 맞춤형 KPI표 포함
+  6.3 변경의 기획
+
+※ 7절(지원)~10절(개선) 및 부록은 포함하지 마세요. 6절까지만 작성합니다."""
+)
+
+# ── Phase 2 전용: 7절(지원) ~ 10절(개선) + 부록 ──
+SYSTEM_PROMPT_PHASE2 = SYSTEM_PROMPT_FULL.replace(
+    """### 표지부
+- 문서번호: SMS-M
+- 제(개)정일자 / 개정번호 / 제·개정 이력표
+- 경영방침 선언문 (최고경영자 명의, 서명란)
+
+### 본문 (ISO 조항 순서)
+**4. 조직 상황 (Context of the Organization)**
+  4.1 조직과 조직 상황의 이해 — PESTEL 분석표 포함
+  4.2 이해관계자의 니즈와 기대 이해 — 이해관계자 요구파악표 포함
+  4.3 경영시스템의 적용범위 결정 — 적용범위 선언, 적용 제외 항목 및 타당성
+  4.4 경영시스템과 그 프로세스 — 핵심 프로세스 상호관계도(Process Map) 포함
+
+**5. 리더십 (Leadership)**
+  5.1 리더십과 의지표명 — 최고경영자의 역할 기술
+  5.2 방침 — 경영방침의 수립·전달·유지 방법
+  5.3 조직의 역할, 책임 및 권한 — 조직도 + 역할·책임·권한(R&R) 매트릭스
+
+**6. 기획 (Planning)**
+  6.1 리스크와 기회를 다루는 조치 — 리스크 평가 기준표, 평가 매트릭스 포함
+  6.2 목표 및 달성 기획 — 맞춤형 KPI표 포함
+  6.3 변경의 기획
+
+**7. 지원 (Support)**""",
+    """### 본문 (아래 섹션만 이어서 작성 — 표지부/4절/5절/6절은 이미 작성됨)
+
+**7. 지원 (Support)**"""
 )
 
 
@@ -359,6 +481,31 @@ def _build_kpi_section(issues):
     return "\n".join(kpi_lines)
 
 
+def _build_procedure_reference_table():
+    """문서 체계표 (부록 A용) — 매뉴얼에서 참조하는 절차서 목록"""
+    lines = [
+        "\n## 참조 절차서 목록 (본 매뉴얼에서 참조하는 Level 2 문서)",
+        "",
+        "### 공통 관리 절차서 (SMS-CP)",
+        "| 문서번호 | 문서명 | 관련 ISO 조항 |",
+        "|---------|--------|-------------|",
+    ]
+    for proc in PROCEDURE_LIST['common']:
+        lines.append(f"| SMS-{proc['id']} | {proc['name']} | {proc['iso_clause']} |")
+    
+    lines.extend([
+        "",
+        "### 운용(품질) 절차서 (SMS-QP)",
+        "| 문서번호 | 문서명 | 관련 ISO 조항 |",
+        "|---------|--------|-------------|",
+    ])
+    for proc in PROCEDURE_LIST['operation']:
+        lines.append(f"| SMS-{proc['id']} | {proc['name']} | {proc['iso_clause']} |")
+    
+    lines.append("")
+    return "\n".join(lines)
+
+
 def _build_user_prompt(form_data, iso_standard_text):
     """사용자 폼 데이터와 ISO 표준 텍스트로 User Prompt 구성"""
     industry = form_data.get('industry', '제조업')
@@ -390,6 +537,9 @@ def _build_user_prompt(form_data, iso_standard_text):
     # 맞춤 KPI 섹션 생성
     kpi_section = _build_kpi_section(issues)
     
+    # 절차서 참조 테이블
+    proc_ref = _build_procedure_reference_table()
+    
     prompt = f"""## 기업 정보
 - 회사명: {company_name}
 - 업종: {industry}
@@ -404,10 +554,12 @@ def _build_user_prompt(form_data, iso_standard_text):
 ## 현장 상세 설명 (사용자 직접 입력)
 {custom_issue if custom_issue else '특이사항 없음'}
 {kpi_section}
+{proc_ref}
 
 ## ISO 표준 요구사항 원문 ({target_iso})
-아래의 ISO 표준 요구사항을 기반으로 위 기업에 맞춤화된 시스템 매뉴얼/절차서를 작성해주세요.
-특히 8절(운용)은 '{main_product if main_product else industry}'의 핵심 프로세스(수주→설계→자재구매→생산/시공→검사→출하)에 맞게 구체적으로 작성하세요.
+아래의 ISO 표준 요구사항을 기반으로 위 기업에 맞춤화된 시스템 매뉴얼을 작성해주세요.
+특히 8절(운용)에서는 '{main_product if main_product else industry}'의 핵심 프로세스를 고려하여,
+각 하위 절차서(QP01~QP06)의 적용 방침을 구체적으로 기술하세요.
 
 ---
 {iso_standard_text[:80000] if iso_standard_text else '(표준 원문 미제공 - 일반 지식 기반으로 작성)'}
@@ -419,7 +571,11 @@ def _build_user_prompt(form_data, iso_standard_text):
 def generate_iso_manual_stream(form_data):
     """
     ISO 매뉴얼을 SSE 스트리밍으로 생성하는 제너레이터.
-    max_sections: 5이면 무료(5절까지), None이면 전체 생성.
+    
+    Phase 분할 아키텍처:
+      - Phase 1 (max_sections=5): 표지 ~ 6절(기획) → max_tokens=8000 (~25초)
+      - Phase 2 (continue_from=7): 7절(지원) ~ 10절(개선) + 부록 → max_tokens=10000 (~35초)
+      - 각 Phase는 Vercel Hobby tier 60초 제한 내에 완료
     """
     api_key = os.environ.get('OPENAI_API_KEY')
     if not api_key:
@@ -431,44 +587,25 @@ def generate_iso_manual_stream(form_data):
     continue_from = form_data.get('continue_from', None)
     target_iso = form_data.get('target_iso', 'ISO 9001:2015')
     iso_text = _load_iso_standard_text(target_iso)
-    print(f"[ISO Manual] Loaded {len(iso_text) if iso_text else 0} chars of {target_iso}")
-    print(f"[ISO Manual] Max sections: {max_sections or 'full'}, continue_from: {continue_from}")
+    print(f"[ISO Manual v3] Loaded {len(iso_text) if iso_text else 0} chars of {target_iso}")
+    print(f"[ISO Manual v3] Phase: {'2 (continue)' if continue_from else '1 (initial)'}, max_sections: {max_sections or 'full'}")
     
     user_prompt = _build_user_prompt(form_data, iso_text)
-    print(f"[ISO Manual] User prompt: {len(user_prompt)} chars")
+    print(f"[ISO Manual v3] User prompt: {len(user_prompt)} chars")
     
-    # 프롬프트 분기: 무료(5절) / 이어서(6~10절) / 전체
+    # ── 프롬프트 분기: Phase 1 / Phase 2 / Full ──
     if continue_from:
-        # 이어서 생성: 6~10절만
-        system_prompt = SYSTEM_PROMPT.replace(
-            """## 매뉴얼 구조 (반드시 이 순서로 작성)
-1. 표지 (문서번호 SMS-M, 개정이력, 승인란)
-2. 경영방침 선언 (최고경영자 명의, 기업이념 반영)
-3. 조직 상황 분석 (4절) — PESTEL 분석표, 이해관계자 요구파악표 포함
-4. 리더십 및 의지표명 (5절) — 조직도, 역할·책임·권한 매트릭스
-5. 기획 - 리스크/기회 관리 (6절) — 리스크 평가 기준표, 평가 매트릭스, 맞춤 KPI표 포함
-6. 지원 관리 (7절) — SMS-CP03 교육훈련, SMS-CP04 의사소통, SMS-CP05 문서관리 절차 포함
-7. 운용 절차 (8절) — SMS-QP01~06 (영업→설계→구매→생산/프로젝트→검사시험→부적합품) 절차 포함
-8. 성과 평가 (9절) — SMS-CP06 내부심사, 경영검토 절차 포함
-9. 개선 절차 (10절) — SMS-CP07 시정조치 절차 (시정조치 요구서 양식 포함)
-10. 부록: 문서 양식 목록 (양식번호 체계 포함)""",
-            """## 매뉴얼 구조 (아래 섹션만 이어서 작성 — 1~5절은 이미 작성됨, 6절부터 작성)
-6. 지원 관리 (7절) — SMS-CP03 교육훈련, SMS-CP04 의사소통, SMS-CP05 문서관리 절차 포함
-7. 운용 절차 (8절) — SMS-QP01~06 (영업→설계→구매→생산/프로젝트→검사시험→부적합품) 절차 포함
-8. 성과 평가 (9절) — SMS-CP06 내부심사, 경영검토 절차 포함
-9. 개선 절차 (10절) — SMS-CP07 시정조치 절차 (시정조치 요구서 양식 포함)
-10. 부록: 문서 양식 목록 (양식번호 체계 포함)
-
-※ 1~5절(표지, 경영방침, 4절, 5절, 6절)은 이미 작성되었으므로 포함하지 마세요.
-※ 바로 "# 6. 지원 관리 (7절)"부터 시작하세요."""
-        )
-        user_prompt += "\n\n## 중요 지시사항\n1~5절(표지~기획)은 이미 작성 완료되었습니다. **6절(지원 관리)부터 이어서 작성**해주세요."
-        max_tokens = 16000
+        # Phase 2: 7절~10절 + 부록
+        system_prompt = SYSTEM_PROMPT_PHASE2
+        user_prompt += "\n\n## 중요 지시사항\n표지부, 4절(조직 상황), 5절(리더십), 6절(기획)은 이미 작성 완료되었습니다.\n**7절(지원)부터 바로 이어서 작성**해주세요. 표지나 서두 인사말 없이 바로 \"## 7. 지원 (Support)\"로 시작합니다."
+        max_tokens = 10000  # Phase 2는 4개 절 + 부록
     elif max_sections == 5:
-        system_prompt = FREE_SYSTEM_PROMPT
+        # Phase 1: 표지 ~ 6절
+        system_prompt = SYSTEM_PROMPT_PHASE1
         max_tokens = 8000
     else:
-        system_prompt = SYSTEM_PROMPT
+        # 전체 생성 (로컬 테스트용)
+        system_prompt = SYSTEM_PROMPT_FULL
         max_tokens = 16000
     
     headers = {
@@ -477,7 +614,7 @@ def generate_iso_manual_stream(form_data):
     }
     
     payload = {
-        "model": "gpt-5.4",
+        "model": "gpt-4.1",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
@@ -498,7 +635,7 @@ def generate_iso_manual_stream(form_data):
         
         if response.status_code != 200:
             error_body = response.text[:500]
-            print(f"[ISO Manual] API Error {response.status_code}: {error_body}")
+            print(f"[ISO Manual v3] API Error {response.status_code}: {error_body}")
             yield f"data: [ERROR] OpenAI API 오류 ({response.status_code})\n\n"
             yield "data: [DONE]\n\n"
             return
@@ -520,15 +657,91 @@ def generate_iso_manual_stream(form_data):
                 except json.JSONDecodeError:
                     continue
         
+        # Phase 완료 시그널
+        if continue_from:
+            yield "data: [PHASE_COMPLETE:2]\n\n"
+        elif max_sections == 5:
+            yield "data: [PHASE_COMPLETE:1]\n\n"
+        
         yield "data: [DONE]\n\n"
-        print("[ISO Manual] Generation completed successfully")
+        print(f"[ISO Manual v3] Generation completed (Phase {'2' if continue_from else '1'})")
         
     except http_requests.exceptions.Timeout:
-        print("[ISO Manual] Request timeout")
+        print("[ISO Manual v3] Request timeout")
         yield "data: [ERROR] AI 생성 시간이 초과되었습니다.\n\n"
         yield "data: [DONE]\n\n"
     except Exception as e:
         error_msg = str(e)
-        print(f"[ISO Manual] Error: {error_msg}")
+        print(f"[ISO Manual v3] Error: {error_msg}")
         yield f"data: [ERROR] {error_msg[:200]}\n\n"
         yield "data: [DONE]\n\n"
+
+
+# ─────────────────────────────────────────────────────────────
+# 개별 절차서 생성 (향후 유료 기능 — 멀티에이전트 확장용)
+# ─────────────────────────────────────────────────────────────
+
+# 절차서 생성용 시스템 프롬프트 템플릿 (향후 활성화)
+PROCEDURE_SYSTEM_PROMPT_TEMPLATE = """당신은 30년 경력의 수석 ISO 심사원입니다.
+사용자가 제공한 기업 정보를 기반으로, 아래 절차서를 작성합니다.
+
+## 작성할 절차서
+- 문서번호: SMS-{proc_id}
+- 문서명: {proc_name}
+- 관련 ISO 조항: {iso_clause}
+
+## 절차서 필수 구조 (반드시 이 순서로 작성)
+```
+[표지]
+■ 문서번호: SMS-{proc_id}
+■ 제(개)정일자: YYYY.MM.DD
+■ 개정번호: 0
+
+[제·개정 이력]
+| Rev | 개정일자 | 개정 사유 및 내용 | 작성자 | 검토자 | 승인자 |
+
+[본문]
+1. 목적 및 적용범위
+2. 용어의 정의
+3. 책임과 권한
+4. 업무절차
+   4.1 업무흐름도 (플로우차트)
+   4.2 업무절차 상세
+5. 주요 성과지표 (KPI)
+6. 관련 문서 (상호참조)
+7. 기록관리
+   | No | 기록명 | 양식번호 | 기록매체 | 최소보유기간 | 보유부서 |
+```
+
+## 문서 톤앤매너
+- "~하여야 한다" / "~을 보장한다"
+- 4.2의 업무절차 상세는 Step-by-Step으로 번호를 매겨 작성
+- 업무흐름도는 마크다운 표 또는 텍스트 플로우차트로 표현
+"""
+
+
+def generate_procedure_stream(form_data, proc_type, proc_id):
+    """
+    개별 절차서를 SSE 스트리밍으로 생성하는 제너레이터.
+    (향후 유료 기능으로 활성화 예정)
+    
+    Args:
+        form_data: 기업 정보 딕셔너리
+        proc_type: 'common' 또는 'operation'
+        proc_id: 절차서 ID (예: 'CP03', 'QP01')
+    """
+    # 절차서 정보 조회
+    proc_list = PROCEDURE_LIST.get(proc_type, [])
+    proc_info = next((p for p in proc_list if p['id'] == proc_id), None)
+    
+    if not proc_info:
+        yield f"data: [ERROR] 존재하지 않는 절차서 ID: {proc_id}\n\n"
+        yield "data: [DONE]\n\n"
+        return
+    
+    # TODO: 결제 확인 로직
+    # TODO: 시스템 프롬프트 조립 + OpenAI 호출
+    # TODO: SSE 스트리밍 반환
+    
+    yield f"data: [ERROR] 절차서 생성 기능은 준비 중입니다. (SMS-{proc_id} {proc_info['name']})\n\n"
+    yield "data: [DONE]\n\n"
