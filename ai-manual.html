@@ -578,7 +578,7 @@
                     <h3>📄 생성된 매뉴얼</h3>
                     <div style="display:flex;align-items:center;gap:12px;">
                         <div class="phase-indicator hidden" id="phase-indicator" style="display:none;padding:4px 10px;border-radius:8px;font-size:0.72rem;font-weight:600;background:rgba(197,168,128,0.15);color:var(--primary);border:1px solid rgba(197,168,128,0.3);white-space:nowrap;">
-                            <span id="phase-text">1단계</span> / 2단계
+                            <span id="phase-text">1단계</span> / 3단계
                         </div>
                         <div class="result-stats" id="result-stats">
                             <span id="stat-time">⏱ --</span>
@@ -628,7 +628,7 @@
                             <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px;">옵션 A</p>
                             <h4 style="font-size:1rem;color:var(--text-primary);margin-bottom:12px;">전체 매뉴얼 받기</h4>
                             <div style="font-size:0.82rem;color:var(--text-secondary);text-align:left;margin-bottom:16px;">
-                                <div style="margin-bottom:4px;">✓ 7~10절 + 부록 이어서 생성</div>
+                                <div style="margin-bottom:4px;">✓ 7~10절 + 부록 이어서 생성 (2~3단계 자동)</div>
                                 <div style="margin-bottom:4px;">✓ PDF / Word 다운로드</div>
                                 <div>✓ 재생성 3회</div>
                             </div>
@@ -792,7 +792,9 @@
             const phaseIndicator = document.getElementById('phase-indicator');
             phaseIndicator.style.display = 'inline-block';
             const phaseText = document.getElementById('phase-text');
-            phaseText.textContent = currentPhase === 1 ? '1단계' : '2단계';
+            if (currentPhase === 1) phaseText.textContent = '1단계';
+            else if (currentPhase === 2) phaseText.textContent = '2단계';
+            else if (currentPhase === 3) phaseText.textContent = '3단계';
             phaseText.style.fontWeight = '800';
 
             // UI updates
@@ -807,11 +809,12 @@
 
             const viewer = document.getElementById('md-viewer');
             viewer.classList.remove('hidden');
-            if (!appendMode) {
+            if (currentPhase === 1) {
                 viewer.innerHTML = '<p class="streaming-cursor" style="color: var(--text-muted);">AI가 매뉴얼(표지~6절)을 생성하고 있습니다...</p>';
-            } else {
-                // Phase 2 이어서 생성 모드
-                viewer.innerHTML = marked.parse(rawMarkdown) + '<p class="streaming-cursor" style="color: var(--text-muted);">7절~10절 + 부록을 이어서 생성하고 있습니다...</p>';
+            } else if (currentPhase === 2) {
+                viewer.innerHTML = marked.parse(rawMarkdown) + '<p class="streaming-cursor" style="color: var(--text-muted);">7~8절(핵심 운용 프로세스)을 이어서 생성 중입니다...</p>';
+            } else if (currentPhase === 3) {
+                viewer.innerHTML = marked.parse(rawMarkdown) + '<p class="streaming-cursor" style="color: var(--text-muted);">9~10절 + 부록을 마무리하고 있습니다...</p>';
             }
 
             // Open SSE connection
@@ -914,13 +917,20 @@
                 const continueParams = new URLSearchParams(lastFormParams);
                 continueParams.set('token', token);
                 continueParams.set('continue_from', '7');
-                // 잠깐 딜레이 후 Phase 2 시작 (사용자에게 전환 인지시키기)
-                setTimeout(() => {
-                    startGeneration(continueParams, true);
-                }, 500);
-                return;  // resetButton하지 않음 — Phase 2가 계속 진행
-            } else if (currentPhase === 2) {
-                // Phase 2 완료: 전체 문서 완성
+                setTimeout(() => startGeneration(continueParams, true), 500);
+                return;  // resetButton하지 않음
+            } else if (currentPhase === 2 && isFullVersion) {
+                // Phase 2 완료 + 전체버전: 자동으로 Phase 3 트리거
+                console.log('[ISO Manual] Phase 2 done → auto-triggering Phase 3...');
+                currentPhase = 3;
+                const token = localStorage.getItem('token');
+                const continueParams = new URLSearchParams(lastFormParams);
+                continueParams.set('token', token);
+                continueParams.set('continue_from', '9');
+                setTimeout(() => startGeneration(continueParams, true), 500);
+                return;  // resetButton하지 않음
+            } else if (currentPhase === 3) {
+                // Phase 3 완료: 전체 문서 완성
                 viewer.scrollTop = viewer.scrollHeight;
                 document.getElementById('download-group').classList.add('visible');
                 document.getElementById('phase-text').textContent = '완료';

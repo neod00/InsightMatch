@@ -334,7 +334,7 @@ SYSTEM_PROMPT_PHASE1 = SYSTEM_PROMPT_FULL.replace(
 ### 부록
 - 부록 A: 문서 체계표 (문서번호, 문서명, 관련 ISO 조항, 관리부서)
 - 부록 B: 프로세스 상호관계도 (Turtle Diagram 또는 Process Map)""",
-    """### 본문 (아래 3개 조항만 작성 — 7절~10절, 부록은 포함하지 마세요)
+    """### 본문 (아래 3개 조항만 작성 — 7절 이후는 포함하지 마세요)
 **4. 조직 상황 (Context of the Organization)**
   4.1 조직과 조직 상황의 이해 — PESTEL 분석표 포함
   4.2 이해관계자의 니즈와 기대 이해 — 이해관계자 요구파악표 포함
@@ -354,7 +354,7 @@ SYSTEM_PROMPT_PHASE1 = SYSTEM_PROMPT_FULL.replace(
 ※ 7절(지원)~10절(개선) 및 부록은 포함하지 마세요. 6절까지만 작성합니다."""
 )
 
-# ── Phase 2 전용: 7절(지원) ~ 10절(개선) + 부록 ──
+# ── Phase 2 전용: 7절(지원) + 8절(운용) — 가장 방대한 구간 ──
 SYSTEM_PROMPT_PHASE2 = SYSTEM_PROMPT_FULL.replace(
     """### 표지부
 - 문서번호: SMS-M
@@ -379,9 +379,70 @@ SYSTEM_PROMPT_PHASE2 = SYSTEM_PROMPT_FULL.replace(
   6.3 변경의 기획
 
 **7. 지원 (Support)**""",
-    """### 본문 (아래 섹션만 이어서 작성 — 표지부/4절/5절/6절은 이미 작성됨)
+    """### 본문 (아래 2개 조항만 이어서 작성 — 표지부/4절/5절/6절은 이미 작성됨, 9절 이후는 포함하지 마세요)
 
 **7. 지원 (Support)**"""
+).replace(
+    """**9. 성과 평가 (Performance Evaluation)**
+  9.1 모니터링, 측정, 분석 및 평가 — 고객만족 모니터링 방법 포함
+  9.2 내부심사 → 「SMS-CP06 내부심사 절차서」 참조
+  9.3 경영검토(Management Review) — 경영검토 입력/출력 항목 기술
+
+**10. 개선 (Improvement)**
+  10.1 일반사항
+  10.2 부적합 및 시정조치 → 「SMS-CP07 시정조치 절차서」 참조
+  10.3 지속적 개선
+
+### 부록
+- 부록 A: 문서 체계표 (문서번호, 문서명, 관련 ISO 조항, 관리부서)
+- 부록 B: 프로세스 상호관계도 (Turtle Diagram 또는 Process Map)""",
+    """※ 9절(성과 평가)~10절(개선) 및 부록은 포함하지 마세요. 8절까지만 작성합니다."""
+)
+
+# ── Phase 3 전용: 9절(성과평가) + 10절(개선) + 부록 ──
+SYSTEM_PROMPT_PHASE3 = SYSTEM_PROMPT_FULL.replace(
+    """### 표지부
+- 문서번호: SMS-M
+- 제(개)정일자 / 개정번호 / 제·개정 이력표
+- 경영방침 선언문 (최고경영자 명의, 서명란)
+
+### 본문 (ISO 조항 순서)
+**4. 조직 상황 (Context of the Organization)**
+  4.1 조직과 조직 상황의 이해 — PESTEL 분석표 포함
+  4.2 이해관계자의 니즈와 기대 이해 — 이해관계자 요구파악표 포함
+  4.3 경영시스템의 적용범위 결정 — 적용범위 선언, 적용 제외 항목 및 타당성
+  4.4 경영시스템과 그 프로세스 — 핵심 프로세스 상호관계도(Process Map) 포함
+
+**5. 리더십 (Leadership)**
+  5.1 리더십과 의지표명 — 최고경영자의 역할 기술
+  5.2 방침 — 경영방침의 수립·전달·유지 방법
+  5.3 조직의 역할, 책임 및 권한 — 조직도 + 역할·책임·권한(R&R) 매트릭스
+
+**6. 기획 (Planning)**
+  6.1 리스크와 기회를 다루는 조치 — 리스크 평가 기준표, 평가 매트릭스 포함
+  6.2 목표 및 달성 기획 — 맞춤형 KPI표 포함
+  6.3 변경의 기획
+
+**7. 지원 (Support)**
+  7.1 자원 (인적/물적/인프라/모니터링측정/조직지식)
+  7.2 역량 (적격성) → 「SMS-CP03 교육훈련 절차서」 참조
+  7.3 인식
+  7.4 의사소통 → 「SMS-CP04 의사소통 관리 절차서」 참조
+  7.5 문서화된 정보 → 「SMS-CP05 문서화된 정보관리 절차서」 참조
+
+**8. 운용 (Operation)**
+  8.1 운용 기획 및 관리
+  8.2 제품 및 서비스 요구사항 → 「SMS-QP01 영업관리 절차서」 참조
+  8.3 제품 및 서비스의 설계와 개발 → 「SMS-QP02 설계관리 절차서」 참조
+  8.4 외부에서 제공되는 프로세스, 제품 및 서비스의 관리 → 「SMS-QP03 구매관리 절차서」 참조
+  8.5 생산 및 서비스 제공 → 「SMS-QP04 생산관리 절차서」 참조
+  8.6 제품 및 서비스의 불출(Release) → 「SMS-QP05 검사 및 시험 절차서」 참조
+  8.7 부적합 출력(Output)의 관리 → 「SMS-QP06 부적합품 관리 절차서」 참조
+
+**9. 성과 평가 (Performance Evaluation)**""",
+    """### 본문 (아래 2개 조항 + 부록만 이어서 작성 — 표지부/4~8절은 이미 작성됨)
+
+**9. 성과 평가 (Performance Evaluation)**"""
 )
 
 
@@ -572,10 +633,11 @@ def generate_iso_manual_stream(form_data):
     """
     ISO 매뉴얼을 SSE 스트리밍으로 생성하는 제너레이터.
     
-    Phase 분할 아키텍처 (기존 전체 결과물 37,643자 ≈ 25K~35K 토큰 기준):
-      - Phase 1 (max_sections=5): 표지 ~ 6절(기획) → max_tokens=16,000 (~40%)
-      - Phase 2 (continue_from=7): 7절(지원) ~ 10절(개선) + 부록 → max_tokens=20,000 (~60%)
-      - Vercel Hobby 60초 제한 초과 시 → 프론트엔드가 부분 결과를 정상 표시
+    3-Phase 분할 아키텍처 (총 60,000 토큰):
+      - Phase 1 (max_sections=5): 표지 ~ 6절(기획)   → 20,000 tokens
+      - Phase 2 (continue_from=7): 7절(지원) + 8절(운용)  → 20,000 tokens
+      - Phase 3 (continue_from=9): 9절(성과) + 10절(개선) + 부록 → 20,000 tokens
+      - 각 Phase ≈ 20K tokens → Vercel 60초 제한에 안정적
     """
     api_key = os.environ.get('OPENAI_API_KEY')
     if not api_key:
@@ -587,29 +649,43 @@ def generate_iso_manual_stream(form_data):
     continue_from = form_data.get('continue_from', None)
     target_iso = form_data.get('target_iso', 'ISO 9001:2015')
     iso_text = _load_iso_standard_text(target_iso)
+    
+    # Phase 번호 결정
+    if continue_from and int(continue_from) >= 9:
+        current_phase = 3
+    elif continue_from:
+        current_phase = 2
+    elif max_sections == 5:
+        current_phase = 1
+    else:
+        current_phase = 0  # 전체 생성 (로컬)
+    
     print(f"[ISO Manual v3] Loaded {len(iso_text) if iso_text else 0} chars of {target_iso}")
-    print(f"[ISO Manual v3] Phase: {'2 (continue)' if continue_from else '1 (initial)'}, max_sections: {max_sections or 'full'}")
+    print(f"[ISO Manual v3] Phase: {current_phase}, continue_from: {continue_from}, max_sections: {max_sections}")
     
     user_prompt = _build_user_prompt(form_data, iso_text)
     print(f"[ISO Manual v3] User prompt: {len(user_prompt)} chars")
     
-    # ── 프롬프트 분기: Phase 1 / Phase 2 / Full ──
-    # 기존 전체 생성 결과: 37,643자 ≈ 25,000~35,000토큰
-    # Phase 1(표지~6절): PESTEL표, 리스크 매트릭스, KPI표 포함 → 약 40%
-    # Phase 2(7~10절+부록): 8절 운용이 가장 방대 → 약 60%
-    if continue_from:
-        # Phase 2: 7절~10절 + 부록
+    # ── 프롬프트 분기: Phase 1 / Phase 2 / Phase 3 / Full ──
+    # 총 60,000 토큰 = 20K + 20K + 20K
+    if current_phase == 3:
+        # Phase 3: 9절(성과평가) + 10절(개선) + 부록
+        system_prompt = SYSTEM_PROMPT_PHASE3
+        user_prompt += "\n\n## 중요 지시사항\n표지부, 4~8절은 이미 작성 완료되었습니다.\n**9절(성과 평가)부터 바로 이어서 작성**해주세요. 표지나 서두 없이 바로 \"## 9. 성과 평가 (Performance Evaluation)\"로 시작합니다."
+        max_tokens = 20000
+    elif current_phase == 2:
+        # Phase 2: 7절(지원) + 8절(운용)
         system_prompt = SYSTEM_PROMPT_PHASE2
-        user_prompt += "\n\n## 중요 지시사항\n표지부, 4절(조직 상황), 5절(리더십), 6절(기획)은 이미 작성 완료되었습니다.\n**7절(지원)부터 바로 이어서 작성**해주세요. 표지나 서두 인사말 없이 바로 \"## 7. 지원 (Support)\"로 시작합니다."
-        max_tokens = 20000  # Phase 2: 7~10절+부록 (8절 운용이 가장 방대)
-    elif max_sections == 5:
+        user_prompt += "\n\n## 중요 지시사항\n표지부, 4절(조직 상황), 5절(리더십), 6절(기획)은 이미 작성 완료되었습니다.\n**7절(지원)부터 바로 이어서 작성**해주세요. 표지나 서두 없이 바로 \"## 7. 지원 (Support)\"로 시작합니다.\n9절 이후는 작성하지 마세요. 8절까지만 작성합니다."
+        max_tokens = 20000
+    elif current_phase == 1:
         # Phase 1: 표지 ~ 6절
         system_prompt = SYSTEM_PROMPT_PHASE1
-        max_tokens = 16000  # Phase 1: 표지+경영방침+4절(PESTEL표)+5절(R&R)+6절(KPI표)
+        max_tokens = 20000
     else:
         # 전체 생성 (로컬 테스트용)
         system_prompt = SYSTEM_PROMPT_FULL
-        max_tokens = 40000
+        max_tokens = 60000
     
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -661,13 +737,11 @@ def generate_iso_manual_stream(form_data):
                     continue
         
         # Phase 완료 시그널
-        if continue_from:
-            yield "data: [PHASE_COMPLETE:2]\n\n"
-        elif max_sections == 5:
-            yield "data: [PHASE_COMPLETE:1]\n\n"
+        if current_phase > 0:
+            yield f"data: [PHASE_COMPLETE:{current_phase}]\n\n"
         
         yield "data: [DONE]\n\n"
-        print(f"[ISO Manual v3] Generation completed (Phase {'2' if continue_from else '1'})")
+        print(f"[ISO Manual v3] Generation completed (Phase {current_phase})")
         
     except http_requests.exceptions.Timeout:
         print("[ISO Manual v3] Request timeout")
