@@ -572,10 +572,10 @@ def generate_iso_manual_stream(form_data):
     """
     ISO 매뉴얼을 SSE 스트리밍으로 생성하는 제너레이터.
     
-    Phase 분할 아키텍처:
-      - Phase 1 (max_sections=5): 표지 ~ 6절(기획) → max_tokens=8000 (~25초)
-      - Phase 2 (continue_from=7): 7절(지원) ~ 10절(개선) + 부록 → max_tokens=10000 (~35초)
-      - 각 Phase는 Vercel Hobby tier 60초 제한 내에 완료
+    Phase 분할 아키텍처 (기존 전체 결과물 37,643자 ≈ 25K~35K 토큰 기준):
+      - Phase 1 (max_sections=5): 표지 ~ 6절(기획) → max_tokens=16,000 (~40%)
+      - Phase 2 (continue_from=7): 7절(지원) ~ 10절(개선) + 부록 → max_tokens=20,000 (~60%)
+      - Vercel Hobby 60초 제한 초과 시 → 프론트엔드가 부분 결과를 정상 표시
     """
     api_key = os.environ.get('OPENAI_API_KEY')
     if not api_key:
@@ -594,19 +594,22 @@ def generate_iso_manual_stream(form_data):
     print(f"[ISO Manual v3] User prompt: {len(user_prompt)} chars")
     
     # ── 프롬프트 분기: Phase 1 / Phase 2 / Full ──
+    # 기존 전체 생성 결과: 37,643자 ≈ 25,000~35,000토큰
+    # Phase 1(표지~6절): PESTEL표, 리스크 매트릭스, KPI표 포함 → 약 40%
+    # Phase 2(7~10절+부록): 8절 운용이 가장 방대 → 약 60%
     if continue_from:
         # Phase 2: 7절~10절 + 부록
         system_prompt = SYSTEM_PROMPT_PHASE2
         user_prompt += "\n\n## 중요 지시사항\n표지부, 4절(조직 상황), 5절(리더십), 6절(기획)은 이미 작성 완료되었습니다.\n**7절(지원)부터 바로 이어서 작성**해주세요. 표지나 서두 인사말 없이 바로 \"## 7. 지원 (Support)\"로 시작합니다."
-        max_tokens = 10000  # Phase 2는 4개 절 + 부록
+        max_tokens = 20000  # Phase 2: 7~10절+부록 (8절 운용이 가장 방대)
     elif max_sections == 5:
         # Phase 1: 표지 ~ 6절
         system_prompt = SYSTEM_PROMPT_PHASE1
-        max_tokens = 8000
+        max_tokens = 16000  # Phase 1: 표지+경영방침+4절(PESTEL표)+5절(R&R)+6절(KPI표)
     else:
         # 전체 생성 (로컬 테스트용)
         system_prompt = SYSTEM_PROMPT_FULL
-        max_tokens = 16000
+        max_tokens = 40000
     
     headers = {
         "Authorization": f"Bearer {api_key}",
