@@ -491,6 +491,10 @@
                         </select>
                     </div>
                     <div class="form-group">
+                        <label>주요 생산품/서비스</label>
+                        <input type="text" id="inp-main-product" placeholder="예: 자동차 엔진부품, 공장 자동화 설비, 건축 배관시공..." required>
+                    </div>
+                    <div class="form-group">
                         <label>규모 (종업원 수)</label>
                         <select id="inp-employees" required>
                             <option value="">선택하세요</option>
@@ -508,6 +512,26 @@
                             <option value="ISO 14001:2015">ISO 14001:2015 (환경경영)</option>
                             <option value="ISO 45001:2018">ISO 45001:2018 (안전보건)</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label>인증 취득 목적 (복수 선택)</label>
+                        <div class="checkbox-group" id="reason-group">
+                            <label class="checkbox-chip">
+                                <input type="checkbox" value="원청사(대기업) 납품 요건" onchange="this.parentElement.classList.toggle('active', this.checked)"> 원청사 납품
+                            </label>
+                            <label class="checkbox-chip">
+                                <input type="checkbox" value="관공서/공공 입찰 참여" onchange="this.parentElement.classList.toggle('active', this.checked)"> 공공 입찰
+                            </label>
+                            <label class="checkbox-chip">
+                                <input type="checkbox" value="해외 수출/글로벌 거래선 확보" onchange="this.parentElement.classList.toggle('active', this.checked)"> 해외 수출
+                            </label>
+                            <label class="checkbox-chip">
+                                <input type="checkbox" value="사내 시스템 체계화/경영 효율화" onchange="this.parentElement.classList.toggle('active', this.checked)"> 사내 체계화
+                            </label>
+                            <label class="checkbox-chip">
+                                <input type="checkbox" value="기존 인증 갱신/전환 심사 대비" onchange="this.parentElement.classList.toggle('active', this.checked)"> 인증 갱신
+                            </label>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>경영 현황 이슈 (복수 선택)</label>
@@ -699,12 +723,13 @@
             // Collect form data
             const company = document.getElementById('inp-company').value.trim();
             const industry = document.getElementById('inp-industry').value;
+            const mainProduct = document.getElementById('inp-main-product').value.trim();
             const employees = document.getElementById('inp-employees').value;
             const targetIso = document.getElementById('inp-target-iso').value;
             const customIssue = document.getElementById('inp-custom-issue').value.trim();
 
-            if (!company || !industry || !employees) {
-                alert('회사명, 업종, 규모를 입력해주세요.');
+            if (!company || !industry || !employees || !mainProduct) {
+                alert('회사명, 업종, 주요 생산품/서비스, 규모를 입력해주세요.');
                 return;
             }
 
@@ -723,15 +748,23 @@
                 issues.push(cb.value);
             });
 
+            // Collect checked reasons (인증 취득 목적)
+            const reasons = [];
+            document.querySelectorAll('#reason-group input:checked').forEach(cb => {
+                reasons.push(cb.value);
+            });
+
             // Build URL params
             const params = new URLSearchParams();
             params.set('company_name', company);
             params.set('industry', industry);
+            params.set('main_product', mainProduct);
             params.set('employees', employees);
             params.set('target_iso', targetIso);
             params.set('custom_issue', customIssue);
             params.set('token', token);  // JWT 인증 토큰
             issues.forEach(i => params.append('issues', i));
+            reasons.forEach(r => params.append('reasons', r));
 
             // Save params for continue generation
             lastFormParams = params;

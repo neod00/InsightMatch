@@ -362,6 +362,7 @@ def _build_kpi_section(issues):
 def _build_user_prompt(form_data, iso_standard_text):
     """사용자 폼 데이터와 ISO 표준 텍스트로 User Prompt 구성"""
     industry = form_data.get('industry', '제조업')
+    main_product = form_data.get('main_product', '')
     employees = form_data.get('employees', '50~100명')
     target_iso = form_data.get('target_iso', 'ISO 9001:2015')
     reasons = form_data.get('reasons', [])
@@ -392,6 +393,7 @@ def _build_user_prompt(form_data, iso_standard_text):
     prompt = f"""## 기업 정보
 - 회사명: {company_name}
 - 업종: {industry}
+- 주요 생산품/서비스: {main_product if main_product else '미입력'}
 - 규모: {employees}
 - 타깃 인증: {target_iso}
 - 인증 추진 배경: {reasons_text}
@@ -405,7 +407,7 @@ def _build_user_prompt(form_data, iso_standard_text):
 
 ## ISO 표준 요구사항 원문 ({target_iso})
 아래의 ISO 표준 요구사항을 기반으로 위 기업에 맞춤화된 시스템 매뉴얼/절차서를 작성해주세요.
-특히 8절(운용)은 해당 업종(제조/건설/엔지니어링)의 핵심 프로세스에 맞게 구체적으로 작성하세요.
+특히 8절(운용)은 '{main_product if main_product else industry}'의 핵심 프로세스(수주→설계→자재구매→생산/시공→검사→출하)에 맞게 구체적으로 작성하세요.
 
 ---
 {iso_standard_text[:80000] if iso_standard_text else '(표준 원문 미제공 - 일반 지식 기반으로 작성)'}

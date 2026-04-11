@@ -542,6 +542,7 @@ def generate_iso_manual():
     form_data = {
         'company_name': request.args.get('company_name', ''),
         'industry': request.args.get('industry', ''),
+        'main_product': request.args.get('main_product', ''),
         'employees': request.args.get('employees', ''),
         'target_iso': request.args.get('target_iso', 'ISO 9001:2015'),
         'reasons': request.args.getlist('reasons'),
