@@ -244,7 +244,7 @@ KAB(한국인정기구) 공인 심사원 자격을 보유하고 있으며, 500�
 
 ### 부록
 - 부록 A: 문서 체계표 (문서번호, 문서명, 관련 ISO 조항, 관리부서)
-- 부록 B: 프로세스 상호관계도 (Turtle Diagram 또는 Process Map)
+  ※ 프로세스 상호관계도(Process Map)는 4.4절에서 이미 작성하였으므로 부록에 **중복 포함 금지**
 
 ## 리스크 평가 기준표 (6절에 반드시 포함)
 
@@ -279,8 +279,9 @@ KAB(한국인정기구) 공인 심사원 자격을 보유하고 있으며, 500�
 - ISO 표준 고유 용어: 부적합(Nonconformity), 시정조치(Corrective Action), 문서화된 정보(Documented Information), 리스크(Risk)
 - 절차서 참조 시: "「SMS-CP00 리스크관리 절차서」에 따라~" 형식
 
-## 부록 B (프로세스 상호관계도) 작성 규칙 — ★ 반드시 준수 ★
-부록 B는 Mermaid flowchart 코드블록으로 작성하며, 아래 규칙을 **엄격히** 따라야 합니다.
+## 프로세스 상호관계도 (4.4절) 작성 규칙 — ★ 반드시 준수 ★
+**4.4 경영시스템과 그 프로세스** 절에 Mermaid flowchart 코드블록으로 Process Map을 작성하며, 아래 규칙을 **엄격히** 따라야 합니다.
+(※ 부록 B에는 작성하지 않음 — 4.4절에만 1회 작성)
 
 ### 포맷 규칙 (렌더링 실패 방지)
 1. **반드시** ```` ```mermaid ```` 와 ```` ``` ```` 로 감싼 코드블록으로 작성
@@ -289,6 +290,14 @@ KAB(한국인정기구) 공인 심사원 자격을 보유하고 있으며, 500�
 4. **각 노드 정의 / 각 엣지(`-->`, `-.->`) / 각 subgraph 라인은 반드시 별개의 줄**에 작성
 5. 노드 라벨 내부 줄바꿈은 `<br/>` 사용 (노드 밖에서는 사용 금지)
 6. 하나의 줄에 `A --> B B --> C` 와 같이 여러 엣지를 붙여쓰지 말 것
+
+### Syntax Error 방지 규칙 (반드시 준수)
+7. **노드 ID는 알파벳 대문자 1~2글자만 사용** (A, B, K, MGT, CORE 등) — 한글/숫자만 / 특수문자 금지
+8. **엣지 레이블에 점(`·`), 따옴표(`"`), 괄호 사용 금지** — 올바른 예: `MGT -.policy.-> CORE` / 잘못된 예: `MGT -.방침·정책.-> CORE`
+9. **노드 라벨(대괄호 `[...]` 안)은 반드시 큰따옴표로 감싸기** — 예: `A["고객 요구"]` (O) / `A[고객 요구]` (X)
+10. 노드 라벨 내부에 큰따옴표(`"`), 역슬래시(`\\`), 백틱(`` ` ``) 사용 금지 — 필요 시 작은따옴표(`'`)로 대체
+11. 스마트 따옴표(`"`, `"`), em-dash(`—`) 사용 금지 — 반드시 straight ASCII 문자만 사용 (`"`, `-`, `/` 등)
+12. `classDef`와 `class` 구문은 코드블록 최하단에만 작성, 각각 별도 줄에
 
 ### 필수 구조 — 4대 프로세스 카테고리 Subgraph
 프로세스를 반드시 아래 4개 카테고리로 `subgraph` 분류:
@@ -306,21 +315,21 @@ KAB(한국인정기구) 공인 심사원 자격을 보유하고 있으며, 500�
 ### 작성 템플릿 (이 구조를 그대로 따르되, 회사 특성에 맞게 내용만 조정)
 ```mermaid
 flowchart TB
-    subgraph MGT["🎯 경영프로세스 (Management)"]
+    subgraph MGT["경영프로세스 (Management)"]
         direction LR
-        K["K. 리스크관리<br/>SMS-CP00"]
-        O["O. 경영검토<br/>SMS-CP01"]
+        K["리스크관리<br/>SMS-CP00"]
+        O["경영검토<br/>SMS-CP01"]
         K --> O
     end
-    subgraph CORE["⚙️ 핵심프로세스 (Core) — 고객가치사슬"]
+    subgraph CORE["핵심프로세스 (Core) - 고객가치사슬"]
         direction LR
-        A["A. 고객요구접수<br/>영업팀 · QP01"]
-        B["B. 서비스/제품 설계<br/>개발팀 · QP02"]
-        C["C. 프로젝트 계획<br/>개발팀 · QP04"]
-        E["E. 개발/운영/생산<br/>개발팀 · QP04"]
-        F["F. 검사·시험<br/>개발팀 · QP05"]
-        H["H. 인도/납품<br/>영업팀"]
-        I["I. 피드백/클레임<br/>영업팀 · QP05"]
+        A["고객요구접수<br/>영업팀 QP01"]
+        B["설계<br/>개발팀 QP02"]
+        C["프로젝트계획<br/>개발팀 QP04"]
+        E["개발/운영<br/>개발팀 QP04"]
+        F["검사시험<br/>개발팀 QP05"]
+        H["인도납품<br/>영업팀"]
+        I["피드백클레임<br/>영업팀 QP05"]
         A --> B
         B --> C
         C --> E
@@ -328,26 +337,26 @@ flowchart TB
         F --> H
         H --> I
     end
-    subgraph SUP["🛠️ 지원프로세스 (Support)"]
+    subgraph SUP["지원프로세스 (Support)"]
         direction LR
-        D["D. 구매/협력업체<br/>SMS-QP03"]
-        L["L. 교육훈련<br/>SMS-CP03"]
-        M["M. 문서정보관리<br/>SMS-CP05"]
+        D["구매/협력업체<br/>SMS-QP03"]
+        L["교육훈련<br/>SMS-CP03"]
+        M["문서정보관리<br/>SMS-CP05"]
     end
-    subgraph IMP["🔄 개선프로세스 (Improvement)"]
+    subgraph IMP["개선프로세스 (Improvement)"]
         direction LR
-        G["G. 부적합관리<br/>SMS-QP06"]
-        N["N. 내부심사<br/>SMS-CP06"]
-        J["J. 시정조치·개선<br/>SMS-CP07"]
+        G["부적합관리<br/>SMS-QP06"]
+        N["내부심사<br/>SMS-CP06"]
+        J["시정조치개선<br/>SMS-CP07"]
         G --> J
         N --> J
     end
-    MGT  -.방침·정책.-> CORE
-    SUP  -.자원공급.-> CORE
-    CORE -.이슈·데이터.-> IMP
-    F    -.부적합 발생.-> G
-    I    -.클레임 input.-> J
-    IMP  -.개선결과.-> MGT
+    MGT  -.policy.-> CORE
+    SUP  -.resources.-> CORE
+    CORE -.issues.-> IMP
+    F    -.NC.-> G
+    I    -.claims.-> J
+    IMP  -.feedback.-> MGT
     classDef mgt  fill:#fde2e4,stroke:#c9184a,stroke-width:2px
     classDef core fill:#dbeafe,stroke:#1e40af,stroke-width:2px
     classDef sup  fill:#e9f5db,stroke:#386641,stroke-width:2px
@@ -358,7 +367,7 @@ flowchart TB
     class G,N,J imp
 ```
 
-(업종에 따라 QP 코드·노드 라벨은 조정 가능하나, 4대 카테고리 subgraph 구조와 엣지 카테고리 연결은 **반드시** 유지)
+(업종에 따라 QP 코드와 노드 라벨은 조정 가능하나, 4대 카테고리 subgraph 구조와 엣지 카테고리 연결은 **반드시** 유지)
 
 ## 마무리 규칙
 - 부록까지 작성하고 깔끔하게 종료
@@ -414,7 +423,7 @@ SYSTEM_PROMPT_PHASE1 = SYSTEM_PROMPT_FULL.replace(
 
 ### 부록
 - 부록 A: 문서 체계표 (문서번호, 문서명, 관련 ISO 조항, 관리부서)
-- 부록 B: 프로세스 상호관계도 (Turtle Diagram 또는 Process Map)""",
+  ※ 프로세스 상호관계도(Process Map)는 4.4절에서 이미 작성하였으므로 부록에 **중복 포함 금지**""",
     """### 본문 (아래 3개 조항만 작성 — 7절 이후는 포함하지 마세요)
 **4. 조직 상황 (Context of the Organization)**
   4.1 조직과 조직 상황의 이해 — PESTEL 분석표 포함
@@ -476,7 +485,7 @@ SYSTEM_PROMPT_PHASE2 = SYSTEM_PROMPT_FULL.replace(
 
 ### 부록
 - 부록 A: 문서 체계표 (문서번호, 문서명, 관련 ISO 조항, 관리부서)
-- 부록 B: 프로세스 상호관계도 (Turtle Diagram 또는 Process Map)""",
+  ※ 프로세스 상호관계도(Process Map)는 4.4절에서 이미 작성하였으므로 부록에 **중복 포함 금지**""",
     """※ 9절(성과 평가)~10절(개선) 및 부록은 포함하지 마세요. 8절까지만 작성합니다."""
 )
 
