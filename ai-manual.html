@@ -18,6 +18,19 @@
     <!-- Marked.js for Markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
+    <!-- Mermaid.js for Process Map (부록 B) diagram rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        if (window.mermaid) {
+            mermaid.initialize({
+                startOnLoad: false,
+                theme: 'default',
+                securityLevel: 'loose',
+                flowchart: { htmlLabels: true, curve: 'basis' }
+            });
+        }
+    </script>
+
     <style>
         .hidden { display: none !important; }
         :root {
@@ -896,10 +909,32 @@
             }, 100);
         }
 
+        // ========== Mermaid Rendering (부록 B Process Map) ==========
+        let mermaidSeq = 0;
+        async function renderMermaidBlocks(root) {
+            if (!window.mermaid) return;
+            const blocks = root.querySelectorAll('pre > code.language-mermaid');
+            if (!blocks.length) return;
+            blocks.forEach(code => {
+                const raw = code.textContent;
+                const div = document.createElement('div');
+                div.className = 'mermaid';
+                div.id = `mmd-${Date.now()}-${mermaidSeq++}`;
+                div.textContent = raw;
+                code.parentElement.replaceWith(div);
+            });
+            try {
+                await mermaid.run({ querySelector: '.mermaid:not([data-processed="true"])' });
+            } catch (err) {
+                console.warn('[Mermaid] render failed:', err);
+            }
+        }
+
         // ========== Finish Generation ==========
         function finishGeneration() {
             const viewer = document.getElementById('md-viewer');
             viewer.innerHTML = marked.parse(rawMarkdown);
+            renderMermaidBlocks(viewer);
 
             if (currentPhase === 1 && !isFullVersion) {
                 // Phase 1 완료 + 무료: 업셀 CTA 표시
