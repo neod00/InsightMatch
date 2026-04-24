@@ -912,8 +912,12 @@
         // ========== Mermaid Rendering (부록 B Process Map) ==========
         let mermaidSeq = 0;
         async function renderMermaidBlocks(root) {
-            if (!window.mermaid) return;
+            if (!window.mermaid) {
+                console.warn('[Mermaid] library not loaded — skipping diagram render');
+                return;
+            }
             const blocks = root.querySelectorAll('pre > code.language-mermaid');
+            console.log(`[Mermaid] found ${blocks.length} code block(s) to render`);
             if (!blocks.length) return;
             blocks.forEach(code => {
                 const raw = code.textContent;
@@ -925,6 +929,7 @@
             });
             try {
                 await mermaid.run({ querySelector: '.mermaid:not([data-processed="true"])' });
+                console.log('[Mermaid] render success');
             } catch (err) {
                 console.warn('[Mermaid] render failed:', err);
             }
@@ -932,6 +937,9 @@
 
         // ========== Finish Generation ==========
         function finishGeneration() {
+            // 펜딩 상태의 throttled 재렌더 타이머를 취소 — 그렇지 않으면
+            // finishGeneration 직후에 발동하여 Mermaid SVG를 덮어씀
+            if (renderTimer) { clearTimeout(renderTimer); renderTimer = null; }
             const viewer = document.getElementById('md-viewer');
             viewer.innerHTML = marked.parse(rawMarkdown);
             renderMermaidBlocks(viewer);
