@@ -62,7 +62,7 @@ class MatchingService:
                 iso_points = (iso_score / len(target_iso)) * 30
                 score += iso_points
                 if matched_iso:
-                    match_details.append(f"ISO {', '.join(matched_iso)} 경험")
+                    match_details.append(f"{', '.join(matched_iso)} 경험")
 
             # 2. Industry Match (20 points - reduced from 25)
             try:
