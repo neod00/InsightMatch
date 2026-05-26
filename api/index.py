@@ -629,8 +629,8 @@ def direct_match():
     Direct consultant matching based on survey data.
     No AI analysis - just rule-based matching.
     """
-    data = request.json
-    
+    data = request.json or {}
+
     company_name = data.get('companyName', '기업')
     contact_email = data.get('contactEmail', '')
     industry = data.get('industry', '')

@@ -142,7 +142,7 @@ class MatchingService:
                     'rating': c.rating,
                     'reviews': c.reviews,
                     'matchReason': "분야별 최우수 전문가 (강력 추천)",
-                    'matchScore': 95, # Artificial high score for fallback
+                    'matchScore': min(int((c.trust_score or 0) * 0.6 + 30), 80),
                     'verified': c.verified,
                     'trustScore': c.trust_score,
                     # BUG-009 Fix: 프로필 정보 추가
