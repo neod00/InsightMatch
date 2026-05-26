@@ -125,7 +125,7 @@
             <a href="#diagnosis" class="hover:text-brand-ink dark:hover:text-white transition-colors">무료 상담</a>
             <a href="#faq" class="hover:text-brand-ink dark:hover:text-white transition-colors">FAQ</a>
             <a href="blog.html" class="hover:text-brand-ink dark:hover:text-white transition-colors">블로그</a>
-            <a href="ai-manual.html" class="text-brand-gold hover:text-brand-ink dark:hover:text-white transition-colors font-bold">AI 매뉴얼</a>
+            <a href="ai-manual.html" class="text-brand-gold hover:text-brand-ink dark:hover:text-white transition-colors font-bold">🤖 AI 매뉴얼</a>
         </nav>
         <div class="flex items-center gap-4">
             <!-- Theme Toggle Button -->
@@ -429,6 +429,12 @@
             <!-- The grid container class is kept primarily for JS selection, but we add Tailwind grid classes internally via JS or as a fallback -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" id="iso-cards-grid">
                 <!-- Cards rendered by JavaScript -->
+            </div>
+            <div id="iso-show-more-wrap" class="flex justify-center mt-8 md:hidden">
+                <button id="iso-show-more-btn" onclick="window._isoShowMore()"
+                    class="px-8 py-3 border border-brand-stone dark:border-brand-darkBorder text-brand-ink/70 dark:text-brand-darkMuted text-sm hover:border-brand-ink dark:hover:border-white hover:text-brand-ink dark:hover:text-white transition-all rounded-full">
+                    더 보기 <span id="iso-show-more-count"></span>
+                </button>
             </div>
         </div>
     </section>

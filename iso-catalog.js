@@ -23,10 +23,40 @@
 
     const catLabels = { mgmt: '경영시스템', esg: 'ESG·탄소', security: '정보보안', supply: '공급망·리스크', industry: '산업특화', hr: '인사·윤리' };
 
-    function renderIsoCatalog(filter) {
+    const MOBILE_LIMIT = 6;
+    let currentFiltered = [];
+    let mobileExpanded = false;
+
+    function updateShowMoreBtn() {
+        const wrap = document.getElementById('iso-show-more-wrap');
+        const countEl = document.getElementById('iso-show-more-count');
+        if (!wrap) return;
+        const isMobile = window.innerWidth < 768;
+        const remaining = currentFiltered.length - MOBILE_LIMIT;
+        if (isMobile && remaining > 0 && !mobileExpanded) {
+            wrap.style.display = 'flex';
+            if (countEl) countEl.textContent = `(${remaining}개 더)`;
+        } else {
+            wrap.style.display = 'none';
+        }
+    }
+
+    window._isoShowMore = function () {
+        mobileExpanded = true;
+        renderIsoCatalog(null, true);
+    };
+
+    function renderIsoCatalog(filter, keepExpanded) {
         const grid = document.getElementById('iso-cards-grid');
         if (!grid) return;
-        const filtered = filter === 'all' ? isoStandards : isoStandards.filter(s => s.cat === filter);
+        if (filter !== null) {
+            currentFiltered = filter === 'all' || !filter ? isoStandards : isoStandards.filter(s => s.cat === filter);
+            mobileExpanded = !!keepExpanded;
+        }
+        const isMobile = window.innerWidth < 768;
+        const filtered = (isMobile && !mobileExpanded)
+            ? currentFiltered.slice(0, MOBILE_LIMIT)
+            : currentFiltered;
 
         grid.innerHTML = filtered.map((s, i) => `
             <div class="iso-std-card fade-in-up delay-${(i % 4) + 1}" data-cat="${s.cat}" onclick="window._toggleIsoCard(this)">
@@ -68,6 +98,8 @@
                 });
             });
         });
+
+        updateShowMoreBtn();
     }
 
     // Toggle card expand/collapse
@@ -85,9 +117,13 @@
         btn.addEventListener('click', () => {
             document.querySelectorAll('.iso-filter-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
+            mobileExpanded = false;
             renderIsoCatalog(btn.dataset.filter);
         });
     });
+
+    // Re-evaluate on resize
+    window.addEventListener('resize', updateShowMoreBtn);
 
     // Initial render
     if (document.getElementById('iso-cards-grid')) {
