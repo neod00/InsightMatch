@@ -145,9 +145,11 @@
     </nav>
 
     <!-- Mobile Navigation -->
-    <div class="mobile-nav" id="mobile-nav">
-        <a href="index.html">홈</a>
-        <a href="signup.html">회원가입</a>
+    <div class="mobile-nav" id="mobile-nav"
+        style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;background:var(--bg-primary);display:none;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px 40px;gap:8px;">
+        <button class="absolute top-6 right-6 p-2" id="close-mobile-nav-login" onclick="closeMobileMenu()" style="position:absolute;top:24px;right:24px;background:none;border:none;cursor:pointer;font-size:1.5rem;color:var(--text-primary);">✕</button>
+        <a href="index.html" style="width:100%;max-width:400px;padding:14px 20px;font-size:1rem;color:var(--text-primary);text-decoration:none;">홈</a>
+        <a href="signup.html" style="width:100%;max-width:400px;padding:14px 20px;font-size:1rem;color:var(--text-primary);text-decoration:none;">회원가입</a>
         <div class="nav-divider"></div>
         <a href="index.html" class="btn btn-secondary" onclick="closeMobileMenu()">
             <i data-lucide="home" style="width: 18px; height: 18px;"></i>
