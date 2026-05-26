@@ -51,6 +51,7 @@ class MatchingService:
                 consultant_iso = json.loads(consultant.iso_experience) if consultant.iso_experience else {}
             except (json.JSONDecodeError, TypeError):
                 consultant_iso = {}
+            iso_score = 0
             matched_iso = []
             for iso in target_iso:
                 if iso in consultant_iso:
