@@ -17,7 +17,7 @@ from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, AnalysisJob, Consultant, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken
+from models import db, AnalysisJob, AdminActionLog, Consultant, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken
 from services import AIService, MatchingService, ProposalService, EmailService, AdvancedDiagnosticService
 from services.iso_manual_service import generate_iso_manual_stream
 
@@ -157,6 +157,18 @@ def admin_required(f):
             return forbidden
         return f(*args, **kwargs)
     return decorated
+
+def log_admin_action(action, target_type, target_id, details=None):
+    admin = getattr(g, 'current_user', None)
+    if not admin:
+        return
+    db.session.add(AdminActionLog(
+        admin_user_id=admin.id,
+        action=action,
+        target_type=target_type,
+        target_id=str(target_id),
+        details=json.dumps(details or {})
+    ))
 
 def _same_id(left, right):
     """Compare database ids robustly across int/string legacy values."""
@@ -2080,12 +2092,16 @@ def get_admin_jobs():
             # Build related projects list with consultant info
             # Deduplicate by (consultant_id, ISO standard) - keep most advanced status
             status_priority = {
-                'in_progress': 6,
-                'contracted': 5,
-                'awaiting_signature': 4,
+                'completed': 9,
+                'in_progress': 8,
+                'contracted': 7,
+                'awaiting_signature': 6,
+                'pending_contract': 5,
+                'negotiating': 4,
                 'proposal_submitted': 3,
                 'proposal_pending': 2,
-                'completed': 1,
+                'planning': 1,
+                'not_selected': 0,
                 'cancelled_by_company': 0
             }
             
@@ -2128,14 +2144,12 @@ def get_admin_jobs():
             # Sort related projects by created_at descending
             related_projects.sort(key=lambda x: x['created_at'] or '', reverse=True)
             
-            # Determine overall status based on projects
             statuses = [p.status for p in project_list]
-            if 'in_progress' in statuses or 'contracted' in statuses:
-                overall_status = 'completed'  # At least one project is active
-            elif 'proposal_submitted' in statuses:
-                overall_status = 'completed'  # Has proposals
+            visible_statuses = [s for s in statuses if s not in ['cancelled_by_company', 'not_selected']]
+            if not visible_statuses:
+                overall_status = 'archived'
             else:
-                overall_status = 'processing'  # Still waiting
+                overall_status = max(visible_statuses, key=lambda s: status_priority.get(s, 0))
             
             results.append({
                 'id': f"company_{company_id}",  # Unique ID for frontend
@@ -2174,6 +2188,41 @@ def get_admin_jobs():
 @admin_required
 def delete_admin_job(job_id):
     """Soft delete a matching request (AnalysisJob)"""
+    if job_id.startswith('company_'):
+        try:
+            company_id = int(job_id.split('_', 1)[1])
+        except (IndexError, ValueError):
+            return jsonify({'message': 'Invalid company job id'}), 400
+
+        protected_count = Project.query.filter(
+            Project.company_id == company_id,
+            Project.status.in_(['contracted', 'in_progress', 'completed'])
+        ).count()
+        if protected_count > 0:
+            return jsonify({
+                'message': 'Contracted or active projects cannot be archived.',
+                'contracted_count': protected_count
+            }), 400
+
+        projects = Project.query.filter_by(company_id=company_id).all()
+        now = datetime.datetime.now(datetime.timezone.utc)
+        archived_count = 0
+        for project in projects:
+            if project.status not in ['cancelled_by_company', 'not_selected']:
+                project.status = 'cancelled_by_company'
+                project.cancelled_at = now
+                project.cancelled_reason = 'Archived by admin'
+                archived_count += 1
+
+        log_admin_action('archive_company_projects', 'company', company_id, {'archived_count': archived_count})
+        db.session.commit()
+        return jsonify({
+            'message': 'Company project group archived',
+            'id': job_id,
+            'archived_count': archived_count,
+            'deleted_at': now.isoformat()
+        })
+
     job = AnalysisJob.query.get_or_404(job_id)
     
     # Check if there are any contracted projects related to this job
@@ -2197,6 +2246,7 @@ def delete_admin_job(job_id):
     # Soft delete
     job.deleted_at = datetime.datetime.now(datetime.timezone.utc)
     job.status = 'deleted'
+    log_admin_action('delete_analysis_job', 'analysis_job', job_id)
     db.session.commit()
     
     return jsonify({
@@ -2211,7 +2261,11 @@ def delete_admin_job(job_id):
 def approve_consultant(consultant_id):
     consultant = Consultant.query.get_or_404(consultant_id)
     consultant.verified = True
+    consultant.status = 'verified'
+    consultant.rejection_reason = None
+    consultant.rejected_at = None
     consultant.trust_score = max(consultant.trust_score or 50, 70)
+    log_admin_action('approve_consultant', 'consultant', consultant_id)
     db.session.commit()
     return jsonify({'message': 'Consultant approved successfully', 'verified': True})
 
@@ -2226,6 +2280,7 @@ def reject_consultant(consultant_id):
     consultant.rejection_reason = reason
     consultant.rejected_at = datetime.datetime.now(datetime.timezone.utc)
     consultant.trust_score = min(consultant.trust_score or 50, 50)
+    log_admin_action('reject_consultant', 'consultant', consultant_id, {'reason': reason})
     db.session.commit()
     return jsonify({'message': f'Consultant rejected: {reason}'})
 
@@ -2234,9 +2289,24 @@ def reject_consultant(consultant_id):
 def revoke_consultant_verification(consultant_id):
     consultant = Consultant.query.get_or_404(consultant_id)
     consultant.verified = False
+    consultant.status = 'pending'
     consultant.trust_score = min(consultant.trust_score or 50, 50)
+    log_admin_action('revoke_consultant', 'consultant', consultant_id)
     db.session.commit()
     return jsonify({'message': 'Consultant verification revoked', 'verified': False})
+
+@app.route('/api/admin/consultants/<int:consultant_id>/restore', methods=['POST'])
+@admin_required
+def restore_consultant(consultant_id):
+    consultant = Consultant.query.get_or_404(consultant_id)
+    consultant.verified = False
+    consultant.status = 'pending'
+    consultant.rejection_reason = None
+    consultant.rejected_at = None
+    consultant.trust_score = max(consultant.trust_score or 50, 50)
+    log_admin_action('restore_consultant', 'consultant', consultant_id)
+    db.session.commit()
+    return jsonify({'message': 'Consultant restored to pending', 'status': consultant.status})
 
 # --- Consultant Detail Endpoint ---
 @app.route('/api/consultants/<int:consultant_id>', methods=['GET'])
@@ -2571,6 +2641,8 @@ def handle_posts():
             image_url=data.get('image_url')
         )
         db.session.add(new_post)
+        db.session.flush()
+        log_admin_action('create_post', 'post', new_post.id, {'title': new_post.title})
         db.session.commit()
         return jsonify({'message': 'Post created', 'id': new_post.id}), 201
 
@@ -2596,6 +2668,7 @@ def get_post(post_id):
             post.tags = data['tags']
         if 'image_url' in data:
             post.image_url = data['image_url']
+        log_admin_action('update_post', 'post', post_id, {'title': post.title})
         db.session.commit()
         return jsonify({'message': 'Post updated', 'post': post.to_dict()})
     
@@ -2603,6 +2676,7 @@ def get_post(post_id):
         forbidden = require_admin_request()
         if forbidden:
             return forbidden
+        log_admin_action('delete_post', 'post', post_id, {'title': post.title})
         db.session.delete(post)
         db.session.commit()
         return jsonify({'message': 'Post deleted', 'id': post_id})
@@ -3029,6 +3103,20 @@ def get_profile_change_logs():
         
         result.append(log_dict)
     
+    return jsonify(result)
+
+@app.route('/api/admin/action-logs', methods=['GET'])
+@admin_required
+def get_admin_action_logs():
+    limit = request.args.get('limit', 100, type=int)
+    logs = AdminActionLog.query.order_by(AdminActionLog.created_at.desc()).limit(limit).all()
+    result = []
+    for log in logs:
+        item = log.to_dict()
+        admin = User.query.get(log.admin_user_id)
+        item['adminName'] = admin.name if admin else 'Unknown'
+        item['adminEmail'] = admin.email if admin else None
+        result.append(item)
     return jsonify(result)
 
 # ========================================

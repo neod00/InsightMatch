@@ -622,13 +622,35 @@
             let currentFilter = 'all';
             let expandedJobId = null;
 
+            function ensureAdminAccess() {
+                const token = localStorage.getItem('token');
+                const user = JSON.parse(localStorage.getItem('user') || 'null');
+                if (!token || !user) {
+                    window.location.href = 'login.html?redirect=admin.html';
+                    return false;
+                }
+                if (user.role !== 'admin') {
+                    window.location.href = 'dashboard.html';
+                    return false;
+                }
+                return true;
+            }
+
             async function authFetch(url, options = {}) {
                 const token = localStorage.getItem('token');
                 const headers = {
                     ...(options.headers || {}),
                     ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                 };
-                return fetch(url, { ...options, headers });
+                const response = await fetch(url, { ...options, headers });
+                if (response.status === 401) {
+                    localStorage.removeItem('token');
+                    window.location.href = 'login.html?redirect=admin.html';
+                } else if (response.status === 403) {
+                    showNotification('관리자 권한이 필요합니다.', 'error');
+                    setTimeout(() => { window.location.href = 'dashboard.html'; }, 1200);
+                }
+                return response;
             }
 
             // Tab Switching
@@ -709,6 +731,17 @@
                         'failed': { text: '실패', class: '', icon: 'x-circle', style: 'background: rgba(239, 68, 68, 0.15); color: var(--error);' },
                         'deleted': { text: '삭제됨', class: '', icon: 'trash-2', style: 'background: rgba(107, 114, 128, 0.15); color: var(--text-muted);' }
                     };
+                    Object.assign(statusConfig, {
+                        'planning': { text: '기획 중', class: 'status-planning', icon: 'clock' },
+                        'proposal_pending': { text: '견적 대기', class: 'status-planning', icon: 'clock' },
+                        'proposal_submitted': { text: '제안 도착', class: 'status-completed', icon: 'file-check' },
+                        'negotiating': { text: '조건 협의', class: 'status-planning', icon: 'messages-square' },
+                        'pending_contract': { text: '계약 검토', class: 'status-planning', icon: 'file-signature' },
+                        'awaiting_signature': { text: '서명 대기', class: 'status-planning', icon: 'pen-line' },
+                        'contracted': { text: '계약 완료', class: 'status-completed', icon: 'check-circle' },
+                        'in_progress': { text: '진행 중', class: 'status-completed', icon: 'play-circle' },
+                        'archived': { text: '보관됨', class: '', icon: 'archive', style: 'background: rgba(107, 114, 128, 0.15); color: var(--text-muted);' }
+                    });
                     const status = statusConfig[job.status] || statusConfig['processing'];
 
                     // Build matching info from intake_data
@@ -1897,7 +1930,9 @@
             }
 
             // Initial fetch only
-            fetchJobs();
+            if (ensureAdminAccess()) {
+                fetchJobs();
+            }
         </script>
 </body>
 

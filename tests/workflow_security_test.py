@@ -8,7 +8,7 @@ import jwt
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../api')))
 
 from index import app, db
-from models import Consultant, Message, Notification, Project, User
+from models import AdminActionLog, AnalysisJob, Consultant, Message, Notification, Project, User
 
 
 def make_token(user):
@@ -283,6 +283,68 @@ class TestWorkflowSecurity(unittest.TestCase):
         consultant = response.get_json()[0]
         self.assertNotIn('email', consultant)
         self.assertNotIn('phone', consultant)
+
+    def test_admin_can_restore_rejected_consultant_and_logs_action(self):
+        self.consultant.status = 'rejected'
+        self.consultant.verified = False
+        self.consultant.rejection_reason = 'Missing evidence'
+        self.consultant.rejected_at = datetime.datetime.now(datetime.timezone.utc)
+        db.session.commit()
+
+        response = self.client.post(
+            f'/api/admin/consultants/{self.consultant.id}/restore',
+            headers=auth_headers(self.admin_user),
+        )
+        self.assertEqual(response.status_code, 200)
+
+        db.session.refresh(self.consultant)
+        self.assertEqual(self.consultant.status, 'pending')
+        self.assertIsNone(self.consultant.rejection_reason)
+        self.assertIsNone(self.consultant.rejected_at)
+
+        log = AdminActionLog.query.filter_by(action='restore_consultant').first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.admin_user_id, self.admin_user.id)
+
+    def test_admin_company_group_archive_matches_admin_list_ids(self):
+        response = self.client.delete(
+            f'/api/admin/jobs/company_{self.company.id}',
+            headers=auth_headers(self.admin_user),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()['archived_count'], 2)
+
+        db.session.refresh(self.project)
+        db.session.refresh(self.other_candidate)
+        self.assertEqual(self.project.status, 'cancelled_by_company')
+        self.assertEqual(self.other_candidate.status, 'cancelled_by_company')
+
+    def test_admin_cannot_archive_company_group_with_active_contract(self):
+        self.project.status = 'contracted'
+        db.session.commit()
+
+        response = self.client.delete(
+            f'/api/admin/jobs/company_{self.company.id}',
+            headers=auth_headers(self.admin_user),
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_admin_action_logs_endpoint_requires_admin(self):
+        log = AdminActionLog(
+            admin_user_id=self.admin_user.id,
+            action='test_action',
+            target_type='test',
+            target_id='1',
+        )
+        db.session.add(log)
+        db.session.commit()
+
+        response = self.client.get('/api/admin/action-logs', headers=auth_headers(self.company))
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.get('/api/admin/action-logs', headers=auth_headers(self.admin_user))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()[0]['action'], 'test_action')
 
 
 if __name__ == '__main__':

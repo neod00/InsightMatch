@@ -128,6 +128,26 @@ class ProfileChangeLog(db.Model):
         }
 
 # ② Notification Model
+class AdminActionLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    admin_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    action = db.Column(db.String(80), nullable=False)
+    target_type = db.Column(db.String(80), nullable=False)
+    target_id = db.Column(db.String(120), nullable=False)
+    details = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=utc_now)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'adminUserId': self.admin_user_id,
+            'action': self.action,
+            'targetType': self.target_type,
+            'targetId': self.target_id,
+            'details': json.loads(self.details) if self.details else {},
+            'createdAt': self.created_at.isoformat() if self.created_at else None
+        }
+
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
