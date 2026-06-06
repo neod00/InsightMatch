@@ -127,6 +127,55 @@ def token_optional(f):
         return f(*args, **kwargs)
     return decorated
 
+def _same_id(left, right):
+    """Compare database ids robustly across int/string legacy values."""
+    return left is not None and right is not None and str(left) == str(right)
+
+def get_project_consultant_user_id(project):
+    consultant = Consultant.query.get(project.consultant_id) if project.consultant_id else None
+    return consultant.user_id if consultant else None
+
+def is_project_company(project, user=None):
+    user = user or getattr(g, 'current_user', None)
+    return bool(user and _same_id(user.id, project.company_id))
+
+def is_project_consultant(project, user=None):
+    user = user or getattr(g, 'current_user', None)
+    return bool(user and _same_id(user.id, get_project_consultant_user_id(project)))
+
+def is_project_participant(project, user=None):
+    return is_project_company(project, user) or is_project_consultant(project, user)
+
+def require_project_participant(project):
+    if not is_project_participant(project):
+        return jsonify({'message': '해당 프로젝트에 접근할 권한이 없습니다.'}), 403
+    return None
+
+def mark_other_session_projects_not_selected(project):
+    """Mark non-selected candidates only after the chosen project is contracted."""
+    if not project.session_id:
+        return
+
+    other_projects = Project.query.filter(
+        Project.session_id == project.session_id,
+        Project.id != project.id,
+        Project.status.notin_(['not_selected', 'cancelled_by_company', 'contracted', 'in_progress', 'completed'])
+    ).all()
+
+    for other in other_projects:
+        other.status = 'not_selected'
+        if other.consultant_id:
+            consultant = Consultant.query.get(other.consultant_id)
+            if consultant and consultant.user_id:
+                notification = Notification(
+                    user_id=consultant.user_id,
+                    type='not_selected',
+                    title='프로젝트 미선정 안내',
+                    message=f'"{other.title}" 프로젝트에서 다른 전문가가 최종 선정되었습니다.',
+                    link='/dashboard.html'
+                )
+                db.session.add(notification)
+
 # --- Helper: Email Validation ---
 def is_valid_email(email):
     """Unicode-aware email validation (RFC 5321 compliant with IDN support)"""
@@ -912,12 +961,14 @@ def handle_projects():
         
     elif request.method == 'POST':
         data = request.json
+        if g.current_user.role != 'company':
+            return jsonify({'message': '기업 담당자만 프로젝트를 생성할 수 있습니다.'}), 403
         
         # === Duplicate Prevention ===
         # Check if an ACTIVE project with same company+consultant+title already exists
-        active_statuses = ['planning', 'proposal_submitted', 'contracted', 'in_progress']
+        active_statuses = ['planning', 'proposal_pending', 'proposal_submitted', 'negotiating', 'pending_contract', 'awaiting_signature', 'contracted', 'in_progress']
         existing = Project.query.filter(
-            Project.company_id == data.get('company_id'),
+            Project.company_id == g.current_user.id,
             Project.consultant_id == data.get('consultant_id'),
             Project.title == data.get('title'),
             Project.status.in_(active_statuses)
@@ -931,7 +982,7 @@ def handle_projects():
             }), 409
         
         new_project = Project(
-            company_id=data.get('company_id'),
+            company_id=g.current_user.id,
             consultant_id=data.get('consultant_id'),
             title=data.get('title'),
             status='planning',
@@ -969,10 +1020,13 @@ def delete_project(project_id):
     
     return jsonify({'message': '프로젝트가 삭제되었습니다.'})
 
-@app.route('/api/projects/<int:project_id>/proposal', methods=['GET'])
+@app.route('/api/projects/<int:project_id>/proposal/download', methods=['GET'])
 @token_required
 def download_proposal(project_id):
     project = Project.query.get_or_404(project_id)
+    forbidden = require_project_participant(project)
+    if forbidden:
+        return forbidden
     
     # 1. 컨설턴트가 직접 업로드한 원본 파일이 있는 경우 해당 파일로 리다이렉트
     if project.proposal_file_url and (project.proposal_file_url.startswith('http') or project.proposal_file_url.startswith('/')):
@@ -1028,7 +1082,7 @@ def request_negotiation(project_id):
     project = Project.query.get_or_404(project_id)
     
     # BUG-015 Fix: 기업(프로젝트 소유자)만 협의 요청 가능
-    if g.current_user.id != project.company_id:
+    if not is_project_company(project):
         return jsonify({'message': '해당 프로젝트의 기업만 조건 협의를 요청할 수 있습니다.'}), 403
     
     # 제안서가 제출된 상태 또는 역제안(counter) 상태에서 협의 가능 (BUG-016 Fix)
@@ -1178,6 +1232,8 @@ def respond_negotiation(project_id):
 def create_contract_draft(project_id):
     """계약서 초안 생성"""
     project = Project.query.get_or_404(project_id)
+    if not is_project_company(project):
+        return jsonify({'message': '해당 프로젝트의 기업 담당자만 계약 초안을 생성할 수 있습니다.'}), 403
     
     if project.status not in ['proposal_submitted', 'negotiating']:
         return jsonify({'message': '제안서가 확정된 프로젝트만 계약서를 생성할 수 있습니다.'}), 400
@@ -1187,33 +1243,6 @@ def create_contract_draft(project_id):
     
     project.contract_special_terms = special_terms
     project.status = 'pending_contract'
-    
-    # ========================================
-    # 미선정 컨설턴트 자동 처리
-    # ========================================
-    if project.session_id:
-        # 동일 session_id를 가진 다른 프로젝트들 찾기 (선택된 프로젝트 제외)
-        other_projects = Project.query.filter(
-            Project.session_id == project.session_id,
-            Project.id != project.id,
-            Project.status.notin_(['not_selected', 'cancelled_by_company', 'contracted', 'in_progress', 'completed'])
-        ).all()
-        
-        for other in other_projects:
-            other.status = 'not_selected'
-            
-            # 미선정 알림 발송
-            if other.consultant_id:
-                consultant = Consultant.query.get(other.consultant_id)
-                if consultant and consultant.user_id:
-                    notification = Notification(
-                        user_id=consultant.user_id,
-                        type='not_selected',
-                        title='프로젝트 미선정 안내',
-                        message=f'"{other.title}" 프로젝트에서 다른 전문가가 선정되었습니다. 다음 기회에 좋은 결과가 있기를 바랍니다.',
-                        link='/dashboard.html'
-                    )
-                    db.session.add(notification)
     
     db.session.commit()
     
@@ -1227,15 +1256,13 @@ def create_contract_draft(project_id):
 def sign_contract_step(project_id):
     """계약서 서명 (기업 또는 전문가)"""
     project = Project.query.get_or_404(project_id)
+    if not is_project_participant(project):
+        return jsonify({'message': '해당 프로젝트의 당사자만 계약서에 서명할 수 있습니다.'}), 403
     
     if project.status not in ['pending_contract', 'awaiting_signature']:
         return jsonify({'message': '계약서가 준비된 프로젝트만 서명할 수 있습니다.'}), 400
     
-    data = request.json
-    signer = data.get('signer')  # 'company' or 'consultant'
-    
-    if signer not in ['company', 'consultant']:
-        return jsonify({'message': '서명자 정보가 필요합니다.'}), 400
+    signer = 'company' if is_project_company(project) else 'consultant'
     
     now = datetime.datetime.now(datetime.timezone.utc)
     
@@ -1248,6 +1275,7 @@ def sign_contract_step(project_id):
     if project.company_signed_at and project.consultant_signed_at:
         project.status = 'contracted'
         project.start_date = now
+        mark_other_session_projects_not_selected(project)
         
         # 마일스톤 생성
         if not project.milestones:
@@ -1301,6 +1329,9 @@ def sign_contract_step(project_id):
 def get_contract_preview(project_id):
     """계약서 미리보기 데이터 반환"""
     project = Project.query.get_or_404(project_id)
+    forbidden = require_project_participant(project)
+    if forbidden:
+        return forbidden
     
     company_user = User.query.get(project.company_id)
     consultant = Consultant.query.get(project.consultant_id)
@@ -1394,6 +1425,9 @@ def submit_proposal(project_id):
 def get_proposal(project_id):
     """특정 프로젝트의 제안서 상세 조회"""
     project = Project.query.get_or_404(project_id)
+    forbidden = require_project_participant(project)
+    if forbidden:
+        return forbidden
     consultant = Consultant.query.get(project.consultant_id)
     
     return jsonify({
@@ -1413,6 +1447,9 @@ def get_proposal(project_id):
 def get_project_detail(project_id):
     """프로젝트 상세 정보 조회 (컨설턴트용)"""
     project = Project.query.get_or_404(project_id)
+    forbidden = require_project_participant(project)
+    if forbidden:
+        return forbidden
     
     # Company 정보 조회 (company_id가 있는 경우)
     company = None
@@ -1647,7 +1684,7 @@ def confirm_schedule(project_id):
     project = Project.query.get_or_404(project_id)
     
     # BUG-021 Fix: 기업(프로젝트 소유자)만 일정 확정 가능
-    if g.current_user.id != project.company_id:
+    if not is_project_company(project):
         return jsonify({'message': '해당 프로젝트의 기업만 일정을 확정할 수 있습니다.'}), 403
     
     if project.schedule_status != 'proposed':
@@ -1688,7 +1725,7 @@ def reject_schedule(project_id):
     project = Project.query.get_or_404(project_id)
     
     # BUG-021 Fix: 기업(프로젝트 소유자)만 일정 거절 가능
-    if g.current_user.id != project.company_id:
+    if not is_project_company(project):
         return jsonify({'message': '해당 프로젝트의 기업만 일정을 거절할 수 있습니다.'}), 403
     
     if project.schedule_status != 'proposed':
@@ -1781,6 +1818,9 @@ def cancel_consultant_request(project_id):
 def add_consultant_to_request():
     """기존 견적 요청 그룹에 컨설턴트 추가"""
     data = request.json
+    if g.current_user.role != 'company':
+        return jsonify({'message': '기업 담당자만 컨설턴트를 추가할 수 있습니다.'}), 403
+
     user_id = str(g.current_user.id)  # BUG-001 Fix: JWT에서 추출
     consultant_id = data.get('consultant_id')
     title = data.get('title')  # 기존 프로젝트 제목 사용
@@ -1843,10 +1883,11 @@ def add_consultant_to_request():
 @token_required
 def get_available_consultants(title):
     """이미 요청되지 않은 컨설턴트 목록 조회 (선별 로직 적용)"""
-    user_id = request.args.get('user_id')
+    if g.current_user.role != 'company':
+        return jsonify({'message': '기업 담당자만 추가 컨설턴트를 조회할 수 있습니다.'}), 403
+
+    user_id = str(g.current_user.id)
     session_id = request.args.get('session_id')
-    if not user_id:
-        return jsonify({'message': 'user_id가 필요합니다.'}), 400
     
     # 1. 이미 요청된 컨설턴트 ID 목록
     existing_projects = Project.query.filter_by(company_id=user_id, title=title).all()
@@ -2149,6 +2190,9 @@ def get_consultant_detail(consultant_id):
 @token_required
 def request_quotes():
     data = request.json
+    if g.current_user.role != 'company':
+        return jsonify({'message': '기업 담당자만 견적 요청을 생성할 수 있습니다.'}), 403
+
     consultant_ids = data.get('consultant_ids', [])
     analysis_context = data.get('analysis_context') or {}  # Ensure it's not None
     
