@@ -127,6 +127,37 @@ def token_optional(f):
         return f(*args, **kwargs)
     return decorated
 
+def require_admin_request():
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return jsonify({'message': 'Admin authentication required'}), 401
+
+    token = auth_header.split(' ', 1)[1]
+    try:
+        payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+        current_user = User.query.get(payload['user_id'])
+    except jwt.ExpiredSignatureError:
+        return jsonify({'message': 'Session expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'message': 'Invalid token'}), 401
+
+    if not current_user:
+        return jsonify({'message': 'Invalid user'}), 401
+    if current_user.role != 'admin':
+        return jsonify({'message': 'Admin role required'}), 403
+
+    g.current_user = current_user
+    return None
+
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        forbidden = require_admin_request()
+        if forbidden:
+            return forbidden
+        return f(*args, **kwargs)
+    return decorated
+
 def _same_id(left, right):
     """Compare database ids robustly across int/string legacy values."""
     return left is not None and right is not None and str(left) == str(right)
@@ -150,6 +181,36 @@ def require_project_participant(project):
     if not is_project_participant(project):
         return jsonify({'message': '해당 프로젝트에 접근할 권한이 없습니다.'}), 403
     return None
+
+def is_consultant_owner_or_admin(consultant, user=None):
+    user = user or getattr(g, 'current_user', None)
+    return bool(user and (user.role == 'admin' or _same_id(user.id, consultant.user_id)))
+
+def consultant_public_dict(consultant):
+    return {
+        'id': consultant.id,
+        'user_id': consultant.user_id,
+        'name': consultant.name,
+        'avatar': consultant.avatar,
+        'specialty': consultant.specialty,
+        'experience': consultant.experience,
+        'rating': consultant.rating,
+        'reviews': consultant.reviews,
+        'matchReason': consultant.match_reason,
+        'regions': consultant.regions,
+        'verified': consultant.verified,
+        'trustScore': consultant.trust_score,
+        'isoExperience': json.loads(consultant.iso_experience) if consultant.iso_experience else {},
+        'industryExperience': json.loads(consultant.industry_experience) if consultant.industry_experience else [],
+        'projectTypes': json.loads(consultant.project_types) if consultant.project_types else [],
+        'orgSizeExperience': json.loads(consultant.org_size_experience) if consultant.org_size_experience else [],
+        'roles': json.loads(consultant.roles) if consultant.roles else [],
+        'profileImageUrl': consultant.profile_image_url,
+        'bio': consultant.bio,
+        'introductionVideoUrl': consultant.introduction_video_url,
+        'companyName': consultant.company_name,
+        'status': consultant.status or ('verified' if consultant.verified else 'pending'),
+    }
 
 def mark_other_session_projects_not_selected(project):
     """Mark non-selected candidates only after the chosen project is contracted."""
@@ -786,6 +847,7 @@ def direct_match():
 
 # --- Consultant Endpoints ---
 @app.route('/api/consultants', methods=['GET'])
+@token_optional
 def get_consultants():
     job_id = request.args.get('job_id')
     industry = request.args.get('industry')
@@ -815,7 +877,9 @@ def get_consultants():
         return jsonify(matches)
             
     consultants = Consultant.query.all()
-    return jsonify([c.to_dict() for c in consultants])
+    if getattr(g, 'current_user', None) and g.current_user.role == 'admin':
+        return jsonify([c.to_dict() for c in consultants])
+    return jsonify([consultant_public_dict(c) for c in consultants])
 
 @app.route('/api/consultants/register', methods=['POST'])
 def register_consultant():
@@ -912,7 +976,6 @@ def register_consultant():
 @token_required
 def handle_projects():
     user_id = str(g.current_user.id)
-    
     if request.method == 'GET':
         if not user_id:
             return jsonify({'message': 'User ID required'}), 400
@@ -1005,6 +1068,8 @@ def handle_projects():
 def delete_project(project_id):
     """Delete a project (only if not contracted)"""
     project = Project.query.get_or_404(project_id)
+    if not is_project_company(project):
+        return jsonify({'message': 'Only the project company can delete this project.'}), 403
     
     # Cannot delete contracted projects
     if project.status in ['contracted', 'in_progress', 'completed']:
@@ -1052,6 +1117,9 @@ def download_proposal(project_id):
 def sign_contract(project_id):
     """간편 계약 (BUG-018: 표준 계약 경로(/contract/draft + /contract/sign) 사용 권장)"""
     project = Project.query.get_or_404(project_id)
+    if not is_project_participant(project):
+        return jsonify({'message': 'Only project participants can sign this project.'}), 403
+    return jsonify({'message': 'Use /api/projects/<project_id>/contract/sign for two-party signing.'}), 410
     
     # 제안서가 제출되지 않은 경우 계약 불가
     if project.status != 'proposal_submitted':
@@ -1767,6 +1835,8 @@ def reject_schedule(project_id):
 def cancel_consultant_request(project_id):
     """특정 컨설턴트에 대한 요청 취소 (Soft Delete + 알림)"""
     project = Project.query.get_or_404(project_id)
+    if not is_project_company(project):
+        return jsonify({'message': 'Only the project company can cancel this request.'}), 403
     
     # 이미 계약된 경우 취소 불가
     if project.status in ['contracted', 'in_progress', 'completed']:
@@ -1967,6 +2037,7 @@ def get_available_consultants(title):
 
 # --- Admin Endpoints ---
 @app.route('/api/admin/jobs', methods=['GET'])
+@admin_required
 def get_admin_jobs():
     """
     Get all matching requests (projects) for admin dashboard.
@@ -2100,6 +2171,7 @@ def get_admin_jobs():
 
 # --- Admin Job Delete Endpoint ---
 @app.route('/api/admin/jobs/<string:job_id>', methods=['DELETE'])
+@admin_required
 def delete_admin_job(job_id):
     """Soft delete a matching request (AnalysisJob)"""
     job = AnalysisJob.query.get_or_404(job_id)
@@ -2135,6 +2207,7 @@ def delete_admin_job(job_id):
 
 # --- Consultant Admin Endpoints ---
 @app.route('/api/admin/consultants/<int:consultant_id>/approve', methods=['POST'])
+@admin_required
 def approve_consultant(consultant_id):
     consultant = Consultant.query.get_or_404(consultant_id)
     consultant.verified = True
@@ -2143,15 +2216,21 @@ def approve_consultant(consultant_id):
     return jsonify({'message': 'Consultant approved successfully', 'verified': True})
 
 @app.route('/api/admin/consultants/<int:consultant_id>/reject', methods=['POST'])
+@admin_required
 def reject_consultant(consultant_id):
     data = request.json
     reason = data.get('reason', 'No reason provided')
     consultant = Consultant.query.get_or_404(consultant_id)
-    db.session.delete(consultant)
+    consultant.verified = False
+    consultant.status = 'rejected'
+    consultant.rejection_reason = reason
+    consultant.rejected_at = datetime.datetime.now(datetime.timezone.utc)
+    consultant.trust_score = min(consultant.trust_score or 50, 50)
     db.session.commit()
     return jsonify({'message': f'Consultant rejected: {reason}'})
 
 @app.route('/api/admin/consultants/<int:consultant_id>/revoke', methods=['POST'])
+@admin_required
 def revoke_consultant_verification(consultant_id):
     consultant = Consultant.query.get_or_404(consultant_id)
     consultant.verified = False
@@ -2480,6 +2559,9 @@ def handle_posts():
         return jsonify([p.to_dict() for p in posts])
     
     elif request.method == 'POST':
+        forbidden = require_admin_request()
+        if forbidden:
+            return forbidden
         data = request.json
         new_post = Post(
             title=data.get('title'),
@@ -2500,6 +2582,9 @@ def get_post(post_id):
         return jsonify(post.to_dict())
     
     elif request.method == 'PUT':
+        forbidden = require_admin_request()
+        if forbidden:
+            return forbidden
         data = request.json
         if data.get('title'):
             post.title = data['title']
@@ -2515,6 +2600,9 @@ def get_post(post_id):
         return jsonify({'message': 'Post updated', 'post': post.to_dict()})
     
     elif request.method == 'DELETE':
+        forbidden = require_admin_request()
+        if forbidden:
+            return forbidden
         db.session.delete(post)
         db.session.commit()
         return jsonify({'message': 'Post deleted', 'id': post_id})
@@ -2577,6 +2665,7 @@ def health_check():
 
 # --- Seed Data Endpoint (Admin only) ---
 @app.route('/api/admin/seed', methods=['POST'])
+@admin_required
 def seed_data():
     # Seed Posts
     if Post.query.count() == 0:
@@ -2760,6 +2849,8 @@ def get_notifications():
 def mark_notification_read(notification_id):
     """알림 읽음 처리"""
     notification = Notification.query.get_or_404(notification_id)
+    if not _same_id(notification.user_id, g.current_user.id):
+        return jsonify({'message': 'Notification access denied'}), 403
     notification.is_read = True
     db.session.commit()
     return jsonify({'message': 'Marked as read'})
@@ -2794,16 +2885,19 @@ def create_notification(user_id, type, title, message=None, link=None):
 # ========================================
 
 @app.route('/api/consultants/<int:consultant_id>/profile', methods=['GET', 'PUT'])
+@token_required
 def consultant_profile(consultant_id):
     """컨설턴트 프로필 조회/수정"""
     consultant = Consultant.query.get_or_404(consultant_id)
+    if not is_consultant_owner_or_admin(consultant):
+        return jsonify({'message': 'Only the consultant owner can manage this profile.'}), 403
     
     if request.method == 'GET':
         return jsonify(consultant.to_dict())
     
     elif request.method == 'PUT':
         data = request.json
-        user_id = data.get('user_id')  # 변경한 사용자 ID
+        user_id = g.current_user.id
         
         # 변경 이력 기록을 위한 필드 매핑
         field_mapping = {
@@ -2842,9 +2936,12 @@ def consultant_profile(consultant_id):
         return jsonify({'message': 'Profile updated', 'consultant': consultant.to_dict()})
 
 @app.route('/api/consultants/<int:consultant_id>/portfolio', methods=['POST', 'DELETE'])
+@token_required
 def manage_portfolio(consultant_id):
     """포트폴리오 파일 관리"""
     consultant = Consultant.query.get_or_404(consultant_id)
+    if not is_consultant_owner_or_admin(consultant):
+        return jsonify({'message': 'Only the consultant owner can manage portfolio files.'}), 403
     
     current_files = json.loads(consultant.portfolio_files) if consultant.portfolio_files else []
     
@@ -2873,6 +2970,7 @@ def manage_portfolio(consultant_id):
 # ========================================
 
 @app.route('/api/upload/signed-url', methods=['POST'])
+@token_required
 def get_upload_signed_url():
     """Supabase Storage 업로드용 Signed URL 생성"""
     # NOTE: 실제 Supabase Storage 연동 시 supabase-py 사용
@@ -2900,6 +2998,7 @@ def get_upload_signed_url():
 # ========================================
 
 @app.route('/api/admin/profile-change-logs', methods=['GET'])
+@admin_required
 def get_profile_change_logs():
     """프로필 변경 이력 조회 (관리자용)"""
     consultant_id = request.args.get('consultant_id')
@@ -2937,6 +3036,7 @@ def get_profile_change_logs():
 # ========================================
 
 @app.route('/api/upload/profile-image', methods=['POST'])
+@token_required
 def upload_profile_image():
     """프로필 이미지를 Supabase Storage에 업로드"""
     import requests
@@ -2946,7 +3046,9 @@ def upload_profile_image():
         return jsonify({'error': 'No file provided'}), 400
     
     file = request.files['file']
-    user_id = request.form.get('user_id', 'unknown')
+    if g.current_user.role not in ['consultant', 'admin']:
+        return jsonify({'error': 'Only consultants can upload profile images'}), 403
+    user_id = g.current_user.id
     
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
@@ -3001,6 +3103,7 @@ def upload_profile_image():
         return jsonify({'error': f'업로드 중 오류: {str(e)}'}), 500
 
 @app.route('/api/upload/proposal-file', methods=['POST'])
+@token_required
 def upload_proposal_file():
     """제안서 원본 파일을 Supabase Storage에 업로드"""
     import requests
@@ -3010,7 +3113,9 @@ def upload_proposal_file():
         return jsonify({'error': 'No file provided'}), 400
     
     file = request.files['file']
-    user_id = request.form.get('user_id', 'unknown')
+    if g.current_user.role not in ['consultant', 'admin']:
+        return jsonify({'error': 'Only consultants can upload proposal files'}), 403
+    user_id = g.current_user.id
     
     # 1. 파일 확장자 추출 및 안전한 파일명 생성
     file_ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else 'pdf'
@@ -3067,6 +3172,9 @@ def upload_proposal_file():
 def handle_messages(project_id):
     """프로젝트 메시지 조회/전송"""
     project = Project.query.get_or_404(project_id)
+    forbidden = require_project_participant(project)
+    if forbidden:
+        return forbidden
     
     if request.method == 'GET':
         # 메시지 목록 조회
@@ -3085,7 +3193,7 @@ def handle_messages(project_id):
     
     elif request.method == 'POST':
         data = request.json
-        sender_id = data.get('sender_id')
+        sender_id = g.current_user.id
         content = data.get('content', '').strip()
         
         if not content:
@@ -3139,6 +3247,10 @@ def handle_messages(project_id):
 @token_required
 def mark_messages_read(project_id):
     """해당 프로젝트의 메시지 읽음 처리"""
+    project = Project.query.get_or_404(project_id)
+    forbidden = require_project_participant(project)
+    if forbidden:
+        return forbidden
     user_id = str(g.current_user.id)
     
     if not user_id:
@@ -3194,6 +3306,9 @@ def get_unread_message_count():
 def get_contact_info(project_id):
     """계약 완료된 프로젝트의 컨설턴트 연락처 조회"""
     project = Project.query.get_or_404(project_id)
+    forbidden = require_project_participant(project)
+    if forbidden:
+        return forbidden
     
     # 계약 완료 상태인지 확인
     if project.status not in ['contracted', 'in_progress', 'completed']:

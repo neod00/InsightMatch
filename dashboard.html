@@ -3962,7 +3962,7 @@
 
         async function fetchNotifications() {
             try {
-                const response = await authFetch(`${API_BASE_URL}/api/notifications?user_id=${user.id}`);
+                const response = await authFetch(`${API_BASE_URL}/api/notifications`);
                 const data = await response.json();
 
                 notificationsData = data.notifications || [];
@@ -4140,10 +4140,7 @@
                 const response = await authFetch(`${API_BASE_URL}/api/projects/${currentMessageProjectId}/messages`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        sender_id: user.id,
-                        content: content
-                    })
+                    body: JSON.stringify({ content: content })
                 });
 
                 if (response.ok) {

@@ -622,6 +622,15 @@
             let currentFilter = 'all';
             let expandedJobId = null;
 
+            async function authFetch(url, options = {}) {
+                const token = localStorage.getItem('token');
+                const headers = {
+                    ...(options.headers || {}),
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                };
+                return fetch(url, { ...options, headers });
+            }
+
             // Tab Switching
             function switchTab(tab) {
                 currentTab = tab;
@@ -647,7 +656,7 @@
             // --- Analysis Jobs ---
             async function fetchJobs() {
                 try {
-                    const response = await fetch('/api/admin/jobs');
+                    const response = await authFetch('/api/admin/jobs');
                     allJobsAdmin = await response.json();
                     renderJobs(allJobsAdmin);
                     updateStats(allJobsAdmin);
@@ -901,7 +910,7 @@
             // --- Consultants Management ---
             async function fetchConsultantsAdmin() {
                 try {
-                    const response = await fetch('/api/consultants');
+                    const response = await authFetch('/api/consultants');
                     allConsultantsAdmin = await response.json();
                     updateConsultantStats();
                     renderConsultantsAdmin();
@@ -1111,7 +1120,7 @@
                 if (!confirm('이 컨설턴트를 승인하시겠습니까?')) return;
 
                 try {
-                    const response = await fetch(`/api/admin/consultants/${id}/approve`, {
+                    const response = await authFetch(`/api/admin/consultants/${id}/approve`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' }
                     });
@@ -1188,7 +1197,7 @@
                 confirmBtn.disabled = true;
 
                 try {
-                    const response = await fetch(`/api/admin/consultants/${id}/reject`, {
+                    const response = await authFetch(`/api/admin/consultants/${id}/reject`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ reason })
@@ -1215,7 +1224,7 @@
                 if (!confirm('이 컨설턴트의 검증을 취소하시겠습니까?')) return;
 
                 try {
-                    const response = await fetch(`/api/admin/consultants/${id}/revoke`, {
+                    const response = await authFetch(`/api/admin/consultants/${id}/revoke`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' }
                     });
@@ -1236,7 +1245,7 @@
                 if (!confirm('이 컨설턴트를 승인 대기 상태로 복구하시겠습니까?')) return;
 
                 try {
-                    const response = await fetch(`/api/admin/consultants/${id}/restore`, {
+                    const response = await authFetch(`/api/admin/consultants/${id}/restore`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' }
                     });
@@ -1261,7 +1270,7 @@
                 if (!confirmed) return;
 
                 try {
-                    const response = await fetch(`/api/admin/jobs/${jobId}`, {
+                    const response = await authFetch(`/api/admin/jobs/${jobId}`, {
                         method: 'DELETE',
                         headers: { 'Content-Type': 'application/json' }
                     });
@@ -1823,13 +1832,13 @@
                 try {
                     let response;
                     if (editId) {
-                        response = await fetch(`/api/posts/${editId}`, {
+                        response = await authFetch(`/api/posts/${editId}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
                         });
                     } else {
-                        response = await fetch('/api/posts', {
+                        response = await authFetch('/api/posts', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
@@ -1850,7 +1859,7 @@
                 if (!confirm(`"${title}..." 글을 정말 삭제하시겠습니까?`)) return;
 
                 try {
-                    const response = await fetch(`/api/posts/${id}`, { method: 'DELETE' });
+                    const response = await authFetch(`/api/posts/${id}`, { method: 'DELETE' });
                     if (!response.ok) throw new Error('Failed to delete');
                     showNotification('게시글이 삭제되었습니다.', 'success');
                     fetchBlogPostsAdmin();

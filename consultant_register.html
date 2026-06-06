@@ -1084,8 +1084,10 @@
                     return '';
                 })();
 
+                const token = localStorage.getItem('token');
                 const response = await fetch(`${API_BASE_URL}/api/upload/profile-image`, {
                     method: 'POST',
+                    headers: token ? { 'Authorization': `Bearer ${token}` } : {},
                     body: formData
                 });
 

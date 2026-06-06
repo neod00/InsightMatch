@@ -8,7 +8,7 @@ import jwt
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../api')))
 
 from index import app, db
-from models import Consultant, Project, User
+from models import Consultant, Message, Notification, Project, User
 
 
 def make_token(user):
@@ -55,7 +55,13 @@ class TestWorkflowSecurity(unittest.TestCase):
             role='consultant',
             name='Consultant User',
         )
-        db.session.add_all([self.company, self.other_company, self.consultant_user])
+        self.admin_user = User(
+            email='admin@example.com',
+            password_hash='x',
+            role='admin',
+            name='Admin User',
+        )
+        db.session.add_all([self.company, self.other_company, self.consultant_user, self.admin_user])
         db.session.flush()
 
         self.consultant = Consultant(
@@ -170,6 +176,113 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertIsNotNone(self.project.consultant_signed_at)
         self.assertEqual(self.project.status, 'contracted')
         self.assertEqual(self.other_candidate.status, 'not_selected')
+
+    def test_admin_endpoints_require_admin_role(self):
+        response = self.client.get('/api/admin/jobs')
+        self.assertEqual(response.status_code, 401)
+
+        response = self.client.get('/api/admin/jobs', headers=auth_headers(self.company))
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.get('/api/admin/jobs', headers=auth_headers(self.admin_user))
+        self.assertEqual(response.status_code, 200)
+
+    def test_only_project_company_can_delete_or_cancel_request(self):
+        response = self.client.delete(
+            f'/api/projects/{self.project.id}',
+            headers=auth_headers(self.other_company),
+        )
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.post(
+            f'/api/projects/{self.project.id}/cancel',
+            json={'reason': 'not mine'},
+            headers=auth_headers(self.other_company),
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_consultant_profile_update_requires_owner(self):
+        response = self.client.put(
+            f'/api/consultants/{self.consultant.id}/profile',
+            json={'bio': 'tampered', 'user_id': self.other_company.id},
+            headers=auth_headers(self.other_company),
+        )
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.put(
+            f'/api/consultants/{self.consultant.id}/profile',
+            json={'bio': 'updated by owner', 'user_id': self.other_company.id},
+            headers=auth_headers(self.consultant_user),
+        )
+        self.assertEqual(response.status_code, 200)
+
+        db.session.refresh(self.consultant)
+        self.assertEqual(self.consultant.bio, 'updated by owner')
+
+    def test_messages_require_project_participant_and_use_authenticated_sender(self):
+        response = self.client.get(
+            f'/api/projects/{self.project.id}/messages',
+            headers=auth_headers(self.other_company),
+        )
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.post(
+            f'/api/projects/{self.project.id}/messages',
+            json={'sender_id': self.other_company.id, 'content': 'hello'},
+            headers=auth_headers(self.consultant_user),
+        )
+        self.assertEqual(response.status_code, 200)
+
+        message = Message.query.filter_by(project_id=self.project.id).first()
+        self.assertEqual(message.sender_id, self.consultant_user.id)
+
+    def test_contact_info_requires_project_participant_after_contract(self):
+        self.project.status = 'contracted'
+        db.session.commit()
+
+        response = self.client.get(
+            f'/api/projects/{self.project.id}/contact-info',
+            headers=auth_headers(self.other_company),
+        )
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.get(
+            f'/api/projects/{self.project.id}/contact-info',
+            headers=auth_headers(self.company),
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_notification_read_requires_owner(self):
+        notification = Notification(
+            user_id=self.company.id,
+            type='proposal_received',
+            title='Proposal received',
+        )
+        db.session.add(notification)
+        db.session.commit()
+
+        response = self.client.post(
+            f'/api/notifications/{notification.id}/read',
+            headers=auth_headers(self.other_company),
+        )
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.post(
+            f'/api/notifications/{notification.id}/read',
+            headers=auth_headers(self.company),
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_public_consultant_list_does_not_expose_contact_fields(self):
+        self.consultant.email = 'private@example.com'
+        self.consultant.phone = '010-1234-5678'
+        db.session.commit()
+
+        response = self.client.get('/api/consultants')
+        self.assertEqual(response.status_code, 200)
+        consultant = response.get_json()[0]
+        self.assertNotIn('email', consultant)
+        self.assertNotIn('phone', consultant)
 
 
 if __name__ == '__main__':
