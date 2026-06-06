@@ -38,6 +38,14 @@ Thumbs.db
 
 # Test outputs
 test_output*.txt
+account_check_result.txt
+consultant_profile_detail.txt
+naver_debug*.html
+
+# Browser automation artifacts
+.playwright-mcp/
+ui-*.png
+verify-*.png
 
 # Backup folders (local only)
 backup_server/
@@ -50,13 +58,28 @@ full_models_list.txt
 
 # Agent config (local only)
 .agent/
+.agents/
+.claude/
+.codex/
+.cursor/
+.gemini/
 AGENTS.md
+CLAUDE.md
+GEMINI.md
 directives/
 execution/
 docs/ontology.md
 docs/topology.md
 
 # Automation/Testing (local only)
+check_*.py
+debug_*.py
+diagnose_*.py
+list_*.py
+parse_*.py
+sync_*.py
+verify_*.py
+create_test_*.py
 verify_phase*.py
 verify_db.py
 setup_*.py
@@ -66,3 +89,11 @@ fix_db_*.py
 verification_report.md
 test_load_*.py
 poll_*.py
+
+# External reference documents and exports (local only)
+오픈API 활용자가이드_*/
+오픈API 활용자가이드_*.docx
+오픈API 활용자가이드_*.htm
+오픈API 활용자가이드_*.pdf
+오픈API 활용자가이드_*.rtf
+오픈API 활용자가이드_*.txt
