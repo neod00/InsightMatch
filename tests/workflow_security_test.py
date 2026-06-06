@@ -319,6 +319,49 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertEqual(self.project.status, 'cancelled_by_company')
         self.assertEqual(self.other_candidate.status, 'cancelled_by_company')
 
+    def test_admin_can_archive_unassigned_company_group(self):
+        orphan_project = Project(
+            company_id=None,
+            consultant_id=self.consultant.id,
+            title='Unassigned request',
+            description='Created without a linked company account',
+            status='planning',
+        )
+        db.session.add(orphan_project)
+        db.session.commit()
+
+        jobs_response = self.client.get('/api/admin/jobs', headers=auth_headers(self.admin_user))
+        self.assertEqual(jobs_response.status_code, 200)
+        job_ids = [job['id'] for job in jobs_response.get_json()]
+        self.assertIn('company_unassigned', job_ids)
+
+        response = self.client.delete(
+            '/api/admin/jobs/company_unassigned',
+            headers=auth_headers(self.admin_user),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()['archived_count'], 1)
+
+        db.session.refresh(orphan_project)
+        self.assertEqual(orphan_project.status, 'cancelled_by_company')
+
+    def test_admin_can_archive_legacy_company_none_group_id(self):
+        orphan_project = Project(
+            company_id=None,
+            consultant_id=self.consultant.id,
+            title='Legacy unassigned request',
+            status='planning',
+        )
+        db.session.add(orphan_project)
+        db.session.commit()
+
+        response = self.client.delete(
+            '/api/admin/jobs/company_None',
+            headers=auth_headers(self.admin_user),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()['archived_count'], 1)
+
     def test_admin_cannot_archive_company_group_with_active_contract(self):
         self.project.status = 'contracted'
         db.session.commit()

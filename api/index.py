@@ -2072,7 +2072,7 @@ def get_admin_jobs():
         
         for company_id, project_list in company_projects.items():
             # Get company/user info
-            user = User.query.get(company_id)
+            user = User.query.get(company_id) if company_id is not None else None
             company_name = user.company_name or user.name if user else '알 수 없음'
             contact_email = user.email if user else None
             
@@ -2151,8 +2151,10 @@ def get_admin_jobs():
             else:
                 overall_status = max(visible_statuses, key=lambda s: status_priority.get(s, 0))
             
+            admin_job_id = f"company_{company_id}" if company_id is not None else "company_unassigned"
+
             results.append({
-                'id': f"company_{company_id}",  # Unique ID for frontend
+                'id': admin_job_id,  # Unique ID for frontend
                 'company_name': company_name,
                 'url': '',  # No URL in direct matching
                 'status': overall_status,
@@ -2188,6 +2190,36 @@ def get_admin_jobs():
 @admin_required
 def delete_admin_job(job_id):
     """Soft delete a matching request (AnalysisJob)"""
+    if job_id in ['company_unassigned', 'company_None', 'company_none']:
+        protected_count = Project.query.filter(
+            Project.company_id.is_(None),
+            Project.status.in_(['contracted', 'in_progress', 'completed'])
+        ).count()
+        if protected_count > 0:
+            return jsonify({
+                'message': 'Contracted or active projects cannot be archived.',
+                'contracted_count': protected_count
+            }), 400
+
+        projects = Project.query.filter(Project.company_id.is_(None)).all()
+        now = datetime.datetime.now(datetime.timezone.utc)
+        archived_count = 0
+        for project in projects:
+            if project.status not in ['cancelled_by_company', 'not_selected']:
+                project.status = 'cancelled_by_company'
+                project.cancelled_at = now
+                project.cancelled_reason = 'Archived by admin'
+                archived_count += 1
+
+        log_admin_action('archive_unassigned_projects', 'company', 'unassigned', {'archived_count': archived_count})
+        db.session.commit()
+        return jsonify({
+            'message': 'Unassigned project group archived',
+            'id': job_id,
+            'archived_count': archived_count,
+            'deleted_at': now.isoformat()
+        })
+
     if job_id.startswith('company_'):
         try:
             company_id = int(job_id.split('_', 1)[1])
