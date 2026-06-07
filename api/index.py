@@ -10,15 +10,17 @@ import uuid
 import json
 import datetime
 import re
+import hashlib
+import secrets
 from functools import wraps
 from urllib.parse import urlparse
-from flask import Flask, request, jsonify, send_file, Response, g
+from flask import Flask, request, jsonify, send_file, Response, g, stream_with_context
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, AnalysisJob, AdminActionLog, Consultant, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken
+from models import db, AnalysisJob, AdminActionLog, Consultant, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration
 from services import AIService, MatchingService, ProposalService, EmailService, AdvancedDiagnosticService
 from services.iso_manual_service import generate_iso_manual_stream
 
@@ -127,6 +129,113 @@ def token_optional(f):
                 pass
         return f(*args, **kwargs)
     return decorated
+
+ALLOWED_MANUAL_ISO_STANDARDS = {'ISO 9001:2015', 'ISO 14001:2015', 'ISO 45001:2018'}
+ALLOWED_MANUAL_ISSUES = {
+    'quality_defect',
+    'customer_complaint',
+    'supplier_quality',
+    'process_inefficiency',
+    'safety_incident',
+    'env_regulation',
+    'energy_cost',
+    'work_condition',
+}
+MANUAL_TOKEN_TTL_MINUTES = 30
+MAX_MANUAL_MARKDOWN_CHARS = 250000
+
+
+def require_company_user():
+    user = getattr(g, 'current_user', None)
+    if not user or user.role != 'company':
+        return jsonify({'message': '기업 사용자만 이용할 수 있습니다.'}), 403
+    return None
+
+
+def _manual_token_hash(token):
+    return hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+
+def _clean_text(value, max_length, required=False):
+    text = (value or '').strip()
+    if required and not text:
+        return None, '필수 입력값이 누락되었습니다.'
+    if len(text) > max_length:
+        return None, f'{max_length}자 이하로 입력해주세요.'
+    return text, None
+
+
+def validate_manual_form_data(data):
+    errors = {}
+    company_name, err = _clean_text(data.get('company_name'), 100, True)
+    if err:
+        errors['company_name'] = err
+    industry, err = _clean_text(data.get('industry'), 100, True)
+    if err:
+        errors['industry'] = err
+    main_product, err = _clean_text(data.get('main_product'), 200, True)
+    if err:
+        errors['main_product'] = err
+    employees, err = _clean_text(data.get('employees'), 50, True)
+    if err:
+        errors['employees'] = err
+    custom_issue, err = _clean_text(data.get('custom_issue'), 2000, False)
+    if err:
+        errors['custom_issue'] = err
+
+    target_iso = (data.get('target_iso') or 'ISO 9001:2015').strip()
+    if target_iso not in ALLOWED_MANUAL_ISO_STANDARDS:
+        errors['target_iso'] = '지원하지 않는 ISO 규격입니다.'
+
+    reasons = data.get('reasons') or []
+    if not isinstance(reasons, list):
+        errors['reasons'] = '인증 목적 형식이 올바르지 않습니다.'
+        reasons = []
+    reasons = [str(reason).strip()[:120] for reason in reasons[:8] if str(reason).strip()]
+
+    issues = data.get('issues') or []
+    if not isinstance(issues, list):
+        errors['issues'] = '경영 이슈 형식이 올바르지 않습니다.'
+        issues = []
+    clean_issues = []
+    for issue in issues[:8]:
+        issue_id = issue.get('id') if isinstance(issue, dict) else issue
+        issue_id = str(issue_id).strip()
+        if issue_id in ALLOWED_MANUAL_ISSUES:
+            clean_issues.append({'id': issue_id})
+
+    if errors:
+        return None, errors
+
+    return {
+        'company_name': company_name,
+        'industry': industry,
+        'main_product': main_product,
+        'employees': employees,
+        'target_iso': target_iso,
+        'reasons': reasons,
+        'issues': clean_issues,
+        'custom_issue': custom_issue,
+        'cert_status': 'None',
+        'timeline': 'flexible',
+    }, None
+
+
+def get_manual_generation_from_stream_token(manual_id, stream_token):
+    if not manual_id or not stream_token:
+        return None, '매뉴얼 생성 세션이 없습니다.'
+    manual = ManualGeneration.query.get(manual_id)
+    if not manual:
+        return None, '매뉴얼 생성 세션을 찾을 수 없습니다.'
+    now = datetime.datetime.now(datetime.timezone.utc)
+    expires_at = manual.token_expires_at
+    if expires_at and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=datetime.timezone.utc)
+    if expires_at and expires_at < now:
+        return None, '매뉴얼 생성 세션이 만료되었습니다. 다시 생성해주세요.'
+    if manual.token_hash != _manual_token_hash(stream_token):
+        return None, '매뉴얼 생성 세션이 유효하지 않습니다.'
+    return manual, None
 
 def require_admin_request():
     auth_header = request.headers.get('Authorization', '')
@@ -810,76 +919,123 @@ def generate_diagnostic_report():
         return jsonify({'error': f'리포트 생성 중 오류: {str(e)}'}), 500
 
 
+@app.route('/api/iso-manual/session', methods=['POST'])
+@token_required
+def create_iso_manual_session():
+    """Create a short-lived streaming session without exposing the JWT in the SSE URL."""
+    role_error = require_company_user()
+    if role_error:
+        return role_error
+
+    form_data, errors = validate_manual_form_data(request.json or {})
+    if errors:
+        return jsonify({'message': '입력값을 확인해주세요.', 'errors': errors}), 400
+
+    raw_token = secrets.token_urlsafe(32)
+    manual = ManualGeneration(
+        id=str(uuid.uuid4()),
+        user_id=g.current_user.id,
+        token_hash=_manual_token_hash(raw_token),
+        token_expires_at=datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=MANUAL_TOKEN_TTL_MINUTES),
+        status='created',
+    )
+    manual.set_form_data(form_data)
+    db.session.add(manual)
+    db.session.commit()
+
+    return jsonify({
+        'manual_id': manual.id,
+        'stream_token': raw_token,
+        'expires_in_seconds': MANUAL_TOKEN_TTL_MINUTES * 60,
+    }), 201
+
+
 # --- ISO Manual Generation SSE Endpoint ---
 @app.route('/api/generate-iso', methods=['GET'])
 def generate_iso_manual():
     """
     AI ISO 시스템 매뉴얼/절차서를 SSE 스트리밍으로 생성.
-    회원가입한 사용자(기업)만 사용 가능. SSE는 Authorization 헤더를 지원하지 않으므로
-    query parameter ?token=로 JWT를 전달받습니다.
+    실제 JWT 대신 /api/iso-manual/session에서 발급한 짧은 수명의 stream_token만 받습니다.
     """
-    # --- JWT 인증 (query param) ---
-    token = request.args.get('token', '')
-    if not token:
-        def auth_error():
-            yield "data: [ERROR] 로그인이 필요합니다. 회원가입 후 이용해주세요.\n\n"
+    manual, token_error = get_manual_generation_from_stream_token(
+        request.args.get('manual_id', ''),
+        request.args.get('stream_token', ''),
+    )
+    if token_error:
+        def session_error():
+            yield f"data: [ERROR] {token_error}\n\n"
             yield "data: [DONE]\n\n"
-        return Response(auth_error(), mimetype='text/event-stream',
+        return Response(session_error(), mimetype='text/event-stream',
                        headers={'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*'})
 
-    try:
-        payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-        current_user = User.query.get(payload['user_id'])
-        if not current_user:
-            raise jwt.InvalidTokenError('User not found')
-        # 컨설턴트는 차단 (기업 사용자만 허용)
-        if current_user.role == 'consultant':
-            def consultant_error():
-                yield "data: [ERROR] AI 매뉴얼 생성은 기업 사용자 전용 기능입니다.\n\n"
-                yield "data: [DONE]\n\n"
-            return Response(consultant_error(), mimetype='text/event-stream',
-                           headers={'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*'})
-    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
-        def token_error():
-            yield "data: [ERROR] 세션이 만료되었습니다. 다시 로그인해주세요.\n\n"
-            yield "data: [DONE]\n\n"
-        return Response(token_error(), mimetype='text/event-stream',
-                       headers={'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*'})
-
-
-    # Query Parameters에서 데이터 수집
-    form_data = {
-        'company_name': request.args.get('company_name', ''),
-        'industry': request.args.get('industry', ''),
-        'main_product': request.args.get('main_product', ''),
-        'employees': request.args.get('employees', ''),
-        'target_iso': request.args.get('target_iso', 'ISO 9001:2015'),
-        'reasons': request.args.getlist('reasons'),
-        'issues': [{'id': i} for i in request.args.getlist('issues')],
-        'custom_issue': request.args.get('custom_issue', ''),
-        'cert_status': request.args.get('cert_status', 'None'),
-        'timeline': request.args.get('timeline', 'flexible'),
-    }
-    
-    # Phase 분할: continue_from=7이면 Phase 2(7절~10절+부록), 없으면 Phase 1(표지~6절)
-    continue_from = request.args.get('continue_from', '')
+    form_data = manual.get_form_data()
+    continue_from = request.args.get('continue_from', '').strip()
+    phase = 1
     if continue_from:
-        form_data['continue_from'] = int(continue_from)
-        form_data['max_sections'] = None  # Phase 2: 7절~10절+부록
+        try:
+            continue_from_int = int(continue_from)
+        except ValueError:
+            def invalid_phase_error():
+                yield "data: [ERROR] 이어쓰기 단계가 올바르지 않습니다.\n\n"
+                yield "data: [DONE]\n\n"
+            return Response(invalid_phase_error(), mimetype='text/event-stream',
+                           headers={'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*'})
+        if continue_from_int not in (7, 9):
+            def unsupported_phase_error():
+                yield "data: [ERROR] 지원하지 않는 이어쓰기 단계입니다.\n\n"
+                yield "data: [DONE]\n\n"
+            return Response(unsupported_phase_error(), mimetype='text/event-stream',
+                           headers={'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*'})
+        form_data['continue_from'] = continue_from_int
+        form_data['max_sections'] = None
+        if continue_from_int == 7:
+            form_data['previous_markdown'] = manual.phase1_markdown or ''
+        else:
+            form_data['previous_markdown'] = '\n\n'.join(
+                part for part in [manual.phase1_markdown, manual.phase2_markdown]
+                if part
+            )
+        phase = 3 if continue_from_int >= 9 else 2
     else:
-        form_data['max_sections'] = 5  # Phase 1: 표지~6절(기획)까지
-    
+        form_data['max_sections'] = 5
+
     def event_stream():
-        for chunk in generate_iso_manual_stream(form_data):
-            yield chunk
-    
+        generated_parts = []
+        manual.status = f'generating_phase_{phase}'
+        manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
+        db.session.commit()
+
+        try:
+            for chunk in generate_iso_manual_stream(form_data):
+                if chunk.startswith('data: ') and not chunk.startswith('data: ['):
+                    text = chunk[6:].strip()
+                    generated_parts.append(text.replace('\\n', '\n'))
+                yield chunk
+
+            generated_text = ''.join(generated_parts).strip()
+            if generated_text:
+                if phase == 1:
+                    manual.phase1_markdown = generated_text
+                elif phase == 2:
+                    manual.phase2_markdown = generated_text
+                else:
+                    manual.phase3_markdown = generated_text
+            manual.status = f'phase_{phase}_completed'
+            manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"[ISO Manual] stream persistence error: {e}")
+            yield "data: [ERROR] 매뉴얼 생성 상태 저장 중 오류가 발생했습니다.\n\n"
+            yield "data: [DONE]\n\n"
+
     return Response(
-        event_stream(),
+        stream_with_context(event_stream()),
         mimetype='text/event-stream',
         headers={
             'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
-            'X-Accel-Buffering': 'no',  # Nginx/Vercel buffering 비활성화
+            'X-Accel-Buffering': 'no',
             'Access-Control-Allow-Origin': '*',
         }
     )
@@ -887,20 +1043,37 @@ def generate_iso_manual():
 
 # --- ISO Manual Export (PDF / DOCX) ---
 @app.route('/api/export-iso', methods=['POST'])
+@token_required
 def export_iso_manual():
     """
     마크다운 텍스트를 PDF 또는 DOCX로 변환하여 파일로 반환.
     POST body: { markdown, format: "pdf"|"docx", company_name, target_iso }
     """
     try:
+        role_error = require_company_user()
+        if role_error:
+            return role_error
+
         data = request.json or {}
         markdown_text = data.get('markdown', '')
         export_format = data.get('format', 'pdf').lower()
         company_name = data.get('company_name', 'ISO매뉴얼')
         target_iso = data.get('target_iso', '')
+        manual_id = data.get('manual_id', '')
 
-        if not markdown_text:
+        if manual_id:
+            manual = ManualGeneration.query.get(manual_id)
+            if not manual or manual.user_id != g.current_user.id:
+                return jsonify({'error': '매뉴얼 생성 이력을 찾을 수 없습니다.'}), 404
+            markdown_text = markdown_text or manual.combined_markdown()
+
+        if export_format not in {'pdf', 'docx'}:
+            return jsonify({'error': '지원하지 않는 다운로드 형식입니다.'}), 400
+
+        if not isinstance(markdown_text, str) or not markdown_text.strip():
             return jsonify({'error': 'markdown 내용이 없습니다.'}), 400
+        if len(markdown_text) > MAX_MANUAL_MARKDOWN_CHARS:
+            return jsonify({'error': '문서가 너무 큽니다. 내용을 줄인 뒤 다시 시도해주세요.'}), 413
 
         from services.document_export_service import markdown_to_pdf, markdown_to_docx
 

@@ -319,6 +319,32 @@ class AnalysisJob(db.Model):
         return json.loads(self.intake_data) if self.intake_data else {}
 
 
+class ManualGeneration(db.Model):
+    id = db.Column(db.String(36), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    token_hash = db.Column(db.String(64), nullable=False)
+    token_expires_at = db.Column(db.DateTime, nullable=False)
+    form_data = db.Column(db.Text, nullable=False)
+    phase1_markdown = db.Column(db.Text)
+    phase2_markdown = db.Column(db.Text)
+    phase3_markdown = db.Column(db.Text)
+    status = db.Column(db.String(30), default='created')
+    created_at = db.Column(db.DateTime, default=utc_now)
+    updated_at = db.Column(db.DateTime, default=utc_now)
+
+    def set_form_data(self, data_dict):
+        self.form_data = json.dumps(data_dict, ensure_ascii=False)
+
+    def get_form_data(self):
+        return json.loads(self.form_data) if self.form_data else {}
+
+    def combined_markdown(self):
+        return '\n\n'.join(
+            part for part in [self.phase1_markdown, self.phase2_markdown, self.phase3_markdown]
+            if part
+        )
+
+
 class PasswordResetToken(db.Model):
     """Password reset token for account recovery"""
     id = db.Column(db.Integer, primary_key=True)

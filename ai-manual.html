@@ -17,6 +17,7 @@
 
     <!-- Marked.js for Markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.3/dist/purify.min.js"></script>
 
     <!-- Mermaid.js for Process Map (부록 B) diagram rendering -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
@@ -25,8 +26,8 @@
             mermaid.initialize({
                 startOnLoad: false,
                 theme: 'default',
-                securityLevel: 'loose',
-                flowchart: { htmlLabels: true, curve: 'basis' }
+                securityLevel: 'strict',
+                flowchart: { htmlLabels: false, curve: 'basis' }
             });
         }
     </script>
@@ -690,6 +691,27 @@
         let lastSSEParams = null;  // SSE 파라미터 (재개용)
         let lastAppendMode = false;  // 재개 시 appendMode
         let currentPhase = 1;  // 현재 생성 단계 (1 or 2)
+        let currentManualId = null;
+        let currentStreamToken = null;
+
+        function renderSafeMarkdown(markdown) {
+            const html = marked.parse(markdown || '');
+            if (!window.DOMPurify) return `<pre style="white-space:pre-wrap;">${escapeHtml(markdown || '')}</pre>`;
+            return DOMPurify.sanitize(html, {
+                USE_PROFILES: { html: true },
+                ADD_TAGS: ['svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'text', 'tspan', 'marker', 'defs'],
+                ADD_ATTR: ['viewBox', 'd', 'x', 'y', 'x1', 'x2', 'y1', 'y2', 'cx', 'cy', 'r', 'rx', 'ry', 'points', 'marker-end', 'stroke', 'fill', 'transform', 'class', 'id']
+            });
+        }
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
 
         // ========== Auto-fill user info ==========
         (function prefillUserInfo() {
@@ -772,24 +794,44 @@
                 reasons.push(cb.value);
             });
 
-            // Build URL params
-            const params = new URLSearchParams();
-            params.set('company_name', company);
-            params.set('industry', industry);
-            params.set('main_product', mainProduct);
-            params.set('employees', employees);
-            params.set('target_iso', targetIso);
-            params.set('custom_issue', customIssue);
-            params.set('token', token);  // JWT 인증 토큰
-            issues.forEach(i => params.append('issues', i));
-            reasons.forEach(r => params.append('reasons', r));
+            try {
+                const sessionResponse = await fetch(`${API_BASE_URL}/api/iso-manual/session`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        company_name: company,
+                        industry,
+                        main_product: mainProduct,
+                        employees,
+                        target_iso: targetIso,
+                        custom_issue: customIssue,
+                        issues,
+                        reasons
+                    })
+                });
 
-            // Save params for continue generation
-            lastFormParams = params;
-            isFullVersion = false;
+                if (!sessionResponse.ok) {
+                    const err = await sessionResponse.json().catch(() => ({}));
+                    throw new Error(err.message || err.error || '매뉴얼 생성 세션을 만들 수 없습니다.');
+                }
 
-            // Start generation
-            startGeneration(params);
+                const session = await sessionResponse.json();
+                currentManualId = session.manual_id;
+                currentStreamToken = session.stream_token;
+
+                const params = new URLSearchParams();
+                params.set('manual_id', currentManualId);
+                params.set('stream_token', currentStreamToken);
+
+                lastFormParams = params;
+                isFullVersion = false;
+                startGeneration(params);
+            } catch (err) {
+                alert(`매뉴얼 생성 준비 실패: ${err.message}`);
+            }
         });
 
         // ========== SSE Streaming ==========
@@ -825,9 +867,9 @@
             if (currentPhase === 1) {
                 viewer.innerHTML = '<p class="streaming-cursor" style="color: var(--text-muted);">AI가 매뉴얼(표지~6절)을 생성하고 있습니다...</p>';
             } else if (currentPhase === 2) {
-                viewer.innerHTML = marked.parse(rawMarkdown) + '<p class="streaming-cursor" style="color: var(--text-muted);">7~8절(핵심 운용 프로세스)을 이어서 생성 중입니다...</p>';
+                viewer.innerHTML = renderSafeMarkdown(rawMarkdown) + '<p class="streaming-cursor" style="color: var(--text-muted);">7~8절(핵심 운용 프로세스)을 이어서 생성 중입니다...</p>';
             } else if (currentPhase === 3) {
-                viewer.innerHTML = marked.parse(rawMarkdown) + '<p class="streaming-cursor" style="color: var(--text-muted);">9~10절 + 부록을 마무리하고 있습니다...</p>';
+                viewer.innerHTML = renderSafeMarkdown(rawMarkdown) + '<p class="streaming-cursor" style="color: var(--text-muted);">9~10절 + 부록을 마무리하고 있습니다...</p>';
             }
 
             // Open SSE connection
@@ -865,7 +907,7 @@
                         finishGeneration();
                     } else {
                         viewer.innerHTML = `<div style="color: var(--danger); padding: 20px;">
-                            <h3>⚠️ 생성 오류</h3><p>${data.substring(7)}</p>
+                            <h3>⚠️ 생성 오류</h3><p>${escapeHtml(data.substring(7))}</p>
                             <p style="margin-top:12px;color:var(--text-muted);">다시 시도해주세요.</p>
                         </div>`;
                         resetButton();
@@ -902,7 +944,7 @@
             if (renderTimer) return;
             renderTimer = setTimeout(() => {
                 const viewer = document.getElementById('md-viewer');
-                viewer.innerHTML = marked.parse(rawMarkdown) + '<span class="streaming-cursor"></span>';
+                viewer.innerHTML = renderSafeMarkdown(rawMarkdown) + '<span class="streaming-cursor"></span>';
                 // Auto-scroll to bottom
                 viewer.scrollTop = viewer.scrollHeight;
                 renderTimer = null;
@@ -941,7 +983,7 @@
             // finishGeneration 직후에 발동하여 Mermaid SVG를 덮어씀
             if (renderTimer) { clearTimeout(renderTimer); renderTimer = null; }
             const viewer = document.getElementById('md-viewer');
-            viewer.innerHTML = marked.parse(rawMarkdown);
+            viewer.innerHTML = renderSafeMarkdown(rawMarkdown);
             renderMermaidBlocks(viewer);
 
             if (currentPhase === 1 && !isFullVersion) {
@@ -956,9 +998,7 @@
                 // Phase 1 완료 + 전체버전: 자동으로 Phase 2 트리거
                 console.log('[ISO Manual] Phase 1 done → auto-triggering Phase 2...');
                 currentPhase = 2;
-                const token = localStorage.getItem('token');
                 const continueParams = new URLSearchParams(lastFormParams);
-                continueParams.set('token', token);
                 continueParams.set('continue_from', '7');
                 setTimeout(() => startGeneration(continueParams, true), 500);
                 return;  // resetButton하지 않음
@@ -966,9 +1006,7 @@
                 // Phase 2 완료 + 전체버전: 자동으로 Phase 3 트리거
                 console.log('[ISO Manual] Phase 2 done → auto-triggering Phase 3...');
                 currentPhase = 3;
-                const token = localStorage.getItem('token');
                 const continueParams = new URLSearchParams(lastFormParams);
-                continueParams.set('token', token);
                 continueParams.set('continue_from', '9');
                 setTimeout(() => startGeneration(continueParams, true), 500);
                 return;  // resetButton하지 않음
@@ -1004,16 +1042,9 @@
                 btn.classList.remove('loading');
                 // 마크다운 렌더링 (커서 제거)
                 const viewer = document.getElementById('md-viewer');
-                viewer.innerHTML = marked.parse(rawMarkdown);
+                viewer.innerHTML = renderSafeMarkdown(rawMarkdown);
             } else {
-                // 재개: 새 SSE 연결로 이어서 생성
-                isPaused = false;
-                pauseBtn.textContent = '⏸';
-                pauseBtn.title = '일시정지';
-                pauseBtn.style.background = '#dc2626';
-                if (lastSSEParams) {
-                    startGeneration(lastSSEParams, true);  // appendMode=true로 이어서
-                }
+                alert('안전한 문서 품질을 위해 중단된 스트리밍은 같은 위치에서 재개하지 않습니다. 필요한 경우 다시 생성해주세요.');
             }
         }
 
@@ -1026,9 +1057,8 @@
                 return;
             }
 
-            const token = localStorage.getItem('token');
-            if (!token) {
-                alert('로그인이 필요합니다.');
+            if (!currentManualId || !currentStreamToken) {
+                alert('매뉴얼 생성 세션이 없습니다. 먼저 매뉴얼을 생성해주세요.');
                 return;
             }
 
@@ -1039,7 +1069,6 @@
 
             // 7절부터 이어서 생성하는 파라미터 설정
             const continueParams = new URLSearchParams(lastFormParams);
-            continueParams.set('token', token);
             continueParams.set('continue_from', '7');  // 7절(지원)부터 이어서
 
             startGeneration(continueParams, true);  // appendMode = true
@@ -1104,6 +1133,11 @@
             }
 
             // PDF or DOCX: call API
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('로그인이 필요합니다.');
+                return;
+            }
             const trigger = document.querySelector('.btn-download-trigger');
             const origText = trigger.textContent;
             trigger.textContent = format === 'pdf' ? 'PDF 변환 중...' : 'Word 변환 중...';
@@ -1112,12 +1146,16 @@
             try {
                 const response = await fetch(`${API_BASE_URL}/api/export-iso`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify({
                         markdown: rawMarkdown,
                         format: format,
                         company_name: company,
-                        target_iso: iso
+                        target_iso: iso,
+                        manual_id: currentManualId
                     })
                 });
 

@@ -3,13 +3,14 @@ import io
 import os
 import sys
 import unittest
+from unittest.mock import patch
 
 import jwt
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../api')))
 
 from index import app, db
-from models import AdminActionLog, AnalysisJob, Consultant, Message, Milestone, Notification, Project, User
+from models import AdminActionLog, AnalysisJob, Consultant, ManualGeneration, Message, Milestone, Notification, Project, User
 
 
 def make_token(user):
@@ -874,6 +875,111 @@ class TestWorkflowSecurity(unittest.TestCase):
         response = self.client.get('/api/admin/action-logs', headers=auth_headers(self.admin_user))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()[0]['action'], 'test_action')
+
+    def test_iso_manual_session_requires_company_and_validates_input(self):
+        payload = {
+            'company_name': 'Buyer Co',
+            'industry': '제조업',
+            'main_product': '자동차 부품',
+            'employees': '50~100명',
+            'target_iso': 'ISO 9001:2015',
+            'issues': ['quality_defect'],
+            'reasons': ['고객사 요구'],
+        }
+
+        consultant_response = self.client.post(
+            '/api/iso-manual/session',
+            json=payload,
+            headers=auth_headers(self.consultant_user),
+        )
+        self.assertEqual(consultant_response.status_code, 403)
+
+        invalid_response = self.client.post(
+            '/api/iso-manual/session',
+            json={**payload, 'target_iso': 'ISO 9999:2099'},
+            headers=auth_headers(self.company),
+        )
+        self.assertEqual(invalid_response.status_code, 400)
+
+        response = self.client.post(
+            '/api/iso-manual/session',
+            json=payload,
+            headers=auth_headers(self.company),
+        )
+        self.assertEqual(response.status_code, 201)
+        data = response.get_json()
+        self.assertIn('manual_id', data)
+        self.assertIn('stream_token', data)
+
+        manual = ManualGeneration.query.get(data['manual_id'])
+        self.assertEqual(manual.user_id, self.company.id)
+        self.assertNotEqual(manual.token_hash, data['stream_token'])
+        self.assertEqual(manual.get_form_data()['target_iso'], 'ISO 9001:2015')
+
+    def test_iso_manual_stream_uses_temporary_token_and_persists_phase(self):
+        session_response = self.client.post(
+            '/api/iso-manual/session',
+            json={
+                'company_name': 'Buyer Co',
+                'industry': '제조업',
+                'main_product': '자동차 부품',
+                'employees': '50~100명',
+                'target_iso': 'ISO 9001:2015',
+                'issues': ['quality_defect'],
+            },
+            headers=auth_headers(self.company),
+        )
+        session_data = session_response.get_json()
+
+        def fake_stream(form_data):
+            yield 'data: ## 4. 조직 상황\\n\\n테스트 매뉴얼\n\n'
+            yield 'data: [PHASE_COMPLETE:1]\n\n'
+            yield 'data: [DONE]\n\n'
+
+        with patch('index.generate_iso_manual_stream', fake_stream):
+            response = self.client.get(
+                f"/api/generate-iso?manual_id={session_data['manual_id']}&stream_token={session_data['stream_token']}"
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('[DONE]', response.get_data(as_text=True))
+
+        manual = ManualGeneration.query.get(session_data['manual_id'])
+        self.assertIn('테스트 매뉴얼', manual.phase1_markdown)
+        self.assertEqual(manual.status, 'phase_1_completed')
+
+        bad_response = self.client.get(
+            f"/api/generate-iso?manual_id={session_data['manual_id']}&stream_token=bad-token"
+        )
+        self.assertIn('유효하지 않습니다', bad_response.get_data(as_text=True))
+
+    def test_iso_manual_export_requires_company_and_limits_payload(self):
+        response = self.client.post(
+            '/api/export-iso',
+            json={'markdown': '# Test', 'format': 'docx'},
+        )
+        self.assertEqual(response.status_code, 401)
+
+        consultant_response = self.client.post(
+            '/api/export-iso',
+            json={'markdown': '# Test', 'format': 'docx'},
+            headers=auth_headers(self.consultant_user),
+        )
+        self.assertEqual(consultant_response.status_code, 403)
+
+        invalid_format_response = self.client.post(
+            '/api/export-iso',
+            json={'markdown': '# Test', 'format': 'html'},
+            headers=auth_headers(self.company),
+        )
+        self.assertEqual(invalid_format_response.status_code, 400)
+
+        too_large_response = self.client.post(
+            '/api/export-iso',
+            json={'markdown': 'a' * 250001, 'format': 'docx'},
+            headers=auth_headers(self.company),
+        )
+        self.assertEqual(too_large_response.status_code, 413)
 
 
 if __name__ == '__main__':
