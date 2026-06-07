@@ -55,7 +55,7 @@ class MatchingService:
         ).all()
 
         if not all_consultants:
-            all_consultants = Consultant.query.all()
+            return []
 
         scored = []
 

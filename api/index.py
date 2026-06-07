@@ -11,6 +11,7 @@ import json
 import datetime
 import re
 from functools import wraps
+from urllib.parse import urlparse
 from flask import Flask, request, jsonify, send_file, Response, g
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -170,6 +171,40 @@ def log_admin_action(action, target_type, target_id, details=None):
         details=json.dumps(details or {})
     ))
 
+APPROVAL_CHECKLIST_KEYS = [
+    'identity_verified',
+    'iso_credentials_verified',
+    'project_history_verified',
+    'contact_verified',
+]
+
+def validate_approval_checklist(data):
+    checklist = data.get('checklist') if isinstance(data, dict) else None
+    if not isinstance(checklist, dict):
+        return None, 'Approval checklist is required.'
+    missing = [key for key in APPROVAL_CHECKLIST_KEYS if checklist.get(key) is not True]
+    if missing:
+        return None, f'Approval checklist is incomplete: {", ".join(missing)}'
+    return {key: True for key in APPROVAL_CHECKLIST_KEYS}, None
+
+def get_required_reason(data, field='reason', max_length=500):
+    reason = ((data or {}).get(field) or '').strip()
+    if not reason:
+        return None, 'Reason is required.'
+    if len(reason) > max_length:
+        return None, 'Reason is too long.'
+    return reason, None
+
+def notify_consultant_review_result(consultant, notification_type, title, message):
+    if consultant and consultant.user_id:
+        db.session.add(Notification(
+            user_id=consultant.user_id,
+            type=notification_type,
+            title=title,
+            message=message,
+            link='/dashboard.html'
+        ))
+
 def _same_id(left, right):
     """Compare database ids robustly across int/string legacy values."""
     return left is not None and right is not None and str(left) == str(right)
@@ -194,6 +229,48 @@ def require_project_participant(project):
         return jsonify({'message': '해당 프로젝트에 접근할 권한이 없습니다.'}), 403
     return None
 
+def get_supabase_url():
+    return os.environ.get('SUPABASE_URL', '').strip().rstrip('/')
+
+def is_allowed_proposal_file_url(file_url):
+    if not file_url:
+        return True
+
+    supabase_url = get_supabase_url()
+    if not supabase_url:
+        return False
+
+    parsed_file_url = urlparse(file_url)
+    parsed_supabase_url = urlparse(supabase_url)
+    return (
+        parsed_file_url.scheme == 'https'
+        and parsed_file_url.netloc == parsed_supabase_url.netloc
+        and parsed_file_url.path.startswith('/storage/v1/object/public/proposals/')
+    )
+
+def is_allowed_profile_image_url(file_url):
+    if not file_url:
+        return True
+
+    supabase_url = get_supabase_url()
+    if not supabase_url:
+        return False
+
+    parsed_file_url = urlparse(file_url)
+    parsed_supabase_url = urlparse(supabase_url)
+    return (
+        parsed_file_url.scheme == 'https'
+        and parsed_file_url.netloc == parsed_supabase_url.netloc
+        and parsed_file_url.path.startswith('/storage/v1/object/public/profiles/')
+    )
+
+def parse_positive_int(value):
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
 def is_consultant_owner_or_admin(consultant, user=None):
     user = user or getattr(g, 'current_user', None)
     return bool(user and (user.role == 'admin' or _same_id(user.id, consultant.user_id)))
@@ -201,7 +278,6 @@ def is_consultant_owner_or_admin(consultant, user=None):
 def consultant_public_dict(consultant):
     return {
         'id': consultant.id,
-        'user_id': consultant.user_id,
         'name': consultant.name,
         'avatar': consultant.avatar,
         'specialty': consultant.specialty,
@@ -221,7 +297,7 @@ def consultant_public_dict(consultant):
         'bio': consultant.bio,
         'introductionVideoUrl': consultant.introduction_video_url,
         'companyName': consultant.company_name,
-        'status': consultant.status or ('verified' if consultant.verified else 'pending'),
+        'status': 'verified',
     }
 
 def mark_other_session_projects_not_selected(project):
@@ -256,6 +332,116 @@ def is_valid_email(email):
         return False
     pattern = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
     return re.match(pattern, email) is not None
+
+def register_consultant_validated():
+    if g.current_user.role != 'consultant':
+        return jsonify({'message': 'Only consultant accounts can register a consultant profile.'}), 403
+
+    user_id = g.current_user.id
+    existing = Consultant.query.filter_by(user_id=user_id).first()
+    if existing:
+        return jsonify({'message': 'Consultant profile already exists.', 'consultant_id': existing.id}), 409
+
+    data = request.json or {}
+    name = (data.get('name') or '').strip()
+    email = (data.get('email') or '').strip().lower()
+    phone = (data.get('phone') or '').strip()
+    company_name = (data.get('company_name') or '').strip()
+    specialty = (data.get('specialty') or '').strip()
+    match_reason = (data.get('match_reason') or '').strip()
+    regions = (data.get('regions') or '').strip()
+    profile_image_url = (data.get('profile_image_url') or '').strip()
+    experience_years = parse_positive_int(data.get('experience'))
+
+    if not name:
+        return jsonify({'message': 'Name is required.'}), 400
+    if len(name) > 100:
+        return jsonify({'message': 'Name is too long.'}), 400
+    if not email or not is_valid_email(email):
+        return jsonify({'message': 'Valid email is required.'}), 400
+    if len(email) > 120:
+        return jsonify({'message': 'Email is too long.'}), 400
+    if not phone or len(phone) > 30:
+        return jsonify({'message': 'Valid phone number is required.'}), 400
+    if experience_years is None or experience_years > 50:
+        return jsonify({'message': 'Experience must be between 1 and 50 years.'}), 400
+    if len(company_name) > 100:
+        return jsonify({'message': 'Company name is too long.'}), 400
+    if len(specialty) > 100:
+        return jsonify({'message': 'Specialty is too long.'}), 400
+    if not match_reason or len(match_reason) > 500:
+        return jsonify({'message': 'Introduction is required and must be 500 characters or fewer.'}), 400
+    if not regions or len(regions) > 200:
+        return jsonify({'message': 'At least one service region is required.'}), 400
+    if not is_allowed_profile_image_url(profile_image_url):
+        return jsonify({'message': 'Invalid profile image URL'}), 400
+
+    iso_exp = data.get('iso_experience', {})
+    if not isinstance(iso_exp, dict) or not iso_exp:
+        return jsonify({'message': 'At least one ISO standard is required.'}), 400
+    if len(iso_exp) > 50:
+        return jsonify({'message': 'Too many ISO standards selected.'}), 400
+
+    industry_exp = data.get('industry_experience', [])
+    if not isinstance(industry_exp, list) or not industry_exp:
+        return jsonify({'message': 'At least one industry experience is required.'}), 400
+    if len(industry_exp) > 30:
+        return jsonify({'message': 'Too many industry experiences selected.'}), 400
+
+    detailed_certs = data.get('detailed_certifications', '')
+    if isinstance(detailed_certs, (list, dict)):
+        detailed_certs = json.dumps(detailed_certs)
+    elif detailed_certs is None:
+        detailed_certs = ''
+    else:
+        detailed_certs = str(detailed_certs).strip()
+    if len(detailed_certs) > 2000:
+        return jsonify({'message': 'Certification details are too long.'}), 400
+
+    recent_projects = (data.get('recent_projects') or '').strip()
+    if not recent_projects or len(recent_projects) > 3000:
+        return jsonify({'message': 'Recent project history is required and must be 3000 characters or fewer.'}), 400
+
+    new_consultant = Consultant(
+        user_id=user_id,
+        name=name,
+        avatar=((data.get('avatar') or name[0]) if name else 'N')[:10],
+        specialty=specialty,
+        experience=f'{experience_years} years',
+        rating=5.0,
+        reviews=0,
+        match_reason=match_reason,
+        regions=regions,
+        phone=phone,
+        email=email,
+        company_name=company_name,
+        certifications=data.get('certifications'),
+        iso_experience=json.dumps(iso_exp),
+        industry_experience=json.dumps(industry_exp),
+        project_types=json.dumps(data.get('project_types', [])),
+        org_size_experience=json.dumps(data.get('org_size_experience', [])),
+        roles=json.dumps(data.get('roles', [])),
+        detailed_certifications=detailed_certs,
+        recent_projects=recent_projects,
+        profile_image_url=profile_image_url,
+        verified=False,
+        trust_score=50.0,
+        status='pending',
+    )
+    db.session.add(new_consultant)
+    db.session.commit()
+
+    user = User.query.get(user_id)
+    if user and not user.company_name and company_name:
+        user.company_name = company_name
+    if user and not user.phone and phone:
+        user.phone = phone
+    db.session.commit()
+
+    return jsonify({
+        'message': 'Consultant registration submitted for admin review.',
+        'consultant_id': new_consultant.id,
+    }), 201
 
 # --- Auth Endpoints ---
 @app.route('/api/auth/signup', methods=['POST'])
@@ -888,14 +1074,19 @@ def get_consultants():
         matches = matching_service.match_consultants(criteria)
         return jsonify(matches)
             
-    consultants = Consultant.query.all()
     if getattr(g, 'current_user', None) and g.current_user.role == 'admin':
+        consultants = Consultant.query.all()
         return jsonify([c.to_dict() for c in consultants])
+    consultants = Consultant.query.filter(
+        (Consultant.verified == True) | (Consultant.status == 'verified')
+    ).all()
     return jsonify([consultant_public_dict(c) for c in consultants])
 
 @app.route('/api/consultants/register', methods=['POST'])
+@token_required
 def register_consultant():
     try:
+        return register_consultant_validated()
         # JWT 토큰에서 user_id 추출
         user_id = None
         auth_header = request.headers.get('Authorization', '')
@@ -1106,7 +1297,7 @@ def download_proposal(project_id):
         return forbidden
     
     # 1. 컨설턴트가 직접 업로드한 원본 파일이 있는 경우 해당 파일로 리다이렉트
-    if project.proposal_file_url and (project.proposal_file_url.startswith('http') or project.proposal_file_url.startswith('/')):
+    if project.proposal_file_url and is_allowed_proposal_file_url(project.proposal_file_url):
         from flask import redirect
         return redirect(project.proposal_file_url)
     
@@ -1256,9 +1447,17 @@ def respond_negotiation(project_id):
         
     elif action == 'counter':
         # 역제안
-        counter_price = data.get('counter_price')
-        counter_duration = data.get('counter_duration')
-        counter_message = data.get('message', '')
+        counter_price = parse_positive_int(data.get('counter_price')) if data.get('counter_price') else None
+        counter_duration = (data.get('counter_duration') or '').strip()
+        counter_message = (data.get('message') or '').strip()
+        if counter_price is not None and (counter_price < 100000 or counter_price > 1000000000):
+            return jsonify({'message': 'Counter price must be between 100,000 and 1,000,000,000.'}), 400
+        if not counter_price and not counter_duration:
+            return jsonify({'message': 'Counter price or duration is required.'}), 400
+        if len(counter_duration) > 50:
+            return jsonify({'message': 'Counter duration is too long.'}), 400
+        if len(counter_message) > 1000:
+            return jsonify({'message': 'Counter message is too long.'}), 400
         
         negotiation_data['counter_price'] = counter_price
         negotiation_data['counter_duration'] = counter_duration
@@ -1269,7 +1468,9 @@ def respond_negotiation(project_id):
         message = '역제안이 전송되었습니다.'
         
     else:  # reject
-        reject_message = data.get('message', '')
+        reject_message = (data.get('message') or '').strip()
+        if len(reject_message) > 1000:
+            return jsonify({'message': 'Reject message is too long.'}), 400
         negotiation_data['consultant_message'] = reject_message
         project.negotiation_data = json.dumps(negotiation_data)
         project.negotiation_status = 'rejected'
@@ -1453,15 +1654,29 @@ def submit_proposal(project_id):
     data = request.json
     
     # 필수 필드 검증
-    proposal_price = data.get('proposal_price')
+    proposal_price = parse_positive_int(data.get('proposal_price'))
     if not proposal_price:
         return jsonify({'message': '제안 금액을 입력해주세요.'}), 400
     
     # 제안 정보 저장
-    project.proposal_price = int(proposal_price)
-    project.proposal_duration = data.get('proposal_duration', '')
-    project.proposal_message = data.get('proposal_message', '')
-    project.proposal_file_url = data.get('proposal_file_url', '')  # 파일 업로드는 별도 처리
+    if proposal_price < 100000 or proposal_price > 1000000000:
+        return jsonify({'message': 'Proposal price must be between 100,000 and 1,000,000,000.'}), 400
+
+    proposal_file_url = data.get('proposal_file_url', '')
+    if not is_allowed_proposal_file_url(proposal_file_url):
+        return jsonify({'message': 'Invalid proposal file URL'}), 400
+
+    proposal_duration = (data.get('proposal_duration') or '').strip()
+    proposal_message = (data.get('proposal_message') or '').strip()
+    if proposal_duration and len(proposal_duration) > 50:
+        return jsonify({'message': 'Proposal duration is too long.'}), 400
+    if len(proposal_message) > 2000:
+        return jsonify({'message': 'Proposal message is too long.'}), 400
+
+    project.proposal_price = proposal_price
+    project.proposal_duration = proposal_duration
+    project.proposal_message = proposal_message
+    project.proposal_file_url = proposal_file_url
     project.proposal_submitted_at = datetime.datetime.now(datetime.timezone.utc)
     project.status = 'proposal_submitted'
     
@@ -1724,13 +1939,52 @@ def propose_schedule(project_id):
         return jsonify({'message': '일정 데이터가 필요합니다.'}), 400
     
     # 마일스톤 일정 업데이트
+    today = datetime.datetime.now(datetime.timezone.utc).date()
+    previous_date = None
+    normalized_schedule = []
     for item in schedule:
         milestone = Milestone.query.get(item.get('milestone_id'))
-        if milestone and milestone.project_id == project_id:
-            if item.get('proposed_date'):
-                milestone.due_date = datetime.datetime.fromisoformat(item['proposed_date'].replace('Z', '+00:00'))
+        if not milestone or milestone.project_id != project_id:
+            return jsonify({'message': 'Invalid milestone in schedule.'}), 400
+        if not item.get('proposed_date'):
+            return jsonify({'message': 'All milestones need a proposed date.'}), 400
+        try:
+            proposed_date = datetime.datetime.fromisoformat(item['proposed_date'].replace('Z', '+00:00'))
+        except (TypeError, ValueError):
+            return jsonify({'message': 'Invalid schedule date.'}), 400
+        if proposed_date.tzinfo is None:
+            proposed_date = proposed_date.replace(tzinfo=datetime.timezone.utc)
+        if proposed_date.date() < today:
+            return jsonify({'message': 'Schedule dates cannot be in the past.'}), 400
+        if previous_date and proposed_date < previous_date:
+            return jsonify({'message': 'Milestone dates must be in chronological order.'}), 400
+        previous_date = proposed_date
+        milestone.due_date = proposed_date
+        normalized_schedule.append({
+            'milestone_id': milestone.id,
+            'title': milestone.title,
+            'proposed_date': proposed_date.isoformat()
+        })
     
-    project.schedule_data = json.dumps(schedule)
+    schedule_history = []
+    if project.schedule_data:
+        try:
+            existing_schedule_data = json.loads(project.schedule_data)
+            if isinstance(existing_schedule_data, dict):
+                schedule_history = existing_schedule_data.get('history', [])
+            elif isinstance(existing_schedule_data, list):
+                schedule_history = [{'schedule': existing_schedule_data}]
+        except (TypeError, ValueError):
+            schedule_history = []
+    schedule_history.append({
+        'proposed_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        'schedule': normalized_schedule
+    })
+
+    project.schedule_data = json.dumps({
+        'current': normalized_schedule,
+        'history': schedule_history
+    })
     project.schedule_status = 'proposed'
     project.schedule_proposed_at = datetime.datetime.now(datetime.timezone.utc)
     
@@ -1892,6 +2146,106 @@ def cancel_consultant_request(project_id):
         'project_id': project_id,
         'status': project.status,
         'cancelled_at': project.cancelled_at.isoformat() if project.cancelled_at else None
+    })
+
+@app.route('/api/projects/<int:project_id>/decline', methods=['POST'])
+@token_required
+def decline_project_request(project_id):
+    """Allow the assigned consultant to decline a quote request before contract."""
+    project = Project.query.get_or_404(project_id)
+    consultant = Consultant.query.get(project.consultant_id) if project.consultant_id else None
+    if not consultant or not _same_id(consultant.user_id, g.current_user.id):
+        return jsonify({'message': 'Only the assigned consultant can decline this request.'}), 403
+
+    if project.status in ['contracted', 'in_progress', 'completed', 'pending_contract', 'awaiting_signature']:
+        return jsonify({'message': 'Contracted or selected requests cannot be declined.'}), 400
+
+    if project.status in ['cancelled_by_company', 'not_selected', 'declined_by_consultant']:
+        return jsonify({'message': 'This request is already closed.'}), 400
+
+    data = request.json or {}
+    declined_reason = (data.get('reason') or 'Declined by consultant').strip()
+    if len(declined_reason) > 500:
+        return jsonify({'message': 'Decline reason is too long.'}), 400
+
+    project.status = 'declined_by_consultant'
+    project.cancelled_at = datetime.datetime.now(datetime.timezone.utc)
+    project.cancelled_reason = declined_reason
+
+    company_user = User.query.get(project.company_id) if project.company_id else None
+    if company_user:
+        db.session.add(Notification(
+            user_id=company_user.id,
+            type='request_declined',
+            title=f'{consultant.name} declined your quote request',
+            message=f'Decline reason: {declined_reason}',
+            link='/dashboard.html'
+        ))
+
+    db.session.commit()
+    return jsonify({
+        'message': 'Request declined.',
+        'project_id': project.id,
+        'status': project.status,
+        'declined_at': project.cancelled_at.isoformat() if project.cancelled_at else None
+    })
+
+@app.route('/api/projects/groups/cancel', methods=['POST'])
+@token_required
+def cancel_project_group():
+    """Cancel all non-contracted projects in a company quote-request group."""
+    if g.current_user.role != 'company':
+        return jsonify({'message': 'Only company users can cancel quote request groups.'}), 403
+
+    data = request.json or {}
+    session_id = data.get('session_id')
+    title = data.get('title')
+    cancelled_reason = data.get('reason') or 'Cancelled by company'
+
+    if not session_id and not title:
+        return jsonify({'message': 'session_id or title is required.'}), 400
+
+    query = Project.query.filter(Project.company_id == g.current_user.id)
+    if session_id:
+        query = query.filter(Project.session_id == session_id)
+    else:
+        query = query.filter(Project.title == title)
+
+    projects = query.all()
+    if not projects:
+        return jsonify({'message': 'No matching quote request group found.'}), 404
+
+    protected_count = sum(1 for project in projects if project.status in ['contracted', 'in_progress', 'completed'])
+    if protected_count:
+        return jsonify({
+            'message': 'Contracted or active projects cannot be cancelled as a group.',
+            'contracted_count': protected_count
+        }), 400
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cancelled_count = 0
+    for project in projects:
+        if project.status not in ['cancelled_by_company', 'not_selected']:
+            project.status = 'cancelled_by_company'
+            project.cancelled_at = now
+            project.cancelled_reason = cancelled_reason
+            cancelled_count += 1
+
+            consultant = Consultant.query.get(project.consultant_id) if project.consultant_id else None
+            if consultant and consultant.user_id:
+                db.session.add(Notification(
+                    user_id=consultant.user_id,
+                    type='request_cancelled',
+                    title=f'{g.current_user.name} cancelled a quote request',
+                    message=f'Cancel reason: {cancelled_reason}',
+                    link='/dashboard.html'
+                ))
+
+    db.session.commit()
+    return jsonify({
+        'message': 'Quote request group cancelled.',
+        'cancelled_count': cancelled_count,
+        'cancelled_at': now.isoformat()
     })
 
 # --- Add Consultant to Existing Quote Request ---
@@ -2291,21 +2645,33 @@ def delete_admin_job(job_id):
 @app.route('/api/admin/consultants/<int:consultant_id>/approve', methods=['POST'])
 @admin_required
 def approve_consultant(consultant_id):
+    data = request.json or {}
+    checklist, checklist_error = validate_approval_checklist(data)
+    if checklist_error:
+        return jsonify({'message': checklist_error}), 400
     consultant = Consultant.query.get_or_404(consultant_id)
     consultant.verified = True
     consultant.status = 'verified'
     consultant.rejection_reason = None
     consultant.rejected_at = None
     consultant.trust_score = max(consultant.trust_score or 50, 70)
-    log_admin_action('approve_consultant', 'consultant', consultant_id)
+    log_admin_action('approve_consultant', 'consultant', consultant_id, {'checklist': checklist})
+    notify_consultant_review_result(
+        consultant,
+        'consultant_approved',
+        'Consultant profile approved',
+        'Your consultant profile has been approved and is now eligible for matching.'
+    )
     db.session.commit()
     return jsonify({'message': 'Consultant approved successfully', 'verified': True})
 
 @app.route('/api/admin/consultants/<int:consultant_id>/reject', methods=['POST'])
 @admin_required
 def reject_consultant(consultant_id):
-    data = request.json
-    reason = data.get('reason', 'No reason provided')
+    data = request.json or {}
+    reason, reason_error = get_required_reason(data)
+    if reason_error:
+        return jsonify({'message': reason_error}), 400
     consultant = Consultant.query.get_or_404(consultant_id)
     consultant.verified = False
     consultant.status = 'rejected'
@@ -2313,19 +2679,37 @@ def reject_consultant(consultant_id):
     consultant.rejected_at = datetime.datetime.now(datetime.timezone.utc)
     consultant.trust_score = min(consultant.trust_score or 50, 50)
     log_admin_action('reject_consultant', 'consultant', consultant_id, {'reason': reason})
+    notify_consultant_review_result(
+        consultant,
+        'consultant_rejected',
+        'Consultant profile rejected',
+        f'Rejection reason: {reason}'
+    )
     db.session.commit()
     return jsonify({'message': f'Consultant rejected: {reason}'})
 
 @app.route('/api/admin/consultants/<int:consultant_id>/revoke', methods=['POST'])
 @admin_required
 def revoke_consultant_verification(consultant_id):
+    data = request.json or {}
+    reason, reason_error = get_required_reason(data)
+    if reason_error:
+        return jsonify({'message': reason_error}), 400
     consultant = Consultant.query.get_or_404(consultant_id)
     consultant.verified = False
-    consultant.status = 'pending'
+    consultant.status = 'revoked'
+    consultant.rejection_reason = reason
+    consultant.rejected_at = datetime.datetime.now(datetime.timezone.utc)
     consultant.trust_score = min(consultant.trust_score or 50, 50)
-    log_admin_action('revoke_consultant', 'consultant', consultant_id)
+    log_admin_action('revoke_consultant', 'consultant', consultant_id, {'reason': reason})
+    notify_consultant_review_result(
+        consultant,
+        'consultant_verification_revoked',
+        'Consultant verification revoked',
+        f'Revocation reason: {reason}'
+    )
     db.session.commit()
-    return jsonify({'message': 'Consultant verification revoked', 'verified': False})
+    return jsonify({'message': 'Consultant verification revoked', 'verified': False, 'status': consultant.status})
 
 @app.route('/api/admin/consultants/<int:consultant_id>/restore', methods=['POST'])
 @admin_required
@@ -2337,6 +2721,12 @@ def restore_consultant(consultant_id):
     consultant.rejected_at = None
     consultant.trust_score = max(consultant.trust_score or 50, 50)
     log_admin_action('restore_consultant', 'consultant', consultant_id)
+    notify_consultant_review_result(
+        consultant,
+        'consultant_restored',
+        'Consultant profile restored for review',
+        'Your consultant profile has been restored to pending review.'
+    )
     db.session.commit()
     return jsonify({'message': 'Consultant restored to pending', 'status': consultant.status})
 
@@ -2344,6 +2734,8 @@ def restore_consultant(consultant_id):
 @app.route('/api/consultants/<int:consultant_id>', methods=['GET'])
 def get_consultant_detail(consultant_id):
     consultant = Consultant.query.get_or_404(consultant_id)
+    if not (consultant.verified or consultant.status == 'verified'):
+        return jsonify({'message': 'Consultant not found'}), 404
     
     return jsonify({
         'id': consultant.id,
@@ -3022,6 +3414,14 @@ def consultant_profile(consultant_id):
             if json_key in data:
                 old_value = getattr(consultant, db_field)
                 new_value = data[json_key]
+                if isinstance(new_value, str):
+                    new_value = new_value.strip()
+                if json_key == 'profileImageUrl' and not is_allowed_profile_image_url(new_value):
+                    return jsonify({'message': 'Invalid profile image URL'}), 400
+                if json_key in ['bio', 'introductionVideoUrl'] and len(str(new_value or '')) > 1000:
+                    return jsonify({'message': f'{json_key} is too long.'}), 400
+                if json_key in ['phone', 'email', 'companyName', 'specialty', 'regions'] and len(str(new_value or '')) > 200:
+                    return jsonify({'message': f'{json_key} is too long.'}), 400
                 
                 # 값이 실제로 변경되었는지 확인
                 if str(old_value or '') != str(new_value or ''):
@@ -3137,6 +3537,46 @@ def get_profile_change_logs():
     
     return jsonify(result)
 
+@app.route('/api/admin/consultants/<int:consultant_id>/history', methods=['GET'])
+@admin_required
+def get_consultant_review_history(consultant_id):
+    consultant = Consultant.query.get_or_404(consultant_id)
+
+    action_logs = AdminActionLog.query.filter_by(
+        target_type='consultant',
+        target_id=str(consultant_id)
+    ).order_by(AdminActionLog.created_at.desc()).limit(50).all()
+
+    profile_logs = ProfileChangeLog.query.filter_by(
+        consultant_id=consultant_id
+    ).order_by(ProfileChangeLog.changed_at.desc()).limit(50).all()
+
+    actions = []
+    for log in action_logs:
+        item = log.to_dict()
+        admin = User.query.get(log.admin_user_id)
+        item['adminName'] = admin.name if admin else 'Unknown'
+        item['adminEmail'] = admin.email if admin else None
+        actions.append(item)
+
+    changes = []
+    for log in profile_logs:
+        item = log.to_dict()
+        changer = User.query.get(log.changed_by) if log.changed_by else None
+        item['changedByName'] = changer.name if changer else 'System'
+        changes.append(item)
+
+    return jsonify({
+        'consultant': {
+            'id': consultant.id,
+            'name': consultant.name,
+            'status': consultant.status,
+            'verified': consultant.verified,
+        },
+        'actions': actions,
+        'changes': changes,
+    })
+
 @app.route('/api/admin/action-logs', methods=['GET'])
 @admin_required
 def get_admin_action_logs():
@@ -3187,8 +3627,10 @@ def upload_profile_image():
         return jsonify({'error': 'JPG, PNG, GIF 파일만 업로드 가능합니다.'}), 400
     
     # Supabase 설정
-    supabase_url = os.environ.get('SUPABASE_URL', 'https://ghyioswdnfgtijowvpeo.supabase.co')
-    supabase_key = os.environ.get('SUPABASE_ANON_KEY', '') # 사용자가 제공해야 함
+    supabase_url = get_supabase_url()
+    supabase_key = os.environ.get('SUPABASE_ANON_KEY', '').strip() # 사용자가 제공해야 함
+    if not supabase_url or not supabase_key:
+        return jsonify({'error': 'Profile image storage is not configured'}), 500
     
     # 파일명 생성
     file_ext = file.filename.rsplit('.', 1)[-1].lower()
@@ -3236,14 +3678,32 @@ def upload_proposal_file():
     if g.current_user.role not in ['consultant', 'admin']:
         return jsonify({'error': 'Only consultants can upload proposal files'}), 403
     user_id = g.current_user.id
+
+    project_id = request.form.get('project_id')
+    if not project_id:
+        return jsonify({'error': 'Project ID required'}), 400
+
+    project = Project.query.get_or_404(project_id)
+    consultant = Consultant.query.get(project.consultant_id) if project.consultant_id else None
+    if g.current_user.role != 'admin' and (not consultant or not _same_id(consultant.user_id, user_id)):
+        return jsonify({'error': 'Only the assigned consultant can upload proposal files'}), 403
+
+    if project.status in ['contracted', 'in_progress', 'completed', 'pending_contract', 'awaiting_signature']:
+        return jsonify({'error': 'Cannot upload proposal files after contract workflow has started'}), 400
     
     # 1. 파일 확장자 추출 및 안전한 파일명 생성
     file_ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else 'pdf'
-    unique_name = f"{user_id}_{int(time_module.time())}.{file_ext}"
+    allowed_exts = {'pdf', 'doc', 'docx'}
+    if file_ext not in allowed_exts:
+        return jsonify({'error': 'Only PDF, DOC, and DOCX proposal files are allowed'}), 400
+
+    unique_name = f"{project.id}_{user_id}_{int(time_module.time())}.{file_ext}"
     
     # Supabase 설정
-    supabase_url = os.environ.get('SUPABASE_URL', '').strip('/')
+    supabase_url = get_supabase_url()
     supabase_key = os.environ.get('SUPABASE_ANON_KEY', '').strip()
+    if not supabase_url or not supabase_key:
+        return jsonify({'error': 'Proposal storage is not configured'}), 500
     
     # 업로드 경로: bucket/filename (proposals 버킷 내부)
     upload_url = f"{supabase_url}/storage/v1/object/proposals/{unique_name}"

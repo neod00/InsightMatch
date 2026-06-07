@@ -621,6 +621,10 @@
             let allJobsAdmin = []; // Store all matching requests
             let currentFilter = 'all';
             let expandedJobId = null;
+            let consultantSearchQuery = '';
+            let consultantSortBy = 'created_desc';
+            let consultantPage = 1;
+            const consultantPageSize = 8;
 
             function ensureAdminAccess() {
                 const token = localStorage.getItem('token');
@@ -651,6 +655,34 @@
                     setTimeout(() => { window.location.href = 'dashboard.html'; }, 1200);
                 }
                 return response;
+            }
+
+            function escapeHtml(value) {
+                return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[char]));
+            }
+
+            function escapeAttr(value) {
+                return escapeHtml(value).replace(/`/g, '&#96;');
+            }
+
+            function safeImageUrl(url) {
+                try {
+                    const parsed = new URL(String(url || ''), window.location.origin);
+                    return parsed.protocol === 'https:' ? parsed.href : '';
+                } catch (_) {
+                    return '';
+                }
+            }
+
+            function safeMailto(email) {
+                const cleaned = String(email || '').trim();
+                return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleaned) ? `mailto:${encodeURIComponent(cleaned)}` : '';
             }
 
             // Tab Switching
@@ -964,7 +996,7 @@
                 // Use status field for accurate counting
                 const pending = allConsultantsAdmin.filter(c => c.status === 'pending' || (!c.status && !c.verified)).length;
                 const verified = allConsultantsAdmin.filter(c => c.status === 'verified' || (!c.status && c.verified)).length;
-                const rejected = allConsultantsAdmin.filter(c => c.status === 'rejected').length;
+                const rejected = allConsultantsAdmin.filter(c => c.status === 'rejected' || c.status === 'revoked').length;
 
                 document.getElementById('consultant-stat-total').textContent = total;
                 document.getElementById('consultant-stat-pending').textContent = pending;
@@ -980,6 +1012,7 @@
 
             function filterConsultants(filter) {
                 currentFilter = filter;
+                consultantPage = 1;
 
                 // Update filter buttons
                 document.querySelectorAll('.consultant-filter-btn').forEach(btn => {
@@ -995,7 +1028,80 @@
                 renderConsultantsAdmin();
             }
 
+            function ensureConsultantListControls() {
+                const container = document.getElementById('consultant-list-admin');
+                if (!container || document.getElementById('consultant-list-controls')) return;
+
+                const controls = document.createElement('div');
+                controls.id = 'consultant-list-controls';
+                controls.style.cssText = 'display: flex; gap: 12px; align-items: center; margin: 0 0 16px; flex-wrap: wrap;';
+                controls.innerHTML = `
+                    <input id="consultant-search-input" type="search" placeholder="이름, ISO, 지역 검색"
+                        style="flex: 1; min-width: 220px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary);">
+                    <select id="consultant-sort-select"
+                        style="padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary);">
+                        <option value="created_desc">최신순</option>
+                        <option value="name_asc">이름순</option>
+                        <option value="trust_desc">신뢰점수순</option>
+                        <option value="status_asc">상태순</option>
+                    </select>
+                    <div id="consultant-pagination" style="display: flex; gap: 8px; align-items: center;"></div>
+                `;
+                container.parentNode.insertBefore(controls, container);
+
+                document.getElementById('consultant-search-input').addEventListener('input', (event) => {
+                    consultantSearchQuery = event.target.value.trim().toLowerCase();
+                    consultantPage = 1;
+                    renderConsultantsAdmin();
+                });
+                document.getElementById('consultant-sort-select').addEventListener('change', (event) => {
+                    consultantSortBy = event.target.value;
+                    consultantPage = 1;
+                    renderConsultantsAdmin();
+                });
+            }
+
+            function consultantMatchesSearch(consultant) {
+                if (!consultantSearchQuery) return true;
+                const isoText = consultant.isoExperience && typeof consultant.isoExperience === 'object'
+                    ? Object.keys(consultant.isoExperience).join(' ')
+                    : '';
+                const haystack = [
+                    consultant.name,
+                    consultant.specialty,
+                    consultant.regions,
+                    consultant.companyName,
+                    isoText,
+                    ...(consultant.industryExperience || [])
+                ].join(' ').toLowerCase();
+                return haystack.includes(consultantSearchQuery);
+            }
+
+            function sortConsultantsForAdmin(consultants) {
+                const sorted = [...consultants];
+                sorted.sort((a, b) => {
+                    if (consultantSortBy === 'name_asc') return String(a.name || '').localeCompare(String(b.name || ''));
+                    if (consultantSortBy === 'trust_desc') return (b.trustScore || 0) - (a.trustScore || 0);
+                    if (consultantSortBy === 'status_asc') return String(a.status || '').localeCompare(String(b.status || ''));
+                    return (b.id || 0) - (a.id || 0);
+                });
+                return sorted;
+            }
+
+            function renderConsultantPagination(total) {
+                const pagination = document.getElementById('consultant-pagination');
+                if (!pagination) return;
+                const totalPages = Math.max(1, Math.ceil(total / consultantPageSize));
+                consultantPage = Math.min(Math.max(1, consultantPage), totalPages);
+                pagination.innerHTML = `
+                    <button class="btn btn-sm btn-secondary" ${consultantPage <= 1 ? 'disabled' : ''} onclick="consultantPage--; renderConsultantsAdmin();">이전</button>
+                    <span style="font-size: 0.9rem; color: var(--text-muted);">${consultantPage} / ${totalPages}</span>
+                    <button class="btn btn-sm btn-secondary" ${consultantPage >= totalPages ? 'disabled' : ''} onclick="consultantPage++; renderConsultantsAdmin();">다음</button>
+                `;
+            }
+
             function renderConsultantsAdmin() {
+                ensureConsultantListControls();
                 const container = document.getElementById('consultant-list-admin');
                 container.innerHTML = '';
 
@@ -1007,8 +1113,18 @@
                 } else if (currentFilter === 'verified') {
                     consultantsToShow = allConsultantsAdmin.filter(c => c.status === 'verified' || (!c.status && c.verified));
                 } else if (currentFilter === 'rejected') {
-                    consultantsToShow = allConsultantsAdmin.filter(c => c.status === 'rejected');
+                    consultantsToShow = allConsultantsAdmin.filter(c => c.status === 'rejected' || c.status === 'revoked');
                 }
+
+                consultantsToShow = sortConsultantsForAdmin(consultantsToShow.filter(consultantMatchesSearch));
+                const totalFiltered = consultantsToShow.length;
+                const totalPages = Math.max(1, Math.ceil(totalFiltered / consultantPageSize));
+                consultantPage = Math.min(Math.max(1, consultantPage), totalPages);
+                consultantsToShow = consultantsToShow.slice(
+                    (consultantPage - 1) * consultantPageSize,
+                    consultantPage * consultantPageSize
+                );
+                renderConsultantPagination(totalFiltered);
 
                 if (consultantsToShow.length === 0) {
                     container.innerHTML = `
@@ -1039,6 +1155,11 @@
                         statusText = '거부됨';
                         card.style.opacity = '0.7';
                         card.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                    } else if (status === 'revoked') {
+                        statusClass = 'rejected';
+                        statusText = '검증취소';
+                        card.style.opacity = '0.7';
+                        card.style.borderColor = 'rgba(239, 68, 68, 0.3)';
                     }
 
                     // Parse ISO experience
@@ -1049,17 +1170,22 @@
 
                     // Parse industry experience
                     let industryList = consultant.industryExperience || [];
+                    const consultantName = escapeHtml(consultant.name || 'Consultant');
+                    const consultantInitial = escapeHtml(consultant.avatar || consultant.name?.[0] || '?');
+                    const consultantSpecialty = escapeHtml(consultant.specialty || '종합');
+                    const consultantExperience = escapeHtml(consultant.experience || '-');
+                    const safeProfileImage = safeImageUrl(consultant.profileImageUrl);
 
                     // Avatar logic
-                    const avatarContent = consultant.profileImageUrl
-                        ? `<img src="${consultant.profileImageUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
-                        : (consultant.avatar || consultant.name[0]);
+                    const avatarContent = safeProfileImage
+                        ? `<img src="${escapeAttr(safeProfileImage)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
+                        : consultantInitial;
 
                     // Rejection info (for rejected consultants)
                     const rejectionInfo = status === 'rejected' ? `
                         <div style="margin-top: 12px; padding: 10px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; border-left: 3px solid #ef4444;">
                             <div style="font-size: 0.8rem; color: var(--error); font-weight: 500; margin-bottom: 4px;">거부 사유:</div>
-                            <div style="font-size: 0.85rem; color: var(--text-muted);">${consultant.rejectionReason || '사유 미기재'}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">${escapeHtml(consultant.rejectionReason || '사유 미기재')}</div>
                             ${consultant.rejectedAt ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">거부일: ${new Date(consultant.rejectedAt).toLocaleDateString('ko-KR')}</div>` : ''}
                         </div>
                     ` : '';
@@ -1110,8 +1236,8 @@
                         <div class="consultant-approval-info">
                             <div class="consultant-approval-avatar" ${status === 'rejected' ? 'style="filter: grayscale(50%);"' : ''}>${avatarContent}</div>
                             <div class="consultant-approval-details">
-                                <h3>${consultant.name}</h3>
-                                <p>${consultant.specialty || '종합'} 전문 · 경력 ${consultant.experience || '-'}</p>
+                                <h3>${consultantName}</h3>
+                                <p>${consultantSpecialty} 전문 · 경력 ${consultantExperience}</p>
                             </div>
                         </div>
                         <span class="consultant-approval-status ${statusClass}">${statusText}</span>
@@ -1120,11 +1246,11 @@
                     <div class="consultant-approval-body">
                         <div class="approval-info-item">
                             <label>ISO 규격</label>
-                            <span>${isoList.length > 0 ? isoList.map(iso => 'ISO ' + iso).join(', ') : '-'}</span>
+                            <span>${isoList.length > 0 ? isoList.map(iso => 'ISO ' + escapeHtml(iso)).join(', ') : '-'}</span>
                         </div>
                         <div class="approval-info-item">
                             <label>산업 경험</label>
-                            <span>${industryList.length > 0 ? industryList.join(', ') : '-'}</span>
+                            <span>${industryList.length > 0 ? industryList.map(escapeHtml).join(', ') : '-'}</span>
                         </div>
                         <div class="approval-info-item">
                             <label>신뢰 점수</label>
@@ -1296,6 +1422,122 @@
                 }
             }
 
+            async function approveConsultant(id) {
+                if (!confirm('승인 전 필수 확인 항목을 모두 확인했습니까?\n\n- 신원/계정 확인\n- ISO 자격 및 경력 확인\n- 주요 프로젝트 이력 확인\n- 연락처 확인')) return;
+
+                const checklist = {
+                    identity_verified: true,
+                    iso_credentials_verified: true,
+                    project_history_verified: true,
+                    contact_verified: true
+                };
+
+                try {
+                    const response = await authFetch(`/api/admin/consultants/${id}/approve`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ checklist })
+                    });
+
+                    if (response.ok) {
+                        showNotification('컨설턴트가 승인되었습니다.', 'success');
+                        fetchConsultantsAdmin();
+                    } else {
+                        const data = await response.json();
+                        showNotification(data.message || '승인 처리 중 오류가 발생했습니다.', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showNotification('서버 연결에 실패했습니다.', 'error');
+                }
+            }
+
+            async function revokeVerification(id) {
+                const reason = prompt('검증취소 사유를 입력해주세요.');
+                if (!reason || !reason.trim()) return;
+
+                try {
+                    const response = await authFetch(`/api/admin/consultants/${id}/revoke`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reason: reason.trim() })
+                    });
+
+                    if (response.ok) {
+                        showNotification('검증이 취소되었습니다.', 'success');
+                        fetchConsultantsAdmin();
+                    } else {
+                        const data = await response.json();
+                        showNotification(data.message || '처리 중 오류가 발생했습니다.', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showNotification('서버 연결에 실패했습니다.', 'error');
+                }
+            }
+
+            async function loadConsultantHistory(id) {
+                const panel = document.getElementById('panel-content');
+                if (!panel) return;
+
+                const historySection = document.createElement('div');
+                historySection.className = 'info-group';
+                historySection.style.marginTop = '32px';
+                historySection.innerHTML = `
+                    <h4 style="margin-bottom: 16px; color: var(--secondary); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+                        심사 및 변경 이력
+                    </h4>
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">이력을 불러오는 중...</p>
+                `;
+                panel.appendChild(historySection);
+
+                try {
+                    const response = await authFetch(`/api/admin/consultants/${id}/history`);
+                    if (!response.ok) {
+                        historySection.innerHTML += `<p style="color: var(--error); font-size: 0.9rem;">이력을 불러오지 못했습니다.</p>`;
+                        return;
+                    }
+                    const history = await response.json();
+                    const actions = history.actions || [];
+                    const changes = history.changes || [];
+                    const actionHtml = actions.length
+                        ? actions.slice(0, 8).map(item => `
+                            <div style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.08);">
+                                <div style="font-weight: 600;">${escapeHtml(item.action)}</div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted);">${escapeHtml(item.adminName || 'Unknown')} · ${escapeHtml(item.createdAt || '')}</div>
+                            </div>
+                        `).join('')
+                        : '<p style="color: var(--text-muted); font-size: 0.9rem;">심사 이력이 없습니다.</p>';
+                    const changeHtml = changes.length
+                        ? changes.slice(0, 8).map(item => `
+                            <div style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.08);">
+                                <div style="font-weight: 600;">${escapeHtml(item.fieldName)}</div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted);">${escapeHtml(item.changedByName || 'System')} · ${escapeHtml(item.changedAt || '')}</div>
+                            </div>
+                        `).join('')
+                        : '<p style="color: var(--text-muted); font-size: 0.9rem;">프로필 변경 이력이 없습니다.</p>';
+
+                    historySection.innerHTML = `
+                        <h4 style="margin-bottom: 16px; color: var(--secondary); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+                            심사 및 변경 이력
+                        </h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div>
+                                <div style="font-weight: 700; margin-bottom: 8px;">심사 이력</div>
+                                ${actionHtml}
+                            </div>
+                            <div>
+                                <div style="font-weight: 700; margin-bottom: 8px;">프로필 변경 이력</div>
+                                ${changeHtml}
+                            </div>
+                        </div>
+                    `;
+                } catch (error) {
+                    console.error('History error:', error);
+                    historySection.innerHTML += `<p style="color: var(--error); font-size: 0.9rem;">이력을 불러오지 못했습니다.</p>`;
+                }
+            }
+
             // Delete Job (Matching Request)
             async function deleteJob(jobId, companyName) {
                 // Custom confirmation
@@ -1339,6 +1581,16 @@
             function viewConsultantDetails(consultantId) {
                 const consultant = allConsultantsAdmin.find(c => c.id == consultantId);
                 if (!consultant) return;
+                const consultantName = escapeHtml(consultant.name || 'Consultant');
+                const consultantInitial = escapeHtml(consultant.avatar || consultant.name?.[0] || '?');
+                const consultantSpecialty = escapeHtml(consultant.specialty || '종합');
+                const consultantExperience = escapeHtml(consultant.experience || '-');
+                const consultantCompany = escapeHtml(consultant.companyName || '');
+                const consultantEmail = escapeHtml(consultant.email || '미등록');
+                const consultantPhone = escapeHtml(consultant.phone || '미등록');
+                const consultantIntro = escapeHtml(consultant.matchReason || '등록된 소개가 없습니다.');
+                const safeProfileImage = safeImageUrl(consultant.profileImageUrl);
+                const safeConsultantMailto = safeMailto(consultant.email);
 
                 // Set Header Title
                 document.getElementById('panel-company-name').textContent = '컨설턴트 상세 정보';
@@ -1356,8 +1608,8 @@
                                         : role === 'Trainer' ? '교육강사'
                                             : role || '미지정';
                             return `<span style="display: inline-flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.1); padding: 6px 12px; border-radius: 16px; font-size: 0.85rem; margin: 4px 4px 4px 0;">
-                            <span style="font-weight: 600; color: var(--primary);">ISO ${code}</span>
-                            <span style="color: var(--text-muted);">(${roleText})</span>
+                            <span style="font-weight: 600; color: var(--primary);">ISO ${escapeHtml(code)}</span>
+                            <span style="color: var(--text-muted);">(${escapeHtml(roleText)})</span>
                         </span>`;
                         }).join('');
                     } else {
@@ -1377,7 +1629,7 @@
                 // Helper for tags
                 const renderTags = (items, emptyText = '미지정') => {
                     if (!items || items.length === 0) return `<span style="color: var(--text-muted);">${emptyText}</span>`;
-                    return items.map(item => `<span style="display: inline-block; background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; margin: 3px 3px 3px 0; border: 1px solid rgba(255,255,255,0.1);">${item}</span>`).join('');
+                    return items.map(item => `<span style="display: inline-block; background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; margin: 3px 3px 3px 0; border: 1px solid rgba(255,255,255,0.1);">${escapeHtml(item)}</span>`).join('');
                 };
 
                 // Translate project types
@@ -1401,9 +1653,9 @@
                 const translatedRoles = roles.map(r => roleLabels[r] || r);
 
                 // Set Header with Avatar
-                const avatarContent = consultant.profileImageUrl
-                    ? `<img src="${consultant.profileImageUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">`
-                    : `<div class="consultant-approval-avatar" style="width: 80px; height: 80px; border-radius: 12px; font-size: 1.5rem;">${consultant.avatar || consultant.name[0]}</div>`;
+                const avatarContent = safeProfileImage
+                    ? `<img src="${escapeAttr(safeProfileImage)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">`
+                    : `<div class="consultant-approval-avatar" style="width: 80px; height: 80px; border-radius: 12px; font-size: 1.5rem;">${consultantInitial}</div>`;
 
                 const contentHtml = `
                 <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 32px; padding: 20px; background: rgba(255,255,255,0.03); border-radius: 16px;">
@@ -1411,9 +1663,9 @@
                         ${avatarContent} 
                     </div>
                     <div style="flex: 1;">
-                        <h2 style="font-size: 1.5rem; margin-bottom: 4px;">${consultant.name}</h2>
-                        <p style="color: var(--text-muted); font-size: 0.95rem;">${consultant.specialty || '종합'} 전문 · 경력 ${consultant.experience || '-'}</p>
-                        ${consultant.companyName ? `<p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">🏢 ${consultant.companyName}</p>` : ''}
+                        <h2 style="font-size: 1.5rem; margin-bottom: 4px;">${consultantName}</h2>
+                        <p style="color: var(--text-muted); font-size: 0.95rem;">${consultantSpecialty} 전문 · 경력 ${consultantExperience}</p>
+                        ${consultantCompany ? `<p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">🏢 ${consultantCompany}</p>` : ''}
                     </div>
                     <span class="consultant-approval-status ${consultant.verified ? 'verified' : 'pending'}" style="font-size: 0.9rem;">
                         ${consultant.verified ? '✓ 검증됨' : '⏳ 승인 대기'}
@@ -1429,11 +1681,11 @@
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div>
                             <label class="info-label">📧 이메일</label>
-                            <div class="info-value">${consultant.email || '미등록'}</div>
+                            <div class="info-value">${consultantEmail}</div>
                         </div>
                         <div>
                             <label class="info-label">📞 연락처</label>
-                            <div class="info-value">${consultant.phone || '미등록'}</div>
+                            <div class="info-value">${consultantPhone}</div>
                         </div>
                     </div>
                 </div>
@@ -1500,7 +1752,7 @@
                 <div class="info-group" style="margin-top: 24px;">
                     <h4 style="margin-bottom: 12px; color: var(--text-primary);">💬 한줄 소개</h4>
                     <div class="info-value" style="background: rgba(16, 185, 129, 0.05); padding: 16px; border-radius: 8px; font-size: 0.95rem; line-height: 1.6; border-left: 3px solid var(--primary);">
-                        ${consultant.matchReason || '등록된 소개가 없습니다.'}
+                        ${consultantIntro}
                     </div>
                 </div>
 
@@ -1528,12 +1780,13 @@
             `;
 
                 document.getElementById('panel-content').innerHTML = contentHtml;
+                loadConsultantHistory(consultant.id);
 
                 // Update Footer Buttons
                 let footerHtml = `
                 <button class="btn btn-secondary" onclick="closeSidePanel()">닫기</button>
-                ${consultant.email ? `
-                <a href="mailto:${consultant.email}" class="btn btn-secondary" style="display: flex; align-items: center; gap: 8px;">
+                ${safeConsultantMailto ? `
+                <a href="${escapeAttr(safeConsultantMailto)}" class="btn btn-secondary" style="display: flex; align-items: center; gap: 8px;">
                     <i data-lucide="mail" style="width: 18px; height: 18px;"></i>
                     메일 보내기
                 </a>

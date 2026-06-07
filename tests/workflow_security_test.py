@@ -1,4 +1,5 @@
 import datetime
+import io
 import os
 import sys
 import unittest
@@ -8,7 +9,7 @@ import jwt
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../api')))
 
 from index import app, db
-from models import AdminActionLog, AnalysisJob, Consultant, Message, Notification, Project, User
+from models import AdminActionLog, AnalysisJob, Consultant, Message, Milestone, Notification, Project, User
 
 
 def make_token(user):
@@ -111,6 +112,164 @@ class TestWorkflowSecurity(unittest.TestCase):
 
         self.assertEqual(response.status_code, 403)
 
+    def test_iso_9001_quote_to_schedule_workflow(self):
+        second_consultant_user = User(
+            email='second-consultant@example.com',
+            password_hash='x',
+            role='consultant',
+            name='Second Consultant User',
+        )
+        db.session.add(second_consultant_user)
+        db.session.flush()
+        second_consultant = Consultant(
+            user_id=second_consultant_user.id,
+            name='ISO 9001 Specialist',
+            specialty='ISO 9001',
+            iso_experience='{"9001": true}',
+            industry_experience='["Manufacturing"]',
+            project_types='["New"]',
+            verified=True,
+            status='verified',
+            trust_score=95,
+            rating=4.9,
+            reviews=42,
+            regions='Seoul',
+        )
+        db.session.add(second_consultant)
+        db.session.commit()
+
+        match_response = self.client.post(
+            '/api/match',
+            json={
+                'companyName': 'Buyer Co',
+                'contactEmail': 'buyer@example.com',
+                'industry': 'Manufacturing',
+                'employees': '50-100',
+                'region': 'Seoul',
+                'standards': ['ISO 9001'],
+                'certStatus': 'initial',
+                'timeline': '3months',
+                'budget': '1000-2000',
+                'additionalNotes': 'Need ISO 9001 certification before supplier audit.',
+            },
+        )
+        self.assertEqual(match_response.status_code, 200)
+        match_data = match_response.get_json()
+        self.assertIn('ISO 9001', match_data['all_standards'])
+        self.assertTrue(
+            any(c['id'] == second_consultant.id for c in match_data['consultants']),
+            match_data['consultants'],
+        )
+
+        quote_response = self.client.post(
+            '/api/quotes/request',
+            json={
+                'consultant_ids': [second_consultant.id],
+                'analysis_context': match_data,
+                'session_id': match_data['session_id'],
+            },
+            headers=auth_headers(self.company),
+        )
+        self.assertEqual(quote_response.status_code, 201)
+        project_id = quote_response.get_json()['projects'][0]['project_id']
+        project = Project.query.get(project_id)
+        self.assertEqual(project.company_id, self.company.id)
+        self.assertEqual(project.consultant_id, second_consultant.id)
+        self.assertEqual(project.status, 'proposal_pending')
+
+        consultant_notice = Notification.query.filter_by(
+            user_id=second_consultant_user.id,
+            type='quote_request',
+        ).first()
+        self.assertIsNotNone(consultant_notice)
+
+        company_message = self.client.post(
+            f'/api/projects/{project_id}/messages',
+            json={'content': 'Please include ISO 9001 audit preparation and document review.'},
+            headers=auth_headers(self.company),
+        )
+        self.assertEqual(company_message.status_code, 200)
+
+        consultant_message = self.client.post(
+            f'/api/projects/{project_id}/messages',
+            json={'content': 'I can provide a 10-week ISO 9001 implementation plan.'},
+            headers=auth_headers(second_consultant_user),
+        )
+        self.assertEqual(consultant_message.status_code, 200)
+        self.assertEqual(Message.query.filter_by(project_id=project_id).count(), 2)
+
+        proposal_response = self.client.post(
+            f'/api/projects/{project_id}/submit-proposal',
+            json={
+                'proposal_price': 12000000,
+                'proposal_duration': '10 weeks',
+                'proposal_message': 'Includes gap analysis, documentation, internal audit, and certification support.',
+                'proposal_file_url': '',
+            },
+            headers=auth_headers(second_consultant_user),
+        )
+        self.assertEqual(proposal_response.status_code, 200)
+        db.session.refresh(project)
+        self.assertEqual(project.status, 'proposal_submitted')
+        self.assertEqual(project.proposal_price, 12000000)
+
+        proposal_view = self.client.get(
+            f'/api/projects/{project_id}/proposal',
+            headers=auth_headers(self.company),
+        )
+        self.assertEqual(proposal_view.status_code, 200)
+        self.assertEqual(proposal_view.get_json()['proposal_duration'], '10 weeks')
+
+        draft_response = self.client.post(
+            f'/api/projects/{project_id}/contract/draft',
+            json={'special_terms': 'Kickoff within 5 business days.'},
+            headers=auth_headers(self.company),
+        )
+        self.assertEqual(draft_response.status_code, 200)
+
+        company_sign = self.client.post(
+            f'/api/projects/{project_id}/contract/sign',
+            json={},
+            headers=auth_headers(self.company),
+        )
+        self.assertEqual(company_sign.status_code, 200)
+        consultant_sign = self.client.post(
+            f'/api/projects/{project_id}/contract/sign',
+            json={},
+            headers=auth_headers(second_consultant_user),
+        )
+        self.assertEqual(consultant_sign.status_code, 200)
+        db.session.refresh(project)
+        self.assertEqual(project.status, 'contracted')
+
+        first = Milestone(project_id=project_id, title='Gap analysis')
+        second = Milestone(project_id=project_id, title='Internal audit')
+        db.session.add_all([first, second])
+        db.session.commit()
+
+        day_1 = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)).date().isoformat()
+        day_2 = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=28)).date().isoformat()
+        schedule_response = self.client.post(
+            f'/api/projects/{project_id}/propose-schedule',
+            json={'schedule': [
+                {'milestone_id': first.id, 'proposed_date': day_1},
+                {'milestone_id': second.id, 'proposed_date': day_2},
+            ]},
+            headers=auth_headers(second_consultant_user),
+        )
+        self.assertEqual(schedule_response.status_code, 200)
+        db.session.refresh(project)
+        self.assertEqual(project.schedule_status, 'proposed')
+
+        confirm_response = self.client.post(
+            f'/api/projects/{project_id}/confirm-schedule',
+            headers=auth_headers(self.company),
+        )
+        self.assertEqual(confirm_response.status_code, 200)
+        db.session.refresh(project)
+        self.assertEqual(project.schedule_status, 'confirmed')
+        self.assertEqual(project.status, 'in_progress')
+
     def test_non_participant_cannot_read_project_proposal_or_contract(self):
         headers = auth_headers(self.other_company)
 
@@ -140,6 +299,141 @@ class TestWorkflowSecurity(unittest.TestCase):
 
         rules = {str(rule) for rule in app.url_map.iter_rules()}
         self.assertIn('/api/projects/<int:project_id>/proposal/download', rules)
+
+    def test_submit_proposal_rejects_untrusted_file_url(self):
+        response = self.client.post(
+            f'/api/projects/{self.project.id}/submit-proposal',
+            json={
+                'proposal_price': 7000000,
+                'proposal_duration': '2 months',
+                'proposal_file_url': 'https://evil.example/proposal.pdf',
+            },
+            headers=auth_headers(self.consultant_user),
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()['message'], 'Invalid proposal file URL')
+
+    def test_proposal_upload_requires_assigned_consultant(self):
+        data = {
+            'project_id': str(self.project.id),
+            'file': (io.BytesIO(b'%PDF-1.4 test'), 'proposal.pdf'),
+        }
+
+        response = self.client.post(
+            '/api/upload/proposal-file',
+            data=data,
+            content_type='multipart/form-data',
+            headers=auth_headers(self.other_company),
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_submit_proposal_rejects_out_of_range_price(self):
+        response = self.client.post(
+            f'/api/projects/{self.project.id}/submit-proposal',
+            json={
+                'proposal_price': 1,
+                'proposal_duration': '2 months',
+                'proposal_file_url': '',
+            },
+            headers=auth_headers(self.consultant_user),
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_assigned_consultant_can_decline_quote_request(self):
+        self.project.status = 'proposal_pending'
+        db.session.commit()
+
+        response = self.client.post(
+            f'/api/projects/{self.project.id}/decline',
+            json={'reason': 'Not a fit'},
+            headers=auth_headers(self.consultant_user),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        db.session.refresh(self.project)
+        self.assertEqual(self.project.status, 'declined_by_consultant')
+        self.assertEqual(self.project.cancelled_reason, 'Not a fit')
+
+    def test_non_assigned_user_cannot_decline_quote_request(self):
+        response = self.client.post(
+            f'/api/projects/{self.project.id}/decline',
+            json={'reason': 'tamper'},
+            headers=auth_headers(self.other_company),
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_counter_offer_requires_price_or_duration(self):
+        self.project.status = 'negotiating'
+        self.project.negotiation_data = '{}'
+        db.session.commit()
+
+        response = self.client.post(
+            f'/api/projects/{self.project.id}/negotiate/respond',
+            json={'action': 'counter', 'message': 'Need adjustment'},
+            headers=auth_headers(self.consultant_user),
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_schedule_proposal_rejects_past_or_reversed_dates(self):
+        self.project.status = 'contracted'
+        first = Milestone(project_id=self.project.id, title='First')
+        second = Milestone(project_id=self.project.id, title='Second')
+        db.session.add_all([first, second])
+        db.session.commit()
+
+        yesterday = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)).date().isoformat()
+        response = self.client.post(
+            f'/api/projects/{self.project.id}/propose-schedule',
+            json={'schedule': [{'milestone_id': first.id, 'proposed_date': yesterday}]},
+            headers=auth_headers(self.consultant_user),
+        )
+        self.assertEqual(response.status_code, 400)
+
+        day_2 = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=2)).date().isoformat()
+        day_1 = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)).date().isoformat()
+        response = self.client.post(
+            f'/api/projects/{self.project.id}/propose-schedule',
+            json={'schedule': [
+                {'milestone_id': first.id, 'proposed_date': day_2},
+                {'milestone_id': second.id, 'proposed_date': day_1},
+            ]},
+            headers=auth_headers(self.consultant_user),
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_company_can_cancel_quote_request_group_atomically(self):
+        response = self.client.post(
+            '/api/projects/groups/cancel',
+            json={'session_id': 'session-1', 'reason': 'No longer needed'},
+            headers=auth_headers(self.company),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()['cancelled_count'], 2)
+
+        db.session.refresh(self.project)
+        db.session.refresh(self.other_candidate)
+        self.assertEqual(self.project.status, 'cancelled_by_company')
+        self.assertEqual(self.other_candidate.status, 'cancelled_by_company')
+        self.assertEqual(self.project.cancelled_reason, 'No longer needed')
+
+    def test_company_group_cancel_rejects_active_contracts(self):
+        self.project.status = 'contracted'
+        db.session.commit()
+
+        response = self.client.post(
+            '/api/projects/groups/cancel',
+            json={'session_id': 'session-1', 'reason': 'Cancel all'},
+            headers=auth_headers(self.company),
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()['contracted_count'], 1)
 
     def test_contract_signer_is_derived_from_authenticated_user(self):
         self.client.post(
@@ -283,6 +577,93 @@ class TestWorkflowSecurity(unittest.TestCase):
         consultant = response.get_json()[0]
         self.assertNotIn('email', consultant)
         self.assertNotIn('phone', consultant)
+        self.assertNotIn('user_id', consultant)
+
+    def test_public_consultant_list_excludes_pending_profiles(self):
+        pending_user = User(
+            email='pending-consultant@example.com',
+            password_hash='x',
+            role='consultant',
+            name='Pending Consultant User',
+        )
+        db.session.add(pending_user)
+        db.session.flush()
+        pending = Consultant(
+            user_id=pending_user.id,
+            name='Pending Consultant',
+            verified=False,
+            status='pending',
+            trust_score=50,
+        )
+        db.session.add(pending)
+        db.session.commit()
+
+        response = self.client.get('/api/consultants')
+        self.assertEqual(response.status_code, 200)
+        ids = [consultant['id'] for consultant in response.get_json()]
+        self.assertIn(self.consultant.id, ids)
+        self.assertNotIn(pending.id, ids)
+
+        detail_response = self.client.get(f'/api/consultants/{pending.id}')
+        self.assertEqual(detail_response.status_code, 404)
+
+        admin_response = self.client.get('/api/consultants', headers=auth_headers(self.admin_user))
+        self.assertEqual(admin_response.status_code, 200)
+        admin_ids = [consultant['id'] for consultant in admin_response.get_json()]
+        self.assertIn(pending.id, admin_ids)
+
+    def test_only_consultant_accounts_can_register_consultant_profile(self):
+        response = self.client.post(
+            '/api/consultants/register',
+            json={},
+            headers=auth_headers(self.company),
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_consultant_registration_validates_required_fields_and_image_url(self):
+        new_user = User(
+            email='new-consultant@example.com',
+            password_hash='x',
+            role='consultant',
+            name='New Consultant',
+        )
+        db.session.add(new_user)
+        db.session.commit()
+
+        valid_payload = {
+            'name': 'New Consultant',
+            'email': 'new-consultant@example.com',
+            'phone': '010-0000-0000',
+            'experience': 7,
+            'regions': 'Seoul',
+            'iso_experience': {'9001': True},
+            'industry_experience': ['Manufacturing'],
+            'match_reason': 'ISO 9001 implementation and audit preparation specialist.',
+            'recent_projects': 'Led ISO 9001 certification projects for manufacturers.',
+            'profile_image_url': '',
+        }
+
+        response = self.client.post(
+            '/api/consultants/register',
+            json={**valid_payload, 'profile_image_url': 'https://evil.example/profile.png'},
+            headers=auth_headers(new_user),
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()['message'], 'Invalid profile image URL')
+
+        response = self.client.post(
+            '/api/consultants/register',
+            json=valid_payload,
+            headers=auth_headers(new_user),
+        )
+        self.assertEqual(response.status_code, 201)
+
+        created = Consultant.query.filter_by(user_id=new_user.id).first()
+        self.assertIsNotNone(created)
+        self.assertEqual(created.status, 'pending')
+        self.assertFalse(created.verified)
+        self.assertEqual(created.email, 'new-consultant@example.com')
 
     def test_admin_can_restore_rejected_consultant_and_logs_action(self):
         self.consultant.status = 'rejected'
@@ -305,6 +686,111 @@ class TestWorkflowSecurity(unittest.TestCase):
         log = AdminActionLog.query.filter_by(action='restore_consultant').first()
         self.assertIsNotNone(log)
         self.assertEqual(log.admin_user_id, self.admin_user.id)
+
+    def test_admin_approval_requires_complete_checklist_and_notifies_consultant(self):
+        self.consultant.status = 'pending'
+        self.consultant.verified = False
+        db.session.commit()
+
+        response = self.client.post(
+            f'/api/admin/consultants/{self.consultant.id}/approve',
+            json={'checklist': {'identity_verified': True}},
+            headers=auth_headers(self.admin_user),
+        )
+        self.assertEqual(response.status_code, 400)
+
+        response = self.client.post(
+            f'/api/admin/consultants/{self.consultant.id}/approve',
+            json={'checklist': {
+                'identity_verified': True,
+                'iso_credentials_verified': True,
+                'project_history_verified': True,
+                'contact_verified': True,
+            }},
+            headers=auth_headers(self.admin_user),
+        )
+        self.assertEqual(response.status_code, 200)
+
+        db.session.refresh(self.consultant)
+        self.assertTrue(self.consultant.verified)
+        self.assertEqual(self.consultant.status, 'verified')
+
+        log = AdminActionLog.query.filter_by(action='approve_consultant').first()
+        self.assertIsNotNone(log)
+        self.assertTrue(log.to_dict()['details']['checklist']['identity_verified'])
+
+        notification = Notification.query.filter_by(
+            user_id=self.consultant_user.id,
+            type='consultant_approved',
+        ).first()
+        self.assertIsNotNone(notification)
+
+    def test_reject_and_revoke_require_reason_and_are_audited(self):
+        response = self.client.post(
+            f'/api/admin/consultants/{self.consultant.id}/reject',
+            json={'reason': ''},
+            headers=auth_headers(self.admin_user),
+        )
+        self.assertEqual(response.status_code, 400)
+
+        response = self.client.post(
+            f'/api/admin/consultants/{self.consultant.id}/reject',
+            json={'reason': 'Credentials could not be verified'},
+            headers=auth_headers(self.admin_user),
+        )
+        self.assertEqual(response.status_code, 200)
+        db.session.refresh(self.consultant)
+        self.assertEqual(self.consultant.status, 'rejected')
+        self.assertEqual(self.consultant.rejection_reason, 'Credentials could not be verified')
+
+        self.consultant.status = 'verified'
+        self.consultant.verified = True
+        db.session.commit()
+
+        response = self.client.post(
+            f'/api/admin/consultants/{self.consultant.id}/revoke',
+            json={},
+            headers=auth_headers(self.admin_user),
+        )
+        self.assertEqual(response.status_code, 400)
+
+        response = self.client.post(
+            f'/api/admin/consultants/{self.consultant.id}/revoke',
+            json={'reason': 'Expired certification evidence'},
+            headers=auth_headers(self.admin_user),
+        )
+        self.assertEqual(response.status_code, 200)
+        db.session.refresh(self.consultant)
+        self.assertFalse(self.consultant.verified)
+        self.assertEqual(self.consultant.status, 'revoked')
+        self.assertEqual(self.consultant.rejection_reason, 'Expired certification evidence')
+
+        self.assertIsNotNone(AdminActionLog.query.filter_by(action='reject_consultant').first())
+        self.assertIsNotNone(AdminActionLog.query.filter_by(action='revoke_consultant').first())
+        self.assertIsNotNone(Notification.query.filter_by(
+            user_id=self.consultant_user.id,
+            type='consultant_verification_revoked',
+        ).first())
+
+    def test_admin_can_read_consultant_review_history(self):
+        log = AdminActionLog(
+            admin_user_id=self.admin_user.id,
+            action='approve_consultant',
+            target_type='consultant',
+            target_id=str(self.consultant.id),
+            details='{"checklist": {"identity_verified": true}}',
+        )
+        db.session.add(log)
+        db.session.commit()
+
+        response = self.client.get(
+            f'/api/admin/consultants/{self.consultant.id}/history',
+            headers=auth_headers(self.admin_user),
+        )
+        self.assertEqual(response.status_code, 200)
+        history = response.get_json()
+        self.assertEqual(history['consultant']['id'], self.consultant.id)
+        self.assertEqual(history['actions'][0]['action'], 'approve_consultant')
 
     def test_admin_company_group_archive_matches_admin_list_ids(self):
         response = self.client.delete(

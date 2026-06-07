@@ -1581,6 +1581,46 @@
     </div>
 
     <!-- E. 계약서 확인/서명 모달 -->
+    <div id="counter-offer-modal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeCounterOfferModal()"></div>
+        <div class="modal-content card"
+            style="max-width: 500px; padding: 24px; background: var(--bg-card); border-radius: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;">
+                    <i data-lucide="refresh-cw"
+                        style="width: 20px; height: 20px; color: var(--primary); display: inline;"></i>
+                    역제안 보내기
+                </h3>
+                <button onclick="closeCounterOfferModal()" class="btn btn-ghost" style="padding: 8px;">
+                    <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+                </button>
+            </div>
+            <input type="hidden" id="counter-project-id">
+            <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 20px;">
+                <div>
+                    <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">역제안 금액</label>
+                    <input type="text" id="counter-price" placeholder="예: 5,000,000" inputmode="numeric"
+                        oninput="formatNumberWithComma(this)"
+                        style="width: 100%; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary);">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">역제안 기간</label>
+                    <input type="text" id="counter-duration" placeholder="예: 3개월"
+                        style="width: 100%; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary);">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">메시지</label>
+                    <textarea id="counter-message" maxlength="1000" placeholder="조정 사유나 수행 조건을 적어주세요."
+                        style="width: 100%; height: 96px; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); resize: vertical;"></textarea>
+                </div>
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <button class="btn btn-outline" style="flex: 1;" onclick="closeCounterOfferModal()">취소</button>
+                <button class="btn btn-primary" style="flex: 1;" onclick="submitCounterOfferFromModal()">역제안 전송</button>
+            </div>
+        </div>
+    </div>
+
     <div id="contract-modal" class="modal hidden">
         <div class="modal-overlay" onclick="closeContractModal()"></div>
         <div class="modal-content card"
@@ -1710,6 +1750,34 @@
             return fetch(url, { ...options, headers });
         }
 
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char]));
+        }
+
+        function escapeAttr(value) {
+            return escapeHtml(value).replace(/`/g, '&#96;');
+        }
+
+        function safeProposalFileUrl(url) {
+            if (!url) return '';
+            try {
+                const parsed = new URL(url, window.location.origin);
+                const allowedHost = 'ghyioswdnfgtijowvpeo.supabase.co';
+                if (parsed.protocol === 'https:' && parsed.hostname === allowedHost && parsed.pathname.startsWith('/storage/v1/object/public/proposals/')) {
+                    return parsed.href;
+                }
+            } catch (error) {
+                return '';
+            }
+            return '';
+        }
+
         // 프로젝트 상태 설정
         const STATUS_CONFIG = {
             'proposal_pending': { text: '제안서 대기', stage: 1, stageText: '제안서 대기' },
@@ -1723,6 +1791,7 @@
             'completed': { text: '완료', stage: 3, stageText: '계약 체결' },
             'cancelled_by_company': { text: '취소됨', stage: 0, stageText: '취소됨' },
             'not_selected': { text: '미선정', stage: 0, stageText: '종료' },
+            'declined_by_consultant': { text: '거절됨', stage: 0, stageText: '종료' },
             'planning': { text: '제안서 대기', stage: 1, stageText: '제안서 대기' } // 기존 호환
         };
 
@@ -2061,9 +2130,9 @@
                     ${cancelledOverlay}
                     <div class="quote-request-header">
                         <div>
-                            <div class="quote-request-title">${project.title}</div>
+                            <div class="quote-request-title">${escapeHtml(project.title)}</div>
                             <div class="quote-request-meta">
-                                <span><i data-lucide="building"></i> ${project.company_name || '기업 고객'}</span>
+                                <span><i data-lucide="building"></i> ${escapeHtml(project.company_name || '기업 고객')}</span>
                                 <span><i data-lucide="calendar"></i> ${requestDate} 요청</span>
                             </div>
                         </div>
@@ -2081,7 +2150,7 @@
                                 이 요청은 기업에 의해 취소되었습니다.
                             </div>
                             <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0; line-height: 1.5;">
-                                <strong>취소 사유:</strong> ${project.cancelled_reason || '사유 없음'}
+                                <strong>취소 사유:</strong> ${escapeHtml(project.cancelled_reason || '사유 없음')}
                             </p>
                             <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">
                                 취소일: ${project.cancelled_at ? new Date(project.cancelled_at).toLocaleString() : '-'}
@@ -2091,7 +2160,7 @@
                         <!-- 요약 정보 -->
                         <div style="background: var(--bg-secondary); padding: 16px; border-radius: var(--radius-sm); margin-bottom: 20px;">
                             <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 8px;">요청 사항:</p>
-                            <p style="font-size: 0.95rem; white-space: pre-line;">${project.description || '상세 요청 내용이 없습니다. 제안서를 작성하여 구체적인 논의를 시작해보세요.'}</p>
+                            <p style="font-size: 0.95rem; white-space: pre-line;">${escapeHtml(project.description || '상세 요청 내용이 없습니다. 제안서를 작성하여 구체적인 논의를 시작해보세요.')}</p>
                         </div>
                         `}
                         
@@ -2113,8 +2182,8 @@
                             ${project.negotiation_data ? `
                             <div style="background: var(--bg-card); padding: 12px; border-radius: 8px; margin-bottom: 12px;">
                                 ${project.negotiation_data.requested_price ? `<p style="margin: 0 0 4px 0; font-size: 0.9rem;"><strong>희망 금액:</strong> ${project.negotiation_data.requested_price.toLocaleString()}원</p>` : ''}
-                                ${project.negotiation_data.requested_duration ? `<p style="margin: 0 0 4px 0; font-size: 0.9rem;"><strong>희망 기간:</strong> ${project.negotiation_data.requested_duration}</p>` : ''}
-                                ${project.negotiation_data.company_message ? `<p style="margin: 8px 0 0 0; font-size: 0.85rem; color: var(--text-secondary);">"${project.negotiation_data.company_message}"</p>` : ''}
+                                ${project.negotiation_data.requested_duration ? `<p style="margin: 0 0 4px 0; font-size: 0.9rem;"><strong>희망 기간:</strong> ${escapeHtml(project.negotiation_data.requested_duration)}</p>` : ''}
+                                ${project.negotiation_data.company_message ? `<p style="margin: 8px 0 0 0; font-size: 0.85rem; color: var(--text-secondary);">"${escapeHtml(project.negotiation_data.company_message)}"</p>` : ''}
                             </div>
                             ` : ''}
                             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -2193,7 +2262,7 @@
                                 <button class="btn btn-outline" onclick="viewMyProposal(${project.id})">내 제안 보기</button>
                             ` : ''}
                             ${isContracted && scheduleStatus === 'pending' ? `
-                                <button class="btn btn-secondary" onclick="openMessageModal(${project.id}, '${project.title?.replace(/'/g, "\\'")}')">
+                                <button class="btn btn-secondary" onclick="openMessageModal(${project.id}, '${escapeAttr(project.title || '').replace(/'/g, "\\'")}')">
                                     <i data-lucide="message-circle" style="width: 16px; height: 16px;"></i>
                                     메시지
                                 </button>
@@ -2203,7 +2272,7 @@
                                 </button>
                             ` : ''}
                             ${isInProgress || scheduleStatus === 'confirmed' ? `
-                                <button class="btn btn-secondary" onclick="openMessageModal(${project.id}, '${project.title?.replace(/'/g, "\\'")}')">
+                                <button class="btn btn-secondary" onclick="openMessageModal(${project.id}, '${escapeAttr(project.title || '').replace(/'/g, "\\'")}')">
                                     <i data-lucide="message-circle" style="width: 16px; height: 16px;"></i>
                                     메시지
                                 </button>
@@ -2278,7 +2347,7 @@
                     <!-- Header -->
                     <div class="quote-request-header">
                         <div>
-                            <div class="quote-request-title">${group.title}</div>
+                            <div class="quote-request-title">${escapeHtml(group.title)}</div>
                             <div class="quote-request-meta">
                                 <span>
                                     <i data-lucide="calendar" style="width: 14px; height: 14px;"></i>
@@ -2323,11 +2392,11 @@
                     ` : `
                     <!-- Project Actions (제안서 대기 상태에서만) -->
                     <div class="project-actions" style="padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                        <button class="btn btn-secondary btn-sm" onclick="event.preventDefault(); event.stopPropagation(); openAddConsultantModal('${group.title.replace(/'/g, "\\'")}', '${group.session_id || ''}')">
+                            <button class="btn btn-secondary btn-sm" onclick="event.preventDefault(); event.stopPropagation(); openAddConsultantModal('${escapeAttr(group.title).replace(/'/g, "\\'")}', '${escapeAttr(group.session_id || '')}')">
                             <i data-lucide="sparkles" style="width: 14px; height: 14px;"></i>
                             새로운 전문가 추천받기
                         </button>
-                        <button class="btn btn-ghost btn-sm delete-all-btn" style="color: var(--error);" data-title="${group.title.replace(/"/g, '&quot;')}" data-session-id="${group.session_id || ''}" onclick="event.preventDefault(); event.stopPropagation(); deleteQuoteRequestGroup(this, event)">
+                        <button class="btn btn-ghost btn-sm delete-all-btn" style="color: var(--error);" data-title="${escapeAttr(group.title)}" data-session-id="${escapeAttr(group.session_id || '')}" onclick="event.preventDefault(); event.stopPropagation(); deleteQuoteRequestGroup(this, event)">
                             <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
                             전체 삭제
                         </button>
@@ -2392,10 +2461,11 @@
             // 일정 상태
             const scheduleStatus = project.schedule_status || 'pending';
             const needsScheduleConfirm = isContracted && scheduleStatus === 'proposed';
+            const proposalFileUrl = safeProposalFileUrl(project.proposal_file_url);
 
             const avatarContent = project.profile_image_url
-                ? `<img src="${project.profile_image_url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
-                : (project.consultant_name?.charAt(0) || '?');
+                ? `<img src="${escapeAttr(project.profile_image_url)}" alt="" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
+                : escapeHtml(project.consultant_name?.charAt(0) || '?');
 
             return `
                 <div class="consultant-response-card ${cardClass}">
@@ -2403,7 +2473,7 @@
                         <div class="consultant-avatar-large">${avatarContent}</div>
                         <div class="consultant-info-main">
                             <div class="consultant-name-row">
-                                <h4>${project.consultant_name || '컨설턴트'}</h4>
+                                <h4>${escapeHtml(project.consultant_name || '컨설턴트')}</h4>
                                 <i data-lucide="badge-check" class="verified-badge-small"></i>
                             </div>
                             <div class="consultant-specialty">ISO 인증 전문가</div>
@@ -2430,18 +2500,18 @@
                         </div>
                         <div class="proposal-preview-row">
                             <span class="proposal-label">예상 기간</span>
-                            <span class="proposal-value">${proposalDuration}</span>
+                            <span class="proposal-value">${escapeHtml(proposalDuration)}</span>
                         </div>
                         ${project.proposal_message ? `
                         <div class="proposal-preview-row" style="flex-direction: column; align-items: flex-start; gap: 4px;">
                             <span class="proposal-label">메시지</span>
-                            <span class="proposal-value" style="font-size: 0.85rem; color: var(--text-secondary);">${project.proposal_message}</span>
+                            <span class="proposal-value" style="font-size: 0.85rem; color: var(--text-secondary);">${escapeHtml(project.proposal_message)}</span>
                         </div>
                         ` : ''}
-                        ${project.proposal_file_url && !project.proposal_file_url.startsWith('pending_upload') ? `
+                        ${proposalFileUrl ? `
                         <div class="proposal-preview-row">
                             <span class="proposal-label">첨부 파일</span>
-                            <a href="${project.proposal_file_url}" target="_blank" class="proposal-value highlight" style="text-decoration: underline; font-size: 0.85rem;">첨부된 파일 보기</a>
+                            <a href="${proposalFileUrl}" target="_blank" rel="noopener noreferrer" class="proposal-value highlight" style="text-decoration: underline; font-size: 0.85rem;">첨부된 파일 보기</a>
                         </div>
                         ` : ''}
                     </div>
@@ -2459,7 +2529,7 @@
                         </button>
                         ` : ''}
                         ${isSubmitted && !isContracted ? `
-                        <button class="btn btn-outline btn-sm" onclick="openNegotiationModal(${project.id}, ${project.proposal_price || 0}, '${project.proposal_duration || ''}')">
+                        <button class="btn btn-outline btn-sm" onclick="openNegotiationModal(${project.id}, ${project.proposal_price || 0}, '${escapeAttr(project.proposal_duration || '')}')">
                             <i data-lucide="message-square-plus" style="width: 14px; height: 14px;"></i>
                             조건 협의
                         </button>
@@ -2481,13 +2551,13 @@
                         </button>
                         ` : ''}
                         ${isPending ? `
-                        <button class="btn btn-ghost btn-sm" style="color: var(--text-muted);" onclick="event.preventDefault(); event.stopPropagation(); cancelConsultantRequest(${project.id}, '${project.consultant_name?.replace(/'/g, "\\'")}', event)">
+                        <button class="btn btn-ghost btn-sm" style="color: var(--text-muted);" onclick="event.preventDefault(); event.stopPropagation(); cancelConsultantRequest(${project.id}, '${escapeAttr(project.consultant_name || '').replace(/'/g, "\\'")}', event)">
                             <i data-lucide="x" style="width: 14px; height: 14px;"></i>
                             요청 취소
                         </button>
                         ` : ''}
                         ${isContracted ? `
-                        <button class="btn btn-secondary btn-sm" onclick="openMessageModal(${project.id}, '${project.title?.replace(/'/g, "\\'")}')">
+                        <button class="btn btn-secondary btn-sm" onclick="openMessageModal(${project.id}, '${escapeAttr(project.title || '').replace(/'/g, "\\'")}')">
                             <i data-lucide="message-circle" style="width: 14px; height: 14px;"></i>
                             메시지
                         </button>
@@ -2521,16 +2591,16 @@
                 const consultant = await response.json();
 
                 const avatarContent = consultant.profileImageUrl
-                    ? `<img src="${consultant.profileImageUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
-                    : (consultant.avatar || consultant.name?.charAt(0) || '?');
+                    ? `<img src="${escapeAttr(consultant.profileImageUrl)}" alt="" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
+                    : escapeHtml(consultant.avatar || consultant.name?.charAt(0) || '?');
 
                 document.getElementById('modal-body').innerHTML = `
                     <div style="text-align: center; margin-bottom: 24px;">
                         <div class="consultant-avatar-large" style="width: 80px; height: 80px; font-size: 2rem; margin: 0 auto 16px;">
                             ${avatarContent}
                         </div>
-                        <h3 style="margin: 0 0 4px;">${consultant.name}</h3>
-                        <p style="color: var(--text-muted); margin: 0;">${consultant.specialty || '컨설턴트'}</p>
+                        <h3 style="margin: 0 0 4px;">${escapeHtml(consultant.name)}</h3>
+                        <p style="color: var(--text-muted); margin: 0;">${escapeHtml(consultant.specialty || '컨설턴트')}</p>
                     </div>
                     
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
@@ -2539,7 +2609,7 @@
                             <div style="font-size: 0.85rem; color: var(--text-muted);">평점</div>
                         </div>
                         <div style="text-align: center; padding: 16px; background: var(--bg-card); border-radius: var(--radius-md);">
-                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">${consultant.experience || '10년'}</div>
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary);">${escapeHtml(consultant.experience || '10년')}</div>
                             <div style="font-size: 0.85rem; color: var(--text-muted);">경력</div>
                         </div>
                         <div style="text-align: center; padding: 16px; background: var(--bg-card); border-radius: var(--radius-md);">
@@ -2550,7 +2620,7 @@
                     
                     <div style="margin-bottom: 16px;">
                         <h4 style="font-size: 0.95rem; margin-bottom: 8px;">전문 분야</h4>
-                        <p style="color: var(--text-secondary); font-size: 0.9rem;">${consultant.matchReason || '다양한 ISO 인증 경험 보유'}</p>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem;">${escapeHtml(consultant.matchReason || '다양한 ISO 인증 경험 보유')}</p>
                     </div>
                     
                     ${consultant.isoExperience && Object.keys(consultant.isoExperience).length > 0 ? `
@@ -2558,7 +2628,7 @@
                         <h4 style="font-size: 0.95rem; margin-bottom: 8px;">ISO 경험</h4>
                         <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                             ${Object.entries(consultant.isoExperience).map(([iso, role]) => `
-                                <span style="padding: 4px 10px; background: rgba(16, 185, 129, 0.1); color: var(--primary); border-radius: 100px; font-size: 0.8rem;">${iso}</span>
+                                <span style="padding: 4px 10px; background: rgba(16, 185, 129, 0.1); color: var(--primary); border-radius: 100px; font-size: 0.8rem;">${escapeHtml(iso)}</span>
                             `).join('')}
                         </div>
                     </div>
@@ -2693,13 +2763,13 @@
                     
                     <p><strong>제1조 (계약 당사자)</strong></p>
                     <p style="margin-left: 16px;">
-                        갑(의뢰인): <strong>${data.company_name}</strong> ${data.company_company_name ? `(${data.company_company_name})` : ''}<br>
-                        을(수행자): <strong>${data.consultant_name}</strong> ${data.consultant_company_name ? `(${data.consultant_company_name})` : ''}
+                        갑(의뢰인): <strong>${escapeHtml(data.company_name)}</strong> ${data.company_company_name ? `(${escapeHtml(data.company_company_name)})` : ''}<br>
+                        을(수행자): <strong>${escapeHtml(data.consultant_name)}</strong> ${data.consultant_company_name ? `(${escapeHtml(data.consultant_company_name)})` : ''}
                     </p>
                     
                     <p><strong>제2조 (용역 내용)</strong></p>
                     <p style="margin-left: 16px;">
-                        본 계약의 대상 용역은 <strong>${data.title}</strong>으로 한다.
+                        본 계약의 대상 용역은 <strong>${escapeHtml(data.title)}</strong>으로 한다.
                     </p>
                     
                     <p><strong>제3조 (계약 금액)</strong></p>
@@ -2709,7 +2779,7 @@
                     
                     <p><strong>제4조 (수행 기간)</strong></p>
                     <p style="margin-left: 16px;">
-                        본 용역의 수행 기간은 계약 체결일로부터 <strong>${data.proposal_duration || '별도 협의 기간'}</strong>으로 한다.
+                        본 용역의 수행 기간은 계약 체결일로부터 <strong>${escapeHtml(data.proposal_duration || '별도 협의 기간')}</strong>으로 한다.
                     </p>
                     
                     <p><strong>제5조 (비밀 유지)</strong></p>
@@ -2719,7 +2789,7 @@
                     
                     ${data.special_terms ? `
                     <p><strong>특약 사항</strong></p>
-                    <p style="margin-left: 16px; white-space: pre-wrap;">${data.special_terms}</p>
+                    <p style="margin-left: 16px; white-space: pre-wrap;">${escapeHtml(data.special_terms)}</p>
                     ` : ''}
                 `;
 
@@ -2814,6 +2884,7 @@
 
                 if (response.ok) {
                     showNotification(data.message, 'success');
+                    closeCounterOfferModal();
                     fetchProjects();
                 } else {
                     showNotification(data.message || '처리에 실패했습니다.', 'error');
@@ -2825,6 +2896,14 @@
         }
 
         function openCounterOfferModal(projectId) {
+            document.getElementById('counter-project-id').value = projectId;
+            document.getElementById('counter-price').value = '';
+            document.getElementById('counter-duration').value = '';
+            document.getElementById('counter-message').value = '';
+            document.getElementById('counter-offer-modal').classList.remove('hidden');
+            lucide.createIcons();
+            return;
+
             const counterPrice = prompt('역제안 금액을 입력하세요 (원):');
             if (counterPrice === null) return;
 
@@ -2834,6 +2913,28 @@
             const message = prompt('역제안 메시지를 입력하세요 (선택):') || '';
 
             submitCounterOffer(projectId, counterPrice, counterDuration, message);
+        }
+
+        function closeCounterOfferModal() {
+            document.getElementById('counter-offer-modal').classList.add('hidden');
+        }
+
+        async function submitCounterOfferFromModal() {
+            const projectId = document.getElementById('counter-project-id').value;
+            const counterPrice = parseFormattedNumber(document.getElementById('counter-price').value);
+            const counterDuration = document.getElementById('counter-duration').value.trim();
+            const message = document.getElementById('counter-message').value.trim();
+
+            if (!counterPrice && !counterDuration) {
+                showNotification('역제안 금액 또는 기간 중 하나는 입력해야 합니다.', 'error');
+                return;
+            }
+            if (counterPrice && (counterPrice < 100000 || counterPrice > 1000000000)) {
+                showNotification('역제안 금액은 100,000원 이상 1,000,000,000원 이하로 입력해주세요.', 'error');
+                return;
+            }
+
+            await submitCounterOffer(projectId, counterPrice, counterDuration, message);
         }
 
         async function submitCounterOffer(projectId, counterPrice, counterDuration, message) {
@@ -3032,7 +3133,7 @@
             // Use custom confirm modal instead of native confirm
             const confirmResult = await showConfirmModal(
                 '요청 삭제 확인',
-                `"${title}" 요청을 전체 삭제하시겠습니까?<br><br>모든 컨설턴트에 대한 요청이 삭제됩니다.`
+                `"${escapeHtml(title)}" 요청을 취소하시겠습니까?<br><br>계약 전 컨설턴트 요청만 취소됩니다.`
             );
             console.log('[DEBUG] confirm result:', confirmResult);
 
@@ -3057,6 +3158,28 @@
 
             try {
                 // 해당 세션 또는 title을 가진 모든 프로젝트 조회
+                const groupCancelResponse = await authFetch(`${API_BASE_URL}/api/projects/groups/cancel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId || null,
+                        title: sessionId ? null : title,
+                        reason: 'Cancelled from company dashboard'
+                    })
+                });
+                const groupCancelResult = await groupCancelResponse.json();
+
+                if (groupCancelResponse.ok) {
+                    showNotification(`${groupCancelResult.cancelled_count || 0}개의 요청을 취소했습니다.`, 'success');
+                    fetchProjects();
+                } else {
+                    showNotification(groupCancelResult.message || '요청 취소에 실패했습니다. 다시 시도해주세요.', 'error');
+                    buttonElement.disabled = false;
+                    buttonElement.innerHTML = originalButtonContent;
+                    lucide.createIcons();
+                }
+                return;
+
                 const response = await authFetch(`${API_BASE_URL}/api/projects?user_id=${user.id}`);
                 const projects = await response.json();
 
@@ -3201,8 +3324,8 @@
                 // 모달 내용 생성
                 const consultantCards = consultants.map(c => {
                     const avatarContent = c.profileImageUrl
-                        ? `<img src="${c.profileImageUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
-                        : (c.name?.charAt(0) || '?');
+                        ? `<img src="${escapeAttr(c.profileImageUrl)}" alt="" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
+                        : escapeHtml(c.name?.charAt(0) || '?');
 
                     return `
                         <div class="add-consultant-item" style="display: flex; align-items: center; justify-content: space-between; padding: 16px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; background: var(--bg-card);">
@@ -3210,18 +3333,18 @@
                                 <div class="consultant-avatar-large" style="width: 48px; height: 48px; font-size: 1.2rem;">${avatarContent}</div>
                                 <div>
                                     <div style="display: flex; align-items: center; gap: 6px;">
-                                        <div style="font-weight: 600;">${c.name}</div>
+                                        <div style="font-weight: 600;">${escapeHtml(c.name)}</div>
                                         ${c.matchScore ? `<span style="background: rgba(16, 185, 129, 0.1); color: var(--primary); padding: 1px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">매칭 ${c.matchScore}%</span>` : ''}
                                     </div>
-                                    <div style="font-size: 0.85rem; color: var(--text-muted);">${c.specialty || 'ISO 전문가'}</div>
-                                    ${c.matchReason ? `<div style="font-size: 0.75rem; color: var(--primary); margin: 4px 0;">${c.matchReason}</div>` : ''}
+                                    <div style="font-size: 0.85rem; color: var(--text-muted);">${escapeHtml(c.specialty || 'ISO 전문가')}</div>
+                                    ${c.matchReason ? `<div style="font-size: 0.75rem; color: var(--primary); margin: 4px 0;">${escapeHtml(c.matchReason)}</div>` : ''}
                                     <div style="display: flex; gap: 8px; margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary);">
                                         <span>⭐ ${c.rating || '-'}</span>
-                                        <span>경력 ${c.experience || '-'}</span>
+                                        <span>경력 ${escapeHtml(c.experience || '-')}</span>
                                     </div>
                                 </div>
                             </div>
-                            <button class="btn btn-primary btn-sm" onclick="addConsultant(${c.id}, '${c.name?.replace(/'/g, "\\'")}')">
+                            <button class="btn btn-primary btn-sm" onclick="addConsultant(${c.id}, '${escapeAttr(c.name || '').replace(/'/g, "\\'")}')">
                                 <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
                                 요청
                             </button>
@@ -3237,7 +3360,7 @@
                         <h3 style="margin: 0;">새로운 전문가 추천받기</h3>
                     </div>
                     <p style="color: var(--text-muted); margin-bottom: 24px; font-size: 0.95rem; line-height: 1.5;">
-                        현재 프로젝트 정보를 바탕으로 <strong>${title}</strong> 분야의 최적 전문가들을 추가로 선별했습니다.
+                        현재 프로젝트 정보를 바탕으로 <strong>${escapeHtml(title)}</strong> 분야의 최적 전문가들을 추가로 선별했습니다.
                     </p>
                     <div style="max-height: 400px; overflow-y: auto; padding-right: 4px;">
                         ${consultantCards}
@@ -3321,7 +3444,7 @@
 
             document.getElementById('proposal-file-info').innerHTML = `
                 <i data-lucide="loader" class="spin" style="width: 14px; height: 14px; display: inline;"></i> 
-                업로드 중: ${file.name}...
+                업로드 중: ${escapeHtml(file.name)}...
             `;
             lucide.createIcons();
 
@@ -3329,34 +3452,29 @@
             try {
                 // .env에 있는 키가 환경변수로 주입되어야 하지만, 클라이언트 사이드에서는 
                 // 이미 설정된 SUPABASE_URL과 ANON_KEY를 사용합니다.
-                const SUPABASE_URL = 'https://ghyioswdnfgtijowvpeo.supabase.co';
-                const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdoeWlvc3dkbmZndGlqb3d2cGVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ0NzMxMTgsImV4cCI6MjA4MDA0OTExOH0.OReuua98F5edVsYgut916CHp6ao3UR08QEG8M-SsCTQ';
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('project_id', currentProposalProjectId);
 
-                const fileExt = file.name.split('.').pop();
-                const fileName = `up_${Date.now()}_${user.id}.${fileExt}`;
-                const uploadUrl = `${SUPABASE_URL}/storage/v1/object/proposals/${fileName}`;
-
-                const response = await authFetch(uploadUrl, {
+                const response = await authFetch(`${API_BASE_URL}/api/upload/proposal-file`, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Content-Type': file.type || 'application/octet-stream',
-                        'x-upsert': 'true'
-                    },
-                    body: file
+                    body: formData
                 });
 
                 if (response.ok) {
-                    proposalFileUrl = `${SUPABASE_URL}/storage/v1/object/public/proposals/${fileName}`;
+                    const uploadResult = await response.json();
+                    proposalFileUrl = safeProposalFileUrl(uploadResult.url);
+                    if (!proposalFileUrl) {
+                        throw new Error('서버가 허용되지 않은 파일 URL을 반환했습니다.');
+                    }
                     document.getElementById('proposal-file-info').innerHTML = `
                         <i data-lucide="check-circle" style="width: 14px; height: 14px; display: inline; color: var(--primary);"></i> 
-                        업로드 완료: ${file.name}
+                        업로드 완료: ${escapeHtml(file.name)}
                     `;
                     showNotification('제안서 파일이 업로드되었습니다.', 'success');
                 } else {
                     const error = await response.json();
-                    throw new Error(error.message || 'Supabase 업로드 실패');
+                    throw new Error(error.error || error.message || '업로드 실패');
                 }
                 lucide.createIcons();
             } catch (error) {
@@ -3415,8 +3533,11 @@
             if (!confirm('이 요청을 거절하시겠습니까?')) return;
 
             try {
-                const response = await authFetch(`${API_BASE_URL}/api/projects/${projectId}/cancel`, {
-                    method: 'POST'
+                const isConsultant = user.role === 'consultant';
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${projectId}/${isConsultant ? 'decline' : 'cancel'}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason: isConsultant ? 'Declined from consultant dashboard' : 'Cancelled from dashboard' })
                 });
 
                 if (response.ok) {
@@ -3458,7 +3579,7 @@
                 const formBody = document.getElementById('schedule-form-body');
                 formBody.innerHTML = currentScheduleMilestones.map(m => `
                     <div class="milestone-schedule-item">
-                        <span>${m.title}</span>
+                        <span>${escapeHtml(m.title)}</span>
                         <input type="date" id="schedule-date-${m.id}" value="${m.due_date ? m.due_date.split('T')[0] : ''}">
                     </div>
                 `).join('');
@@ -3520,7 +3641,7 @@
                 const reviewBody = document.getElementById('schedule-review-body');
                 reviewBody.innerHTML = (project.milestones || []).map(m => `
                     <div class="milestone-schedule-item">
-                        <span>${m.title}</span>
+                        <span>${escapeHtml(m.title)}</span>
                         <span style="color: var(--primary); font-weight: 500;">
                             ${m.due_date ? new Date(m.due_date).toLocaleDateString() : '미정'}
                         </span>
@@ -3667,7 +3788,7 @@
 
             // 표준 목록 태그 생성
             const standardsTags = (project.standards || []).map(s =>
-                `<span class="detail-tag">${s}</span>`
+                `<span class="detail-tag">${escapeHtml(s)}</span>`
             ).join('') || '<span style="color: var(--text-muted);">정보 없음</span>';
 
             // 예산 범위 포맷
@@ -3705,12 +3826,12 @@
             const issuesTags = (project.issues || []).map(issue => {
                 const name = typeof issue === 'object' ? issue.name : issue;
                 const relatedISO = typeof issue === 'object' && issue.relatedISO ? issue.relatedISO.join(', ') : '';
-                return `<span class="detail-tag" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.2);" ${relatedISO ? `title="관련 ISO: ${relatedISO}"` : ''}>${name}</span>`;
+                return `<span class="detail-tag" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.2);" ${relatedISO ? `title="관련 ISO: ${escapeAttr(relatedISO)}"` : ''}>${escapeHtml(name)}</span>`;
             }).join('');
 
             // 인증 사유 태그 생성
             const reasonsTags = (project.reasons || []).map(r =>
-                `<span class="detail-tag" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-color: rgba(59, 130, 246, 0.2);">${r}</span>`
+                `<span class="detail-tag" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-color: rgba(59, 130, 246, 0.2);">${escapeHtml(r)}</span>`
             ).join('');
 
             body.innerHTML = `
@@ -3723,7 +3844,7 @@
                     </div>
                     <div style="padding: 12px; line-height: 1.6;">
                         <div style="font-size: 1rem; color: var(--error); font-weight: 600; margin-bottom: 8px;">기업에 의해 요청이 취소되었습니다.</div>
-                        <div style="font-size: 0.9rem; color: var(--text-secondary);"><strong>취소 사유:</strong> ${project.cancelled_reason || '사유 없음'}</div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);"><strong>취소 사유:</strong> ${escapeHtml(project.cancelled_reason || '사유 없음')}</div>
                         <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">취소 일시: ${project.cancelled_at ? new Date(project.cancelled_at).toLocaleString() : '-'}</div>
                     </div>
                 </div>
@@ -3738,19 +3859,19 @@
                     <div class="detail-grid">
                         <div class="detail-item">
                             <div class="detail-item-label">기업명</div>
-                            <div class="detail-item-value">${project.company_name || '-'}</div>
+                            <div class="detail-item-value">${escapeHtml(project.company_name || '-')}</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-item-label">업종</div>
-                            <div class="detail-item-value">${project.industry || '-'}</div>
+                            <div class="detail-item-value">${escapeHtml(project.industry || '-')}</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-item-label">직원 수</div>
-                            <div class="detail-item-value">${project.employees || '-'}</div>
+                            <div class="detail-item-value">${escapeHtml(project.employees || '-')}</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-item-label">지역</div>
-                            <div class="detail-item-value">${project.region || '-'}</div>
+                            <div class="detail-item-value">${escapeHtml(project.region || '-')}</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-item-label">요청일</div>
@@ -3772,11 +3893,11 @@
                     <div class="detail-grid">
                         <div class="detail-item">
                             <div class="detail-item-label">현재 인증 상태</div>
-                            <div class="detail-item-value">${certStatusText}</div>
+                            <div class="detail-item-value">${escapeHtml(certStatusText)}</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-item-label">준비 상태</div>
-                            <div class="detail-item-value">${readinessText}</div>
+                            <div class="detail-item-value">${escapeHtml(readinessText)}</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-item-label">희망 완료일</div>
@@ -3784,11 +3905,11 @@
                         </div>
                         <div class="detail-item">
                             <div class="detail-item-label">희망 일정</div>
-                            <div class="detail-item-value">${project.timeline_text || '-'}</div>
+                            <div class="detail-item-value">${escapeHtml(project.timeline_text || '-')}</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-item-label">예산 범위</div>
-                            <div class="detail-item-value highlight">${budgetText}</div>
+                            <div class="detail-item-value highlight">${escapeHtml(budgetText)}</div>
                         </div>
                     </div>
                 </div>
@@ -3826,7 +3947,7 @@
                         요청 내용
                     </div>
                     <div class="detail-description" style="white-space: pre-line;">
-                        ${project.description || '별도로 작성된 요청 내용이 없습니다.'}
+                        ${escapeHtml(project.description || '별도로 작성된 요청 내용이 없습니다.')}
                     </div>
                 </div>
                 
@@ -3838,7 +3959,7 @@
                         추가 요청사항
                     </div>
                     <div class="detail-description" style="background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 8px; padding: 16px;">
-                        ${project.additional_notes}
+                        ${escapeHtml(project.additional_notes)}
                     </div>
                 </div>
                 ` : ''}
@@ -3862,13 +3983,13 @@
                         ${project.ai_diagnosis.estimated_duration ? `
                         <div class="detail-item">
                             <div class="detail-item-label">예상 소요 기간</div>
-                            <div class="detail-item-value">${project.ai_diagnosis.estimated_duration}</div>
+                            <div class="detail-item-value">${escapeHtml(project.ai_diagnosis.estimated_duration)}</div>
                         </div>
                         ` : ''}
                     </div>
                     ${project.ai_diagnosis.summary ? `
                     <div class="detail-description" style="margin-top: 12px; font-size: 0.9rem;">
-                        ${project.ai_diagnosis.summary}
+                        ${escapeHtml(project.ai_diagnosis.summary)}
                     </div>
                     ` : ''}
                 </div>
@@ -3904,7 +4025,7 @@
             } else if (isContracted) {
                 actionButtonHtml = `
                     <button class="btn btn-outline" onclick="closeProjectDetailPanel()">닫기</button>
-                    <button class="btn btn-primary" onclick="closeProjectDetailPanel(); openMessageModal(${project.id}, '${project.title?.replace(/'/g, "\\'")}');">
+                    <button class="btn btn-primary" onclick="closeProjectDetailPanel(); openMessageModal(${project.id}, '${escapeAttr(project.title || '').replace(/'/g, "\\'")}');">
                         <i data-lucide="message-circle" style="width: 16px; height: 16px;"></i>
                         메시지 보내기
                     </button>
@@ -3993,9 +4114,9 @@
             }
 
             list.innerHTML = notificationsData.map(n => `
-                <div class="notification-item ${n.isRead ? '' : 'unread'}" onclick="handleNotificationClick(${n.id}, '${n.link || ''}')">
-                    <div class="title">${n.title}</div>
-                    ${n.message ? `<div class="message">${n.message}</div>` : ''}
+                <div class="notification-item ${n.isRead ? '' : 'unread'}" onclick="handleNotificationClick(${Number(n.id)}, '${escapeAttr(n.link || '')}')">
+                    <div class="title">${escapeHtml(n.title)}</div>
+                    ${n.message ? `<div class="message">${escapeHtml(n.message)}</div>` : ''}
                     <div class="time">${formatTimeAgo(n.createdAt)}</div>
                 </div>
             `).join('');
@@ -4035,7 +4156,7 @@
             }
 
             // 링크로 이동
-            if (link) {
+            if (link && (link.startsWith('/') || link.startsWith('dashboard.html'))) {
                 window.location.href = link;
             } else {
                 fetchNotifications();
@@ -4107,8 +4228,8 @@
                     const isSent = msg.senderId === user.id;
                     return `
                         <div class="message-bubble ${isSent ? 'sent' : 'received'}">
-                            ${!isSent ? `<div class="message-sender">${msg.senderName}</div>` : ''}
-                            <div>${msg.content}</div>
+                            ${!isSent ? `<div class="message-sender">${escapeHtml(msg.senderName)}</div>` : ''}
+                            <div>${escapeHtml(msg.content)}</div>
                             <div class="message-meta">${formatTimeAgo(msg.createdAt)}</div>
                         </div>
                     `;
