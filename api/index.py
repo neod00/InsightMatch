@@ -1049,8 +1049,33 @@ def generate_iso_manual():
 
     def event_stream():
         generated_parts = []
-        phase_completed = False   # 서비스가 [PHASE_COMPLETE:N]을 보냈는가 (성공 신호)
-        saw_error = False         # 스트림 중 [ERROR]가 있었는가
+        finalized = False  # 성공/실패 상태를 이미 확정·커밋했는가
+
+        def _finalize(success):
+            # 성공 시에만 phase_N_markdown 저장 + '완료' 상태로 전이.
+            # 오류·절단·빈 응답은 '실패'로 기록하고 부분 결과를 저장하지 않는다
+            # (이어쓰기 문맥 오염과 '반쪽 완성본' 노출 방지).
+            nonlocal finalized
+            if finalized:
+                return
+            if success:
+                text = ''.join(generated_parts).strip()
+                if text:
+                    if phase == 1:
+                        manual.phase1_markdown = text
+                    elif phase == 2:
+                        manual.phase2_markdown = text
+                    else:
+                        manual.phase3_markdown = text
+                    manual.status = f'phase_{phase}_completed'
+                else:
+                    manual.status = f'phase_{phase}_failed'
+            else:
+                manual.status = f'phase_{phase}_failed'
+            manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
+            db.session.commit()
+            finalized = True
+
         manual.status = f'generating_phase_{phase}'
         manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
         db.session.commit()
@@ -1058,48 +1083,40 @@ def generate_iso_manual():
         try:
             for chunk in generate_iso_manual_stream(form_data):
                 if chunk.startswith('data: [PHASE_COMPLETE'):
-                    phase_completed = True
+                    # 서버리스(Vercel)에서는 스트림 종료 후(post-loop) 코드가
+                    # 실행되지 않을 수 있으므로, 성공 신호를 받는 즉시
+                    # (스트림이 살아있을 때) 저장을 확정한다.
+                    _finalize(success=True)
                 elif chunk.startswith('data: [ERROR]'):
-                    saw_error = True
+                    _finalize(success=False)
                 elif chunk.startswith('data: ') and not chunk.startswith('data: ['):
                     text = chunk[6:].strip()
                     generated_parts.append(text.replace('\\n', '\n'))
                 yield chunk
 
-            generated_text = ''.join(generated_parts).strip()
-            # 성공 신호([PHASE_COMPLETE])와 실제 본문이 모두 있을 때만 '완료'로 저장.
-            # 오류·절단·빈 응답은 '실패'로 기록하고 부분 결과를 저장하지 않는다
-            # (다음 phase 이어쓰기의 문맥 오염과 '반쪽 완성본' 노출을 방지).
-            if phase_completed and not saw_error and generated_text:
-                if phase == 1:
-                    manual.phase1_markdown = generated_text
-                elif phase == 2:
-                    manual.phase2_markdown = generated_text
-                else:
-                    manual.phase3_markdown = generated_text
-                manual.status = f'phase_{phase}_completed'
-            else:
-                manual.status = f'phase_{phase}_failed'
-            manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
-            db.session.commit()
+            # 성공/실패 신호 없이 끝났으면(비정상 종료) 실패로 마무리
+            if not finalized:
+                _finalize(success=False)
         except GeneratorExit:
             # 클라이언트 연결 끊김(일시정지·탭 닫기) — 'generating' 상태 고착 방지
-            try:
-                manual.status = f'phase_{phase}_aborted'
-                manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
-                db.session.commit()
-            except Exception:
-                db.session.rollback()
+            if not finalized:
+                try:
+                    manual.status = f'phase_{phase}_aborted'
+                    manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
             raise
         except Exception as e:
             db.session.rollback()
             print(f"[ISO Manual] stream persistence error: {e}")
-            try:
-                manual.status = f'phase_{phase}_failed'
-                manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
-                db.session.commit()
-            except Exception:
-                db.session.rollback()
+            if not finalized:
+                try:
+                    manual.status = f'phase_{phase}_failed'
+                    manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
             yield "data: [ERROR] 매뉴얼 생성 상태 저장 중 오류가 발생했습니다.\n\n"
             yield "data: [DONE]\n\n"
 
