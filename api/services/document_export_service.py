@@ -29,36 +29,77 @@ from docx.enum.style import WD_STYLE_TYPE
 # Korean Font Registration for PDF
 # ============================================================
 _FONT_REGISTERED = False
+# 등록에 성공한 실제 한글 폰트 이름 (플랫폼에 따라 런타임에 결정됨).
+# 나머지 코드는 이 두 전역을 참조하므로 'MalgunGothic' 하드코딩에 의존하지 않는다.
+_KR_FONT = 'Helvetica'
+_KR_FONT_BOLD = 'Helvetica-Bold'
+
 
 def _register_korean_fonts():
-    """Register Korean fonts (Malgun Gothic) for ReportLab PDF rendering."""
-    global _FONT_REGISTERED
+    """한글 폰트를 등록한다. 플랫폼별로 아래 순서로 시도한다:
+      1) 시스템/번들 TTF (Windows 맑은고딕, Linux 나눔고딕, 저장소 번들 폰트)
+      2) ReportLab 내장 한국어 CID 폰트 (폰트 파일 불필요 — Vercel(Linux)에서 사용)
+      3) Helvetica (한글 미표시, 단 최소한 크래시는 방지)
+    성공 시 전역 _KR_FONT / _KR_FONT_BOLD 에 실제 등록 폰트명을 세팅한다.
+    """
+    global _FONT_REGISTERED, _KR_FONT, _KR_FONT_BOLD
     if _FONT_REGISTERED:
         return
 
-    font_dir = r'C:\Windows\Fonts'
-    font_paths = {
-        'MalgunGothic': os.path.join(font_dir, 'malgun.ttf'),
-        'MalgunGothicBold': os.path.join(font_dir, 'malgunbd.ttf'),
-    }
+    bundled_dir = os.path.join(os.path.dirname(__file__), 'assets', 'fonts')
+    ttf_candidates = [
+        # (normal_path, bold_path)
+        (r'C:\Windows\Fonts\malgun.ttf', r'C:\Windows\Fonts\malgunbd.ttf'),
+        ('/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
+         '/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf'),
+        ('/usr/share/fonts/truetype/nanum/NanumGothic.ttf',
+         '/usr/share/fonts/truetype/nanum/NanumGothic.ttf'),
+        (os.path.join(bundled_dir, 'NanumGothic.ttf'),
+         os.path.join(bundled_dir, 'NanumGothicBold.ttf')),
+    ]
 
-    for name, path in font_paths.items():
-        if os.path.exists(path):
-            pdfmetrics.registerFont(TTFont(name, path))
-        else:
-            print(f'[PDF] Warning: Font not found: {path}')
+    for normal_path, bold_path in ttf_candidates:
+        if normal_path and os.path.exists(normal_path):
+            try:
+                pdfmetrics.registerFont(TTFont('MalgunGothic', normal_path))
+                bold_name = 'MalgunGothic'
+                if bold_path and os.path.exists(bold_path):
+                    pdfmetrics.registerFont(TTFont('MalgunGothicBold', bold_path))
+                    bold_name = 'MalgunGothicBold'
+                from reportlab.pdfbase.pdfmetrics import registerFontFamily
+                registerFontFamily(
+                    'MalgunGothic',
+                    normal='MalgunGothic',
+                    bold=bold_name,
+                    italic='MalgunGothic',
+                    boldItalic=bold_name,
+                )
+                _KR_FONT = 'MalgunGothic'
+                _KR_FONT_BOLD = bold_name
+                _FONT_REGISTERED = True
+                print(f'[PDF] Korean TTF font registered: {normal_path}')
+                return
+            except Exception as e:
+                print(f'[PDF] TTF registration failed ({normal_path}): {e}')
 
-    # Register font family for bold/italic auto-mapping
-    from reportlab.pdfbase.pdfmetrics import registerFontFamily
-    registerFontFamily(
-        'MalgunGothic',
-        normal='MalgunGothic',
-        bold='MalgunGothicBold',
-        italic='MalgunGothic',
-        boldItalic='MalgunGothicBold',
-    )
+    # 2) ReportLab 내장 한국어 CID 폰트 — 폰트 파일이 없는 리눅스(Vercel) 환경 대응
+    try:
+        from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+        pdfmetrics.registerFont(UnicodeCIDFont('HYSMyeongJo-Medium'))
+        pdfmetrics.registerFont(UnicodeCIDFont('HYGothic-Medium'))
+        _KR_FONT = 'HYSMyeongJo-Medium'
+        _KR_FONT_BOLD = 'HYGothic-Medium'
+        _FONT_REGISTERED = True
+        print('[PDF] Korean CID font (HYGothic / HYSMyeongJo) registered')
+        return
+    except Exception as e:
+        print(f'[PDF] CID font fallback failed: {e}')
+
+    # 3) 최후의 폴백: Helvetica (한글은 표시되지 않지만 렌더링은 성공)
+    _KR_FONT = 'Helvetica'
+    _KR_FONT_BOLD = 'Helvetica-Bold'
     _FONT_REGISTERED = True
-    print('[PDF] Korean fonts registered successfully')
+    print('[PDF] WARNING: No Korean font available — falling back to Helvetica (한글 미표시)')
 
 
 # ============================================================
@@ -207,8 +248,8 @@ def _get_pdf_styles():
     _register_korean_fonts()
     styles = getSampleStyleSheet()
 
-    KR_FONT = 'MalgunGothic'
-    KR_FONT_BOLD = 'MalgunGothicBold'
+    KR_FONT = _KR_FONT
+    KR_FONT_BOLD = _KR_FONT_BOLD
 
     # Title style
     styles.add(ParagraphStyle(
@@ -322,7 +363,7 @@ def _add_page_number(canvas, doc):
     """Add page number and footer to each page."""
     canvas.saveState()
     # Page number
-    canvas.setFont('MalgunGothic', 8)
+    canvas.setFont(_KR_FONT, 8)
     canvas.setFillColor(colors.HexColor('#9CA3AF'))
     canvas.drawRightString(
         A4[0] - 20 * mm,
@@ -334,7 +375,7 @@ def _add_page_number(canvas, doc):
     canvas.setLineWidth(0.5)
     canvas.line(20 * mm, 18 * mm, A4[0] - 20 * mm, 18 * mm)
     # Footer text
-    canvas.setFont('MalgunGothic', 7)
+    canvas.setFont(_KR_FONT, 7)
     canvas.drawString(20 * mm, 15 * mm, "InsightMatch AI ISO Manual Generator")
     canvas.restoreState()
 
@@ -436,7 +477,7 @@ def markdown_to_pdf(markdown_text, company_name="", target_iso=""):
                 # Header styling
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1A365D')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                ('FONTNAME', (0, 0), (-1, 0), 'MalgunGothicBold'),
+                ('FONTNAME', (0, 0), (-1, 0), _KR_FONT_BOLD),
                 ('FONTSIZE', (0, 0), (-1, 0), 8.5),
                 # Body styling
                 ('BACKGROUND', (0, 1), (-1, -1), colors.white),

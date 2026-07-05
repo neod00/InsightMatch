@@ -953,6 +953,98 @@ class TestWorkflowSecurity(unittest.TestCase):
         )
         self.assertIn('유효하지 않습니다', bad_response.get_data(as_text=True))
 
+    def _manual_payload(self):
+        return {
+            'company_name': 'Buyer Co',
+            'industry': '제조업',
+            'main_product': '자동차 부품',
+            'employees': '50~100명',
+            'target_iso': 'ISO 9001:2015',
+            'issues': ['quality_defect'],
+        }
+
+    def test_iso_manual_session_enforces_daily_limit(self):
+        from index import DAILY_MANUAL_LIMIT
+
+        for _ in range(DAILY_MANUAL_LIMIT):
+            ok = self.client.post(
+                '/api/iso-manual/session',
+                json=self._manual_payload(),
+                headers=auth_headers(self.company),
+            )
+            self.assertEqual(ok.status_code, 201)
+
+        blocked = self.client.post(
+            '/api/iso-manual/session',
+            json=self._manual_payload(),
+            headers=auth_headers(self.company),
+        )
+        self.assertEqual(blocked.status_code, 429)
+        self.assertEqual(blocked.get_json().get('code'), 'DAILY_LIMIT_EXCEEDED')
+
+        # 한도는 사용자별 — 다른 기업은 영향받지 않는다
+        other = self.client.post(
+            '/api/iso-manual/session',
+            json=self._manual_payload(),
+            headers=auth_headers(self.other_company),
+        )
+        self.assertEqual(other.status_code, 201)
+
+    def test_iso_manual_completed_phase_replays_without_recalling_llm(self):
+        session_data = self.client.post(
+            '/api/iso-manual/session',
+            json=self._manual_payload(),
+            headers=auth_headers(self.company),
+        ).get_json()
+
+        call_count = {'n': 0}
+
+        def fake_stream(form_data):
+            call_count['n'] += 1
+            yield 'data: ## 4. 조직 상황\\n\\n최초 생성 본문\n\n'
+            yield 'data: [PHASE_COMPLETE:1]\n\n'
+            yield 'data: [DONE]\n\n'
+
+        url = f"/api/generate-iso?manual_id={session_data['manual_id']}&stream_token={session_data['stream_token']}"
+        with patch('index.generate_iso_manual_stream', fake_stream):
+            first = self.client.get(url)
+            self.assertEqual(first.status_code, 200)
+            self.assertIn('최초 생성 본문', first.get_data(as_text=True))
+
+            # 같은 phase 재요청 → LLM 재호출 없이 저장본을 그대로 재전송
+            second = self.client.get(url)
+            self.assertEqual(second.status_code, 200)
+            body = second.get_data(as_text=True)
+            self.assertIn('최초 생성 본문', body)
+            self.assertIn('[PHASE_COMPLETE:1]', body)
+
+        self.assertEqual(call_count['n'], 1)  # 실제 생성은 단 한 번만
+
+    def test_iso_manual_stream_error_marks_failed_and_skips_save(self):
+        session_data = self.client.post(
+            '/api/iso-manual/session',
+            json=self._manual_payload(),
+            headers=auth_headers(self.company),
+        ).get_json()
+
+        def failing_stream(form_data):
+            yield 'data: ## 4. 조직 상황\\n\\n일부만 생성됨\n\n'
+            yield 'data: [ERROR] OpenAI API 오류 (500)\n\n'
+            yield 'data: [DONE]\n\n'
+
+        with patch('index.generate_iso_manual_stream', failing_stream):
+            response = self.client.get(
+                f"/api/generate-iso?manual_id={session_data['manual_id']}&stream_token={session_data['stream_token']}"
+            )
+            body = response.get_data(as_text=True)  # 스트림을 끝까지 소비 → 종료 시 상태 커밋 실행
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('[ERROR]', body)
+        manual = ManualGeneration.query.get(session_data['manual_id'])
+        # [PHASE_COMPLETE] 없이 [ERROR]로 끝났으므로 실패로 기록되고 부분 결과는 저장 안 됨
+        self.assertEqual(manual.status, 'phase_1_failed')
+        self.assertIsNone(manual.phase1_markdown)
+
     def test_iso_manual_export_requires_company_and_limits_payload(self):
         response = self.client.post(
             '/api/export-iso',

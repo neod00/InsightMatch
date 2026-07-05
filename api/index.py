@@ -143,6 +143,7 @@ ALLOWED_MANUAL_ISSUES = {
 }
 MANUAL_TOKEN_TTL_MINUTES = 30
 MAX_MANUAL_MARKDOWN_CHARS = 250000
+DAILY_MANUAL_LIMIT = 10  # 사용자당 하루 매뉴얼 생성 세션 상한 (AI API 비용 남용 방지)
 
 
 def require_company_user():
@@ -931,6 +932,20 @@ def create_iso_manual_session():
     if errors:
         return jsonify({'message': '입력값을 확인해주세요.', 'errors': errors}), 400
 
+    # 비용 남용 방지: 사용자당 하루 생성 세션 수 제한.
+    # created_at 은 UTC 기준으로 저장되므로 naive UTC 자정을 경계로 사용한다.
+    now = datetime.datetime.now(datetime.timezone.utc)
+    today_start = datetime.datetime(now.year, now.month, now.day)
+    todays_count = ManualGeneration.query.filter(
+        ManualGeneration.user_id == g.current_user.id,
+        ManualGeneration.created_at >= today_start,
+    ).count()
+    if todays_count >= DAILY_MANUAL_LIMIT:
+        return jsonify({
+            'message': f'하루 매뉴얼 생성 한도({DAILY_MANUAL_LIMIT}건)를 초과했습니다. 내일 다시 이용해주세요.',
+            'code': 'DAILY_LIMIT_EXCEEDED',
+        }), 429
+
     raw_token = secrets.token_urlsafe(32)
     manual = ManualGeneration(
         id=str(uuid.uuid4()),
@@ -999,33 +1014,83 @@ def generate_iso_manual():
     else:
         form_data['max_sections'] = 5
 
+    # 비용 가드: 이미 완료된 phase는 LLM 재호출 없이 저장본을 그대로 재전송한다.
+    # (새로고침·토큰 재사용으로 같은 phase를 반복 생성해 비용이 새는 것을 차단)
+    existing_markdown = {
+        1: manual.phase1_markdown,
+        2: manual.phase2_markdown,
+        3: manual.phase3_markdown,
+    }.get(phase)
+    if existing_markdown:
+        def replay_stream():
+            escaped = existing_markdown.replace('\n', '\\n').replace('\r', '')
+            yield f"data: {escaped}\n\n"
+            yield f"data: [PHASE_COMPLETE:{phase}]\n\n"
+            yield "data: [DONE]\n\n"
+        return Response(
+            stream_with_context(replay_stream()),
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'X-Accel-Buffering': 'no',
+                'Access-Control-Allow-Origin': '*',
+            }
+        )
+
     def event_stream():
         generated_parts = []
+        phase_completed = False   # 서비스가 [PHASE_COMPLETE:N]을 보냈는가 (성공 신호)
+        saw_error = False         # 스트림 중 [ERROR]가 있었는가
         manual.status = f'generating_phase_{phase}'
         manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
         db.session.commit()
 
         try:
             for chunk in generate_iso_manual_stream(form_data):
-                if chunk.startswith('data: ') and not chunk.startswith('data: ['):
+                if chunk.startswith('data: [PHASE_COMPLETE'):
+                    phase_completed = True
+                elif chunk.startswith('data: [ERROR]'):
+                    saw_error = True
+                elif chunk.startswith('data: ') and not chunk.startswith('data: ['):
                     text = chunk[6:].strip()
                     generated_parts.append(text.replace('\\n', '\n'))
                 yield chunk
 
             generated_text = ''.join(generated_parts).strip()
-            if generated_text:
+            # 성공 신호([PHASE_COMPLETE])와 실제 본문이 모두 있을 때만 '완료'로 저장.
+            # 오류·절단·빈 응답은 '실패'로 기록하고 부분 결과를 저장하지 않는다
+            # (다음 phase 이어쓰기의 문맥 오염과 '반쪽 완성본' 노출을 방지).
+            if phase_completed and not saw_error and generated_text:
                 if phase == 1:
                     manual.phase1_markdown = generated_text
                 elif phase == 2:
                     manual.phase2_markdown = generated_text
                 else:
                     manual.phase3_markdown = generated_text
-            manual.status = f'phase_{phase}_completed'
+                manual.status = f'phase_{phase}_completed'
+            else:
+                manual.status = f'phase_{phase}_failed'
             manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
             db.session.commit()
+        except GeneratorExit:
+            # 클라이언트 연결 끊김(일시정지·탭 닫기) — 'generating' 상태 고착 방지
+            try:
+                manual.status = f'phase_{phase}_aborted'
+                manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+            raise
         except Exception as e:
             db.session.rollback()
             print(f"[ISO Manual] stream persistence error: {e}")
+            try:
+                manual.status = f'phase_{phase}_failed'
+                manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
             yield "data: [ERROR] 매뉴얼 생성 상태 저장 중 오류가 발생했습니다.\n\n"
             yield "data: [DONE]\n\n"
 

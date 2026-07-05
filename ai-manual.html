@@ -693,6 +693,7 @@
         let currentPhase = 1;  // 현재 생성 단계 (1 or 2)
         let currentManualId = null;
         let currentStreamToken = null;
+        let phaseGenOk = false;  // 현재 phase가 [PHASE_COMPLETE] 성공 신호를 받았는가
 
         function renderSafeMarkdown(markdown) {
             const html = marked.parse(markdown || '');
@@ -879,6 +880,7 @@
             lastSSEParams = params;
             lastAppendMode = appendMode;
             isPaused = false;
+            phaseGenOk = false;  // 새 phase 시작 — 성공 신호 초기화
             const pauseBtn = document.getElementById('btn-pause');
             pauseBtn.textContent = '⏸';
             pauseBtn.title = '일시정지';
@@ -887,31 +889,28 @@
             eventSource.onmessage = (event) => {
                 const data = event.data;
 
-                if (data === '[DONE]') {
-                    eventSource.close();
-                    finishGeneration();
-                    return;
-                }
-
-                // Phase 완료 시그널 처리
+                // Phase 성공 시그널 — 이 신호가 있어야만 '완료'로 취급한다
                 if (data.startsWith('[PHASE_COMPLETE:')) {
+                    phaseGenOk = true;
                     const completedPhase = parseInt(data.match(/\d+/)?.[0] || '1');
                     console.log(`[ISO Manual] Phase ${completedPhase} completed`);
                     return;  // [DONE]을 기다림
                 }
 
-                if (data.startsWith('[ERROR]')) {
+                if (data === '[DONE]') {
                     eventSource.close();
-                    if (rawMarkdown.length > 100) {
-                        // 이미 상당량 생성된 경우: 부분 결과라도 보여줌
+                    if (phaseGenOk) {
                         finishGeneration();
                     } else {
-                        viewer.innerHTML = `<div style="color: var(--danger); padding: 20px;">
-                            <h3>⚠️ 생성 오류</h3><p>${escapeHtml(data.substring(7))}</p>
-                            <p style="margin-top:12px;color:var(--text-muted);">다시 시도해주세요.</p>
-                        </div>`;
-                        resetButton();
+                        // 성공 신호 없이 종료 → 완료로 위장하지 않고 미완성으로 처리
+                        handleGenerationError('생성이 완료되지 못했습니다. 다시 시도해주세요.');
                     }
+                    return;
+                }
+
+                if (data.startsWith('[ERROR]')) {
+                    eventSource.close();
+                    handleGenerationError(data.substring(7).trim() || '생성 중 오류가 발생했습니다.');
                     return;
                 }
 
@@ -926,16 +925,47 @@
 
             eventSource.onerror = () => {
                 eventSource.close();
-                if (rawMarkdown.length > 100) {
-                    // 연결 끊김이지만 데이터가 있으면 정상 완료 처리
-                    finishGeneration();
-                } else {
-                    viewer.innerHTML = `<div style="color: var(--danger); padding: 20px;">
-                        <h3>⚠️ 연결 오류</h3><p>서버와의 연결이 끊어졌습니다. 다시 시도해주세요.</p>
-                    </div>`;
-                    resetButton();
-                }
+                if (phaseGenOk) return;  // 이미 성공 완료된 뒤의 지연 오류는 무시
+                handleGenerationError('서버와의 연결이 끊어졌습니다. 다시 시도해주세요.');
             };
+        }
+
+        // ========== 생성 오류/중단 처리 ==========
+        // 에러/연결끊김을 '완료'로 위장하지 않는다. 지금까지 생성분은
+        // '미완성 초안'으로 명확히 표시하고, 다음 phase 자동 전이나 다운로드는 막는다.
+        function handleGenerationError(message) {
+            if (renderTimer) { clearTimeout(renderTimer); renderTimer = null; }
+            const viewer = document.getElementById('md-viewer');
+            const hasPartial = !!(rawMarkdown && rawMarkdown.length > 0);
+
+            const banner = `
+                <div style="margin-top:24px;padding:16px 20px;border:1px solid var(--danger);border-radius:12px;background:rgba(220,38,38,0.06);">
+                    <strong style="color:var(--danger);">⚠️ 생성이 중단되었습니다</strong>
+                    <p style="margin-top:8px;color:var(--text-muted);">${escapeHtml(message)}</p>
+                    ${hasPartial ? '<p style="margin-top:8px;color:var(--text-muted);">지금까지 생성된 내용은 <strong>미완성 초안</strong>입니다. 완성본이 아니므로 제출·다운로드 전에 다시 생성해주세요.</p>' : ''}
+                    <button onclick="retryGeneration()" style="margin-top:12px;padding:10px 18px;background:var(--text-primary);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">다시 생성</button>
+                </div>`;
+
+            if (hasPartial) {
+                viewer.innerHTML = renderSafeMarkdown(rawMarkdown) + banner;
+                renderMermaidBlocks(viewer);
+            } else {
+                viewer.innerHTML = banner;
+            }
+
+            // 완료 UI(다운로드/완료 배지)와 다음 phase 자동 전이는 노출하지 않는다
+            document.getElementById('download-group').classList.remove('visible');
+            const phaseText = document.getElementById('phase-text');
+            if (phaseText) phaseText.textContent = '중단됨';
+            isFullVersion = false;  // 잘린 전체버전이 이어서 트리거되지 않도록 해제
+            resetButton();
+        }
+
+        // ========== 다시 생성 ==========
+        function retryGeneration() {
+            if (isGenerating) return;
+            const btn = document.getElementById('btn-generate');
+            if (btn) btn.click();  // 폼 제출 경로 → 새 세션으로 처음부터 재생성
         }
 
         // ========== Render Markdown ==========
