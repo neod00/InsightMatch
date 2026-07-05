@@ -143,12 +143,20 @@ ALLOWED_MANUAL_ISSUES = {
 }
 MANUAL_TOKEN_TTL_MINUTES = 30
 MAX_MANUAL_MARKDOWN_CHARS = 250000
-DAILY_MANUAL_LIMIT = 10  # 사용자당 하루 매뉴얼 생성 세션 상한 (AI API 비용 남용 방지)
+DAILY_MANUAL_LIMIT = 1  # 기업 사용자당 하루 매뉴얼 생성 세션 상한 (AI API 비용 남용 방지). 관리자는 면제.
 
 
 def require_company_user():
     user = getattr(g, 'current_user', None)
     if not user or user.role != 'company':
+        return jsonify({'message': '기업 사용자만 이용할 수 있습니다.'}), 403
+    return None
+
+
+def require_manual_user():
+    """매뉴얼 생성기 접근 권한: 기업 회원 또는 관리자(관리자는 하루 한도 면제)."""
+    user = getattr(g, 'current_user', None)
+    if not user or user.role not in ('company', 'admin'):
         return jsonify({'message': '기업 사용자만 이용할 수 있습니다.'}), 403
     return None
 
@@ -924,7 +932,7 @@ def generate_diagnostic_report():
 @token_required
 def create_iso_manual_session():
     """Create a short-lived streaming session without exposing the JWT in the SSE URL."""
-    role_error = require_company_user()
+    role_error = require_manual_user()
     if role_error:
         return role_error
 
@@ -932,19 +940,20 @@ def create_iso_manual_session():
     if errors:
         return jsonify({'message': '입력값을 확인해주세요.', 'errors': errors}), 400
 
-    # 비용 남용 방지: 사용자당 하루 생성 세션 수 제한.
+    # 비용 남용 방지: 기업 사용자당 하루 생성 세션 수 제한 (관리자는 면제).
     # created_at 은 UTC 기준으로 저장되므로 naive UTC 자정을 경계로 사용한다.
-    now = datetime.datetime.now(datetime.timezone.utc)
-    today_start = datetime.datetime(now.year, now.month, now.day)
-    todays_count = ManualGeneration.query.filter(
-        ManualGeneration.user_id == g.current_user.id,
-        ManualGeneration.created_at >= today_start,
-    ).count()
-    if todays_count >= DAILY_MANUAL_LIMIT:
-        return jsonify({
-            'message': f'하루 매뉴얼 생성 한도({DAILY_MANUAL_LIMIT}건)를 초과했습니다. 내일 다시 이용해주세요.',
-            'code': 'DAILY_LIMIT_EXCEEDED',
-        }), 429
+    if g.current_user.role != 'admin':
+        now = datetime.datetime.now(datetime.timezone.utc)
+        today_start = datetime.datetime(now.year, now.month, now.day)
+        todays_count = ManualGeneration.query.filter(
+            ManualGeneration.user_id == g.current_user.id,
+            ManualGeneration.created_at >= today_start,
+        ).count()
+        if todays_count >= DAILY_MANUAL_LIMIT:
+            return jsonify({
+                'message': f'하루 매뉴얼 생성 한도({DAILY_MANUAL_LIMIT}건)를 초과했습니다. 내일 다시 이용해주세요.',
+                'code': 'DAILY_LIMIT_EXCEEDED',
+            }), 429
 
     raw_token = secrets.token_urlsafe(32)
     manual = ManualGeneration(
@@ -1115,7 +1124,7 @@ def export_iso_manual():
     POST body: { markdown, format: "pdf"|"docx", company_name, target_iso }
     """
     try:
-        role_error = require_company_user()
+        role_error = require_manual_user()
         if role_error:
             return role_error
 

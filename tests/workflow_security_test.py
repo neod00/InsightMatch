@@ -990,6 +990,18 @@ class TestWorkflowSecurity(unittest.TestCase):
         )
         self.assertEqual(other.status_code, 201)
 
+    def test_iso_manual_session_admin_exempt_from_daily_limit(self):
+        from index import DAILY_MANUAL_LIMIT
+
+        # 관리자는 하루 한도를 넘겨도 계속 생성 가능
+        for _ in range(DAILY_MANUAL_LIMIT + 3):
+            resp = self.client.post(
+                '/api/iso-manual/session',
+                json=self._manual_payload(),
+                headers=auth_headers(self.admin_user),
+            )
+            self.assertEqual(resp.status_code, 201)
+
     def test_iso_manual_completed_phase_replays_without_recalling_llm(self):
         session_data = self.client.post(
             '/api/iso-manual/session',
