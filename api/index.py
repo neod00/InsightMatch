@@ -695,12 +695,19 @@ def signup():
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
-    data = request.json
+    data = request.json or {}
     email = data.get('email', '').strip().lower()  # BUG-004 Fix: 이메일 정규화
     password = data.get('password')
-    
+
+    # 무차별 대입(brute force) 방어: IP당 로그인 시도 횟수 제한
+    if not check_rate_limit('login', limit=10, window_minutes=15):
+        return jsonify({
+            'message': '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.',
+            'code': 'RATE_LIMITED',
+        }), 429
+
     user = User.query.filter_by(email=email).first()
-    
+
     if not user or not check_password_hash(user.password_hash, password):
         return jsonify({'message': 'Invalid credentials'}), 401
         
@@ -732,18 +739,25 @@ def login():
 def request_password_reset():
     """Request a password reset link via email"""
     try:
-        data = request.json
+        data = request.json or {}
         email = data.get('email', '').strip().lower()
-        
+
         if not email:
             return jsonify({'message': '이메일을 입력해주세요.'}), 400
+
+        # 메일 폭탄·남용 방지: IP당 재설정 요청 횟수 제한
+        if not check_rate_limit('pwreset', limit=5, window_minutes=60):
+            return jsonify({
+                'message': '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
+                'code': 'RATE_LIMITED',
+            }), 429
         
         # Always return success to prevent email enumeration attacks
         success_message = '입력하신 이메일로 비밀번호 재설정 링크를 발송했습니다. 이메일을 확인해주세요.'
         
         user = User.query.filter_by(email=email).first()
         if not user:
-            print(f"[Password Reset] Email not found in database: {email}")
+            print("[Password Reset] Email not found in database (address redacted)")
             # Silently succeed to prevent enumeration
             return jsonify({'message': success_message})
         
@@ -772,7 +786,9 @@ def request_password_reset():
             base_url = request.host_url.rstrip('/')
         
         reset_link = f"{base_url}/reset-password.html?token={token}"
-        print(f"[Password Reset] Link generated: {reset_link}")
+        # 보안: 재설정 토큰은 로그에 남기지 않는다.
+        # (로그 열람자가 임의 계정의 비밀번호를 재설정할 수 있었음)
+        print(f"[Password Reset] Link generated for user_id={user.id} (token redacted)")
         
         # Send email
         email_service = EmailService()

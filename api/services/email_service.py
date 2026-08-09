@@ -16,6 +16,16 @@ from email.mime.application import MIMEApplication
 from datetime import datetime
 from typing import List, Dict, Optional
 
+
+def _mask_email(email):
+    """로그에 개인정보를 그대로 남기지 않도록 이메일을 마스킹한다."""
+    if not email or '@' not in str(email):
+        return '(unknown)'
+    local, _, domain = str(email).partition('@')
+    head = local[:2] if len(local) > 2 else local[:1]
+    return f"{head}***@{domain}"
+
+
 class EmailService:
     def __init__(self):
         # SMTP 설정 (환경변수에서 로드)
@@ -61,10 +71,10 @@ class EmailService:
             {'success': bool, 'message': str}
         """
         if not self.is_configured:
-            # 설정이 없으면 로그만 출력
-            print(f"[EmailService] Would send email to: {to_email}")
+            # 설정이 없으면 로그만 출력.
+            # 본문에는 비밀번호 재설정 토큰 등이 포함될 수 있어 미리보기를 남기지 않는다.
+            print(f"[EmailService] Would send email to: {_mask_email(to_email)}")
             print(f"[EmailService] Subject: {subject}")
-            print(f"[EmailService] Content preview: {html_content[:200]}...")
             return {
                 'success': True,
                 'message': 'Email logged (SMTP not configured)',
@@ -99,7 +109,7 @@ class EmailService:
             with self._get_smtp_connection() as server:
                 server.sendmail(self.from_email, to_email, msg.as_string())
             
-            print(f"[EmailService] Email sent successfully to: {to_email}")
+            print(f"[EmailService] Email sent successfully to: {_mask_email(to_email)}")
             return {'success': True, 'message': 'Email sent successfully'}
             
         except Exception as e:

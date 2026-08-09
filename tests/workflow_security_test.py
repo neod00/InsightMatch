@@ -1228,6 +1228,46 @@ class TestWorkflowSecurity(unittest.TestCase):
             source = fp.read()
         self.assertNotIn('3d5ffc75', source, '하드코딩된 API 키가 남아있음')
 
+    # ------------------------------------------------------------------
+    # Medium 취약점 수정 회귀 테스트
+    # ------------------------------------------------------------------
+    def test_login_is_rate_limited(self):
+        """B-1: 로그인 무차별 대입은 횟수 제한으로 차단된다."""
+        payload = {'email': 'company@example.com', 'password': 'wrong-password'}
+        last = None
+        for _ in range(15):
+            last = self.client.post('/api/auth/login', json=payload).status_code
+            if last == 429:
+                break
+        self.assertEqual(last, 429, '로그인 횟수 제한이 동작하지 않음')
+
+    def test_password_reset_request_is_rate_limited(self):
+        """C-1 관련: 재설정 요청 남용(메일 폭탄)도 제한된다."""
+        last = None
+        for _ in range(10):
+            last = self.client.post('/api/auth/request-reset',
+                                    json={'email': 'company@example.com'}).status_code
+            if last == 429:
+                break
+        self.assertEqual(last, 429, '재설정 요청 제한이 동작하지 않음')
+
+    def test_reset_token_is_not_logged(self):
+        """C-1: 비밀번호 재설정 토큰이 로그에 평문으로 남지 않는다."""
+        path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../api/index.py'))
+        with open(path, encoding='utf-8') as fp:
+            source = fp.read()
+        self.assertNotIn('Link generated: {reset_link}', source,
+                         '재설정 링크(토큰)가 로그로 출력되고 있음')
+
+    def test_requirements_are_pinned(self):
+        """C-3: 의존성이 버전 고정되어 있다."""
+        path = os.path.abspath(os.path.join(
+            os.path.dirname(__file__), '../api/requirements.txt'))
+        with open(path, encoding='utf-8') as fp:
+            lines = [l.split('#')[0].strip() for l in fp if l.split('#')[0].strip()]
+        unpinned = [l for l in lines if '==' not in l]
+        self.assertEqual(unpinned, [], f'고정되지 않은 의존성: {unpinned}')
+
     def test_iso_manual_export_requires_company_and_limits_payload(self):
         response = self.client.post(
             '/api/export-iso',
