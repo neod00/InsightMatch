@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, AnalysisJob, AdminActionLog, Consultant, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry
-from services import AIService, MatchingService, ProposalService, EmailService, AdvancedDiagnosticService
+from services import MatchingService, ProposalService, EmailService, AdvancedDiagnosticService
 from services.iso_manual_service import generate_iso_manual_stream
 
 # Load environment variables
@@ -80,7 +80,7 @@ if not app.config['SECRET_KEY']:
 db.init_app(app)
 
 # Initialize Services
-ai_service = AIService()
+# 참고: AIService는 레거시 /api/analyze 제거와 함께 사용처가 없어져 초기화하지 않는다.
 matching_service = MatchingService()
 proposal_service = ProposalService()
 email_service = EmailService()
@@ -894,61 +894,12 @@ def find_email():
         'email': masked_email
     })
 
-# --- Analysis Endpoints ---
-# 보안: 이 계열은 외부 URL 수집 + 유료 AI 호출을 유발하므로 인증 필수.
-# (이전에는 무인증이라 누구나 무제한으로 AI 비용을 발생시키고 SSRF를 유발할 수 있었음)
-@app.route('/api/analyze', methods=['POST'])
-@token_required
-def start_analysis():
-    data = request.json or {}
-    company_url = data.get('companyUrl')
-    company_name = data.get('companyName', '(주)인사이트매치')
-    
-    job_id = str(uuid.uuid4())
-    
-    job = AnalysisJob(
-        id=job_id,
-        company_name=company_name,
-        url=company_url,
-        status='processing'
-    )
-    job.set_intake_data(data)
-    
-    db.session.add(job)
-    db.session.commit()
-    
-    return jsonify({'job_id': job_id, 'message': 'Analysis started'}), 202
-
-@app.route('/api/analyze/<job_id>', methods=['GET'])
-@token_required
-def get_analysis_status(job_id):
-    job = AnalysisJob.query.get(job_id)
-    if not job:
-        return jsonify({'error': 'Job not found'}), 404
-    
-    if job.status == 'processing':
-        job.status = 'analyzing'
-        db.session.commit()
-        
-        try:
-            intake_data = job.get_intake_data()
-            result = ai_service.analyze(intake_data)
-            
-            job.set_result(result)
-            job.status = 'completed'
-            db.session.commit()
-        except Exception as e:
-            job.status = 'failed'
-            db.session.commit()
-            return jsonify({'status': 'failed', 'error': str(e)})
-            
-    elif job.status == 'analyzing':
-        return jsonify({'status': 'processing'})
-
-    return jsonify({
-        'status': job.status,
-        'result': job.get_result()
-    })
+# --- Analysis Endpoints (제거됨) ---
+# 레거시 /api/analyze (POST·GET)는 2026-07-05 제거.
+#  - 프론트엔드에 호출처가 없는 사장 코드였고,
+#  - 외부 URL 수집(SSRF)과 유료 AI 호출 비용 위험만 남아 있었다.
+# 현재 매칭 퍼널은 규칙 기반 /api/match 를 사용한다.
+# 분석 로직 자체는 api/services/ai_service.py 에 보존되어 있다.
 
 # ============================================================
 # Advanced Diagnostic Engine Endpoints (정밀 진단 엔진 API)

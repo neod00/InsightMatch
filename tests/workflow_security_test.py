@@ -1091,10 +1091,15 @@ class TestWorkflowSecurity(unittest.TestCase):
             self.assertIn(resp.status_code, (400, 404),
                           f'{path} 이 차단되지 않음 (status={resp.status_code})')
 
-    def test_analysis_endpoints_require_auth(self):
-        """C-3: AI 비용을 유발하는 분석 엔드포인트는 인증 필수."""
-        self.assertEqual(self.client.post('/api/analyze', json={'companyUrl': 'http://x'}).status_code, 401)
-        self.assertEqual(self.client.get('/api/analyze/some-job-id').status_code, 401)
+    def test_legacy_analyze_endpoints_removed(self):
+        """C-3: 레거시 /api/analyze 경로는 제거되어 더 이상 존재하지 않는다."""
+        # 정적 catch-all로 흘러가더라도 200(정상 응답)이 아니어야 한다
+        post_resp = self.client.post('/api/analyze', json={'companyUrl': 'http://169.254.169.254/'})
+        self.assertIn(post_resp.status_code, (404, 405))
+        self.assertNotEqual(self.client.get('/api/analyze/some-job-id').status_code, 200)
+
+    def test_diagnostic_report_requires_auth(self):
+        """C-3: 유료 AI를 호출하는 진단 리포트는 인증 필수."""
         self.assertEqual(self.client.post('/api/diagnostic/report', json={}).status_code, 401)
 
     def test_ssrf_guard_blocks_internal_targets(self):
