@@ -345,6 +345,13 @@ class ManualGeneration(db.Model):
         )
 
 
+class RateLimitEntry(db.Model):
+    """호출량 제한용 요청 기록 (무인증 공개 엔드포인트 남용 방지)."""
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(160), nullable=False, index=True)  # 예: "match:1.2.3.4"
+    created_at = db.Column(db.DateTime, default=utc_now, index=True)
+
+
 class PasswordResetToken(db.Model):
     """Password reset token for account recovery"""
     id = db.Column(db.Integer, primary_key=True)

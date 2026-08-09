@@ -4,6 +4,47 @@ import requests
 from bs4 import BeautifulSoup
 import json
 import asyncio
+import ipaddress
+import socket
+from urllib.parse import urlparse
+
+
+def is_safe_external_url(url):
+    """SSRF 방어: 사용자가 지정한 URL이 외부 공인 주소인지 검증한다.
+
+    차단 대상: http(s) 이외 스킴, 사설/루프백/링크로컬(169.254.x = 클라우드
+    메타데이터)/멀티캐스트/예약 IP, 해석 불가 호스트.
+    반환: (안전여부: bool, 사유: str)
+    """
+    try:
+        parsed = urlparse(url if '://' in url else 'https://' + url)
+    except Exception:
+        return False, '잘못된 URL 형식'
+
+    if parsed.scheme not in ('http', 'https'):
+        return False, f'허용되지 않는 스킴: {parsed.scheme}'
+
+    hostname = parsed.hostname
+    if not hostname:
+        return False, '호스트명 없음'
+
+    # 호스트명이 가리키는 모든 IP를 검사 (DNS가 사설 IP로 향하는 경우 차단)
+    try:
+        addr_info = socket.getaddrinfo(hostname, None)
+    except Exception:
+        return False, '호스트명을 확인할 수 없음'
+
+    for info in addr_info:
+        ip_str = info[4][0]
+        try:
+            ip = ipaddress.ip_address(ip_str)
+        except ValueError:
+            return False, '잘못된 IP'
+        if (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_multicast or ip.is_reserved or ip.is_unspecified):
+            return False, f'내부/예약 IP 대상 요청 차단 ({ip_str})'
+
+    return True, ''
 
 # Import CorpInfoService
 from .corp_info_service import CorpInfoService
@@ -187,12 +228,20 @@ class AIService:
             try:
                 if not url.startswith('http'):
                     url = 'https://' + url
-                headers = {'User-Agent': 'Mozilla/5.0'}
-                response = requests.get(url, headers=headers, timeout=5)
-                if response.status_code == 200:
-                    soup = BeautifulSoup(response.text, 'html.parser')
-                    body_text = soup.get_text(separator=' ', strip=True)[:1000]
-                    site_content = f"Content: {body_text}"
+                # SSRF 방어: 내부망·메타데이터 주소로의 요청을 사전 차단
+                safe, reason = is_safe_external_url(url)
+                if not safe:
+                    print(f"[AIService] Blocked unsafe URL fetch: {reason}")
+                    site_content = "Website not accessible."
+                else:
+                    headers = {'User-Agent': 'Mozilla/5.0'}
+                    response = requests.get(
+                        url, headers=headers, timeout=5, allow_redirects=False
+                    )
+                    if response.status_code == 200:
+                        soup = BeautifulSoup(response.text, 'html.parser')
+                        body_text = soup.get_text(separator=' ', strip=True)[:1000]
+                        site_content = f"Content: {body_text}"
             except Exception:
                 site_content = "Website not accessible."
 

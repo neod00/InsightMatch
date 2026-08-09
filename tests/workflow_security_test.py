@@ -1057,6 +1057,72 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertEqual(manual.status, 'phase_1_failed')
         self.assertIsNone(manual.phase1_markdown)
 
+    # ------------------------------------------------------------------
+    # Critical 취약점 수정 회귀 테스트
+    # ------------------------------------------------------------------
+    def test_signup_rejects_admin_role_escalation(self):
+        """C-1: 가입 시 role='admin'으로 권한 상승 불가."""
+        resp = self.client.post('/api/auth/signup', json={
+            'email': 'attacker@example.com',
+            'password': 'password123',
+            'name': 'Attacker',
+            'company_name': 'Evil Corp',
+            'role': 'admin',
+        })
+        self.assertEqual(resp.status_code, 400)
+        self.assertIsNone(User.query.filter_by(email='attacker@example.com').first())
+
+        # 허용된 역할은 정상 가입
+        ok = self.client.post('/api/auth/signup', json={
+            'email': 'normal@example.com',
+            'password': 'password123',
+            'name': 'Normal',
+            'company_name': 'Good Corp',
+            'role': 'company',
+        })
+        self.assertEqual(ok.status_code, 201)
+        self.assertEqual(User.query.filter_by(email='normal@example.com').first().role, 'company')
+
+    def test_static_serving_blocks_secrets_and_traversal(self):
+        """C-2: .env / DB / 소스코드 / 경로이탈 파일은 서빙되지 않는다."""
+        for path in ['.env', 'insightmatch.db', 'api/index.py', 'api/requirements.txt',
+                     '../.env', '.git/config']:
+            resp = self.client.get('/' + path)
+            self.assertIn(resp.status_code, (400, 404),
+                          f'{path} 이 차단되지 않음 (status={resp.status_code})')
+
+    def test_analysis_endpoints_require_auth(self):
+        """C-3: AI 비용을 유발하는 분석 엔드포인트는 인증 필수."""
+        self.assertEqual(self.client.post('/api/analyze', json={'companyUrl': 'http://x'}).status_code, 401)
+        self.assertEqual(self.client.get('/api/analyze/some-job-id').status_code, 401)
+        self.assertEqual(self.client.post('/api/diagnostic/report', json={}).status_code, 401)
+
+    def test_ssrf_guard_blocks_internal_targets(self):
+        """C-3: 내부망·메타데이터 주소로의 서버측 요청은 차단된다."""
+        import sys, os as _os
+        sys.path.insert(0, _os.path.abspath(_os.path.join(_os.path.dirname(__file__), '../api')))
+        from services.ai_service import is_safe_external_url
+
+        for bad in ['http://169.254.169.254/latest/meta-data/', 'http://127.0.0.1:5000/admin',
+                    'http://localhost/', 'http://10.0.0.5/', 'file:///etc/passwd']:
+            safe, _ = is_safe_external_url(bad)
+            self.assertFalse(safe, f'{bad} 이 차단되지 않음')
+
+        safe, _ = is_safe_external_url('https://www.example.com')
+        self.assertTrue(safe, '정상 외부 URL이 차단됨')
+
+    def test_public_match_endpoint_is_rate_limited(self):
+        """C-3: 무인증 공개 매칭 API는 IP당 호출량이 제한된다."""
+        from index import check_rate_limit
+        payload = {'companyName': 'T', 'industry': 'Manufacturing', 'standards': []}
+
+        last_status = None
+        for _ in range(25):
+            last_status = self.client.post('/api/match', json=payload).status_code
+            if last_status == 429:
+                break
+        self.assertEqual(last_status, 429, '호출량 제한이 동작하지 않음')
+
     def test_iso_manual_export_requires_company_and_limits_payload(self):
         response = self.client.post(
             '/api/export-iso',

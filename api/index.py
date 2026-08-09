@@ -20,7 +20,7 @@ from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, AnalysisJob, AdminActionLog, Consultant, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration
+from models import db, AnalysisJob, AdminActionLog, Consultant, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry
 from services import AIService, MatchingService, ProposalService, EmailService, AdvancedDiagnosticService
 from services.iso_manual_service import generate_iso_manual_stream
 
@@ -130,6 +130,10 @@ def token_optional(f):
         return f(*args, **kwargs)
     return decorated
 
+# 회원가입으로 생성 가능한 역할 화이트리스트.
+# 'admin'은 절대 포함하지 않는다 — 관리자 계정은 DB에서 수동 부여만 허용.
+ALLOWED_SIGNUP_ROLES = {'company', 'consultant'}
+
 ALLOWED_MANUAL_ISO_STANDARDS = {'ISO 9001:2015', 'ISO 14001:2015', 'ISO 45001:2018'}
 ALLOWED_MANUAL_ISSUES = {
     'quality_defect',
@@ -159,6 +163,48 @@ def require_manual_user():
     if not user or user.role not in ('company', 'admin'):
         return jsonify({'message': '기업 사용자만 이용할 수 있습니다.'}), 403
     return None
+
+
+def _client_ip():
+    """프록시(Vercel) 뒤의 실제 클라이언트 IP."""
+    forwarded = request.headers.get('X-Forwarded-For', '')
+    if forwarded:
+        return forwarded.split(',')[0].strip()[:64]
+    return (request.remote_addr or 'unknown')[:64]
+
+
+def check_rate_limit(scope, limit, window_minutes):
+    """IP 기준 호출량 제한. 허용되면 True, 초과면 False.
+
+    무인증 공개 엔드포인트가 무제한 호출되어 DB가 오염되거나 자원이
+    고갈되는 것을 막는다. 실패 시(예: 테이블 미생성) 서비스는 계속 동작한다.
+    """
+    try:
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        cutoff = now - datetime.timedelta(minutes=window_minutes)
+        key = f"{scope}:{_client_ip()}"
+
+        # 오래된 기록 정리 (24시간 초과분)
+        RateLimitEntry.query.filter(
+            RateLimitEntry.created_at < now - datetime.timedelta(hours=24)
+        ).delete(synchronize_session=False)
+
+        recent = RateLimitEntry.query.filter(
+            RateLimitEntry.key == key,
+            RateLimitEntry.created_at >= cutoff,
+        ).count()
+
+        if recent >= limit:
+            db.session.commit()
+            return False
+
+        db.session.add(RateLimitEntry(key=key, created_at=now))
+        db.session.commit()
+        return True
+    except Exception as e:
+        db.session.rollback()
+        print(f"[RateLimit] check failed (fail-open): {e}")
+        return True
 
 
 def _manual_token_hash(token):
@@ -570,7 +616,12 @@ def signup():
     name = data.get('name')  # 이름 (담당자명/컨설턴트명)
     company_name = data.get('company_name', '').strip()  # 회사명
     role = data.get('role', 'company')
-    
+
+    # 권한 상승 방지: 가입 시 지정 가능한 역할을 화이트리스트로 제한.
+    # (이전에는 role을 그대로 신뢰해 role='admin'으로 관리자 계정 생성이 가능했음)
+    if role not in ALLOWED_SIGNUP_ROLES:
+        return jsonify({'message': '유효하지 않은 회원 유형입니다.'}), 400
+
     # Name validation
     if not name or not name.strip():
         return jsonify({'message': '이름을 입력해 주세요.'}), 400
@@ -801,9 +852,12 @@ def find_email():
     })
 
 # --- Analysis Endpoints ---
+# 보안: 이 계열은 외부 URL 수집 + 유료 AI 호출을 유발하므로 인증 필수.
+# (이전에는 무인증이라 누구나 무제한으로 AI 비용을 발생시키고 SSRF를 유발할 수 있었음)
 @app.route('/api/analyze', methods=['POST'])
+@token_required
 def start_analysis():
-    data = request.json
+    data = request.json or {}
     company_url = data.get('companyUrl')
     company_name = data.get('companyName', '(주)인사이트매치')
     
@@ -823,6 +877,7 @@ def start_analysis():
     return jsonify({'job_id': job_id, 'message': 'Analysis started'}), 202
 
 @app.route('/api/analyze/<job_id>', methods=['GET'])
+@token_required
 def get_analysis_status(job_id):
     job = AnalysisJob.query.get(job_id)
     if not job:
@@ -878,10 +933,14 @@ def get_diagnostic_questions(ksic_code):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/diagnostic/report', methods=['POST'])
+@token_required
 def generate_diagnostic_report():
-    """자기진단 응답을 기반으로 Gap Analysis 리포트 생성"""
+    """자기진단 응답을 기반으로 Gap Analysis 리포트 생성
+
+    보안: 유료 AI(Gemini) 호출을 유발하므로 인증 필수.
+    """
     try:
-        data = request.json
+        data = request.json or {}
         ksic_code = data.get('industry_code')
         user_answers = data.get('answers', [])
         user_context = data.get('context', {})
@@ -1200,7 +1259,16 @@ def direct_match():
     """
     Direct consultant matching based on survey data.
     No AI analysis - just rule-based matching.
+
+    공개(무인증) 퍼널이므로 인증은 요구하지 않되, IP당 호출량을 제한해
+    DB 오염·자원 남용을 방지한다.
     """
+    if not check_rate_limit('match', limit=20, window_minutes=60):
+        return jsonify({
+            'error': '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
+            'code': 'RATE_LIMITED',
+        }), 429
+
     data = request.json or {}
 
     company_name = data.get('companyName', '기업')
@@ -4174,14 +4242,60 @@ def get_contact_info(project_id):
 def index():
     return send_file('../index.html')
 
+# 정적 서빙 허용 확장자 (화이트리스트). 여기에 없는 확장자는 절대 서빙하지 않는다.
+# .py/.db/.env/.log/.sqlite 등은 목록에 없으므로 자동 차단된다.
+ALLOWED_STATIC_EXTENSIONS = {
+    '.html', '.htm', '.css', '.js', '.mjs', '.map', '.json',
+    '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.webp', '.avif',
+    '.woff', '.woff2', '.ttf', '.otf', '.eot',
+    '.mp4', '.webm', '.mp3', '.pdf',
+}
+
+# 서빙을 금지할 최상위 디렉터리 (소스·설정·데이터·테스트)
+BLOCKED_STATIC_PREFIXES = {
+    'api', 'tests', 'scripts', 'data', 'directives',
+    '.git', '.claude', '.vercel', 'node_modules', 'venv', '__pycache__',
+}
+
+
 @app.route('/<path:filename>')
 def serve_static(filename):
-    """Serve static files (HTML, CSS, JS, images)"""
-    file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), filename)
-    if os.path.exists(file_path):
-        return send_file(file_path)
-    else:
+    """Serve static files (HTML, CSS, JS, images).
+
+    보안: 경로 이탈(../)·비밀파일(.env)·DB(.db)·소스(.py) 노출을 차단한다.
+    허용 확장자 화이트리스트 + 루트 격리(realpath) + 디렉터리 차단의 3중 방어.
+    """
+    root = os.path.realpath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+    # 1) 명백한 경로 조작 문자 차단
+    if '..' in filename or filename.startswith('/') or '\\' in filename or '\x00' in filename:
         return jsonify({'error': 'File not found'}), 404
+
+    normalized = filename.replace('\\', '/').strip('/')
+    if not normalized:
+        return jsonify({'error': 'File not found'}), 404
+
+    segments = [seg for seg in normalized.split('/') if seg]
+
+    # 2) 숨김 파일/디렉터리(.env, .git 등) 및 차단 디렉터리 거부
+    if any(seg.startswith('.') for seg in segments):
+        return jsonify({'error': 'File not found'}), 404
+    if segments[0].lower() in BLOCKED_STATIC_PREFIXES:
+        return jsonify({'error': 'File not found'}), 404
+
+    # 3) 확장자 화이트리스트
+    ext = os.path.splitext(segments[-1])[1].lower()
+    if ext not in ALLOWED_STATIC_EXTENSIONS:
+        return jsonify({'error': 'File not found'}), 404
+
+    # 4) 심볼릭 링크 등으로 루트를 벗어나는지 최종 확인
+    file_path = os.path.realpath(os.path.join(root, *segments))
+    if file_path != root and not file_path.startswith(root + os.sep):
+        return jsonify({'error': 'File not found'}), 404
+
+    if os.path.isfile(file_path):
+        return send_file(file_path)
+    return jsonify({'error': 'File not found'}), 404
 
 # Vercel automatically detects Flask app named 'app'
 

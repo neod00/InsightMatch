@@ -15,6 +15,7 @@
 
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.3/dist/purify.min.js"></script>
 
     <!-- Styles -->
     <link rel="stylesheet" href="style.css">
@@ -354,32 +355,46 @@
             lucide.createIcons();
         }
 
+        // XSS 방어: 값을 텍스트로만 표시할 때 사용
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         function renderPost(post) {
             const container = document.getElementById('post-container');
-            const tagsHtml = post.tags.map(tag => `<span class="blog-tag">#${tag.trim()}</span>`).join('');
+            const tagsHtml = (post.tags || []).map(tag => `<span class="blog-tag">#${escapeHtml(String(tag).trim())}</span>`).join('');
 
-            // Render content as HTML directly (content contains HTML markup)
-            const contentHtml = post.content;
+            // 본문은 의도적으로 HTML 서식을 허용하므로, 이스케이프 대신 살균(sanitize)한다.
+            // DOMPurify 미로드 시에는 안전하게 이스케이프로 폴백.
+            const contentHtml = window.DOMPurify
+                ? DOMPurify.sanitize(post.content || '', { USE_PROFILES: { html: true } })
+                : escapeHtml(post.content || '');
 
             container.innerHTML = `
                 <article class="fade-in-up">
                     <div class="post-header">
                         <div class="post-tags">${tagsHtml}</div>
-                        <h1 class="post-title">${post.title}</h1>
+                        <h1 class="post-title">${escapeHtml(post.title)}</h1>
                         <div class="post-meta">
                             <span>
                                 <i data-lucide="user" style="width: 16px; height: 16px;"></i>
-                                ${post.author}
+                                ${escapeHtml(post.author)}
                             </span>
                             <span>
                                 <i data-lucide="calendar" style="width: 16px; height: 16px;"></i>
-                                ${post.created_at}
+                                ${escapeHtml(post.created_at)}
                             </span>
                         </div>
                     </div>
                     
-                    <img src="${post.image_url || 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=1000'}" 
-                         alt="${post.title}" 
+                    <img src="${escapeHtml(post.image_url || 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=1000')}"
+                         alt="${escapeHtml(post.title)}"
                          class="post-image"
                          onerror="this.src='https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=1000'">
                     

@@ -349,6 +349,18 @@
     <script>
         lucide.createIcons();
 
+        // XSS 방어: 컨설턴트가 직접 입력한 값(자격·프로젝트 등)을
+        // innerHTML에 넣기 전 반드시 이스케이프한다.
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         // Mobile Menu Toggle
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
         const mobileNav = document.getElementById('mobile-nav');
@@ -480,8 +492,8 @@
                 isoList.innerHTML = Object.entries(isoExp).map(([code, role]) => `
                     <span class="iso-badge">
                         <i data-lucide="award" style="width: 16px; height: 16px;"></i>
-                        ISO ${code}
-                        ${role ? `<small style="opacity: 0.7;">(${role})</small>` : ''}
+                        ISO ${escapeHtml(code)}
+                        ${role ? `<small style="opacity: 0.7;">(${escapeHtml(role)})</small>` : ''}
                     </span>
                 `).join('');
             } else {
@@ -493,7 +505,7 @@
             const industries = c.industryExperience || [];
             if (industries.length > 0) {
                 industryList.innerHTML = industries.map(ind => `
-                    <span class="industry-tag">${translateIndustry(ind)}</span>
+                    <span class="industry-tag">${escapeHtml(translateIndustry(ind))}</span>
                 `).join('');
             } else {
                 industryList.innerHTML = '<p style="color: var(--text-muted);">등록된 산업 경험이 없습니다.</p>';
@@ -506,7 +518,7 @@
                 document.getElementById('certifications-list').innerHTML = certs.map(cert => `
                     <div class="certification-item">
                         <i data-lucide="file-badge" style="width: 20px; height: 20px;"></i>
-                        <span>${cert}</span>
+                        <span>${escapeHtml(cert)}</span>
                     </div>
                 `).join('');
             }
@@ -517,8 +529,8 @@
                 document.getElementById('projects-section').style.display = 'block';
                 document.getElementById('projects-list').innerHTML = projects.map(proj => `
                     <div class="project-item">
-                        <h4>${proj.title || proj}</h4>
-                        ${proj.description ? `<p>${proj.description}</p>` : ''}
+                        <h4>${escapeHtml(proj.title || proj)}</h4>
+                        ${proj.description ? `<p>${escapeHtml(proj.description)}</p>` : ''}
                     </div>
                 `).join('');
             }

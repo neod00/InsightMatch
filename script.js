@@ -8,6 +8,19 @@ const API_BASE_URL = (() => {
     return '';
 })();
 
+// ========== XSS Protection ==========
+// 사용자/외부 입력을 innerHTML에 넣기 전 반드시 통과시킬 것.
+// (컨설턴트 소개·프로필·뉴스 제목 등은 공격자가 제어 가능한 문자열이다)
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // ========== Privacy Protection: Name Masking ==========
 // Mask consultant names for non-logged-in users
 function maskName(name) {
@@ -674,7 +687,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (result.issues_summary) {
-                summaryHTML += `<br><br><strong>주요 경영 이슈:</strong> ${result.issues_summary}`;
+                summaryHTML += `<br><br><strong>주요 경영 이슈:</strong> ${escapeHtml(result.issues_summary)}`;
             }
 
             summaryEl.innerHTML = summaryHTML;
@@ -1070,15 +1083,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     link.onmouseover = () => link.style.background = 'rgba(0,0,0,0.35)';
                     link.onmouseout = () => link.style.background = 'rgba(0,0,0,0.2)';
 
-                    const categoryBadge = item.category ? `<span style="font-size: 0.7rem; background: rgba(16,185,129,0.2); color: #10b981; padding: 2px 6px; border-radius: 4px; white-space: nowrap;">${item.category}</span>` : '';
+                    const categoryBadge = item.category ? `<span style="font-size: 0.7rem; background: rgba(16,185,129,0.2); color: #10b981; padding: 2px 6px; border-radius: 4px; white-space: nowrap;">${escapeHtml(item.category)}</span>` : '';
 
                     link.innerHTML = `
                         <i data-lucide="external-link" style="width: 14px; height: 14px; color: var(--text-muted); flex-shrink: 0; margin-top: 2px;"></i>
                         <div style="flex: 1; min-width: 0;">
-                            <div style="color: var(--text-primary); font-size: 0.9rem; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${item.headline || item.title || '제목 없음'}</div>
+                            <div style="color: var(--text-primary); font-size: 0.9rem; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${escapeHtml(item.headline || item.title || '제목 없음')}</div>
                             <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
                                 ${categoryBadge}
-                                ${item.related_iso ? `<span style="font-size: 0.7rem; color: var(--text-muted);">관련: ${item.related_iso}</span>` : ''}
+                                ${item.related_iso ? `<span style="font-size: 0.7rem; color: var(--text-muted);">관련: ${escapeHtml(item.related_iso)}</span>` : ''}
                             </div>
                         </div>
                     `;
@@ -1106,7 +1119,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const sourceIcon = item.source === 'cafe' ? '☕' : '📝';
                     link.innerHTML = `
                         <span style="font-size: 1.1rem;">${sourceIcon}</span>
-                        <span style="color: var(--text-primary); font-size: 0.9rem; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.title || '제목 없음'}</span>
+                        <span style="color: var(--text-primary); font-size: 0.9rem; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(item.title || '제목 없음')}</span>
                         <i data-lucide="external-link" style="width: 14px; height: 14px; color: var(--text-muted);"></i>
                     `;
                     snsEvidenceItems.appendChild(link);
@@ -1210,8 +1223,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Privacy protection: mask name for non-logged-in users
             const isLoggedIn = isUserLoggedIn();
-            const displayName = isLoggedIn ? c.name : maskName(c.name);
-            const displayAvatar = isLoggedIn ? (c.avatar || c.name[0]) : (c.name ? c.name[0] : 'C');
+            const displayName = escapeHtml(isLoggedIn ? c.name : maskName(c.name));
+            const displayAvatar = escapeHtml(isLoggedIn ? (c.avatar || c.name[0]) : (c.name ? c.name[0] : 'C'));
 
             // Enhanced verified badge
             const verifiedBadge = c.verified
@@ -1240,7 +1253,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 3. 기업 규모 태그 (B2) - 현재 매칭된 컨텍스트가 있으면 좋지만, 일반적인 경험 노출
             if (c.industryExperience && c.industryExperience.length > 0) {
-                tagsHTML += `<span class="match-tag match-tag-accent">${c.industryExperience[0]} 전문</span>`;
+                tagsHTML += `<span class="match-tag match-tag-accent">${escapeHtml(c.industryExperience[0])} 전문</span>`;
             }
 
             tagsHTML += '</div>';
@@ -1263,14 +1276,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${displayName}
                             ${verifiedBadge}
                         </h4>
-                        <span class="consultant-specialty">${c.specialty || '종합'} 전문</span>
+                        <span class="consultant-specialty">${escapeHtml(c.specialty || '종합')} 전문</span>
                     </div>
                 </div>
                 
                 ${tagsHTML}
                 
                 <div class="consultant-match-reason">
-                    ${c.matchReason || 'ISO 컨설턴트'}
+                    ${escapeHtml(c.matchReason || 'ISO 컨설턴트')}
                 </div>
                 
                 <div style="margin-bottom: 16px;">
@@ -1284,7 +1297,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 
                 <div class="consultant-stats">
-                    <span>경력 ${c.experience || '정보없음'}</span>
+                    <span>경력 ${escapeHtml(c.experience || '정보없음')}</span>
                     <span>후기 ${c.reviews || 0}개</span>
                     <span class="match-score">적합도 ${c.matchScore || 95}%</span>
                 </div>
@@ -1555,10 +1568,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <th style="text-align: center; padding: 12px; border-bottom: 1px solid var(--border); min-width: 180px;">
                                     <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
                                         <div style="width: 48px; height: 48px; background: linear-gradient(135deg, var(--primary), var(--accent)); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 600; color: white;">
-                                            ${c.avatar || c.name[0]}
+                                            ${escapeHtml(c.avatar || c.name[0])}
                                         </div>
                                         <div>
-                                            <div style="font-weight: 600;">${c.name}</div>
+                                            <div style="font-weight: 600;">${escapeHtml(c.name)}</div>
                                             ${c.verified ? '<span class="verified-badge" style="margin-top: 4px;"><i data-lucide="badge-check" style="width: 12px; height: 12px;"></i> 검증됨</span>' : ''}
                                         </div>
                                     </div>
@@ -1569,11 +1582,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <tbody>
                         <tr>
                             <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">전문 분야</td>
-                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border);">${c.specialty || '종합'}</td>`).join('')}
+                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border);">${escapeHtml(c.specialty || '종합')}</td>`).join('')}
                         </tr>
                         <tr>
                             <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">경력</td>
-                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border);">${c.experience || '정보없음'}</td>`).join('')}
+                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border);">${escapeHtml(c.experience || '정보없음')}</td>`).join('')}
                         </tr>
                         <tr>
                             <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">신뢰 점수</td>
@@ -1605,7 +1618,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </tr>
                         <tr>
                             <td style="padding: 12px; color: var(--text-secondary);">소개 사유</td>
-                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; font-size: 0.85rem; color: var(--text-muted);">${c.matchReason || '-'}</td>`).join('')}
+                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; font-size: 0.85rem; color: var(--text-muted);">${escapeHtml(c.matchReason || '-')}</td>`).join('')}
                         </tr>
                     </tbody>
                 </table>
