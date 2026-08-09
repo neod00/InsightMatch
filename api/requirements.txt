@@ -10,7 +10,7 @@ SQLAlchemy==2.0.44
 psycopg2-binary==2.9.11
 python-dotenv==1.0.0
 google-generativeai==0.8.5
-requests==2.31.0
+requests==2.32.4        # CVE-2024-35195 대응 (2.31.0 → 2.32.4)
 beautifulsoup4==4.12.2
 pyjwt==2.10.1
 reportlab==4.4.3
