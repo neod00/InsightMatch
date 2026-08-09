@@ -14,7 +14,7 @@ import hashlib
 import secrets
 from functools import wraps
 from urllib.parse import urlparse
-from flask import Flask, request, jsonify, send_file, Response, g, stream_with_context
+from flask import Flask, request, jsonify, send_file, Response, g, stream_with_context, abort
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
@@ -67,9 +67,15 @@ app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
 if not app.config['SECRET_KEY']:
+    # 프로덕션에서 약한 키로 기동하면 JWT 위조가 가능해지므로 부팅을 중단한다.
+    if os.environ.get('VERCEL'):
+        raise RuntimeError(
+            'SECRET_KEY 환경변수가 설정되지 않았습니다. '
+            '프로덕션에서는 반드시 설정해야 합니다 (Vercel 환경변수).'
+        )
     import warnings
-    warnings.warn('SECRET_KEY 환경변수가 설정되지 않았습니다. 프로덕션에서는 반드시 설정해주세요.', stacklevel=1)
-    app.config['SECRET_KEY'] = 'dev-only-insecure-key-' + os.urandom(8).hex()
+    warnings.warn('SECRET_KEY 미설정 — 로컬 개발용 임시 키를 사용합니다.', stacklevel=1)
+    app.config['SECRET_KEY'] = 'dev-only-insecure-key-' + secrets.token_hex(32)
 
 db.init_app(app)
 
@@ -105,6 +111,9 @@ def token_required(f):
             current_user = User.query.get(payload['user_id'])
             if not current_user:
                 return jsonify({'message': '유효하지 않은 사용자입니다.'}), 401
+            # 토큰 폐기 검사: 비밀번호 재설정 등으로 버전이 오르면 기존 토큰은 무효
+            if payload.get('tv', 0) != (current_user.token_version or 0):
+                return jsonify({'message': '세션이 만료되었습니다. 다시 로그인해주세요.'}), 401
             g.current_user = current_user
         except jwt.ExpiredSignatureError:
             return jsonify({'message': '세션이 만료되었습니다. 다시 로그인해주세요.'}), 401
@@ -163,6 +172,14 @@ def require_manual_user():
     if not user or user.role not in ('company', 'admin'):
         return jsonify({'message': '기업 사용자만 이용할 수 있습니다.'}), 403
     return None
+
+
+def get_active_project_or_404(project_id):
+    """삭제(soft delete)되지 않은 프로젝트만 반환. 삭제된 건 404 처리."""
+    project = Project.query.get_or_404(project_id)
+    if getattr(project, 'deleted_at', None) is not None:
+        abort(404)
+    return project
 
 
 def _client_ip():
@@ -472,6 +489,7 @@ def mark_other_session_projects_not_selected(project):
     other_projects = Project.query.filter(
         Project.session_id == project.session_id,
         Project.id != project.id,
+        Project.deleted_at.is_(None),
         Project.status.notin_(['not_selected', 'cancelled_by_company', 'contracted', 'in_progress', 'completed'])
     ).all()
 
@@ -689,6 +707,7 @@ def login():
     token = jwt.encode({
         'user_id': user.id,
         'role': user.role,
+        'tv': user.token_version or 0,  # 토큰 폐기 검증용 버전
         'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=24)
     }, app.config['SECRET_KEY'], algorithm="HS256")
     
@@ -797,7 +816,12 @@ def reset_password():
         return jsonify({'message': '유효하지 않거나 이미 사용된 링크입니다.'}), 400
     
     # Check expiration
-    if reset_token.expires_at < datetime.datetime.now(datetime.timezone.utc):
+    # DB에서 읽어온 값은 tz 정보가 없으므로(naive) UTC로 간주해 비교한다.
+    # (이전에는 aware 값과 직접 비교해 TypeError → 500이 발생했다)
+    expires_at = reset_token.expires_at
+    if expires_at is not None and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=datetime.timezone.utc)
+    if expires_at is not None and expires_at < datetime.datetime.now(datetime.timezone.utc):
         return jsonify({'message': '링크가 만료되었습니다. 다시 요청해주세요.'}), 400
     
     # Update password
@@ -806,6 +830,9 @@ def reset_password():
         return jsonify({'message': '사용자를 찾을 수 없습니다.'}), 404
     
     user.password_hash = generate_password_hash(new_password)
+    # 비밀번호가 바뀌면 기존에 발급된 모든 토큰을 무효화한다
+    # (계정 탈취 시 공격자의 세션이 최대 24시간 살아있던 문제 해결)
+    user.token_version = (user.token_version or 0) + 1
     reset_token.used = True
     db.session.commit()
     
@@ -1522,10 +1549,14 @@ def handle_projects():
         # 필터링: company_id가 user_id이거나, consultant_id가 조회된 consultant의 id인 프로젝트
         if consultant_id:
             projects = Project.query.filter(
-                (Project.company_id == user_id) | (Project.consultant_id == consultant_id)
+                (Project.company_id == user_id) | (Project.consultant_id == consultant_id),
+                Project.deleted_at.is_(None)
             ).all()
         else:
-            projects = Project.query.filter(Project.company_id == user_id).all()
+            projects = Project.query.filter(
+                Project.company_id == user_id,
+                Project.deleted_at.is_(None)
+            ).all()
         
         results = []
         for p in projects:
@@ -1602,28 +1633,27 @@ def handle_projects():
 @token_required
 def delete_project(project_id):
     """Delete a project (only if not contracted)"""
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     if not is_project_company(project):
         return jsonify({'message': 'Only the project company can delete this project.'}), 403
     
     # Cannot delete contracted projects
     if project.status in ['contracted', 'in_progress', 'completed']:
         return jsonify({'message': '계약된 프로젝트는 삭제할 수 없습니다.'}), 400
-    
-    # BUG-026 Fix: 관련 데이터도 삭제
-    Milestone.query.filter_by(project_id=project_id).delete()
-    Message.query.filter_by(project_id=project_id).delete()
-    
-    # Delete project
-    db.session.delete(project)
+
+    # Soft delete: 프로젝트는 목록에서 사라지지만 마일스톤·대화(Message)는 보존한다.
+    # 하드 삭제 시 컨설턴트와 주고받은 협상 이력이 상대 동의 없이 영구 소실되어
+    # 분쟁 시 증거가 사라지는 문제가 있었다.
+    project.deleted_at = datetime.datetime.now(datetime.timezone.utc)
+    project.status = 'deleted'
     db.session.commit()
-    
+
     return jsonify({'message': '프로젝트가 삭제되었습니다.'})
 
 @app.route('/api/projects/<int:project_id>/proposal/download', methods=['GET'])
 @token_required
 def download_proposal(project_id):
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     forbidden = require_project_participant(project)
     if forbidden:
         return forbidden
@@ -1651,7 +1681,7 @@ def download_proposal(project_id):
 @token_required
 def sign_contract(project_id):
     """간편 계약 (BUG-018: 표준 계약 경로(/contract/draft + /contract/sign) 사용 권장)"""
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     if not is_project_participant(project):
         return jsonify({'message': 'Only project participants can sign this project.'}), 403
     return jsonify({'message': 'Use /api/projects/<project_id>/contract/sign for two-party signing.'}), 410
@@ -1682,7 +1712,7 @@ def sign_contract(project_id):
 @token_required
 def request_negotiation(project_id):
     """기업이 전문가에게 조건 협의 요청"""
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     
     # BUG-015 Fix: 기업(프로젝트 소유자)만 협의 요청 가능
     if not is_project_company(project):
@@ -1748,7 +1778,7 @@ def request_negotiation(project_id):
 @token_required
 def respond_negotiation(project_id):
     """전문가가 협의 요청에 응답 (수락/역제안/거절)"""
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     
     # BUG-015 Fix: 컨설턴트만 응답 가능
     consultant = Consultant.query.get(project.consultant_id)
@@ -1844,7 +1874,7 @@ def respond_negotiation(project_id):
 @token_required
 def create_contract_draft(project_id):
     """계약서 초안 생성"""
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     if not is_project_company(project):
         return jsonify({'message': '해당 프로젝트의 기업 담당자만 계약 초안을 생성할 수 있습니다.'}), 403
     
@@ -1868,7 +1898,7 @@ def create_contract_draft(project_id):
 @token_required
 def sign_contract_step(project_id):
     """계약서 서명 (기업 또는 전문가)"""
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     if not is_project_participant(project):
         return jsonify({'message': '해당 프로젝트의 당사자만 계약서에 서명할 수 있습니다.'}), 403
     
@@ -1941,7 +1971,7 @@ def sign_contract_step(project_id):
 @token_required
 def get_contract_preview(project_id):
     """계약서 미리보기 데이터 반환"""
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     forbidden = require_project_participant(project)
     if forbidden:
         return forbidden
@@ -1972,7 +2002,7 @@ def get_contract_preview(project_id):
 @token_required
 def submit_proposal(project_id):
     """컨설턴트가 제안서(금액, 기간, 메시지, 파일) 제출"""
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     
     # BUG-014 Fix: 해당 프로젝트의 컨설턴트 본인만 제안서 제출 가능
     consultant = Consultant.query.get(project.consultant_id)
@@ -2051,7 +2081,7 @@ def submit_proposal(project_id):
 @token_required
 def get_proposal(project_id):
     """특정 프로젝트의 제안서 상세 조회"""
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     forbidden = require_project_participant(project)
     if forbidden:
         return forbidden
@@ -2073,7 +2103,7 @@ def get_proposal(project_id):
 @token_required
 def get_project_detail(project_id):
     """프로젝트 상세 정보 조회 (컨설턴트용)"""
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     forbidden = require_project_participant(project)
     if forbidden:
         return forbidden
@@ -2253,7 +2283,7 @@ def get_project_detail(project_id):
 @token_required
 def propose_schedule(project_id):
     """컨설턴트가 마일스톤별 일정 제안"""
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     
     # BUG-021 Fix: 컨설턴트만 일정 제안 가능
     consultant = Consultant.query.get(project.consultant_id)
@@ -2347,7 +2377,7 @@ def propose_schedule(project_id):
 @token_required
 def confirm_schedule(project_id):
     """기업이 제안된 일정 승인"""
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     
     # BUG-021 Fix: 기업(프로젝트 소유자)만 일정 확정 가능
     if not is_project_company(project):
@@ -2388,7 +2418,7 @@ def confirm_schedule(project_id):
 @token_required
 def reject_schedule(project_id):
     """기업이 제안된 일정 거절 (재조율 요청)"""
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     
     # BUG-021 Fix: 기업(프로젝트 소유자)만 일정 거절 가능
     if not is_project_company(project):
@@ -2432,7 +2462,7 @@ def reject_schedule(project_id):
 @token_required
 def cancel_consultant_request(project_id):
     """특정 컨설턴트에 대한 요청 취소 (Soft Delete + 알림)"""
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     if not is_project_company(project):
         return jsonify({'message': 'Only the project company can cancel this request.'}), 403
     
@@ -2484,7 +2514,7 @@ def cancel_consultant_request(project_id):
 @token_required
 def decline_project_request(project_id):
     """Allow the assigned consultant to decline a quote request before contract."""
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     consultant = Consultant.query.get(project.consultant_id) if project.consultant_id else None
     if not consultant or not _same_id(consultant.user_id, g.current_user.id):
         return jsonify({'message': 'Only the assigned consultant can decline this request.'}), 403
@@ -2537,7 +2567,10 @@ def cancel_project_group():
     if not session_id and not title:
         return jsonify({'message': 'session_id or title is required.'}), 400
 
-    query = Project.query.filter(Project.company_id == g.current_user.id)
+    query = Project.query.filter(
+        Project.company_id == g.current_user.id,
+        Project.deleted_at.is_(None)
+    )
     if session_id:
         query = query.filter(Project.session_id == session_id)
     else:
@@ -2607,7 +2640,8 @@ def add_consultant_to_request():
         Project.company_id == user_id, 
         Project.consultant_id == consultant_id,
         Project.title == title,
-        Project.status.notin_(['cancelled_by_company', 'not_selected'])
+        Project.status.notin_(['cancelled_by_company', 'not_selected', 'deleted']),
+        Project.deleted_at.is_(None)
     ).first()
     
     if existing:
@@ -2658,7 +2692,9 @@ def get_available_consultants(title):
     session_id = request.args.get('session_id')
     
     # 1. 이미 요청된 컨설턴트 ID 목록
-    existing_projects = Project.query.filter_by(company_id=user_id, title=title).all()
+    existing_projects = Project.query.filter_by(company_id=user_id, title=title).filter(
+        Project.deleted_at.is_(None)
+    ).all()
     existing_consultant_ids = [p.consultant_id for p in existing_projects]
     
     # 2. 추천 로직을 위한 기준 정보(criteria) 구축
@@ -2744,7 +2780,9 @@ def get_admin_jobs():
     """
     try:
         # Get all projects ordered by creation date
-        projects = Project.query.order_by(Project.created_at.desc()).all()
+        projects = Project.query.filter(
+            Project.deleted_at.is_(None)
+        ).order_by(Project.created_at.desc()).all()
         
         # Group projects by company_id
         company_projects = {}
@@ -2887,7 +2925,10 @@ def delete_admin_job(job_id):
                 'contracted_count': protected_count
             }), 400
 
-        projects = Project.query.filter(Project.company_id.is_(None)).all()
+        projects = Project.query.filter(
+            Project.company_id.is_(None),
+            Project.deleted_at.is_(None)
+        ).all()
         now = datetime.datetime.now(datetime.timezone.utc)
         archived_count = 0
         for project in projects:
@@ -2922,7 +2963,9 @@ def delete_admin_job(job_id):
                 'contracted_count': protected_count
             }), 400
 
-        projects = Project.query.filter_by(company_id=company_id).all()
+        projects = Project.query.filter_by(company_id=company_id).filter(
+            Project.deleted_at.is_(None)
+        ).all()
         now = datetime.datetime.now(datetime.timezone.utc)
         archived_count = 0
         for project in projects:
@@ -3381,7 +3424,7 @@ def request_quotes():
 @app.route('/api/posts', methods=['GET', 'POST'])
 def handle_posts():
     if request.method == 'GET':
-        posts = Post.query.order_by(Post.created_at.desc()).all()
+        posts = Post.query.filter(Post.deleted_at.is_(None)).order_by(Post.created_at.desc()).all()
         return jsonify([p.to_dict() for p in posts])
     
     elif request.method == 'POST':
@@ -3405,8 +3448,12 @@ def handle_posts():
 @app.route('/api/posts/<int:post_id>', methods=['GET', 'PUT', 'DELETE'])
 def get_post(post_id):
     post = Post.query.get_or_404(post_id)
-    
+
     if request.method == 'GET':
+        # 삭제(soft delete)된 글은 공개 조회에서 숨긴다.
+        # PUT/DELETE는 관리자 복구 작업을 위해 접근을 허용한다.
+        if post.deleted_at is not None:
+            abort(404)
         return jsonify(post.to_dict())
     
     elif request.method == 'PUT':
@@ -3432,8 +3479,9 @@ def get_post(post_id):
         forbidden = require_admin_request()
         if forbidden:
             return forbidden
+        # Soft delete: 본문을 보존해 오삭제 시 복구 가능하게 한다.
         log_admin_action('delete_post', 'post', post_id, {'title': post.title})
-        db.session.delete(post)
+        post.deleted_at = datetime.datetime.now(datetime.timezone.utc)
         db.session.commit()
         return jsonify({'message': 'Post deleted', 'id': post_id})
 
@@ -3453,7 +3501,7 @@ def sitemap():
         sitemap_xml.append('<priority>0.8</priority>')
         sitemap_xml.append('</url>')
         
-    posts = Post.query.all()
+    posts = Post.query.filter(Post.deleted_at.is_(None)).all()
     for post in posts:
         sitemap_xml.append('<url>')
         sitemap_xml.append(f'<loc>{base_url}/blog_detail.html?id={post.id}</loc>')
@@ -3479,13 +3527,15 @@ def robots():
 @app.route('/api/posts', methods=['GET'])
 def get_posts():
     """블로그 게시글 목록 조회 (공개)"""
-    posts = Post.query.order_by(Post.created_at.desc()).all()
+    posts = Post.query.filter(Post.deleted_at.is_(None)).order_by(Post.created_at.desc()).all()
     return jsonify([p.to_dict() for p in posts])
 
 @app.route('/api/posts/<int:post_id>', methods=['GET'])
 def get_post_detail(post_id):
     """블로그 게시글 상세 조회 (공개)"""
     post = Post.query.get_or_404(post_id)
+    if post.deleted_at is not None:
+        abort(404)
     return jsonify(post.to_dict())
 
 # --- Health Check ---
@@ -4015,7 +4065,7 @@ def upload_proposal_file():
     if not project_id:
         return jsonify({'error': 'Project ID required'}), 400
 
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     consultant = Consultant.query.get(project.consultant_id) if project.consultant_id else None
     if g.current_user.role != 'admin' and (not consultant or not _same_id(consultant.user_id, user_id)):
         return jsonify({'error': 'Only the assigned consultant can upload proposal files'}), 403
@@ -4083,7 +4133,7 @@ def upload_proposal_file():
 @token_required
 def handle_messages(project_id):
     """프로젝트 메시지 조회/전송"""
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     forbidden = require_project_participant(project)
     if forbidden:
         return forbidden
@@ -4159,7 +4209,7 @@ def handle_messages(project_id):
 @token_required
 def mark_messages_read(project_id):
     """해당 프로젝트의 메시지 읽음 처리"""
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     forbidden = require_project_participant(project)
     if forbidden:
         return forbidden
@@ -4192,11 +4242,15 @@ def get_unread_message_count():
     
     # 사용자가 참여한 프로젝트의 읽지 않은 메시지 수
     if user.role == 'company':
-        projects = Project.query.filter_by(company_id=user_id).all()
+        projects = Project.query.filter_by(company_id=user_id).filter(
+            Project.deleted_at.is_(None)
+        ).all()
     else:
         consultant = Consultant.query.filter_by(user_id=user_id).first()
         if consultant:
-            projects = Project.query.filter_by(consultant_id=consultant.id).all()
+            projects = Project.query.filter_by(consultant_id=consultant.id).filter(
+                Project.deleted_at.is_(None)
+            ).all()
         else:
             projects = []
     
@@ -4217,7 +4271,7 @@ def get_unread_message_count():
 @token_required
 def get_contact_info(project_id):
     """계약 완료된 프로젝트의 컨설턴트 연락처 조회"""
-    project = Project.query.get_or_404(project_id)
+    project = get_active_project_or_404(project_id)
     forbidden = require_project_participant(project)
     if forbidden:
         return forbidden

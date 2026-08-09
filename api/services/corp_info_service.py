@@ -20,11 +20,11 @@ class CorpInfoService:
     BASE_URL = "http://apis.data.go.kr/1160100/service/GetCorpBasicInfoService_V2"
     
     def __init__(self):
-        # API 키는 환경변수에서 가져오기 (기본값은 제공된 인증키)
-        self.api_key = os.environ.get(
-            'DATA_GO_KR_API_KEY', 
-            '3d5ffc75a14cccb5038feb87bbf1b03f36591801bd4469fbfaf1d39f90a62ff8'
-        )
+        # API 키는 환경변수에서만 읽는다.
+        # (이전에는 실제 인증키가 코드 기본값으로 하드코딩되어 저장소에 노출됐음)
+        self.api_key = os.environ.get('DATA_GO_KR_API_KEY', '')
+        if not self.api_key:
+            print('[CorpInfoService] DATA_GO_KR_API_KEY 미설정 — 기업정보 조회 기능이 비활성화됩니다.')
     
     def get_corp_outline(self, corp_name: str = None, crno: str = None, num_of_rows: int = 10, page_no: int = 1) -> dict:
         """
@@ -39,8 +39,11 @@ class CorpInfoService:
         Returns:
             기업 정보 딕셔너리 또는 None
         """
+        if not self.api_key:
+            return None
+
         url = f"{self.BASE_URL}/getCorpOutline_V2"
-        
+
         params = {
             'serviceKey': self.api_key,
             'resultType': 'json',
@@ -135,8 +138,11 @@ class CorpInfoService:
         Returns:
             계열회사 정보 딕셔너리
         """
+        if not self.api_key:
+            return None
+
         url = f"{self.BASE_URL}/getAffiliate_V2"
-        
+
         params = {
             'serviceKey': self.api_key,
             'resultType': 'json',
@@ -196,8 +202,11 @@ class CorpInfoService:
         Returns:
             종속기업 정보 딕셔너리
         """
+        if not self.api_key:
+            return None
+
         url = f"{self.BASE_URL}/getConsSubsComp_V2"
-        
+
         params = {
             'serviceKey': self.api_key,
             'resultType': 'json',

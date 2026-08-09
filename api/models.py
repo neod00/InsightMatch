@@ -17,6 +17,9 @@ class User(db.Model):
     company_name = db.Column(db.String(100))  # 회사명 (기업 필수, 컨설턴트 선택)
     phone = db.Column(db.String(20))  # For find-email feature
     created_at = db.Column(db.DateTime, default=utc_now)
+    # 토큰 폐기용 버전. 비밀번호 재설정 등으로 값이 오르면
+    # 이전에 발급된 JWT는 즉시 무효가 된다.
+    token_version = db.Column(db.Integer, nullable=False, default=0, server_default='0')
 
 class Company(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -216,6 +219,10 @@ class Project(db.Model):
     # Cancellation Fields (④ 취소 관련)
     cancelled_at = db.Column(db.DateTime)  # 취소 시간
     cancelled_reason = db.Column(db.String(500))  # 취소 사유
+
+    # Soft delete: 삭제해도 대화(Message)·마일스톤 이력은 보존한다.
+    # (기업 일방의 삭제로 컨설턴트와의 협상 기록이 영구 소실되는 것을 방지)
+    deleted_at = db.Column(db.DateTime, nullable=True)
     
     # ⑤ 조건 협의 (Negotiation) 관련 필드
     negotiation_status = db.Column(db.String(50))  # pending, accepted, counter, rejected
@@ -284,7 +291,9 @@ class Post(db.Model):
     tags = db.Column(db.String(200)) # Comma separated tags
     image_url = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=utc_now)
-    
+    # Soft delete: 관리자 오조작으로 콘텐츠가 영구 소실되지 않도록 보존한다.
+    deleted_at = db.Column(db.DateTime, nullable=True)
+
     def to_dict(self):
         return {
             'id': self.id,
