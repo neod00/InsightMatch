@@ -12,6 +12,7 @@ import datetime
 import re
 import hashlib
 import secrets
+import traceback as traceback_module
 from functools import wraps
 from urllib.parse import urlparse
 from flask import Flask, request, jsonify, send_file, Response, g, stream_with_context, abort
@@ -19,8 +20,10 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import jwt
+from sqlalchemy import func, text
+from werkzeug.exceptions import HTTPException
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry
+from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, ErrorLog, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry
 from services import MatchingService, ProposalService, EmailService, AdvancedDiagnosticService
 from services.iso_manual_service import generate_iso_manual_stream
 
@@ -39,6 +42,8 @@ app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 CORS(app)
 
 # 2. 용량 초과 시 HTML 대신 JSON 에러를 반환하도록 설정합니다.
+#    (미처리 예외 전역 핸들러는 아래 "전역 예외 핸들러" 섹션에 있다.
+#     Flask 는 코드별 핸들러를 먼저 찾으므로 이 413 핸들러가 그대로 우선한다.)
 @app.errorhandler(413)
 def request_entity_too_large(error):
     return jsonify({
@@ -230,6 +235,222 @@ def check_rate_limit(scope, limit, window_minutes):
         db.session.rollback()
         print(f"[RateLimit] check failed (fail-open): {e}")
         return True
+
+
+# ============================================================
+# 전역 예외 핸들러 (관측성)
+# ============================================================
+# 이 앱은 Vercel 서버리스라 print() 로그가 콘솔에만 남고 휘발된다.
+# 미처리 예외를 ErrorLog 테이블에 남겨야 "에러가 나도 아무도 모르는" 상태를
+# 벗어날 수 있다. 외부 SDK(Sentry)는 쓰지 않기로 결정했다.
+
+ERROR_TRACEBACK_MAX_LENGTH = 8000
+
+# SQLAlchemy 예외는 실패한 SQL 의 바인딩 파라미터를 메시지에 그대로 붙인다.
+#   (sqlite3.IntegrityError) UNIQUE constraint failed: user.email
+#   [SQL: INSERT INTO user (email, password_hash) VALUES (?, ?)]
+#   [parameters: ('a@b.com', 'pbkdf2:sha256:...')]
+# 즉 비밀번호 해시·재설정 토큰·이메일이 에러 로그에 그대로 적재된다.
+# SQL 문 자체는 디버깅에 필요하므로 남기고, 값(parameters)만 지운다.
+_SQL_PARAMS_RE = re.compile(r'\[parameters:.*?\]', re.DOTALL)
+
+
+def _scrub_sql_parameters(text_value):
+    """예외 문자열에서 SQL 바인딩 값을 제거한다 (민감정보 적재 방지)."""
+    if not text_value:
+        return ''
+    return _SQL_PARAMS_RE.sub('[parameters: <제거됨>]', text_value)
+
+# 경로의 가변 부분(ID/UUID)을 치환해 같은 에러가 흩어지지 않게 한다.
+# /api/projects/12 와 /api/projects/34 는 같은 버그다.
+_ERROR_PATH_UUID_RE = re.compile(
+    r'/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
+)
+_ERROR_PATH_NUMERIC_RE = re.compile(r'/\d+')
+
+
+def _normalize_error_path(path):
+    """fingerprint 계산용 경로 정규화."""
+    normalized = _ERROR_PATH_UUID_RE.sub('/<uuid>', path or '')
+    normalized = _ERROR_PATH_NUMERIC_RE.sub('/<id>', normalized)
+    return normalized[:300]
+
+
+def _error_top_frame(exc):
+    """예외가 실제로 발생한 프레임을 'file:func:line' 으로 요약.
+
+    스택의 마지막 프레임(=raise 가 일어난 지점)이 에러를 가장 잘 구분한다.
+    """
+    try:
+        frames = traceback_module.extract_tb(exc.__traceback__)
+        if not frames:
+            return ''
+        last = frames[-1]
+        return f"{os.path.basename(last.filename)}:{last.name}:{last.lineno}"
+    except Exception:
+        return ''
+
+
+def _error_fingerprint(exc_type, normalized_path, top_frame):
+    """같은 에러를 묶기 위한 해시.
+
+    카운터 컬럼을 올리는 방식은 서버리스 동시 실행에서 경합하므로 쓰지 않는다.
+    행을 그대로 쌓고 조회 시 GROUP BY 로 센다.
+    """
+    raw = f"{exc_type}|{normalized_path}|{top_frame}"
+    return hashlib.sha256(raw.encode('utf-8')).hexdigest()[:32]
+
+
+def _truncate_traceback(text_value):
+    """스택 트레이스를 저장 한도에 맞춰 자른다.
+
+    앞이 아니라 뒤를 남긴다. 실제 예외가 터진 지점은 항상 마지막에 있다.
+    """
+    if not text_value:
+        return ''
+    if len(text_value) <= ERROR_TRACEBACK_MAX_LENGTH:
+        return text_value
+    return '...(앞부분 생략)...\n' + text_value[-ERROR_TRACEBACK_MAX_LENGTH:]
+
+
+def record_error_log(error, status_code):
+    """예외 1건을 ErrorLog 에 기록.
+
+    ⚠️ 이 함수는 어떤 경우에도 예외를 밖으로 던지지 않는다.
+       로깅 실패가 원래 에러를 가려버리면 관측성을 위해 만든 코드가
+       오히려 디버깅을 방해하게 된다.
+    """
+    try:
+        # 롤백하면 세션의 인스턴스가 expire 되어 g.current_user.id 접근이
+        # 새 SELECT 를 유발한다(DB 장애 시 그 쿼리마저 실패). 이미 로드된
+        # 속성이라 SQL 이 발생하지 않는 지금 미리 꺼내둔다.
+        user_id = None
+        try:
+            current_user = getattr(g, 'current_user', None)
+            user_id = getattr(current_user, 'id', None) if current_user is not None else None
+        except Exception:
+            user_id = None
+
+        # 예외 시점의 세션은 오염돼 있다. 롤백 없이 add/commit 하면
+        # 로깅 자체가 PendingRollbackError 로 실패한다.
+        db.session.rollback()
+
+        exc_type = type(error).__name__[:120]
+        exc_message = _scrub_sql_parameters(str(error))[:2000]
+        tb_text = _truncate_traceback(_scrub_sql_parameters(
+            ''.join(traceback_module.format_exception(type(error), error, error.__traceback__))
+        ))
+        path = (request.path or '')[:300]
+        normalized_path = _normalize_error_path(request.path)
+
+        db.session.add(ErrorLog(
+            level='error',
+            path=path,
+            method=(request.method or '')[:10],
+            status_code=status_code,
+            exc_type=exc_type,
+            exc_message=exc_message,
+            traceback=tb_text,
+            user_id=user_id,
+            client_ip=_client_ip(),
+            fingerprint=_error_fingerprint(exc_type, normalized_path, _error_top_frame(error)),
+        ))
+        db.session.commit()
+    except Exception as log_error:
+        # DB 기록에 실패하면 최소한 콘솔에는 남긴다 (Vercel 런타임 로그).
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        print(f"[ErrorLog] 기록 실패: {type(log_error).__name__}: {log_error}")
+        try:
+            print(''.join(traceback_module.format_exception(type(error), error, error.__traceback__)))
+        except Exception:
+            pass
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_exception(error):
+    """미처리 예외를 기록하고 클라이언트에는 일반 500 만 반환한다."""
+    # Flask 의 errorhandler(Exception) 은 HTTPException 도 함께 잡는다.
+    # 여기서 걸러내지 않으면 404/401/403/400 이 전부 500 으로 바뀐다.
+    # 이들은 정상 동작이지 에러가 아니므로 기록하지 않고 그대로 통과시킨다.
+    # 단, 5xx HTTPException(예: abort(503))은 장애이므로 기록한다.
+    if isinstance(error, HTTPException):
+        if not error.code or error.code < 500:
+            return error
+        status_code = error.code
+    else:
+        status_code = 500
+
+    record_error_log(error, status_code)
+
+    # 스택 트레이스는 절대 클라이언트에 노출하지 않는다.
+    # (내부 경로·라이브러리 버전·쿼리 구조가 공격자에게 그대로 넘어간다)
+    return jsonify({
+        'error': 'Internal Server Error',
+        'message': '요청을 처리하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
+    }), status_code
+
+
+def _naive_utc_now():
+    """DB 비교용 naive UTC.
+
+    DateTime 컬럼은 tz 정보를 저장하지 않으므로(SQLite/PG both),
+    조회 시에도 naive UTC 로 비교해야 한다.
+    """
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
+
+def _iso_or_none(value):
+    """SQL 함수 결과가 문자열로 돌아오는 경우까지 안전하게 처리."""
+    if not value:
+        return None
+    if isinstance(value, str):
+        return value
+    return value.isoformat()
+
+
+def error_group_summary(since=None, limit=10):
+    """fingerprint 별 요약 — 발생 횟수 / 최근·최초 발생 시각 / 대표 메시지.
+
+    카운터 컬럼 대신 GROUP BY 로 센다(서버리스 동시성 경합 회피).
+    """
+    query = db.session.query(
+        ErrorLog.fingerprint,
+        func.count(ErrorLog.id).label('count'),
+        func.max(ErrorLog.created_at).label('last_seen'),
+        func.min(ErrorLog.created_at).label('first_seen'),
+    )
+    if since is not None:
+        query = query.filter(ErrorLog.created_at >= since)
+
+    rows = (
+        query.group_by(ErrorLog.fingerprint)
+        .order_by(func.count(ErrorLog.id).desc())
+        .limit(limit)
+        .all()
+    )
+
+    groups = []
+    for row in rows:
+        # 대표 메시지는 가장 최근 발생 건에서 가져온다 (그룹당 1회, 최대 limit 회)
+        latest_query = ErrorLog.query.filter(ErrorLog.fingerprint == row.fingerprint)
+        if since is not None:
+            latest_query = latest_query.filter(ErrorLog.created_at >= since)
+        latest = latest_query.order_by(ErrorLog.created_at.desc(), ErrorLog.id.desc()).first()
+
+        groups.append({
+            'fingerprint': row.fingerprint,
+            'count': row.count,
+            'lastSeen': _iso_or_none(row.last_seen),
+            'firstSeen': _iso_or_none(row.first_seen),
+            'excType': latest.exc_type if latest else None,
+            'message': (latest.exc_message or '')[:300] if latest else '',
+            'path': latest.path if latest else None,
+            'statusCode': latest.status_code if latest else None,
+        })
+    return groups
 
 
 def _manual_token_hash(token):
@@ -3715,9 +3936,76 @@ def get_post_detail(post_id):
     return jsonify(post.to_dict())
 
 # --- Health Check ---
+def _is_admin_request_safe():
+    """require_admin_request() 를 재사용하되, 실패는 조용히 False 로 처리.
+
+    health 는 외부 모니터가 무인증으로 붙는 엔드포인트라
+    인증 실패가 응답을 401 로 바꿔서는 안 된다.
+    """
+    try:
+        return require_admin_request() is None
+    except Exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        return False
+
+
+def _health_verbose_payload():
+    """관리자 전용 상세 필드. 실패해도 health 자체는 살아있어야 한다."""
+    data = {'email_configured': bool(getattr(email_service, 'is_configured', False))}
+    try:
+        since = _naive_utc_now() - datetime.timedelta(hours=24)
+        data['errors_24h'] = ErrorLog.query.filter(ErrorLog.created_at >= since).count()
+        data['errors_top'] = error_group_summary(since=since, limit=3)
+    except Exception as e:
+        # error_log 테이블이 아직 없는 배포 직후 등. health 를 500 으로 만들지 않는다.
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        print(f"[Health] error log summary failed: {type(e).__name__}")
+        data['errors_24h'] = None
+        data['errors_top'] = []
+    return data
+
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    return jsonify({'status': 'healthy', 'timestamp': datetime.datetime.now(datetime.timezone.utc).isoformat()})
+    """서비스 상태 점검 (공개).
+
+    ⚠️ DB 장애 시 반드시 503 을 반환해야 한다.
+       UptimeRobot 같은 외부 모니터는 상태 코드로 장애를 감지하므로
+       200 + {"db": "error"} 로는 아무도 장애를 알아채지 못한다.
+
+    ?verbose=1 + 관리자 인증이면 운영 지표를 함께 반환한다.
+    관리자가 아니면 verbose 를 무시하고 공개 필드만 준다 (401 로 막지 않는다).
+    """
+    timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+    # 정적 JSON 이 아니라 실제 커넥션을 검증해야 Supabase 장애를 잡을 수 있다.
+    try:
+        db.session.execute(text('SELECT 1'))
+        db_ok = True
+    except Exception as e:
+        db_ok = False
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        # 접속 문자열·자격증명이 섞일 수 있으므로 예외 메시지는 응답에 담지 않는다.
+        print(f"[Health] DB check failed: {type(e).__name__}")
+
+    if not db_ok:
+        return jsonify({'status': 'unhealthy', 'timestamp': timestamp, 'db': 'error'}), 503
+
+    payload = {'status': 'healthy', 'timestamp': timestamp, 'db': 'ok'}
+
+    if request.args.get('verbose') in ('1', 'true', 'yes') and _is_admin_request_safe():
+        payload.update(_health_verbose_payload())
+
+    return jsonify(payload)
 
 # --- Seed Data Endpoint (Admin only) ---
 @app.route('/api/admin/seed', methods=['POST'])
@@ -4148,6 +4436,61 @@ def get_admin_action_logs():
         item['adminEmail'] = admin.email if admin else None
         result.append(item)
     return jsonify(result)
+
+# ========================================
+# 관리자용 에러 로그 조회 API (관측성)
+# ========================================
+
+@app.route('/api/admin/error-logs', methods=['GET'])
+@admin_required
+def get_error_logs():
+    """미처리 예외 로그 조회 (관리자용).
+
+    - groups: fingerprint 별 요약 (발생 횟수 / 최근 발생 / 대표 메시지)
+    - logs  : 개별 발생 기록 (페이지네이션)
+    쿼리: ?page=1&per_page=20&hours=168&fingerprint=<hash>
+    """
+    page = request.args.get('page', 1, type=int) or 1
+    page = max(page, 1)
+    per_page = request.args.get('per_page', 20, type=int) or 20
+    per_page = min(max(per_page, 1), 100)
+    hours = request.args.get('hours', 168, type=int) or 168
+    hours = min(max(hours, 1), 24 * 90)
+    fingerprint = (request.args.get('fingerprint') or '').strip()[:64]
+
+    since = _naive_utc_now() - datetime.timedelta(hours=hours)
+
+    query = ErrorLog.query.filter(ErrorLog.created_at >= since)
+    if fingerprint:
+        query = query.filter(ErrorLog.fingerprint == fingerprint)
+
+    total = query.count()
+    logs = (
+        query.order_by(ErrorLog.created_at.desc(), ErrorLog.id.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+
+    return jsonify({
+        # 목록에는 스택 트레이스를 싣지 않는다 (응답 크기). 상세 API 에서 제공.
+        'logs': [log.to_dict() for log in logs],
+        'groups': error_group_summary(since=since, limit=10),
+        'total': total,
+        'page': page,
+        'perPage': per_page,
+        'totalPages': (total + per_page - 1) // per_page if total else 0,
+        'hours': hours,
+        'fingerprint': fingerprint or None,
+    })
+
+
+@app.route('/api/admin/error-logs/<int:log_id>', methods=['GET'])
+@admin_required
+def get_error_log_detail(log_id):
+    """개별 에러 상세 (스택 트레이스 포함). 관리자 전용."""
+    log = ErrorLog.query.get_or_404(log_id)
+    return jsonify(log.to_dict(include_traceback=True))
 
 # ========================================
 # 프로필 이미지 업로드 API

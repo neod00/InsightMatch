@@ -20,6 +20,53 @@
 
 ---
 
+## 2026-08-21 — L0 관측성: 에러 로그 테이블 (`error_log`)
+
+미처리 예외를 기록하는 신규 테이블이다. `create_all` 이 자동 생성하지만,
+**RLS는 자동으로 켜지지 않으므로** 반드시 아래를 실행해야 한다.
+(테이블을 미리 만들어두고 싶다면 `CREATE TABLE` 부분까지 함께 실행)
+
+```sql
+-- 신규 테이블 (create_all 이 만들지만, 미리 만들어도 무방하다)
+CREATE TABLE IF NOT EXISTS public.error_log (
+    id          SERIAL NOT NULL,
+    created_at  TIMESTAMP WITHOUT TIME ZONE,
+    level       VARCHAR(20),
+    path        VARCHAR(300),
+    method      VARCHAR(10),
+    status_code INTEGER,
+    exc_type    VARCHAR(120),
+    exc_message TEXT,
+    traceback   TEXT,
+    user_id     INTEGER,        -- ⚠️ FK 없음: 로깅이 참조 무결성 때문에 실패하면 안 된다
+    client_ip   VARCHAR(64),
+    fingerprint VARCHAR(64),
+    PRIMARY KEY (id)
+);
+
+-- 조회 인덱스 (기간 필터 + fingerprint GROUP BY)
+CREATE INDEX IF NOT EXISTS ix_error_log_created_at  ON public.error_log (created_at);
+CREATE INDEX IF NOT EXISTS ix_error_log_fingerprint ON public.error_log (fingerprint);
+
+-- ⚠️ 필수: 신규 테이블의 RLS 활성화
+ALTER TABLE IF EXISTS public.error_log ENABLE ROW LEVEL SECURITY;
+```
+
+적용 확인:
+
+```sql
+SELECT tablename, rowsecurity FROM pg_tables
+WHERE schemaname = 'public' AND tablename = 'error_log';
+```
+
+> 운영 메모: 이 테이블은 계속 쌓이기만 한다(카운터 UPDATE 는 서버리스 동시성
+> 경합 때문에 의도적으로 쓰지 않는다). 보관 기간 정리는 cron 인프라가 생기는
+> 배치 3에서 붙인다. 그 전에 급하면 아래로 수동 정리:
+>
+> ```sql
+> DELETE FROM public.error_log WHERE created_at < NOW() - INTERVAL '90 days';
+> ```
+
 ## 2026-08-09 — 컨설턴트 정산 정보 + 초대 링크
 
 ```sql

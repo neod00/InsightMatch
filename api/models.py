@@ -428,3 +428,57 @@ class PasswordResetToken(db.Model):
     expires_at = db.Column(db.DateTime, nullable=False)
     used = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=utc_now)
+
+
+class ErrorLog(db.Model):
+    """미처리 예외 기록 (관측성 확보).
+
+    Vercel 서버리스에서는 print() 로그가 콘솔에만 남고 휘발되므로,
+    "에러가 나도 아무도 모르는" 상태가 된다. 외부 SDK(Sentry) 대신
+    이 테이블에 쌓고 관리자 화면에서 조회한다.
+
+    설계상 주의점 두 가지:
+    1. user_id 에 ForeignKey 를 걸지 않는다.
+       로깅이 참조 무결성 때문에 실패하면 원래 에러까지 함께 사라진다.
+    2. 발생 횟수를 카운터 컬럼으로 증가시키지 않는다.
+       서버리스는 동시에 여러 인스턴스가 뜨므로 UPDATE 경합이 생긴다.
+       행을 그대로 쌓고, 조회 시 fingerprint 로 GROUP BY 해서 센다.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, default=utc_now, index=True)
+    level = db.Column(db.String(20), default='error')
+
+    # 요청 컨텍스트 — 본문/헤더/쿠키/쿼리스트링은 절대 저장하지 않는다.
+    # 비밀번호·JWT·재설정 토큰이 그대로 들어가기 때문이다.
+    path = db.Column(db.String(300))
+    method = db.Column(db.String(10))
+    status_code = db.Column(db.Integer)
+
+    exc_type = db.Column(db.String(120))
+    exc_message = db.Column(db.Text)
+    traceback = db.Column(db.Text)          # 8000자로 잘라 저장 (index.py 에서 처리)
+
+    user_id = db.Column(db.Integer, nullable=True)   # FK 없음 (위 1번 사유)
+    client_ip = db.Column(db.String(64))
+
+    # exc_type + 정규화된 path + 예외 발생 프레임의 해시. 같은 에러를 묶는 용도.
+    fingerprint = db.Column(db.String(64), index=True)
+
+    def to_dict(self, include_traceback=False):
+        """스택 트레이스는 기본 제외 — 목록 응답을 가볍게 유지한다."""
+        data = {
+            'id': self.id,
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
+            'level': self.level,
+            'path': self.path,
+            'method': self.method,
+            'statusCode': self.status_code,
+            'excType': self.exc_type,
+            'excMessage': self.exc_message,
+            'userId': self.user_id,
+            'clientIp': self.client_ip,
+            'fingerprint': self.fingerprint,
+        }
+        if include_traceback:
+            data['traceback'] = self.traceback
+        return data

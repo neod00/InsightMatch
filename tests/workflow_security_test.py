@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../a
 os.environ['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
 
 from index import app, db
-from models import AdminActionLog, AnalysisJob, Consultant, ConsultantInvite, ManualGeneration, Message, Milestone, Notification, PasswordResetToken, Post, Project, User
+from models import AdminActionLog, AnalysisJob, Consultant, ConsultantInvite, ErrorLog, ManualGeneration, Message, Milestone, Notification, PasswordResetToken, Post, Project, User
 
 
 def make_token(user):
@@ -1471,6 +1471,146 @@ class TestWorkflowSecurity(unittest.TestCase):
             headers=auth_headers(self.company),
         )
         self.assertEqual(too_large_response.status_code, 413)
+
+    # ------------------------------------------------------------------
+    # L0 관측성 (전역 예외 핸들러 / health / 에러 로그)
+    # ------------------------------------------------------------------
+    def test_global_handler_does_not_record_http_exceptions(self):
+        """L0-a: 404 는 정상 동작이지 에러가 아니다 — ErrorLog 에 남지 않는다.
+
+        Flask 의 errorhandler(Exception) 은 HTTPException 도 함께 잡으므로
+        걸러내지 않으면 404 가 전부 500 으로 바뀌고 로그도 오염된다.
+        """
+        response = self.client.get('/api/posts/999999')
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(ErrorLog.query.count(), 0, '404 가 에러로 기록됨')
+
+        # 인증 실패(401)·권한 부족(403)도 마찬가지
+        self.client.get('/api/admin/error-logs')
+        self.client.get('/api/admin/error-logs', headers=auth_headers(self.company))
+        self.assertEqual(ErrorLog.query.count(), 0, '401/403 이 에러로 기록됨')
+
+    def test_unhandled_exception_is_logged_without_leaking_traceback(self):
+        """L0-b: 500 응답에 스택 트레이스·내부 메시지가 새지 않는다."""
+        with patch('index.Post') as mock_post:
+            mock_post.query.filter.side_effect = RuntimeError('boom-secret-internal-detail')
+            response = self.client.get('/api/posts')
+
+        self.assertEqual(response.status_code, 500)
+
+        body = response.get_data(as_text=True)
+        for leaked in ('Traceback', 'boom-secret-internal-detail', 'RuntimeError', 'index.py'):
+            self.assertNotIn(leaked, body, f'500 응답에 {leaked} 가 노출됨')
+
+        logs = ErrorLog.query.all()
+        self.assertEqual(len(logs), 1, '미처리 예외가 기록되지 않음')
+        self.assertEqual(logs[0].exc_type, 'RuntimeError')
+        self.assertEqual(logs[0].status_code, 500)
+        self.assertEqual(logs[0].path, '/api/posts')
+        self.assertEqual(logs[0].method, 'GET')
+        self.assertIn('boom-secret-internal-detail', logs[0].exc_message)
+        self.assertIn('Traceback', logs[0].traceback)
+        self.assertTrue(logs[0].fingerprint)
+
+        # 요청 본문·헤더·쿠키·쿼리스트링은 저장 대상이 아니다 (비밀번호·토큰 유입 방지)
+        stored_columns = {c.name for c in ErrorLog.__table__.columns}
+        for forbidden in ('body', 'payload', 'headers', 'cookies', 'query_string', 'request_data'):
+            self.assertNotIn(forbidden, stored_columns)
+
+    def test_same_error_shares_fingerprint_for_grouping(self):
+        """L0: 같은 에러는 같은 fingerprint 로 묶여 GROUP BY 로 세어진다."""
+        for _ in range(3):
+            with patch('index.Post') as mock_post:
+                mock_post.query.filter.side_effect = RuntimeError('repeated failure')
+                self.client.get('/api/posts')
+
+        fingerprints = {log.fingerprint for log in ErrorLog.query.all()}
+        self.assertEqual(len(fingerprints), 1, '같은 에러가 다른 그룹으로 흩어짐')
+
+        response = self.client.get('/api/admin/error-logs', headers=auth_headers(self.admin_user))
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(data['total'], 3)
+        self.assertEqual(len(data['groups']), 1)
+        self.assertEqual(data['groups'][0]['count'], 3)
+        self.assertEqual(data['groups'][0]['excType'], 'RuntimeError')
+
+        # 개별 상세에서만 스택 트레이스를 제공한다
+        self.assertNotIn('traceback', data['logs'][0])
+        detail = self.client.get(
+            f"/api/admin/error-logs/{data['logs'][0]['id']}",
+            headers=auth_headers(self.admin_user),
+        )
+        self.assertEqual(detail.status_code, 200)
+        self.assertIn('Traceback', detail.get_json()['traceback'])
+
+    def test_error_log_scrubs_sql_parameters(self):
+        """L0: SQLAlchemy 예외는 실패한 SQL 의 바인딩 값을 메시지에 붙인다.
+
+        비밀번호 해시·재설정 토큰이 그대로 에러 로그에 적재되므로
+        값만 지우고 SQL 문 자체는 디버깅용으로 남긴다.
+        """
+        from index import _scrub_sql_parameters
+
+        raw = (
+            "(sqlite3.IntegrityError) UNIQUE constraint failed: user.email\n"
+            "[SQL: INSERT INTO user (email, password_hash) VALUES (?, ?)]\n"
+            "[parameters: ('a@b.com', 'pbkdf2:sha256:600000$SALT$SUPERSECRETHASH')]"
+        )
+        scrubbed = _scrub_sql_parameters(raw)
+
+        self.assertNotIn('SUPERSECRETHASH', scrubbed)
+        self.assertNotIn('a@b.com', scrubbed)
+        self.assertIn('INSERT INTO user', scrubbed)  # SQL 구조는 보존
+        self.assertIn('UNIQUE constraint failed', scrubbed)
+
+    def test_error_logs_endpoint_requires_admin(self):
+        """L0: 에러 로그(내부 경로·스택 포함)는 관리자만 조회할 수 있다."""
+        self.assertEqual(self.client.get('/api/admin/error-logs').status_code, 401)
+        self.assertEqual(
+            self.client.get('/api/admin/error-logs', headers=auth_headers(self.company)).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.client.get('/api/admin/error-logs/1', headers=auth_headers(self.company)).status_code,
+            403,
+        )
+
+    def test_health_returns_503_when_db_is_down(self):
+        """L0-c: DB 장애 시 503 — 외부 모니터는 상태 코드로만 장애를 감지한다."""
+        ok = self.client.get('/api/health')
+        self.assertEqual(ok.status_code, 200)
+        self.assertEqual(ok.get_json()['db'], 'ok')
+
+        with patch('index.db.session.execute', side_effect=RuntimeError('connection refused')):
+            down = self.client.get('/api/health')
+
+        self.assertEqual(down.status_code, 503, 'DB 장애인데 200 을 반환함')
+        payload = down.get_json()
+        self.assertEqual(payload['status'], 'unhealthy')
+        self.assertEqual(payload['db'], 'error')
+        # 접속 문자열·자격증명이 섞일 수 있으므로 예외 메시지는 노출하지 않는다
+        self.assertNotIn('connection refused', down.get_data(as_text=True))
+
+    def test_health_verbose_hides_internal_fields_from_non_admin(self):
+        """L0-d: verbose 는 관리자에게만. 비관리자는 401 이 아니라 공개 필드만 받는다."""
+        sensitive = ('email_configured', 'errors_24h', 'errors_top')
+
+        for headers in ({}, auth_headers(self.company), auth_headers(self.consultant_user)):
+            response = self.client.get('/api/health?verbose=1', headers=headers)
+            # 모니터가 붙는 엔드포인트이므로 401/403 으로 막지 않는다
+            self.assertEqual(response.status_code, 200)
+            payload = response.get_json()
+            self.assertEqual(set(payload.keys()), {'status', 'timestamp', 'db'})
+            for field in sensitive:
+                self.assertNotIn(field, payload)
+
+        admin_response = self.client.get('/api/health?verbose=1', headers=auth_headers(self.admin_user))
+        self.assertEqual(admin_response.status_code, 200)
+        admin_payload = admin_response.get_json()
+        for field in sensitive:
+            self.assertIn(field, admin_payload)
+        self.assertEqual(admin_payload['errors_24h'], 0)
 
 
 if __name__ == '__main__':

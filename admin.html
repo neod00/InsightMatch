@@ -224,6 +224,11 @@
                 블로그 관리
                 <span class="badge-count" id="blog-count">-</span>
             </button>
+            <button class="admin-tab" onclick="switchTab('errors')">
+                <i data-lucide="alert-triangle" style="width: 18px; height: 18px;"></i>
+                에러 로그
+                <span class="badge-count" id="error-count">-</span>
+            </button>
         </div>
 
         <!-- Stats Cards -->
@@ -439,6 +444,68 @@
                 <div class="card" style="text-align: center; padding: 60px;">
                     <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
                     <p style="color: var(--text-muted);">블로그 게시글을 불러오는 중...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Log Tab Content -->
+        <div id="errors-tab" class="tab-content" style="display: none;">
+            <!-- Error Stats -->
+            <div class="features-grid fade-in-up" style="margin-bottom: 32px;">
+                <div class="feature-card" style="text-align: center;">
+                    <div id="error-stat-total" style="font-size: 2.5rem; font-weight: 800; color: var(--error);">-
+                    </div>
+                    <p style="color: var(--text-muted);">기간 내 발생 건수</p>
+                </div>
+                <div class="feature-card" style="text-align: center;">
+                    <div id="error-stat-groups" style="font-size: 2.5rem; font-weight: 800; color: var(--warning);">-
+                    </div>
+                    <p style="color: var(--text-muted);">고유 에러 종류</p>
+                </div>
+                <div class="feature-card" style="text-align: center;">
+                    <div id="error-stat-health" style="font-size: 2.5rem; font-weight: 800; color: var(--success);">-
+                    </div>
+                    <p style="color: var(--text-muted);">서비스 상태 (/api/health)</p>
+                </div>
+            </div>
+
+            <!-- Filter -->
+            <div class="card-glass"
+                style="padding: 16px; margin-bottom: 24px; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
+                <span style="color: var(--text-muted); font-size: 0.9rem;">조회 기간:</span>
+                <select id="error-hours" onchange="loadErrorLogs(1)"
+                    style="padding: 8px 12px; border-radius: 8px; background: transparent; border: 1px solid var(--border); color: inherit;">
+                    <option value="24">최근 24시간</option>
+                    <option value="168" selected>최근 7일</option>
+                    <option value="720">최근 30일</option>
+                </select>
+                <span id="error-filter-note" style="color: var(--text-muted); font-size: 0.85rem;"></span>
+                <button class="btn btn-sm btn-ghost" style="margin-left: auto;" onclick="loadErrorLogs(1)">
+                    <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i> 새로고침
+                </button>
+            </div>
+
+            <!-- Fingerprint Group Summary -->
+            <div class="card-glass" style="padding: 20px; margin-bottom: 24px;">
+                <h3 style="margin: 0 0 4px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="layers" style="width: 18px; height: 18px;"></i>
+                    에러 그룹 (발생 횟수순)
+                </h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin: 8px 0 16px;">
+                    같은 원인의 에러를 묶어 보여줍니다. 행을 클릭하면 해당 그룹만 아래 목록에 표시됩니다.
+                </p>
+                <div id="error-group-list"></div>
+            </div>
+
+            <!-- Individual Occurrences -->
+            <div class="card-glass" style="padding: 20px;">
+                <h3 style="margin: 0 0 16px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="list" style="width: 18px; height: 18px;"></i>
+                    개별 발생 기록
+                </h3>
+                <div id="error-log-list"></div>
+                <div id="error-pagination"
+                    style="display: flex; gap: 8px; justify-content: center; align-items: center; margin-top: 18px;">
                 </div>
             </div>
         </div>
@@ -835,6 +902,7 @@
                 document.getElementById('analysis-tab').style.display = tab === 'analysis' ? 'block' : 'none';
                 document.getElementById('consultants-tab').style.display = tab === 'consultants' ? 'block' : 'none';
                 document.getElementById('blog-tab').style.display = tab === 'blog' ? 'block' : 'none';
+                document.getElementById('errors-tab').style.display = tab === 'errors' ? 'block' : 'none';
                 document.getElementById('stats-cards').style.display = tab === 'analysis' ? 'grid' : 'none';
 
                 if (tab === 'consultants') {
@@ -844,6 +912,183 @@
                 if (tab === 'blog') {
                     fetchBlogPostsAdmin();
                 }
+                if (tab === 'errors') {
+                    errorFingerprintFilter = '';
+                    loadErrorLogs(1);
+                    loadHealthStatus();
+                }
+            }
+
+            // ========================================
+            // 에러 로그 (관측성)
+            // ========================================
+            let errorFingerprintFilter = '';
+            let errorCurrentPage = 1;
+
+            function currentErrorHours() {
+                return document.getElementById('error-hours').value || '168';
+            }
+
+            async function loadHealthStatus() {
+                // verbose 는 관리자에게만 상세 필드를 준다. 비관리자면 조용히 공개 필드만 온다.
+                const cell = document.getElementById('error-stat-health');
+                try {
+                    const res = await authFetch('/api/health?verbose=1');
+                    const data = await res.json().catch(() => ({}));
+                    const healthy = res.ok && data.db === 'ok';
+                    cell.textContent = healthy ? '정상' : '장애';
+                    cell.style.color = healthy ? 'var(--success)' : 'var(--error)';
+                    if (typeof data.errors_24h === 'number') {
+                        document.getElementById('error-count').textContent = data.errors_24h;
+                    }
+                } catch (e) {
+                    cell.textContent = '확인 불가';
+                    cell.style.color = 'var(--error)';
+                }
+            }
+
+            function filterErrorsByFingerprint(fingerprint) {
+                errorFingerprintFilter = errorFingerprintFilter === fingerprint ? '' : fingerprint;
+                loadErrorLogs(1);
+            }
+
+            async function loadErrorLogs(page) {
+                errorCurrentPage = page || 1;
+                const groupBox = document.getElementById('error-group-list');
+                const listBox = document.getElementById('error-log-list');
+                listBox.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
+                        <p style="color: var(--text-muted);">에러 로그를 불러오는 중...</p>
+                    </div>`;
+
+                const params = new URLSearchParams({
+                    page: String(errorCurrentPage),
+                    per_page: '20',
+                    hours: currentErrorHours()
+                });
+                if (errorFingerprintFilter) params.set('fingerprint', errorFingerprintFilter);
+
+                try {
+                    const res = await authFetch(`/api/admin/error-logs?${params.toString()}`);
+                    if (!res.ok) {
+                        listBox.innerHTML = '<p style="color: var(--text-muted);">에러 로그를 불러오지 못했습니다.</p>';
+                        return;
+                    }
+                    const data = await res.json();
+
+                    document.getElementById('error-stat-total').textContent = data.total ?? 0;
+                    document.getElementById('error-stat-groups').textContent = (data.groups || []).length;
+                    document.getElementById('error-filter-note').textContent =
+                        errorFingerprintFilter ? '그룹 필터 적용 중 (그룹을 다시 클릭하면 해제)' : '';
+
+                    renderErrorGroups(groupBox, data.groups || []);
+                    renderErrorLogs(listBox, data.logs || []);
+                    renderErrorPagination(data);
+                    lucide.createIcons();
+                } catch (e) {
+                    listBox.innerHTML = '<p style="color: var(--text-muted);">서버 연결에 실패했습니다.</p>';
+                }
+            }
+
+            function renderErrorGroups(box, groups) {
+                if (groups.length === 0) {
+                    box.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">해당 기간에 기록된 에러가 없습니다. 👍</p>';
+                    return;
+                }
+                box.innerHTML = `
+                    <table style="width:100%; font-size:0.85rem; border-collapse:collapse;">
+                        <thead>
+                            <tr style="border-bottom:1px solid var(--border); text-align:left; color:var(--text-muted);">
+                                <th style="padding:8px 6px;">예외</th>
+                                <th style="padding:8px 6px;">메시지</th>
+                                <th style="padding:8px 6px;">경로</th>
+                                <th style="padding:8px 6px; text-align:right;">횟수</th>
+                                <th style="padding:8px 6px;">최근 발생</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${groups.map(gr => `
+                                <tr style="border-bottom:1px solid var(--border); cursor:pointer; ${gr.fingerprint === errorFingerprintFilter ? 'background: rgba(239,68,68,0.08);' : ''}"
+                                    onclick="filterErrorsByFingerprint('${escapeAttr(gr.fingerprint || '')}')">
+                                    <td style="padding:8px 6px; font-weight:600; color:var(--error);">${escapeHtml(gr.excType || '-')}</td>
+                                    <td style="padding:8px 6px; max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(gr.message || '-')}</td>
+                                    <td style="padding:8px 6px; color:var(--text-muted);">${escapeHtml(gr.path || '-')}</td>
+                                    <td style="padding:8px 6px; text-align:right; font-weight:700;">${escapeHtml(String(gr.count ?? 0))}</td>
+                                    <td style="padding:8px 6px; color:var(--text-muted);">${escapeHtml(formatErrorTime(gr.lastSeen))}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>`;
+            }
+
+            function renderErrorLogs(box, logs) {
+                if (logs.length === 0) {
+                    box.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">표시할 기록이 없습니다.</p>';
+                    return;
+                }
+                box.innerHTML = logs.map(log => `
+                    <div style="border-bottom:1px solid var(--border); padding:12px 4px;">
+                        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                            <span style="font-weight:600; color:var(--error);">${escapeHtml(log.excType || '-')}</span>
+                            <span style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(log.method || '')} ${escapeHtml(log.path || '')}</span>
+                            <span style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(formatErrorTime(log.createdAt))}</span>
+                            <span style="font-size:0.8rem; color:var(--text-muted);">HTTP ${escapeHtml(String(log.statusCode ?? '-'))}</span>
+                            <span style="font-size:0.8rem; color:var(--text-muted);">user #${escapeHtml(String(log.userId ?? '-'))}</span>
+                            <span style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(log.clientIp || '')}</span>
+                            <button class="btn btn-sm btn-ghost" style="margin-left:auto;" onclick="toggleErrorDetail(${Number(log.id)})">
+                                상세
+                            </button>
+                        </div>
+                        <div style="font-size:0.85rem; margin-top:6px; word-break:break-word;">${escapeHtml(log.excMessage || '')}</div>
+                        <div id="error-detail-${Number(log.id)}" style="display:none; margin-top:10px;"></div>
+                    </div>
+                `).join('');
+            }
+
+            function renderErrorPagination(data) {
+                const box = document.getElementById('error-pagination');
+                const totalPages = data.totalPages || 0;
+                if (totalPages <= 1) {
+                    box.innerHTML = '';
+                    return;
+                }
+                const page = data.page || 1;
+                box.innerHTML = `
+                    <button class="btn btn-sm btn-ghost" ${page <= 1 ? 'disabled' : ''} onclick="loadErrorLogs(${page - 1})">이전</button>
+                    <span style="color:var(--text-muted); font-size:0.85rem;">${page} / ${totalPages}</span>
+                    <button class="btn btn-sm btn-ghost" ${page >= totalPages ? 'disabled' : ''} onclick="loadErrorLogs(${page + 1})">다음</button>`;
+            }
+
+            async function toggleErrorDetail(logId) {
+                const box = document.getElementById(`error-detail-${logId}`);
+                if (!box) return;
+                if (box.style.display === 'block') {
+                    box.style.display = 'none';
+                    return;
+                }
+                box.style.display = 'block';
+                box.innerHTML = '<p style="color: var(--text-muted); font-size:0.8rem;">불러오는 중...</p>';
+                try {
+                    const res = await authFetch(`/api/admin/error-logs/${logId}`);
+                    if (!res.ok) {
+                        box.innerHTML = '<p style="color: var(--text-muted); font-size:0.8rem;">상세를 불러오지 못했습니다.</p>';
+                        return;
+                    }
+                    const data = await res.json();
+                    // 스택 트레이스에는 사용자 입력이 섞일 수 있으므로 반드시 이스케이프한다.
+                    box.innerHTML = `
+                        <pre style="background: rgba(0,0,0,0.25); border:1px solid var(--border); border-radius:8px; padding:12px; font-size:0.75rem; line-height:1.5; overflow-x:auto; white-space:pre-wrap; word-break:break-word; margin:0;">${escapeHtml(data.traceback || '스택 트레이스가 없습니다.')}</pre>
+                        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">fingerprint: ${escapeHtml(data.fingerprint || '-')}</p>`;
+                } catch (e) {
+                    box.innerHTML = '<p style="color: var(--text-muted); font-size:0.8rem;">서버 연결에 실패했습니다.</p>';
+                }
+            }
+
+            function formatErrorTime(value) {
+                if (!value) return '-';
+                const parsed = new Date(String(value).endsWith('Z') || String(value).includes('+') ? value : value + 'Z');
+                return isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString('ko-KR');
             }
 
             // --- Analysis Jobs ---
@@ -2113,6 +2358,10 @@
                 if (currentTab === 'blog') {
                     fetchBlogPostsAdmin();
                 }
+                if (currentTab === 'errors') {
+                    loadErrorLogs(errorCurrentPage);
+                    loadHealthStatus();
+                }
                 showNotification('데이터를 갱신했습니다.', 'success');
             }
 
@@ -2324,6 +2573,8 @@
             // Initial fetch only
             if (ensureAdminAccess()) {
                 fetchJobs();
+                // 에러 탭을 열지 않아도 24시간 발생 건수를 배지로 보여준다.
+                loadHealthStatus();
             }
         </script>
 </body>
