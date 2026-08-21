@@ -9,6 +9,7 @@ InsightMatch Email Service
 """
 
 import os
+import html
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -317,6 +318,256 @@ class EmailService:
 """
         
         return self.send_email(company_email, subject, html_content)
+
+    def send_proposal_notification(
+        self,
+        company_email: str,
+        company_name: str,
+        consultant_name: str,
+        project_title: str,
+        proposal_price: Optional[int] = None,
+        proposal_duration: Optional[str] = None,
+        dashboard_url: str = "https://www.insightmatch.com/dashboard.html"
+    ) -> Dict:
+        """
+        기업에게 제안서 제출 알림 이메일 발송
+
+        인앱 알림만 만들면 기업은 대시보드에 접속해야만 제안서 도착을 안다.
+        견적 요청 확인 메일(send_quote_confirmation_to_company)의 바로 다음
+        단계이므로 같은 구조·톤을 유지한다.
+        """
+        # 컨설턴트가 입력한 값(기간)이 그대로 HTML 본문에 들어가므로 이스케이프한다.
+        safe_company = html.escape(str(company_name or '고객'))
+        safe_consultant = html.escape(str(consultant_name or '전문가'))
+        safe_title = html.escape(str(project_title or 'ISO 인증 프로젝트'))
+
+        try:
+            price_text = f"{int(proposal_price):,}원" if proposal_price else '제안서 참조'
+        except (TypeError, ValueError):
+            price_text = '제안서 참조'
+        duration_text = html.escape(str(proposal_duration)) if proposal_duration else '제안서 참조'
+
+        subject = f"[InsightMatch] {consultant_name}님이 제안서를 보냈습니다"
+
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {{ font-family: 'Pretendard', -apple-system, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 30px; border-radius: 12px 12px 0 0; text-align: center; }}
+        .content {{ background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; }}
+        .info-box {{ background: white; padding: 20px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #10b981; }}
+        .label {{ color: #64748b; font-size: 0.85rem; margin-bottom: 4px; }}
+        .value {{ font-weight: 600; color: #1e293b; }}
+        .cta-button {{ display: inline-block; background: #10b981; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 20px; }}
+        .next-steps {{ background: white; padding: 20px; border-radius: 8px; margin-top: 20px; }}
+        .step {{ display: flex; align-items: flex-start; gap: 12px; margin: 12px 0; }}
+        .step-number {{ background: #10b981; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; flex-shrink: 0; }}
+        .footer {{ text-align: center; color: #94a3b8; font-size: 0.85rem; padding: 20px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div style="font-size: 3rem; margin-bottom: 15px;">📄</div>
+            <h1 style="margin: 0; font-size: 1.5rem;">제안서가 도착했습니다</h1>
+        </div>
+
+        <div class="content">
+            <p>안녕하세요, {safe_company}님.</p>
+            <p><strong>{safe_consultant}</strong>님이 요청하신 프로젝트에 대한 제안서를 보냈습니다.</p>
+
+            <div class="info-box">
+                <div class="label">프로젝트</div>
+                <div class="value">{safe_title}</div>
+            </div>
+
+            <div class="info-box">
+                <div class="label">제안 전문가</div>
+                <div class="value">{safe_consultant}</div>
+            </div>
+
+            <div class="info-box">
+                <div class="label">제안 금액</div>
+                <div class="value">{price_text}</div>
+            </div>
+
+            <div class="info-box">
+                <div class="label">예상 기간</div>
+                <div class="value">{duration_text}</div>
+            </div>
+
+            <div class="next-steps">
+                <h3 style="margin-top: 0; color: #1e293b;">다음 단계</h3>
+                <div class="step">
+                    <span class="step-number">1</span>
+                    <span>대시보드에서 제안서 상세 내용과 첨부 파일을 확인하세요</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">2</span>
+                    <span>다른 전문가의 제안과 비교해보세요</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">3</span>
+                    <span>가장 적합한 전문가를 선택하고 계약을 진행하세요</span>
+                </div>
+            </div>
+
+            <p style="text-align: center;">
+                <a href="{dashboard_url}" class="cta-button">제안서 확인하기 →</a>
+            </p>
+
+            <p style="margin-top: 25px; color: #64748b; font-size: 0.9rem;">
+                💡 문의사항이 있으시면 <a href="mailto:openbrain.main@gmail.com">openbrain.main@gmail.com</a>으로 연락주세요.
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>이 이메일은 InsightMatch 플랫폼에서 발송되었습니다.</p>
+            <p>© 2025 OpenBrain Limited. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+        return self.send_email(company_email, subject, html_content)
+
+    # 컨설턴트 심사 결과 4개 이벤트의 메일 문안.
+    # 인앱 알림 type 값(consultant_approved 등)을 그대로 키로 쓴다.
+    REVIEW_RESULT_TEMPLATES = {
+        'consultant_approved': {
+            'subject': '[InsightMatch] 전문가 등록이 승인되었습니다',
+            'icon': '🎉',
+            'heading': '등록 승인 완료',
+            'gradient': 'linear-gradient(135deg, #10b981, #059669)',
+            'accent': '#10b981',
+            'body': '제출해주신 전문가 프로필 검토가 완료되어 <strong>등록이 승인</strong>되었습니다. '
+                    '이제 기업의 견적 요청 매칭 대상에 포함됩니다.',
+            'cta': '대시보드로 이동 →',
+        },
+        'consultant_rejected': {
+            'subject': '[InsightMatch] 전문가 등록 검토 결과 안내',
+            'icon': '📝',
+            'heading': '등록 검토 결과 안내',
+            'gradient': 'linear-gradient(135deg, #f59e0b, #d97706)',
+            'accent': '#f59e0b',
+            'body': '제출해주신 전문가 프로필을 검토했으나 아래 사유로 이번에는 승인해드리지 못했습니다. '
+                    '보완 후 다시 등록해주시면 재검토해드립니다.',
+            'cta': '프로필 보완하고 재등록하기 →',
+        },
+        'consultant_verification_revoked': {
+            'subject': '[InsightMatch] 전문가 인증 자격이 해제되었습니다',
+            'icon': '⚠️',
+            'heading': '인증 자격 해제 안내',
+            'gradient': 'linear-gradient(135deg, #f59e0b, #d97706)',
+            'accent': '#f59e0b',
+            'body': '아래 사유로 전문가 인증 자격이 해제되었습니다. '
+                    '해제 기간에는 신규 매칭 대상에서 제외되며, 사유가 해소되면 재심사를 요청하실 수 있습니다.',
+            'cta': '대시보드에서 확인하기 →',
+        },
+        'consultant_restored': {
+            'subject': '[InsightMatch] 전문가 프로필이 재검토 대기 상태가 되었습니다',
+            'icon': '🔄',
+            'heading': '재검토 대기 상태로 전환',
+            'gradient': 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+            'accent': '#6366f1',
+            'body': '전문가 프로필이 <strong>재검토 대기</strong> 상태로 전환되었습니다. '
+                    '관리자 검토가 끝나면 결과를 다시 이메일로 안내드립니다.',
+            'cta': '대시보드에서 확인하기 →',
+        },
+    }
+
+    def send_consultant_review_result(
+        self,
+        consultant_email: str,
+        consultant_name: str,
+        notification_type: str,
+        reason: Optional[str] = None,
+        dashboard_url: str = "https://www.insightmatch.com/dashboard.html",
+        register_url: Optional[str] = None
+    ) -> Dict:
+        """
+        컨설턴트 심사 결과(승인·거절·자격해제·복원) 이메일 발송
+
+        consultant_register.html 과 admin.html 이 이미 사용자에게
+        "승인 완료 시 이메일로 안내드립니다" / "거부 사유는 이메일로 전달됩니다"
+        라고 약속하고 있으므로, 인앱 알림만으로는 약속을 지키지 못한다.
+
+        Args:
+            notification_type: REVIEW_RESULT_TEMPLATES 의 키
+            reason: 거절·자격해제 사유 (본문에 포함)
+        """
+        template = self.REVIEW_RESULT_TEMPLATES.get(notification_type)
+        if not template:
+            # 알 수 없는 이벤트로 엉뚱한 메일을 보내느니 보내지 않는다.
+            print(f"[EmailService] 알 수 없는 심사 결과 유형: {notification_type}")
+            return {'success': False, 'message': f'Unknown review result type: {notification_type}'}
+
+        safe_name = html.escape(str(consultant_name or '전문가'))
+        # 관리자가 입력한 사유가 그대로 HTML 본문에 들어가므로 이스케이프한다.
+        safe_reason = html.escape(str(reason)).replace('\n', '<br>') if reason else ''
+
+        reason_block = f"""
+            <div class="reason-box">
+                <div class="label">사유</div>
+                <div class="value">{safe_reason}</div>
+            </div>
+""" if safe_reason else ''
+
+        # 거절은 '재등록' 이 다음 행동이므로 등록 페이지로 보낸다.
+        action_url = register_url if (notification_type == 'consultant_rejected' and register_url) else dashboard_url
+
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {{ font-family: 'Pretendard', -apple-system, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: {template['gradient']}; color: white; padding: 30px; border-radius: 12px 12px 0 0; text-align: center; }}
+        .content {{ background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; }}
+        .reason-box {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid {template['accent']}; }}
+        .label {{ color: #64748b; font-size: 0.85rem; margin-bottom: 4px; }}
+        .value {{ font-weight: 600; color: #1e293b; }}
+        .cta-button {{ display: inline-block; background: {template['accent']}; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 20px; }}
+        .footer {{ text-align: center; color: #94a3b8; font-size: 0.85rem; padding: 20px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div style="font-size: 3rem; margin-bottom: 15px;">{template['icon']}</div>
+            <h1 style="margin: 0; font-size: 1.5rem;">{template['heading']}</h1>
+        </div>
+
+        <div class="content">
+            <p>안녕하세요, {safe_name}님.</p>
+            <p>{template['body']}</p>
+{reason_block}
+            <p style="text-align: center;">
+                <a href="{action_url}" class="cta-button">{template['cta']}</a>
+            </p>
+
+            <p style="margin-top: 25px; color: #64748b; font-size: 0.9rem;">
+                💡 문의사항이 있으시면 <a href="mailto:openbrain.main@gmail.com">openbrain.main@gmail.com</a>으로 연락주세요.
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>이 이메일은 InsightMatch 플랫폼에서 발송되었습니다.</p>
+            <p>© 2025 OpenBrain Limited. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+        return self.send_email(consultant_email, template['subject'], html_content)
 
     def send_password_reset_email(
         self,

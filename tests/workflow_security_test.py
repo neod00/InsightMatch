@@ -1269,9 +1269,25 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertIn(post_resp.status_code, (404, 405))
         self.assertNotEqual(self.client.get('/api/analyze/some-job-id').status_code, 200)
 
-    def test_diagnostic_report_requires_auth(self):
-        """C-3: 유료 AI를 호출하는 진단 리포트는 인증 필수."""
-        self.assertEqual(self.client.post('/api/diagnostic/report', json={}).status_code, 401)
+    def test_diagnostic_endpoints_removed(self):
+        """C-3: 진단 라우트는 제거되어 더 이상 존재하지 않는다.
+
+        쓰지 않기로 결정된 기능인데 /report 는 유료 AI(Gemini)를 호출했고
+        호출량 제한도 걸려 있지 않았다. 프론트엔드(diagnostic.html)는 git 에
+        커밋된 적이 없어 배포되지도 않는다.
+        """
+        report = self.client.post(
+            '/api/diagnostic/report',
+            json={'industry_code': 'C30', 'answers': [{'id': 1, 'answer': 'no'}]},
+            headers=auth_headers(self.company),
+        )
+        self.assertIn(report.status_code, (404, 405), '진단 리포트 경로가 아직 살아있음')
+        self.assertNotEqual(self.client.get('/api/diagnostic/industries').status_code, 200)
+        self.assertNotEqual(self.client.get('/api/diagnostic/questions/C30').status_code, 200)
+
+        # 위험면(라우트)만 끊고 자산은 보존한다 — 나중에 되살릴 수 있어야 한다
+        from services import AdvancedDiagnosticService
+        self.assertTrue(callable(AdvancedDiagnosticService))
 
     def test_ssrf_guard_blocks_internal_targets(self):
         """C-3: 내부망·메타데이터 주소로의 서버측 요청은 차단된다."""
@@ -1594,7 +1610,7 @@ class TestWorkflowSecurity(unittest.TestCase):
 
     def test_health_verbose_hides_internal_fields_from_non_admin(self):
         """L0-d: verbose 는 관리자에게만. 비관리자는 401 이 아니라 공개 필드만 받는다."""
-        sensitive = ('email_configured', 'errors_24h', 'errors_top')
+        sensitive = ('email_configured', 'errors_24h', 'warnings_24h', 'errors_top')
 
         for headers in ({}, auth_headers(self.company), auth_headers(self.consultant_user)):
             response = self.client.get('/api/health?verbose=1', headers=headers)
@@ -1611,6 +1627,254 @@ class TestWorkflowSecurity(unittest.TestCase):
         for field in sensitive:
             self.assertIn(field, admin_payload)
         self.assertEqual(admin_payload['errors_24h'], 0)
+
+    # ------------------------------------------------------------------
+    # L0 결함 수리 (약속된 메일이 실제로 나가는가)
+    # ------------------------------------------------------------------
+    def _approve_payload(self):
+        return {'checklist': {
+            'identity_verified': True,
+            'iso_credentials_verified': True,
+            'project_history_verified': True,
+            'contact_verified': True,
+        }}
+
+    def test_consultant_approval_emails_account_address(self):
+        """L0: 승인은 인앱 알림뿐 아니라 이메일로도 안내된다.
+
+        consultant_register.html 이 "승인 완료 시 이메일로 안내드립니다" 라고
+        약속하고 있으므로 인앱 알림만으로는 약속이 지켜지지 않는다.
+        """
+        from index import email_service
+
+        self.consultant.status = 'pending'
+        self.consultant.verified = False
+        # 공개용 프로필 이메일이 계정 이메일과 달라도 계정 이메일로 보내야 한다
+        self.consultant.email = 'public-profile@example.com'
+        db.session.commit()
+
+        with patch.object(email_service, 'send_consultant_review_result', autospec=True) as mock_send:
+            response = self.client.post(
+                f'/api/admin/consultants/{self.consultant.id}/approve',
+                json=self._approve_payload(),
+                headers=auth_headers(self.admin_user),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        mock_send.assert_called_once()
+        kwargs = mock_send.call_args.kwargs
+        self.assertEqual(kwargs['consultant_email'], self.consultant_user.email)
+        self.assertEqual(kwargs['notification_type'], 'consultant_approved')
+
+    def test_consultant_rejection_email_carries_reason(self):
+        """L0: admin.html 이 "거부 사유는 이메일로 전달됩니다" 라고 안내한다."""
+        from index import email_service
+
+        reason = '자격증 사본이 확인되지 않았습니다'
+        with patch.object(email_service, 'send_consultant_review_result', autospec=True) as mock_send:
+            response = self.client.post(
+                f'/api/admin/consultants/{self.consultant.id}/reject',
+                json={'reason': reason},
+                headers=auth_headers(self.admin_user),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        kwargs = mock_send.call_args.kwargs
+        self.assertEqual(kwargs['notification_type'], 'consultant_rejected')
+        self.assertEqual(kwargs['reason'], reason)
+
+    def test_review_email_failure_does_not_roll_back_approval(self):
+        """L0: 메일 실패가 승인 처리를 되돌리거나 500 을 내면 안 된다.
+
+        단, 실패를 print 로만 남기면 서버리스에서 휘발되므로
+        ErrorLog 에 warning 으로 남아야 한다.
+        """
+        from index import email_service
+
+        self.consultant.status = 'pending'
+        self.consultant.verified = False
+        db.session.commit()
+
+        with patch.object(email_service, 'send_consultant_review_result', autospec=True,
+                          side_effect=RuntimeError('smtp down')):
+            response = self.client.post(
+                f'/api/admin/consultants/{self.consultant.id}/approve',
+                json=self._approve_payload(),
+                headers=auth_headers(self.admin_user),
+            )
+
+        self.assertEqual(response.status_code, 200, '메일 실패가 API 를 죽임')
+
+        db.session.refresh(self.consultant)
+        self.assertTrue(self.consultant.verified, '메일 실패로 승인이 롤백됨')
+        self.assertIsNotNone(Notification.query.filter_by(
+            user_id=self.consultant_user.id,
+            type='consultant_approved',
+        ).first(), '메일 실패로 인앱 알림까지 사라짐')
+
+        log = ErrorLog.query.filter(ErrorLog.level == 'warning').first()
+        self.assertIsNotNone(log, '메일 실패가 ErrorLog 에 남지 않음')
+        self.assertIn('consultant_review_result', log.exc_message)
+        self.assertEqual(log.exc_type, 'RuntimeError')
+
+    def test_proposal_submission_emails_company(self):
+        """L0: 제안서 제출 알림이 스텁(pass)이 아니라 실제로 발송된다."""
+        from index import email_service
+
+        project = Project(
+            company_id=self.company.id,
+            consultant_id=self.consultant.id,
+            title='ISO 14001 인증 프로젝트',
+            status='proposal_pending',
+        )
+        db.session.add(project)
+        db.session.commit()
+
+        with patch.object(email_service, 'send_proposal_notification', autospec=True) as mock_send:
+            response = self.client.post(
+                f'/api/projects/{project.id}/submit-proposal',
+                json={'proposal_price': 5000000, 'proposal_duration': '3개월'},
+                headers=auth_headers(self.consultant_user),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        mock_send.assert_called_once()
+        kwargs = mock_send.call_args.kwargs
+        self.assertEqual(kwargs['company_email'], self.company.email)
+        self.assertEqual(kwargs['consultant_name'], self.consultant.name)
+        self.assertEqual(kwargs['proposal_price'], 5000000)
+
+    def test_proposal_email_failure_does_not_break_submission(self):
+        """L0: 메일이 실패해도 제안서 제출은 성공 응답과 저장을 유지한다."""
+        from index import email_service
+
+        project = Project(
+            company_id=self.company.id,
+            consultant_id=self.consultant.id,
+            title='ISO 14001 인증 프로젝트',
+            status='proposal_pending',
+        )
+        db.session.add(project)
+        db.session.commit()
+
+        with patch.object(email_service, 'send_proposal_notification', autospec=True,
+                          side_effect=RuntimeError('smtp down')):
+            response = self.client.post(
+                f'/api/projects/{project.id}/submit-proposal',
+                json={'proposal_price': 7000000},
+                headers=auth_headers(self.consultant_user),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        db.session.refresh(project)
+        self.assertEqual(project.status, 'proposal_submitted')
+        self.assertEqual(project.proposal_price, 7000000)
+
+        log = ErrorLog.query.filter(ErrorLog.level == 'warning').first()
+        self.assertIsNotNone(log, '메일 실패가 ErrorLog 에 남지 않음')
+        self.assertIn('proposal_notification', log.exc_message)
+
+        # 메일 실패가 '미처리 예외(500)' 카운터를 오염시키면 안 된다.
+        # 500 이 늘었는지 메일만 막혔는지 구분되어야 한다.
+        health = self.client.get('/api/health?verbose=1', headers=auth_headers(self.admin_user)).get_json()
+        self.assertEqual(health['errors_24h'], 0, '메일 실패가 500 카운터로 잡힘')
+        self.assertEqual(health['warnings_24h'], 1)
+
+    def test_add_consultant_uses_existing_email_method(self):
+        """L0: 존재하지 않는 메서드를 부르면 AttributeError 가 except 에 삼켜져
+        '기존 요청에 컨설턴트 추가' 경로의 메일이 항상 무발송이 된다."""
+        from index import email_service
+
+        self.assertFalse(
+            hasattr(email_service, 'send_consultant_notification'),
+            'EmailService 에 없는 메서드가 다시 생겼다면 호출부를 확인할 것',
+        )
+
+        extra_user = User(
+            email='extra-consultant@example.com',
+            password_hash='x',
+            role='consultant',
+            name='Extra Consultant User',
+        )
+        db.session.add(extra_user)
+        db.session.flush()
+        extra_consultant = Consultant(
+            user_id=extra_user.id,
+            name='Extra Expert',
+            verified=True,
+            status='verified',
+        )
+        db.session.add(extra_consultant)
+
+        job = AnalysisJob(id='session-1', company_name='Buyer Co', status='completed')
+        job.set_intake_data({
+            'industry': 'Manufacturing',
+            'selected_standards': ['ISO 9001'],
+            'timeline': '3months',
+            'budget': '500-1000',
+        })
+        db.session.add(job)
+        db.session.commit()
+
+        with patch.object(email_service, 'send_quote_request_to_consultant', autospec=True) as mock_send:
+            response = self.client.post(
+                '/api/projects/add-consultant',
+                json={
+                    'consultant_id': extra_consultant.id,
+                    'title': 'ISO 9001 Project',
+                    'session_id': 'session-1',
+                },
+                headers=auth_headers(self.company),
+            )
+
+        self.assertEqual(response.status_code, 201)
+        mock_send.assert_called_once()
+        kwargs = mock_send.call_args.kwargs
+        self.assertEqual(kwargs['consultant_email'], extra_user.email)
+        self.assertEqual(kwargs['standards'], ['ISO 9001'])
+        self.assertEqual(kwargs['industry'], 'Manufacturing')
+
+    def test_standard_codes_are_normalized_for_email(self):
+        """L0: 저장된 진단 맥락에는 [{'code': ...}] 형태가 섞여 들어올 수 있다.
+
+        그대로 넘기면 메일 템플릿의 ', '.join() 이 TypeError 로 터져
+        메일이 통째로 안 나간다.
+        """
+        from index import normalize_standard_codes
+
+        self.assertEqual(
+            normalize_standard_codes([{'code': 'ISO 9001'}, 'ISO 14001', {'code': ''}, None]),
+            ['ISO 9001', 'ISO 14001'],
+        )
+        self.assertEqual(normalize_standard_codes(None), [])
+        self.assertEqual(normalize_standard_codes('ISO 9001'), [])
+
+    def test_review_result_email_escapes_rejection_reason(self):
+        """L0: 관리자가 입력한 거부 사유가 그대로 HTML 메일 본문에 들어간다."""
+        from index import email_service
+
+        with patch.object(email_service, 'send_email', return_value={'success': True}) as mock_send:
+            email_service.send_consultant_review_result(
+                consultant_email='consultant@example.com',
+                consultant_name='ISO Expert',
+                notification_type='consultant_rejected',
+                reason='<script>alert(1)</script> 자격증 미확인',
+            )
+
+        html_body = mock_send.call_args[0][2]
+        self.assertNotIn('<script>', html_body)
+        self.assertIn('&lt;script&gt;', html_body)
+        self.assertIn('자격증 미확인', html_body)
+
+        # 알 수 없는 이벤트로 엉뚱한 메일을 보내지 않는다
+        with patch.object(email_service, 'send_email') as unused_send:
+            result = email_service.send_consultant_review_result(
+                consultant_email='consultant@example.com',
+                consultant_name='ISO Expert',
+                notification_type='consultant_unknown_event',
+            )
+        unused_send.assert_not_called()
+        self.assertFalse(result['success'])
 
 
 if __name__ == '__main__':

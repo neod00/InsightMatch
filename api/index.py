@@ -24,7 +24,7 @@ from sqlalchemy import func, text
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, ErrorLog, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry
-from services import MatchingService, ProposalService, EmailService, AdvancedDiagnosticService
+from services import MatchingService, ProposalService, EmailService
 from services.iso_manual_service import generate_iso_manual_stream
 
 # Load environment variables
@@ -94,10 +94,11 @@ db.init_app(app)
 
 # Initialize Services
 # 참고: AIService는 레거시 /api/analyze 제거와 함께 사용처가 없어져 초기화하지 않는다.
+#       AdvancedDiagnosticService도 /api/diagnostic/* 제거와 함께 초기화하지 않는다
+#       (서비스 파일·리스크 DB는 재사용 대비로 보존).
 matching_service = MatchingService()
 proposal_service = ProposalService()
 email_service = EmailService()
-diagnostic_service = AdvancedDiagnosticService()
 
 # Create tables on first request
 @app.before_request
@@ -369,6 +370,102 @@ def record_error_log(error, status_code):
             pass
 
 
+def record_email_failure(purpose, error, commit=False):
+    """메일 발송 실패를 ErrorLog 에 남긴다 (요청 자체는 계속 진행한다).
+
+    메일이 안 갔다고 API 를 500 으로 만들 수는 없다. 그런데 print 만 하면
+    Vercel 콘솔에서 휘발돼 "메일이 안 갔다"는 사실을 아무도 모르게 된다.
+    직전 배치에서 만든 ErrorLog 에 level='warning' 으로 함께 쌓아
+    관리자 에러 로그 화면에서 확인할 수 있게 한다.
+
+    ⚠️ record_error_log 와 달리 db.session.rollback() 을 하지 않는다.
+       메일 실패는 DB 세션을 오염시키지 않는데, 여기서 롤백하면 호출부가 아직
+       커밋하지 않은 변경(예: 컨설턴트 승인)까지 함께 날아간다.
+
+    Args:
+        purpose: 어떤 메일인지 (fingerprint 그룹 키로도 쓰인다)
+        error: 발생한 예외
+        commit: 호출부가 이미 커밋을 끝내 세션에 걸린 변경이 없을 때만 True.
+                False 면 행을 세션에 얹어두고 호출부의 커밋에 함께 실린다.
+    """
+    # DB 기록이 실패하더라도 최소한 런타임 로그에는 남긴다.
+    print(f"[Email] {purpose} 발송 실패: {type(error).__name__}: {error}")
+    try:
+        user_id = None
+        try:
+            current_user = getattr(g, 'current_user', None)
+            user_id = getattr(current_user, 'id', None) if current_user is not None else None
+        except Exception:
+            user_id = None
+
+        exc_type = type(error).__name__[:120]
+        normalized_path = _normalize_error_path(request.path)
+
+        db.session.add(ErrorLog(
+            level='warning',   # 요청은 성공했다. 장애가 아니라 부분 실패다.
+            path=(request.path or '')[:300],
+            method=(request.method or '')[:10],
+            status_code=None,  # HTTP 상태로 드러나지 않는 실패라 비워둔다.
+            exc_type=exc_type,
+            exc_message=f'[{purpose}] {_scrub_sql_parameters(str(error))}'[:2000],
+            traceback=_truncate_traceback(_scrub_sql_parameters(
+                ''.join(traceback_module.format_exception(type(error), error, error.__traceback__))
+            )),
+            user_id=user_id,
+            client_ip=_client_ip(),
+            # 메일 종류별로 그룹이 갈리도록 purpose 를 fingerprint 에 포함한다.
+            fingerprint=_error_fingerprint(
+                f'email:{purpose}:{exc_type}', normalized_path, _error_top_frame(error)
+            ),
+        ))
+        if commit:
+            db.session.commit()
+    except Exception as log_error:
+        print(f"[ErrorLog] 메일 실패 기록에 실패: {type(log_error).__name__}: {log_error}")
+        if commit:
+            # 커밋을 시도했다가 실패한 경우에만 롤백한다.
+            # (commit=False 인 호출부는 아직 커밋 전이라 여기서 롤백하면 안 된다)
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+
+
+def frontend_base_url():
+    """메일 본문에 넣을 프론트엔드 기본 URL.
+
+    BASE_URL 이 없으면 요청 호스트를 쓴다(비밀번호 재설정 링크와 동일한 규칙).
+    """
+    base = os.environ.get('BASE_URL')
+    if not base:
+        try:
+            base = request.host_url
+        except Exception:
+            base = 'https://www.insightmatch.com'
+    return (base or '').rstrip('/')
+
+
+def normalize_standard_codes(value):
+    """ISO 규격 목록을 메일 본문에 넣을 문자열 리스트로 정규화한다.
+
+    /api/match 퍼널은 문자열 리스트를 주지만, 저장된 진단 맥락에는
+    [{'code': 'ISO 9001'}] 형태가 섞여 들어올 수 있다. 그대로 넘기면
+    메일 템플릿의 ', '.join() 이 TypeError 로 터져 메일이 통째로 안 나간다.
+    """
+    if not isinstance(value, list):
+        return []
+    codes = []
+    for item in value:
+        if isinstance(item, dict):
+            code = item.get('code') or item.get('name') or ''
+        else:
+            code = item
+        code = str(code or '').strip()
+        if code:
+            codes.append(code)
+    return codes
+
+
 @app.errorhandler(Exception)
 def handle_unexpected_exception(error):
     """미처리 예외를 기록하고 클라이언트에는 일반 500 만 반환한다."""
@@ -605,15 +702,61 @@ def get_required_reason(data, field='reason', max_length=500):
         return None, 'Reason is too long.'
     return reason, None
 
-def notify_consultant_review_result(consultant, notification_type, title, message):
-    if consultant and consultant.user_id:
-        db.session.add(Notification(
-            user_id=consultant.user_id,
-            type=notification_type,
-            title=title,
-            message=message,
-            link='/dashboard.html'
-        ))
+def get_consultant_contact_email(consultant):
+    """컨설턴트에게 심사 결과를 보낼 이메일 주소를 고른다.
+
+    Consultant.email 은 프로필 '공개용' 으로 따로 받는 값이라 계정 이메일과
+    다를 수 있고, 관리자가 대신 등록한 경우 비어 있기도 하다.
+    승인·거절은 계정 상태 통지이므로 로그인에 쓰는 User.email 을 우선하고,
+    연결된 User 가 없을 때만 Consultant.email 로 내려간다.
+    """
+    if not consultant:
+        return None
+    user = User.query.get(consultant.user_id) if consultant.user_id else None
+    email = (user.email if user else None) or consultant.email
+    return (email or '').strip() or None
+
+
+def notify_consultant_review_result(consultant, notification_type, title, message, reason=None):
+    """컨설턴트 심사 결과 통지 (승인·거절·자격해제·복원 공통 관문).
+
+    인앱 알림 + 이메일을 함께 보낸다. consultant_register.html 과 admin.html 이
+    이미 사용자에게 "승인 완료 시 이메일로 안내드립니다" / "거부 사유는 이메일로
+    전달됩니다" 라고 약속하고 있으므로 인앱 알림만으로는 약속이 지켜지지 않는다.
+
+    Args:
+        reason: 거절·자격해제 사유. 메일 본문에 포함된다.
+    """
+    if not (consultant and consultant.user_id):
+        return
+
+    db.session.add(Notification(
+        user_id=consultant.user_id,
+        type=notification_type,
+        title=title,
+        message=message,
+        link='/dashboard.html'
+    ))
+
+    # 메일 실패가 승인 처리 자체를 되돌리면 안 된다.
+    # commit=False: 호출부(approve/reject/revoke/restore)가 바로 뒤에서 커밋하므로
+    # 실패 기록도 그 커밋에 함께 실린다.
+    consultant_email = get_consultant_contact_email(consultant)
+    if not consultant_email:
+        return
+
+    try:
+        base_url = frontend_base_url()
+        email_service.send_consultant_review_result(
+            consultant_email=consultant_email,
+            consultant_name=consultant.name,
+            notification_type=notification_type,
+            reason=reason,
+            dashboard_url=f'{base_url}/dashboard.html',
+            register_url=f'{base_url}/consultant_register.html'
+        )
+    except Exception as e:
+        record_email_failure(f'consultant_review_result:{notification_type}', e)
 
 def _same_id(left, right):
     """Compare database ids robustly across int/string legacy values."""
@@ -1239,84 +1382,17 @@ def find_email():
 # 현재 매칭 퍼널은 규칙 기반 /api/match 를 사용한다.
 # 분석 로직 자체는 api/services/ai_service.py 에 보존되어 있다.
 
-# ============================================================
-# Advanced Diagnostic Engine Endpoints (정밀 진단 엔진 API)
-# ============================================================
-
-@app.route('/api/diagnostic/industries', methods=['GET'])
-def get_diagnostic_industries():
-    """사용 가능한 산업코드(KSIC) 목록 반환"""
-    try:
-        industries = diagnostic_service.get_available_industries()
-        return jsonify({'industries': industries})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/diagnostic/questions/<ksic_code>', methods=['GET'])
-def get_diagnostic_questions(ksic_code):
-    """특정 업종의 자기진단 질문지 반환 (공정별 필터링 지원)"""
-    try:
-        main_process = request.args.get('process', None)
-        questions = diagnostic_service.get_diagnostic_questions(ksic_code, main_process)
-        return jsonify(questions)
-    except FileNotFoundError as e:
-        return jsonify({'error': str(e)}), 404
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/diagnostic/report', methods=['POST'])
-@token_required
-def generate_diagnostic_report():
-    """자기진단 응답을 기반으로 Gap Analysis 리포트 생성
-
-    보안: 유료 AI(Gemini) 호출을 유발하므로 인증 필수.
-    """
-    try:
-        data = request.json or {}
-        ksic_code = data.get('industry_code')
-        user_answers = data.get('answers', [])
-        user_context = data.get('context', {})
-        
-        if not ksic_code:
-            return jsonify({'error': '업종 코드(industry_code)가 필요합니다.'}), 400
-        if not user_answers:
-            return jsonify({'error': '진단 응답(answers)이 필요합니다.'}), 400
-        
-        full_report = data.get('full_report', False)
-        
-        report = diagnostic_service.generate_gap_report(
-            ksic_code=ksic_code,
-            user_answers=user_answers,
-            user_context=user_context,
-            full_report=full_report
-        )
-        
-        # DB에 진단 결과 저장 (리드 추적용)
-        try:
-            job_id = str(uuid.uuid4())
-            new_job = AnalysisJob(
-                id=job_id,
-                company_name=user_context.get('company_name', '미입력 (자기진단)'),
-                url='',
-                status='completed'
-            )
-            new_job.set_intake_data(data)
-            new_job.set_result(report)
-            db.session.add(new_job)
-            db.session.commit()
-            report['session_id'] = job_id
-        except Exception as db_err:
-            print(f'[Diagnostic] DB save error (non-critical): {db_err}')
-            db.session.rollback()
-        
-        return jsonify(report)
-    except FileNotFoundError as e:
-        return jsonify({'error': str(e)}), 404
-    except Exception as e:
-        import traceback
-        print(f'[Diagnostic] Report generation error: {e}')
-        print(traceback.format_exc())
-        return jsonify({'error': f'리포트 생성 중 오류: {str(e)}'}), 500
+# --- Advanced Diagnostic Endpoints (제거됨) ---
+# /api/diagnostic/industries · /questions/<ksic_code> · /report 는 2026-08-21 제거.
+#  - 자기진단 리포트는 쓰지 않기로 결정된 기능이고,
+#  - 프론트엔드(diagnostic.html)는 git 에 커밋된 적이 없어 배포되지 않으며,
+#  - /report 는 유료 AI(Gemini) 를 호출하는데 호출량 제한이 걸려 있지 않았다.
+#    (check_rate_limit 은 login/pwreset/match 에만 적용)
+# 즉 아무도 쓰지 않는 경로가 AI 비용을 무제한으로 태울 수 있는 구멍이었다.
+# 레거시 /api/analyze 제거(2026-07-05)와 같은 성격의 조치다.
+#
+# 자산은 보존한다 — 나중에 되살릴 수 있게 위험면(라우트)만 끊었다:
+#   api/services/advanced_diagnostic_service.py, data/risk_dbs/, services/__init__.py export
 
 
 @app.route('/api/iso-manual/session', methods=['POST'])
@@ -2364,14 +2440,24 @@ def submit_proposal(project_id):
             )
             db.session.add(notification)
             db.session.commit()
-            
-            # 이메일 발송 (선택적)
-            if email_service:
+
+            # 이메일 발송
+            # 인앱 알림만 있으면 기업이 대시보드에 접속해야만 제안서 도착을 안다.
+            # 실패해도 제안서 제출 자체는 성공 응답을 준다(위 커밋은 이미 끝났다).
+            if company_user.email:
                 try:
-                    # email_service.send_proposal_notification(...)
-                    pass
+                    email_service.send_proposal_notification(
+                        company_email=company_user.email,
+                        company_name=company_user.company_name or company_user.name or '고객',
+                        consultant_name=consultant.name,
+                        project_title=project.title,
+                        proposal_price=project.proposal_price,
+                        proposal_duration=project.proposal_duration,
+                        dashboard_url=f'{frontend_base_url()}/dashboard.html'
+                    )
                 except Exception as e:
-                    print(f"[Email] Failed to send proposal notification: {e}")
+                    # 세션은 위에서 이미 커밋했으므로 여기서 커밋해도 안전하다.
+                    record_email_failure('proposal_notification', e, commit=True)
     except Exception as e:
         print(f"[Notification] Failed to create notification: {e}")
     
@@ -2967,19 +3053,44 @@ def add_consultant_to_request():
     db.session.commit()
     
     # 이메일 발송
+    # 기존 견적 요청 그룹에 컨설턴트를 '추가' 한 것이므로 최초 요청과 같은
+    # 견적 요청 알림 메일을 보낸다.
+    # (과거에는 존재하지 않는 send_consultant_notification 을 호출해서
+    #  AttributeError 가 아래 except 에 삼켜지고 메일이 항상 무발송이었다)
     try:
         company = User.query.get(user_id)
         consultant_user = User.query.get(consultant.user_id) if consultant.user_id else None
-        if consultant_user and company and email_service:
-            email_service.send_consultant_notification(
-                consultant_email=consultant_user.email,
+        consultant_email = (consultant_user.email if consultant_user else None) or consultant.email
+        if consultant_email and company:
+            # 같은 세션(견적 요청 그룹)의 진단 맥락을 재사용한다.
+            # 없으면 메일을 거르지 않고 '미정'으로 채워 보낸다.
+            intake = {}
+            if session_id:
+                job = AnalysisJob.query.get(session_id)
+                if job:
+                    intake = job.get_intake_data() or {}
+
+            email_service.send_quote_request_to_consultant(
+                consultant_email=consultant_email,
                 consultant_name=consultant.name,
-                company_name=company.name,
-                request_details={'title': title}
+                company_name=company.company_name or company.name or '기업',
+                industry=intake.get('industry') or '미정',
+                standards=normalize_standard_codes(
+                    intake.get('selected_standards')
+                    or intake.get('all_standards')
+                    or intake.get('recommended_standards')
+                ),
+                issues_summary=intake.get('issues_summary'),
+                timeline=intake.get('timeline') or 'flexible',
+                budget=intake.get('budget') or 'unknown',
+                additional_notes=intake.get('additionalNotes') or intake.get('additional_notes'),
+                project_id=new_project.id,
+                dashboard_url=f'{frontend_base_url()}/dashboard.html'
             )
     except Exception as e:
-        print(f"[Email] Failed to send notification: {e}")
-    
+        # 위에서 프로젝트 커밋이 끝났으므로 여기서 커밋해도 안전하다.
+        record_email_failure('quote_request_added', e, commit=True)
+
     return jsonify({
         'message': f'{consultant.name}에게 견적 요청을 추가했습니다.',
         'project_id': new_project.id
@@ -3455,7 +3566,8 @@ def reject_consultant(consultant_id):
         consultant,
         'consultant_rejected',
         'Consultant profile rejected',
-        f'Rejection reason: {reason}'
+        f'Rejection reason: {reason}',
+        reason=reason
     )
     db.session.commit()
     return jsonify({'message': f'Consultant rejected: {reason}'})
@@ -3478,7 +3590,8 @@ def revoke_consultant_verification(consultant_id):
         consultant,
         'consultant_verification_revoked',
         'Consultant verification revoked',
-        f'Revocation reason: {reason}'
+        f'Revocation reason: {reason}',
+        reason=reason
     )
     db.session.commit()
     return jsonify({'message': 'Consultant verification revoked', 'verified': False, 'status': consultant.status})
@@ -3957,7 +4070,14 @@ def _health_verbose_payload():
     data = {'email_configured': bool(getattr(email_service, 'is_configured', False))}
     try:
         since = _naive_utc_now() - datetime.timedelta(hours=24)
-        data['errors_24h'] = ErrorLog.query.filter(ErrorLog.created_at >= since).count()
+        recent = ErrorLog.query.filter(ErrorLog.created_at >= since)
+        # errors_24h 는 '미처리 예외(500)' 개수라는 뜻을 유지한다.
+        # 메일 발송 실패는 요청이 성공한 부분 실패라 warning 으로 따로 센다.
+        # (한 칸에 섞으면 500 이 늘었는지 메일만 막혔는지 구분이 안 된다)
+        data['errors_24h'] = recent.filter(ErrorLog.level != 'warning').count()
+        data['warnings_24h'] = recent.filter(ErrorLog.level == 'warning').count()
+        # errors_top 은 카운터가 아니라 '무슨 일이 있었나' 목록이므로 warning 도 함께 싣는다.
+        # warnings_24h 가 올라간 이유(어떤 메일이 막혔는지)를 여기서 바로 읽을 수 있어야 한다.
         data['errors_top'] = error_group_summary(since=since, limit=3)
     except Exception as e:
         # error_log 테이블이 아직 없는 배포 직후 등. health 를 500 으로 만들지 않는다.
@@ -3967,6 +4087,7 @@ def _health_verbose_payload():
             pass
         print(f"[Health] error log summary failed: {type(e).__name__}")
         data['errors_24h'] = None
+        data['warnings_24h'] = None
         data['errors_top'] = []
     return data
 
