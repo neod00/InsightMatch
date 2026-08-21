@@ -2343,6 +2343,12 @@
                 // 컨설턴트 응답 카드 HTML 생성 (취소된 요청 제외)
                 const responsesHtml = visibleProjects.map(p => generateConsultantResponseCard(p)).join('');
 
+                // 완료 확인은 용역을 '받은' 기업이 한다(백엔드 권한과 동일).
+                // 컨설턴트가 일방적으로 완료 처리하면 정산 트리거가 조작 가능해진다.
+                const activeContract = visibleProjects.find(p =>
+                    p.status === 'contracted' || p.status === 'in_progress'
+                );
+
                 card.innerHTML = `
                     <!-- Header -->
                     <div class="quote-request-header">
@@ -2381,13 +2387,20 @@
                         ${responsesHtml}
                     </div>
                     
-                    ${overallStatus === 'contracted' || overallStatus === 'in_progress' ? `
+                    ${['contracted', 'in_progress', 'completed'].includes(overallStatus) ? `
                     <!-- Contract Section -->
                     <div class="contract-section">
                         <div class="contract-info">
                             <i data-lucide="check-circle" style="width: 18px; height: 18px; color: var(--primary); vertical-align: middle;"></i>
-                            계약이 체결되었습니다. 프로젝트가 진행 중입니다.
+                            ${overallStatus === 'completed'
+                        ? '프로젝트가 완료되었습니다.'
+                        : '계약이 체결되었습니다. 프로젝트가 진행 중입니다.'}
                         </div>
+                        ${overallStatus !== 'completed' && activeContract ? `
+                        <button class="btn btn-primary btn-sm" onclick="event.preventDefault(); event.stopPropagation(); completeProject(${activeContract.id}, '${escapeAttr(group.title || '').replace(/'/g, "\\'")}')">
+                            <i data-lucide="check-check" style="width: 14px; height: 14px;"></i>
+                            완료 확인
+                        </button>` : ''}
                     </div>
                     ` : `
                     <!-- Project Actions (제안서 대기 상태에서만) -->
@@ -4042,6 +4055,37 @@
             if (currentDetailProjectId) {
                 closeProjectDetailPanel();
                 openProposalModal(currentDetailProjectId);
+            }
+        };
+
+        // ========================================
+        // 프로젝트 완료 확인 (기업 전용)
+        // ========================================
+        // 완료 전이는 정산·리뷰 수집의 시작점이라 되돌리는 API가 없다.
+        // 그래서 반드시 확인 모달을 거친다.
+        window.completeProject = async function (projectId, title) {
+            const confirmed = await showConfirmModal(
+                '프로젝트 완료 확인',
+                `"${escapeHtml(title || '')}" 프로젝트를 완료 처리하시겠습니까?<br><br>` +
+                '완료 후에는 되돌릴 수 없습니다. 용역이 모두 마무리되었는지 확인해주세요.'
+            );
+            if (!confirmed) return;
+
+            try {
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${projectId}/complete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json().catch(() => ({}));
+
+                if (response.ok) {
+                    showNotification('프로젝트를 완료 처리했습니다.', 'success');
+                    fetchProjects();
+                } else {
+                    showNotification(result.message || '완료 처리에 실패했습니다.', 'error');
+                }
+            } catch (e) {
+                showNotification('서버 연결에 실패했습니다.', 'error');
             }
         };
 

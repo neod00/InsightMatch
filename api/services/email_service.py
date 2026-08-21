@@ -633,6 +633,132 @@ class EmailService:
         
         return self.send_email(to_email, subject, html_content)
 
+    @staticmethod
+    def _digest_rows(groups: List[Dict], accent: str) -> str:
+        """다이제스트 표의 행 HTML.
+
+        메시지·경로에는 사용자 입력이 그대로 섞여 들어온다(예: 잘못된 입력값이
+        예외 메시지에 포함된 경우). 관리자 메일함에서 렌더링되므로 반드시
+        이스케이프한다.
+        """
+        if not groups:
+            return (
+                '<tr><td colspan="3" style="padding:12px 8px; color:#94a3b8; '
+                'font-size:0.85rem;">없음</td></tr>'
+            )
+
+        rows = []
+        for group in groups:
+            exc_type = html.escape(str(group.get('excType') or '-'))
+            message = html.escape(str(group.get('message') or '')[:200])
+            path = html.escape(str(group.get('path') or '-'))
+            count = html.escape(str(group.get('count') or 0))
+            rows.append(f"""
+                <tr style="border-bottom:1px solid #e2e8f0;">
+                    <td style="padding:10px 8px; vertical-align:top;">
+                        <div style="font-weight:600; color:{accent};">{exc_type}</div>
+                        <div style="font-size:0.8rem; color:#64748b;">{path}</div>
+                    </td>
+                    <td style="padding:10px 8px; font-size:0.85rem; color:#334155; word-break:break-word;">{message}</td>
+                    <td style="padding:10px 8px; text-align:right; font-weight:700;">{count}</td>
+                </tr>""")
+        return ''.join(rows)
+
+    def send_error_digest(
+        self,
+        to_email: str,
+        admin_name: Optional[str],
+        hours: int,
+        error_count: int,
+        warning_count: int,
+        error_groups: List[Dict],
+        warning_groups: List[Dict],
+        admin_url: str = "https://www.insightmatch.com/admin.html"
+    ) -> Dict:
+        """관리자에게 보내는 오류 일일 다이제스트.
+
+        ErrorLog 는 관리자가 화면을 열어봐야만 보인다. 즉 "보러 가지 않으면
+        아무 일도 없는 것처럼 보인다". 하루 한 번 요약을 밀어넣어야 관측성이
+        실제로 작동한다. 단, 0건일 때는 호출부에서 발송을 건너뛴다 —
+        매일 오는 '이상 없음' 메일은 곧 읽히지 않고, 그러면 문제가 생긴 날의
+        메일까지 함께 묻힌다.
+
+        미처리 예외(error)와 부분 실패(warning)를 나눠 보여준다.
+        한 칸에 섞으면 500 이 늘었는지 메일만 막혔는지 구분할 수 없다.
+        """
+        safe_name = html.escape(str(admin_name or '관리자'))
+        subject = f"[InsightMatch] 오류 요약 — 예외 {error_count}건 / 부분 실패 {warning_count}건"
+
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {{ font-family: 'Pretendard', -apple-system, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 640px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: linear-gradient(135deg, #ef4444, #f97316); color: white; padding: 26px; border-radius: 12px 12px 0 0; text-align: center; }}
+        .content {{ background: #f8fafc; padding: 26px; border: 1px solid #e2e8f0; }}
+        .stat-row {{ display: flex; gap: 12px; margin: 0 0 22px; }}
+        .stat {{ flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; text-align: center; }}
+        .stat .num {{ font-size: 1.8rem; font-weight: 800; }}
+        .stat .label {{ font-size: 0.8rem; color: #64748b; }}
+        table {{ width: 100%; border-collapse: collapse; background: white; border: 1px solid #e2e8f0; border-radius: 8px; }}
+        th {{ text-align: left; font-size: 0.78rem; color: #64748b; padding: 8px; border-bottom: 1px solid #e2e8f0; }}
+        h3 {{ font-size: 0.95rem; margin: 22px 0 8px; }}
+        .cta-button {{ display: inline-block; background: #ef4444; color: white; padding: 13px 26px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 22px; }}
+        .footer {{ text-align: center; color: #94a3b8; font-size: 0.85rem; padding: 20px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div style="font-size: 2.4rem; margin-bottom: 8px;">🚨</div>
+            <h1 style="margin: 0; font-size: 1.35rem;">지난 {hours}시간 오류 요약</h1>
+        </div>
+
+        <div class="content">
+            <p>{safe_name}님, 지난 {hours}시간 동안 기록된 오류입니다.</p>
+
+            <div class="stat-row">
+                <div class="stat">
+                    <div class="num" style="color:#ef4444;">{error_count}</div>
+                    <div class="label">미처리 예외 (500)</div>
+                </div>
+                <div class="stat">
+                    <div class="num" style="color:#f59e0b;">{warning_count}</div>
+                    <div class="label">부분 실패 (메일 등)</div>
+                </div>
+            </div>
+
+            <h3 style="color:#ef4444;">미처리 예외 — 요청이 실패했습니다</h3>
+            <table>
+                <thead><tr><th>예외 / 경로</th><th>메시지</th><th style="text-align:right;">횟수</th></tr></thead>
+                <tbody>{self._digest_rows(error_groups, '#ef4444')}</tbody>
+            </table>
+
+            <h3 style="color:#f59e0b;">부분 실패 — 요청은 성공했지만 후속 작업이 실패했습니다</h3>
+            <table>
+                <thead><tr><th>종류 / 경로</th><th>메시지</th><th style="text-align:right;">횟수</th></tr></thead>
+                <tbody>{self._digest_rows(warning_groups, '#f59e0b')}</tbody>
+            </table>
+
+            <p style="text-align: center;">
+                <a href="{admin_url}" class="cta-button">관리자 화면에서 스택 트레이스 보기 →</a>
+            </p>
+        </div>
+
+        <div class="footer">
+            <p>이 이메일은 InsightMatch 일일 배치에서 자동 발송되었습니다.</p>
+            <p>© 2025 OpenBrain Limited. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+        return self.send_email(to_email, subject, html_content)
+
 
 # 카카오톡 알림톡 준비용 클래스 (향후 구현)
 class KakaoAlimtalkService:

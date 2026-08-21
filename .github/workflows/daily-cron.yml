@@ -1,0 +1,77 @@
+# 일일 배치 트리거 (Vercel crons 의 대안/이중화)
+#
+# 왜 두 개인가:
+#   vercel.json 이 레거시 형식(version: 2 + builds)이다. Vercel 공식 문서는
+#   crons 와 builds 의 조합에 대해 아무 말도 하지 않는다 — 동작한다고도,
+#   안 한다고도 쓰여 있지 않다. 그래서 추측하지 않고 둘 다 켜두고,
+#   CronRun.triggered_by ('vercel-cron' vs 'external-cron') 로 실측한다.
+#
+#   판별 방법: 하루 지난 뒤 관리자 화면 > 에러 로그 탭의 "마지막 cron 실행"
+#   또는 GET /api/admin/cron-runs 를 본다.
+#     - triggered_by 에 'vercel-cron' 이 있으면 -> Vercel crons 가 동작한다.
+#       이 워크플로의 schedule 을 지워도 된다.
+#     - 'external-cron' 만 있으면 -> Vercel crons 가 등록되지 않은 것이다.
+#       이 워크플로가 유일한 스케줄러이므로 반드시 유지한다.
+#
+# 두 번 실행돼도 안전한가: 그렇다. 모든 작업은 멱등적이다(최근 Notification
+#   조회로 중복 발송을 막는다). Vercel 문서도 "cron 전달은 best effort 이며
+#   같은 실행이 두 번 호출될 수 있다"고 명시하므로 어차피 필요한 성질이다.
+#
+# 필요한 설정 (GitHub 저장소):
+#   Settings > Secrets and variables > Actions
+#     - Secret   CRON_SECRET          : Vercel 환경변수와 **같은 값**
+#     - Variable CRON_ENDPOINT_URL    : (선택) 배포 URL. 없으면 아래 기본값 사용
+
+name: Daily Cron
+
+on:
+  schedule:
+    # UTC 22:30 = KST 07:30.
+    # Vercel cron(21:00 UTC)과 시간을 벌려 두 스케줄러가 겹치지 않게 한다.
+    - cron: '30 22 * * *'
+  workflow_dispatch: {}   # 수동 실행 (배포 직후 검증용)
+
+# 앞선 실행이 아직 돌고 있으면 새로 시작하지 않는다.
+concurrency:
+  group: daily-cron
+  cancel-in-progress: false
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger daily cron endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          ENDPOINT: ${{ vars.CRON_ENDPOINT_URL || 'https://insight-match-ashen.vercel.app/api/cron/daily' }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "::error::CRON_SECRET 시크릿이 설정되지 않았습니다. 엔드포인트가 401로 거부합니다."
+            exit 1
+          fi
+
+          # -sS: 진행률은 숨기고 에러는 보여준다. --max-time: maxDuration(60s)보다 넉넉히.
+          status=$(curl -sS -o response.json -w '%{http_code}' \
+            --max-time 120 \
+            -X POST \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${ENDPOINT}")
+
+          echo "HTTP ${status}"
+          cat response.json || true
+          echo
+
+          if [ "${status}" != "200" ]; then
+            echo "::error::일일 배치 호출 실패 (HTTP ${status})"
+            exit 1
+          fi
+
+          # 개별 작업이 실패해도 엔드포인트는 200 을 반환한다(나머지 작업은 계속 돌아야 하므로).
+          # 실패한 작업이 있으면 워크플로를 실패로 표시해 알림이 가게 한다.
+          if grep -q '"success": *false' response.json; then
+            echo "::error::일부 작업이 실패했습니다. 응답의 failedJobs 를 확인하세요."
+            exit 1
+          fi

@@ -20,6 +20,71 @@
 
 ---
 
+## 2026-08-22 — L0 시간 기반 자동화: `cron_run` 신규 + `project.completed_at` 추가
+
+⚠️ **이번 변경은 기존 테이블에 컬럼을 추가한다.** `project.completed_at` 은
+`create_all()` 이 만들어주지 않으므로 **배포 전에 반드시 아래 ALTER 를 실행**해야
+한다. 이걸 빠뜨리면 프로젝트를 조회하는 모든 API 가 500 으로 실패한다(전례 있음).
+
+```sql
+-- ① 기존 테이블 컬럼 추가 — create_all 이 못 하는 부분. 배포 전 필수.
+--    프로젝트가 언제 끝났는지(정산 시점 근거·감사용)
+ALTER TABLE public.project ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP NULL;
+
+-- ② 신규 테이블: cron 실행 기록
+--    create_all 이 자동 생성하지만 미리 만들어도 무방하다.
+CREATE TABLE IF NOT EXISTS public.cron_run (
+    id            SERIAL NOT NULL,
+    job           VARCHAR(50) NOT NULL,
+    started_at    TIMESTAMP WITHOUT TIME ZONE,
+    finished_at   TIMESTAMP WITHOUT TIME ZONE,
+    success       BOOLEAN,
+    summary       TEXT,          -- JSON: 작업별 처리 건수
+    error_message TEXT,
+    triggered_by  VARCHAR(30),   -- 'vercel-cron' | 'external-cron' | 'admin'
+    PRIMARY KEY (id)
+);
+
+-- 조회 인덱스 (마지막 성공 실행 조회 = job + success 필터 + started_at 정렬)
+CREATE INDEX IF NOT EXISTS ix_cron_run_job        ON public.cron_run (job);
+CREATE INDEX IF NOT EXISTS ix_cron_run_started_at ON public.cron_run (started_at);
+CREATE INDEX IF NOT EXISTS ix_cron_run_success    ON public.cron_run (success);
+
+-- ③ ⚠️ 필수: 신규 테이블의 RLS 활성화 (create_all 은 RLS 를 켜주지 않는다)
+ALTER TABLE IF EXISTS public.cron_run ENABLE ROW LEVEL SECURITY;
+```
+
+적용 확인:
+
+```sql
+-- 컬럼 추가 확인
+SELECT column_name FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = 'project' AND column_name = 'completed_at';
+
+-- RLS 확인 (rowsecurity = true 여야 함)
+SELECT tablename, rowsecurity FROM pg_tables
+WHERE schemaname = 'public' AND tablename = 'cron_run';
+```
+
+### 배포 후 환경변수 (SQL 아님)
+
+`CRON_SECRET` 을 Vercel 환경변수에 추가해야 스케줄러가 배치를 호출할 수 있다.
+**미설정 시 `/api/cron/daily` 는 401 로 거부한다**(빈 secret 을 허용하면 누구나
+메일 발송·행 삭제가 포함된 배치를 돌릴 수 있게 되므로 의도적으로 막았다).
+
+```bash
+# 16자 이상 랜덤 문자열. 개행·특수문자가 섞이면 Authorization 헤더에서 깨진다.
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+GitHub Actions 대안을 쓸 경우 저장소 Secret 에도 **같은 값**을 넣는다
+(`.github/workflows/daily-cron.yml` 주석 참고).
+
+> 운영 메모: 에러 로그 90일 보관 정리는 이제 이 cron(`expired_cleanup` 작업)이
+> 자동으로 처리한다. 아래 2026-08-21 항목의 수동 DELETE 는 더 이상 필요 없다.
+
+---
+
 ## 2026-08-21 — L0 관측성: 에러 로그 테이블 (`error_log`)
 
 미처리 예외를 기록하는 신규 테이블이다. `create_all` 이 자동 생성하지만,

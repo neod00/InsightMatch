@@ -1,5 +1,6 @@
 import datetime
 import io
+import json
 import os
 import sys
 import unittest
@@ -15,7 +16,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../a
 os.environ['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
 
 from index import app, db
-from models import AdminActionLog, AnalysisJob, Consultant, ConsultantInvite, ErrorLog, ManualGeneration, Message, Milestone, Notification, PasswordResetToken, Post, Project, User
+from models import AdminActionLog, AnalysisJob, Consultant, ConsultantInvite, CronRun, ErrorLog, ManualGeneration, Message, Milestone, Notification, PasswordResetToken, Post, Project, User
 
 
 def make_token(user):
@@ -1875,6 +1876,478 @@ class TestWorkflowSecurity(unittest.TestCase):
             )
         unused_send.assert_not_called()
         self.assertFalse(result['success'])
+
+    # ------------------------------------------------------------------
+    # L0 시간 기반 자동화 (cron 인프라)
+    # ------------------------------------------------------------------
+    CRON_SECRET = 'test-cron-secret-0123456789'
+
+    def _cron_headers(self, secret=None):
+        return {'Authorization': f'Bearer {secret or self.CRON_SECRET}'}
+
+    _DEFAULT_HEADERS = object()   # headers={} (인증 없음) 과 '기본값' 을 구분하기 위한 표식
+
+    def _run_cron(self, secret=None, headers=_DEFAULT_HEADERS, method='post'):
+        """CRON_SECRET 환경변수를 설정한 상태로 배치를 1회 실행한다."""
+        call = getattr(self.client, method)
+        if headers is self._DEFAULT_HEADERS:
+            headers = self._cron_headers(secret)
+        with patch.dict(os.environ, {'CRON_SECRET': self.CRON_SECRET}):
+            return call('/api/cron/daily', headers=headers)
+
+    def _make_awaiting_signature_project(self, days_ago=5):
+        """기업만 서명하고 컨설턴트 서명을 기다리는 프로젝트."""
+        signed_at = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days_ago)
+        project = Project(
+            company_id=self.company.id,
+            consultant_id=self.consultant.id,
+            title='서명 대기 프로젝트',
+            status='awaiting_signature',
+            company_signed_at=signed_at,
+        )
+        db.session.add(project)
+        db.session.commit()
+        return project
+
+    def test_cron_requires_secret_and_rejects_wrong_one(self):
+        """L0-a/b: 무인증·오인증 호출은 거부한다.
+
+        이 엔드포인트는 메일을 보내고 DB 행을 지운다. 열려 있으면
+        누구나 남의 서비스로 메일을 쏘고 데이터를 정리시킬 수 있다.
+        """
+        # (a) CRON_SECRET 미설정 + 인증 없음 -> 거부
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop('CRON_SECRET', None)
+            self.assertEqual(self.client.post('/api/cron/daily').status_code, 401)
+            # 미설정 상태에서는 아무 Bearer 토큰도 통과시키지 않는다
+            self.assertEqual(
+                self.client.post('/api/cron/daily', headers=self._cron_headers()).status_code,
+                401,
+            )
+            # 비관리자 JWT 도 마찬가지
+            self.assertEqual(
+                self.client.post('/api/cron/daily', headers=auth_headers(self.company)).status_code,
+                401,
+            )
+
+        # (b) CRON_SECRET 설정 + 잘못된 secret -> 거부
+        self.assertEqual(self._run_cron(secret='wrong-secret').status_code, 401)
+        self.assertEqual(self._run_cron(headers={}).status_code, 401)
+
+        # 거부된 호출은 실행 기록을 남기지 않는다 (인증 없이 테이블을 채울 수 없어야 한다)
+        self.assertEqual(CronRun.query.count(), 0)
+
+        # 올바른 secret -> 통과
+        ok = self._run_cron()
+        self.assertEqual(ok.status_code, 200)
+        self.assertTrue(ok.get_json()['success'])
+
+    def test_cron_allows_admin_jwt_but_not_other_roles(self):
+        """L0: 관리자 JWT 로도 수동 실행할 수 있다 (배포 직후 검증 / cron 장애 시 수동 실행)."""
+        response = self.client.post('/api/cron/daily', headers=auth_headers(self.admin_user))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()['triggeredBy'], 'admin')
+
+        for user in (self.company, self.consultant_user):
+            self.assertEqual(
+                self.client.post('/api/cron/daily', headers=auth_headers(user)).status_code,
+                401,
+            )
+
+    def test_cron_accepts_get_because_vercel_cron_uses_get(self):
+        """L0: Vercel cron 은 GET 으로만 호출한다. GET 이 막혀 있으면 배치가 영원히 안 돈다."""
+        response = self._run_cron(method='get')
+        self.assertEqual(response.status_code, 200)
+        # Vercel cron 의 User-Agent 를 실측으로 구분해 기록한다
+        # (레거시 vercel.json 에서 crons 가 실제로 동작하는지 배포 후 판별하기 위함)
+        vercel = self._run_cron(method='get', headers={
+            'Authorization': f'Bearer {self.CRON_SECRET}',
+            'User-Agent': 'vercel-cron/1.0',
+        })
+        self.assertEqual(vercel.get_json()['triggeredBy'], 'vercel-cron')
+
+    def test_cron_reminders_are_not_sent_twice(self):
+        """L0-c: 중복 발송 방지 — 연속 2회 실행하면 두 번째는 알림 0건.
+
+        cron 은 매일 도는데 "아직 서명 안 함" 조건은 계속 참이므로,
+        이 방어가 없으면 매일 같은 알림이 나가 사용자가 알림 자체를 무시하게 된다.
+        Vercel 은 같은 cron 이 두 번 호출될 수 있다고 명시하므로 멱등성도 필요하다.
+        """
+        self._make_awaiting_signature_project(days_ago=5)
+
+        stale_request = Project(
+            company_id=self.company.id,
+            consultant_id=self.consultant.id,
+            title='무응답 견적 요청',
+            status='proposal_pending',
+            created_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=6),
+        )
+        db.session.add(stale_request)
+        db.session.commit()
+
+        first = self._run_cron().get_json()
+        self.assertEqual(first['results']['signature_reminder']['notified'], 1)
+        self.assertEqual(first['results']['proposal_reminder']['notified'], 1)
+
+        second = self._run_cron().get_json()
+        self.assertEqual(second['results']['signature_reminder']['notified'], 0,
+                         '같은 계약으로 리마인더가 두 번 발송됨')
+        self.assertEqual(second['results']['proposal_reminder']['notified'], 0,
+                         '같은 요청으로 리마인더가 두 번 발송됨')
+
+        self.assertEqual(
+            Notification.query.filter_by(type='contract_signature_reminder').count(), 1)
+        self.assertEqual(
+            Notification.query.filter_by(type='proposal_reminder').count(), 1)
+
+    def test_cron_reminder_targets_the_party_that_has_not_signed(self):
+        """L0: 서명 리마인더는 '아직 서명하지 않은 쪽' 에게만 간다."""
+        # 기업이 서명 -> 컨설턴트에게
+        self._make_awaiting_signature_project(days_ago=4)
+        self._run_cron()
+
+        reminders = Notification.query.filter_by(type='contract_signature_reminder').all()
+        self.assertEqual(len(reminders), 1)
+        self.assertEqual(reminders[0].user_id, self.consultant_user.id)
+
+        # 컨설턴트가 서명 -> 기업에게
+        consultant_signed = Project(
+            company_id=self.company.id,
+            consultant_id=self.consultant.id,
+            title='전문가만 서명한 프로젝트',
+            status='awaiting_signature',
+            consultant_signed_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=4),
+        )
+        # 아직 기한이 안 된 건은 대상이 아니다
+        too_recent = Project(
+            company_id=self.company.id,
+            consultant_id=self.consultant.id,
+            title='어제 서명한 프로젝트',
+            status='awaiting_signature',
+            company_signed_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1),
+        )
+        db.session.add_all([consultant_signed, too_recent])
+        db.session.commit()
+
+        self._run_cron()
+        company_reminders = Notification.query.filter_by(
+            type='contract_signature_reminder', user_id=self.company.id).all()
+        self.assertEqual(len(company_reminders), 1)
+        self.assertIn('전문가만 서명한 프로젝트', company_reminders[0].message)
+
+        # too_recent 는 아직 알림 대상이 아니므로 총 2건이어야 한다
+        self.assertEqual(Notification.query.filter_by(type='contract_signature_reminder').count(), 2)
+
+    def test_cron_continues_when_one_job_raises(self):
+        """L0-e: 한 작업이 예외를 던져도 나머지 작업은 계속 실행된다.
+
+        리마인더 하나가 깨졌다고 만료 정리와 다이제스트까지 멈추면
+        고장 하나가 인프라 전체를 멈춘다.
+        """
+        self._make_awaiting_signature_project(days_ago=5)
+
+        with patch('index._cron_job_error_digest', side_effect=RuntimeError('digest-blew-up')):
+            response = self._run_cron()
+
+        self.assertEqual(response.status_code, 200, '작업 실패가 엔드포인트를 500 으로 만듦')
+        payload = response.get_json()
+
+        self.assertFalse(payload['success'])
+        self.assertEqual(payload['failedJobs'], ['error_digest'])
+        self.assertIn('digest-blew-up', payload['results']['error_digest']['error'])
+
+        # 뒤 작업들은 정상적으로 끝났다
+        self.assertEqual(payload['results']['signature_reminder']['notified'], 1)
+        self.assertIn('invitesDeleted', payload['results']['expired_cleanup'])
+
+        # 실패는 조용히 넘어가지 않는다: CronRun + ErrorLog 양쪽에 남는다
+        run = CronRun.query.order_by(CronRun.id.desc()).first()
+        self.assertFalse(run.success)
+        self.assertIn('digest-blew-up', run.error_message)
+        self.assertTrue(ErrorLog.query.filter_by(exc_type='RuntimeError').count() >= 1)
+
+    def test_cron_error_digest_skips_when_nothing_happened(self):
+        """L0: 0건이면 메일을 보내지 않는다.
+
+        매일 오는 '이상 없음' 메일은 곧 읽히지 않게 되고,
+        그러면 정작 문제가 생긴 날의 메일까지 함께 묻힌다.
+        """
+        from index import email_service
+
+        with patch.object(email_service, 'send_error_digest', autospec=True) as mock_digest:
+            result = self._run_cron().get_json()
+        mock_digest.assert_not_called()
+        self.assertEqual(result['results']['error_digest']['skipped'], 'no_events')
+
+        # 미처리 예외와 부분 실패를 구분해서 담는다
+        db.session.add_all([
+            ErrorLog(level='error', path='/api/posts', exc_type='RuntimeError',
+                     exc_message='boom', fingerprint='fp-error'),
+            ErrorLog(level='warning', path='/api/posts', exc_type='SMTPException',
+                     exc_message='[proposal] mail failed', fingerprint='fp-warning'),
+        ])
+        db.session.commit()
+
+        with patch.object(email_service, 'send_error_digest', autospec=True,
+                          return_value={'success': True}) as mock_digest:
+            result = self._run_cron().get_json()
+
+        self.assertEqual(mock_digest.call_count, 1, '관리자에게 다이제스트가 나가지 않음')
+        kwargs = mock_digest.call_args.kwargs
+        self.assertEqual(kwargs['to_email'], self.admin_user.email)
+        self.assertEqual(kwargs['error_count'], 1)
+        self.assertEqual(kwargs['warning_count'], 1)
+        self.assertEqual([g['excType'] for g in kwargs['error_groups']], ['RuntimeError'])
+        self.assertEqual([g['excType'] for g in kwargs['warning_groups']], ['SMTPException'])
+
+        # 같은 날 두 번 호출돼도(Vercel 의 중복 invoke) 메일은 한 번만 나간다
+        with patch.object(email_service, 'send_error_digest', autospec=True,
+                          return_value={'success': True}) as mock_digest:
+            self._run_cron()
+        mock_digest.assert_not_called()
+
+    def test_cron_error_digest_escapes_error_messages(self):
+        """L0: 예외 메시지에는 사용자 입력이 섞여 들어온다 (관리자 메일함에서 렌더링됨)."""
+        from index import email_service
+
+        with patch.object(email_service, 'send_email', return_value={'success': True}) as mock_send:
+            email_service.send_error_digest(
+                to_email='admin@example.com',
+                admin_name='<b>관리자</b>',
+                hours=24,
+                error_count=1,
+                warning_count=0,
+                error_groups=[{
+                    'excType': 'ValueError',
+                    'message': "<img src=x onerror=alert('xss')>",
+                    'path': '/api/<script>',
+                    'count': 3,
+                }],
+                warning_groups=[],
+            )
+
+        html_body = mock_send.call_args[0][2]
+        self.assertNotIn('<img src=x', html_body)
+        self.assertNotIn('<script>', html_body)
+        self.assertIn('&lt;img src=x', html_body)
+        self.assertIn('ValueError', html_body)
+        # 부분 실패 표는 비어 있어도 표 자체는 나온다 (0건과 '집계 실패' 를 구분하기 위함)
+        self.assertIn('없음', html_body)
+
+    def test_cron_reports_truncation_and_does_not_starve_the_remainder(self):
+        """L0: 상한에 걸린 사실이 결과에 남고, 밀린 건은 다음 회차에 반드시 처리된다.
+
+        조용한 절단은 "다 처리했다"로 오해된다. 더 나쁜 것은 상한을 '조회한 행 수'
+        에 걸었을 때인데, 앞의 N건이 전부 '이미 알림' 으로 건너뛰어지면 뒤쪽 건은
+        영영 차례가 오지 않는다(굶는다). 상한은 생성 건수에만 걸어야 한다.
+        """
+        for _ in range(3):
+            self._make_awaiting_signature_project(days_ago=5)
+
+        with patch('index.CRON_MAX_ITEMS_PER_JOB', 2):
+            first = self._run_cron().get_json()['results']['signature_reminder']
+
+        self.assertTrue(first['truncated'], '상한에 걸렸는데 결과에 드러나지 않음')
+        self.assertEqual(first['notified'], 2)
+        self.assertEqual(first['deferred'], 1)
+        self.assertEqual(first['scanned'], 3, '상한이 조회 자체를 잘라 뒤쪽 건이 굶는다')
+
+        # 이미 알린 2건이 상한을 차지하지 않으므로 남은 1건이 처리된다
+        with patch('index.CRON_MAX_ITEMS_PER_JOB', 2):
+            second = self._run_cron().get_json()['results']['signature_reminder']
+
+        self.assertEqual(second['notified'], 1)
+        self.assertEqual(second['skipped'], 2)
+        self.assertFalse(second['truncated'])
+        self.assertEqual(Notification.query.filter_by(type='contract_signature_reminder').count(), 3)
+
+    def test_cron_cleanup_preserves_used_and_revoked_invites(self):
+        """L0: 만료된 '미사용' 초대만 정리한다. 사용·취소 이력은 감사 자료다."""
+        now = datetime.datetime.now(datetime.timezone.utc)
+        long_expired = now - datetime.timedelta(days=100)
+
+        expired_unused = ConsultantInvite(token='expired-unused', expires_at=long_expired)
+        expired_used = ConsultantInvite(token='expired-used', expires_at=long_expired,
+                                        used_at=long_expired, used_by_user_id=self.consultant_user.id)
+        expired_revoked = ConsultantInvite(token='expired-revoked', expires_at=long_expired,
+                                           revoked_at=long_expired)
+        just_expired = ConsultantInvite(token='just-expired', expires_at=now - datetime.timedelta(days=1))
+        active = ConsultantInvite(token='active', expires_at=now + datetime.timedelta(days=7))
+        db.session.add_all([expired_unused, expired_used, expired_revoked, just_expired, active])
+        db.session.commit()
+
+        result = self._run_cron().get_json()
+        self.assertEqual(result['results']['expired_cleanup']['invitesDeleted'], 1)
+
+        remaining = {i.token for i in ConsultantInvite.query.all()}
+        self.assertEqual(remaining, {'expired-used', 'expired-revoked', 'just-expired', 'active'})
+
+        # is_usable() 과 모순되지 않는다: 만료 직후 링크는 지워지지 않고 410 을 유지한다
+        response = self.client.get('/api/consultant-invites/just-expired')
+        self.assertEqual(response.status_code, 410)
+        self.assertIn('만료', response.get_json()['message'])
+
+    def test_cron_run_is_recorded_and_surfaced_in_health(self):
+        """L0: cron 이 멈춰도 아무도 모르면 이 인프라는 무의미하다."""
+        # 한 번도 안 돌았으면 stale 로 드러나야 한다
+        before = self.client.get('/api/health?verbose=1', headers=auth_headers(self.admin_user)).get_json()
+        self.assertIsNone(before['cron']['lastSuccessAt'])
+        self.assertTrue(before['cron']['stale'])
+
+        self._run_cron()
+
+        after = self.client.get('/api/health?verbose=1', headers=auth_headers(self.admin_user)).get_json()
+        self.assertIsNotNone(after['cron']['lastSuccessAt'])
+        self.assertFalse(after['cron']['stale'])
+        self.assertLess(after['cron']['ageHours'], 1)
+        self.assertEqual(after['cron']['lastRun']['triggeredBy'], 'external-cron')
+
+        run = CronRun.query.one()
+        self.assertEqual(run.job, 'daily')
+        self.assertTrue(run.success)
+        self.assertIsNotNone(run.finished_at)
+        self.assertIn('signature_reminder', json.loads(run.summary))
+
+        # 실행 이력은 관리자만 볼 수 있다
+        self.assertEqual(self.client.get('/api/admin/cron-runs').status_code, 401)
+        self.assertEqual(
+            self.client.get('/api/admin/cron-runs', headers=auth_headers(self.company)).status_code, 403)
+        listing = self.client.get('/api/admin/cron-runs', headers=auth_headers(self.admin_user))
+        self.assertEqual(listing.status_code, 200)
+        self.assertEqual(len(listing.get_json()['runs']), 1)
+
+    # ------------------------------------------------------------------
+    # L0 완료 상태 전이
+    # ------------------------------------------------------------------
+    def _contracted_project(self, status='in_progress'):
+        project = Project(
+            company_id=self.company.id,
+            consultant_id=self.consultant.id,
+            title='진행 중 프로젝트',
+            status=status,
+        )
+        db.session.add(project)
+        db.session.flush()
+        db.session.add(Milestone(project_id=project.id, title='Kick-off'))
+        db.session.commit()
+        return project
+
+    def test_consultant_cannot_complete_project_alone(self):
+        """L0-d: 완료 전이는 정산 트리거다. 대금을 받는 쪽이 스스로 선언할 수 없다."""
+        project = self._contracted_project()
+
+        response = self.client.post(
+            f'/api/projects/{project.id}/complete',
+            headers=auth_headers(self.consultant_user),
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertIn('기업', response.get_json()['message'])
+        self.assertEqual(Project.query.get(project.id).status, 'in_progress')
+
+        # 무관한 제3자도 당연히 불가
+        self.assertEqual(
+            self.client.post(f'/api/projects/{project.id}/complete',
+                             headers=auth_headers(self.other_company)).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.client.post(f'/api/projects/{project.id}/complete').status_code, 401)
+
+    def test_company_completes_project_and_both_parties_are_notified(self):
+        """L0: 기업이 완료 확인하면 completed_at 이 남고 양측에 알림이 간다."""
+        project = self._contracted_project()
+
+        response = self.client.post(
+            f'/api/projects/{project.id}/complete',
+            headers=auth_headers(self.company),
+        )
+        self.assertEqual(response.status_code, 200)
+
+        updated = Project.query.get(project.id)
+        self.assertEqual(updated.status, 'completed')
+        self.assertIsNotNone(updated.completed_at, '정산 시점의 근거가 남지 않음')
+        self.assertIsNotNone(updated.end_date)
+        # 프로젝트가 끝났는데 마일스톤이 pending 으로 남으면 진행률이 영원히 100%가 안 된다
+        self.assertEqual({m.status for m in updated.milestones}, {'completed'})
+
+        notified = {n.user_id for n in Notification.query.filter_by(type='project_completed').all()}
+        self.assertEqual(notified, {self.company.id, self.consultant_user.id})
+
+        # 두 번 완료 처리할 수 없다
+        again = self.client.post(f'/api/projects/{project.id}/complete',
+                                 headers=auth_headers(self.company))
+        self.assertEqual(again.status_code, 400)
+
+    def test_admin_can_complete_project_and_action_is_audited(self):
+        """L0: 분쟁·기업 무응답 대비로 관리자도 완료 처리할 수 있다 (감사 로그 필수)."""
+        project = self._contracted_project(status='contracted')
+
+        response = self.client.post(f'/api/projects/{project.id}/complete',
+                                    headers=auth_headers(self.admin_user))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Project.query.get(project.id).status, 'completed')
+
+        log = AdminActionLog.query.filter_by(action='complete_project').one()
+        self.assertEqual(log.target_id, str(project.id))
+        self.assertEqual(json.loads(log.details)['previous_status'], 'contracted')
+
+    def test_complete_rejects_projects_before_contract(self):
+        """L0: 계약 전 프로젝트는 완료 처리 대상이 아니다."""
+        for status in ('proposal_pending', 'proposal_submitted', 'awaiting_signature',
+                       'cancelled_by_company'):
+            project = self._contracted_project(status=status)
+            response = self.client.post(f'/api/projects/{project.id}/complete',
+                                        headers=auth_headers(self.company))
+            self.assertEqual(response.status_code, 400, f'{status} 에서 완료 처리가 허용됨')
+            self.assertEqual(Project.query.get(project.id).status, status)
+
+        # 삭제된 프로젝트는 404
+        deleted = self._contracted_project()
+        deleted.deleted_at = datetime.datetime.now(datetime.timezone.utc)
+        db.session.commit()
+        self.assertEqual(
+            self.client.post(f'/api/projects/{deleted.id}/complete',
+                             headers=auth_headers(self.company)).status_code,
+            404,
+        )
+
+    def test_milestone_status_update_requires_participant_and_valid_status(self):
+        """L0: 마일스톤 status 를 바꾸는 코드가 없어 항상 pending 이었다."""
+        project = self._contracted_project(status='contracted')
+        milestone = project.milestones[0]
+        url = f'/api/projects/{project.id}/milestones/{milestone.id}/status'
+
+        # 당사자가 아니면 불가
+        self.assertEqual(
+            self.client.post(url, json={'status': 'in_progress'},
+                             headers=auth_headers(self.other_company)).status_code,
+            403,
+        )
+        # 허용되지 않은 값은 거부
+        self.assertEqual(
+            self.client.post(url, json={'status': 'done'},
+                             headers=auth_headers(self.consultant_user)).status_code,
+            400,
+        )
+
+        # 실제로 작업하는 컨설턴트가 갱신할 수 있다
+        response = self.client.post(url, json={'status': 'in_progress'},
+                                    headers=auth_headers(self.consultant_user))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Milestone.query.get(milestone.id).status, 'in_progress')
+        # 첫 마일스톤이 움직이면 프로젝트도 진행 중으로 올라간다
+        self.assertEqual(Project.query.get(project.id).status, 'in_progress')
+
+        # 다른 프로젝트의 마일스톤 id 를 넣어 남의 데이터를 바꿀 수 없다
+        foreign = self._contracted_project()
+        self.assertEqual(
+            self.client.post(
+                f'/api/projects/{project.id}/milestones/{foreign.milestones[0].id}/status',
+                json={'status': 'completed'},
+                headers=auth_headers(self.company),
+            ).status_code,
+            404,
+        )
 
 
 if __name__ == '__main__':

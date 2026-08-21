@@ -279,6 +279,11 @@ class Project(db.Model):
     cancelled_at = db.Column(db.DateTime)  # 취소 시간
     cancelled_reason = db.Column(db.String(500))  # 취소 사유
 
+    # 완료 시각. status='completed' 로 전이한 시점을 별도로 남긴다.
+    # status 문자열만으로는 "언제 끝났는지"를 알 수 없어 정산 시점의 근거가 되지 못하고,
+    # 리뷰 요청·이행 추적 같은 후속 기능도 기준 시각이 없으면 붙일 수 없다.
+    completed_at = db.Column(db.DateTime, nullable=True)
+
     # Soft delete: 삭제해도 대화(Message)·마일스톤 이력은 보존한다.
     # (기업 일방의 삭제로 컨설턴트와의 협상 기록이 영구 소실되는 것을 방지)
     deleted_at = db.Column(db.DateTime, nullable=True)
@@ -324,6 +329,7 @@ class Project(db.Model):
             'contract_special_terms': self.contract_special_terms,
             'company_signed_at': self.company_signed_at.isoformat() if self.company_signed_at else None,
             'consultant_signed_at': self.consultant_signed_at.isoformat() if self.consultant_signed_at else None,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
             'milestones': [m.to_dict() for m in self.milestones]
         }
 
@@ -418,6 +424,47 @@ class RateLimitEntry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(160), nullable=False, index=True)  # 예: "match:1.2.3.4"
     created_at = db.Column(db.DateTime, default=utc_now, index=True)
+
+
+class CronRun(db.Model):
+    """시간 기반 배치(cron) 실행 기록.
+
+    이 기록이 없으면 cron 인프라 자체가 무의미해진다. 스케줄러가 조용히
+    멈춰도 아무 일도 일어나지 않는 것처럼 보이기 때문이다("리마인더가 안 온다"는
+    사실은 아무도 신고하지 않는다). 마지막 성공 실행 시각을 남겨두고
+    /api/health?verbose=1 과 관리자 화면에서 경과 시간을 노출한다.
+
+    RateLimitEntry / ErrorLog 와 같은 방식으로, 행을 그대로 쌓고 조회 시 집계한다
+    (서버리스 동시 실행에서 UPDATE 경합을 피하기 위함).
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    job = db.Column(db.String(50), nullable=False, index=True)   # 'daily'
+    started_at = db.Column(db.DateTime, default=utc_now, index=True)
+    finished_at = db.Column(db.DateTime)
+
+    # 개별 작업 하나가 실패해도 나머지는 계속 돌린다.
+    # success 는 "모든 작업이 예외 없이 끝났는가" 를 뜻한다.
+    success = db.Column(db.Boolean, default=False, index=True)
+
+    summary = db.Column(db.Text)          # JSON: 작업별 처리 건수
+    error_message = db.Column(db.Text)    # 실패한 작업 요약 (없으면 NULL)
+
+    # 누가 호출했는가. Vercel cron 은 User-Agent 가 'vercel-cron/1.0' 이라
+    # 이 값으로 "레거시 vercel.json 에서 Vercel crons 가 실제로 동작하는가" 를
+    # 배포 후에 실측으로 판별할 수 있다.
+    triggered_by = db.Column(db.String(30))  # 'vercel-cron' | 'external-cron' | 'admin'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'job': self.job,
+            'startedAt': self.started_at.isoformat() if self.started_at else None,
+            'finishedAt': self.finished_at.isoformat() if self.finished_at else None,
+            'success': bool(self.success),
+            'summary': json.loads(self.summary) if self.summary else {},
+            'errorMessage': self.error_message,
+            'triggeredBy': self.triggered_by,
+        }
 
 
 class PasswordResetToken(db.Model):

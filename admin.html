@@ -473,6 +473,17 @@
                     <p style="color: var(--text-muted);">이메일 발송</p>
                     <p id="error-stat-email-note" style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;"></p>
                 </div>
+                <!-- 일일 배치(cron)가 조용히 멈추면 리마인더·정리·다이제스트가 전부 사라지는데,
+                     "알림이 안 온다"는 사실은 아무도 신고하지 않는다. 여기서 드러내야 한다. -->
+                <div class="feature-card" style="text-align: center;">
+                    <div id="error-stat-cron" style="font-size: 2.5rem; font-weight: 800; color: var(--text-muted);">-
+                    </div>
+                    <p style="color: var(--text-muted);">일일 배치 (cron)</p>
+                    <p id="error-stat-cron-note" style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;"></p>
+                    <button class="btn btn-sm btn-ghost" style="margin-top: 8px;" onclick="runCronNow(this)">
+                        <i data-lucide="play" style="width: 14px; height: 14px;"></i> 지금 실행
+                    </button>
+                </div>
             </div>
 
             <!-- Filter -->
@@ -963,9 +974,79 @@
                         emailCell.style.color = 'var(--text-muted)';
                         emailNote.textContent = '';
                     }
+
+                    renderCronStatus(data.cron);
                 } catch (e) {
                     cell.textContent = '확인 불가';
                     cell.style.color = 'var(--error)';
+                }
+            }
+
+            // 마지막 cron 실행 상태.
+            // 하루 넘게 안 돌았으면(stale) 그 사실이 한눈에 보여야 한다.
+            function renderCronStatus(cron) {
+                const cell = document.getElementById('error-stat-cron');
+                const note = document.getElementById('error-stat-cron-note');
+                if (!cell || !note) return;
+
+                if (!cron) {
+                    cell.textContent = '확인 불가';
+                    cell.style.color = 'var(--text-muted)';
+                    note.textContent = 'cron 실행 기록을 읽지 못했습니다.';
+                    return;
+                }
+
+                if (!cron.lastSuccessAt) {
+                    cell.textContent = '미실행';
+                    cell.style.color = 'var(--error)';
+                    note.textContent = '성공한 실행이 아직 없습니다. CRON_SECRET 설정과 스케줄러를 확인하세요.';
+                    return;
+                }
+
+                const age = typeof cron.ageHours === 'number' ? cron.ageHours : null;
+                cell.textContent = age === null ? '?' : (age < 1 ? '방금' : `${Math.round(age)}시간 전`);
+                cell.style.color = cron.stale ? 'var(--error)' : 'var(--success)';
+
+                // textContent 로만 넣는다 — triggeredBy·errorMessage 에는 예외 메시지가
+                // 섞여 들어오므로 innerHTML 로 넘기면 안 된다 (escapeHtml 은 불필요).
+                const trigger = (cron.lastRun && cron.lastRun.triggeredBy) || '-';
+                const parts = [
+                    `마지막 성공: ${formatErrorTime(cron.lastSuccessAt)}`,
+                    `호출: ${trigger}`
+                ];
+                if (cron.stale) {
+                    parts.push(`⚠️ ${cron.staleAfterHours}시간 넘게 실행되지 않았습니다.`);
+                }
+                if (cron.lastRun && cron.lastRun.success === false) {
+                    parts.push(`⚠️ 최근 실행 실패: ${cron.lastRun.errorMessage || '사유 불명'}`);
+                }
+                note.textContent = parts.join(' · ');
+            }
+
+            // 배포 직후 즉시 검증하거나, cron 이 멈췄을 때 손으로 돌리기 위한 버튼.
+            // 엔드포인트는 관리자 JWT 도 받아들이므로 authFetch 로 그대로 호출된다.
+            async function runCronNow(button) {
+                const original = button.innerHTML;
+                button.disabled = true;
+                button.innerHTML = '<span class="loading-spinner" style="width:14px; height:14px; border-width:2px;"></span> 실행 중...';
+                try {
+                    const res = await authFetch('/api/cron/daily', { method: 'POST' });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        alert(data.message || '일일 배치 실행에 실패했습니다.');
+                    } else if (data.success) {
+                        alert(`일일 배치를 실행했습니다. (${data.durationMs}ms)`);
+                    } else {
+                        alert(`일부 작업이 실패했습니다: ${(data.failedJobs || []).join(', ')}`);
+                    }
+                } catch (e) {
+                    alert('서버 연결에 실패했습니다.');
+                } finally {
+                    button.disabled = false;
+                    button.innerHTML = original;
+                    lucide.createIcons();
+                    loadHealthStatus();
+                    loadErrorLogs(1);
                 }
             }
 

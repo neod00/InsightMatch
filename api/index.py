@@ -23,7 +23,7 @@ import jwt
 from sqlalchemy import func, text
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, ErrorLog, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry
+from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, CronRun, ErrorLog, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry
 from services import MatchingService, ProposalService, EmailService
 from services.iso_manual_service import generate_iso_manual_stream
 
@@ -508,10 +508,42 @@ def _iso_or_none(value):
     return value.isoformat()
 
 
-def error_group_summary(since=None, limit=10):
+def _as_naive_utc(value):
+    """모델에서 읽은 DateTime 을 naive UTC 로 통일한다.
+
+    DateTime 컬럼은 tz 를 저장하지 않으므로 DB 왕복 후에는 naive 로 돌아오지만,
+    같은 세션에서 방금 쓴 인스턴스는 identity map 에 남아 aware 인 채로 나온다
+    (저장 시 datetime.now(timezone.utc) 를 그대로 넣기 때문). 이 둘을 그대로
+    비교하면 TypeError: can't compare offset-naive and offset-aware 로 터진다.
+    """
+    if value is None:
+        return None
+    if value.tzinfo is not None:
+        return value.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+    return value
+
+
+def _apply_error_level_filter(query, level_filter):
+    """ErrorLog 조회에 level 조건을 건다.
+
+    'error'   = 미처리 예외(장애). warning 이 아닌 모든 것.
+    'warning' = 메일 발송 실패 같은 부분 실패(요청 자체는 성공했다).
+    두 가지를 한 칸에 섞으면 500 이 늘었는지 메일만 막혔는지 구분되지 않는다.
+    """
+    if level_filter == 'warning':
+        return query.filter(ErrorLog.level == 'warning')
+    if level_filter == 'error':
+        return query.filter(ErrorLog.level != 'warning')
+    return query
+
+
+def error_group_summary(since=None, limit=10, level_filter=None):
     """fingerprint 별 요약 — 발생 횟수 / 최근·최초 발생 시각 / 대표 메시지.
 
     카운터 컬럼 대신 GROUP BY 로 센다(서버리스 동시성 경합 회피).
+
+    Args:
+        level_filter: None(전체) | 'error'(미처리 예외) | 'warning'(부분 실패)
     """
     query = db.session.query(
         ErrorLog.fingerprint,
@@ -521,6 +553,7 @@ def error_group_summary(since=None, limit=10):
     )
     if since is not None:
         query = query.filter(ErrorLog.created_at >= since)
+    query = _apply_error_level_filter(query, level_filter)
 
     rows = (
         query.group_by(ErrorLog.fingerprint)
@@ -535,6 +568,7 @@ def error_group_summary(since=None, limit=10):
         latest_query = ErrorLog.query.filter(ErrorLog.fingerprint == row.fingerprint)
         if since is not None:
             latest_query = latest_query.filter(ErrorLog.created_at >= since)
+        latest_query = _apply_error_level_filter(latest_query, level_filter)
         latest = latest_query.order_by(ErrorLog.created_at.desc(), ErrorLog.id.desc()).first()
 
         groups.append({
@@ -1965,6 +1999,7 @@ def handle_projects():
                 'schedule_status': p.schedule_status,
                 'cancelled_at': p.cancelled_at.isoformat() if p.cancelled_at else None,
                 'cancelled_reason': p.cancelled_reason,
+                'completed_at': p.completed_at.isoformat() if p.completed_at else None,
                 'milestones': [m.to_dict() for m in p.milestones]
             })
         return jsonify(results)
@@ -2846,6 +2881,143 @@ def reject_schedule(project_id):
     return jsonify({
         'message': '일정 조율을 요청했습니다. 컨설턴트가 새로운 일정을 제안할 것입니다.',
         'schedule_status': project.schedule_status
+    })
+
+# ========================================
+# 프로젝트 완료 처리 (상태 머신의 종착점)
+# ========================================
+# 지금까지 Project.status 는 in_progress 에서 끝났다. completed 로 전이하는 코드가
+# 한 줄도 없어 상태 머신이 닫히지 않았고, 그 결과 정산·리뷰 수집·이행 추적처럼
+# "프로젝트가 끝났다"를 시작점으로 삼는 기능을 아예 붙일 수 없었다.
+
+# 완료 처리가 가능한 상태.
+# contracted 도 포함한다 — 일정 확정(confirm-schedule)은 선택적 단계라
+# 짧은 용역은 in_progress 를 거치지 않고 끝나는 경우가 있다.
+PROJECT_COMPLETABLE_STATUSES = ('contracted', 'in_progress')
+
+# 마일스톤에 허용되는 상태 (models.Milestone.status 주석과 동일)
+MILESTONE_STATUSES = ('pending', 'in_progress', 'completed')
+
+
+@app.route('/api/projects/<int:project_id>/complete', methods=['POST'])
+@token_required
+def complete_project(project_id):
+    """프로젝트 완료 처리.
+
+    권한: 용역을 **받은** 기업, 또는 관리자.
+      컨설턴트에게는 주지 않는다. 완료 전이는 정산의 트리거이자 리뷰 수집의
+      시작점이므로, 대금을 받는 쪽이 스스로 "끝났다"고 선언할 수 있으면
+      완료 여부가 조작 가능해진다(용역이 끝나지 않았는데 정산이 열린다).
+      확인은 돈을 지불하는 쪽이 한다.
+      관리자는 분쟁·기업 무응답 같은 예외 처리를 위해 허용한다.
+    """
+    project = get_active_project_or_404(project_id)
+
+    is_admin = getattr(g.current_user, 'role', None) == 'admin'
+    if not (is_admin or is_project_company(project)):
+        if is_project_consultant(project):
+            return jsonify({
+                'message': '완료 확인은 기업이 진행합니다. 기업에 완료 확인을 요청해주세요.'
+            }), 403
+        return jsonify({'message': '해당 프로젝트를 완료 처리할 권한이 없습니다.'}), 403
+
+    if project.status == 'completed':
+        return jsonify({'message': '이미 완료된 프로젝트입니다.'}), 400
+
+    if project.status not in PROJECT_COMPLETABLE_STATUSES:
+        return jsonify({'message': '계약이 체결되어 진행 중인 프로젝트만 완료 처리할 수 있습니다.'}), 400
+
+    previous_status = project.status
+    now = datetime.datetime.now(datetime.timezone.utc)
+    project.status = 'completed'
+    project.completed_at = now
+    if not project.end_date:
+        project.end_date = now
+
+    # 남아 있는 마일스톤도 함께 닫는다. 프로젝트는 끝났는데 마일스톤이
+    # pending 으로 남아 있으면 대시보드의 진행률이 영원히 100%가 되지 않는다.
+    for milestone in project.milestones:
+        if milestone.status != 'completed':
+            milestone.status = 'completed'
+
+    # 양측에 인앱 알림
+    company_user = User.query.get(project.company_id) if project.company_id else None
+    consultant_user_id = get_project_consultant_user_id(project)
+    for user_id in filter(None, [company_user.id if company_user else None, consultant_user_id]):
+        db.session.add(Notification(
+            user_id=user_id,
+            type='project_completed',
+            title='프로젝트가 완료되었습니다',
+            message=f'"{project.title}" 프로젝트가 완료 처리되었습니다.',
+            link='/dashboard.html',
+        ))
+
+    # TODO(L1): 여기서 양측에 리뷰 요청을 보낸다. 완료 시각(completed_at)이
+    #           리뷰 수집 기한의 기준이 되고, 정산 트리거도 이 지점에 붙는다.
+    #           이번 배치(L0)의 범위는 상태 전이까지다.
+
+    if is_admin:
+        # 관리자 대행 완료는 분쟁 처리의 근거가 되므로 감사 로그에 남긴다.
+        log_admin_action('complete_project', 'project', str(project.id),
+                         {'previous_status': previous_status})
+
+    db.session.commit()
+
+    return jsonify({
+        'message': '프로젝트를 완료 처리했습니다.',
+        'status': project.status,
+        'completed_at': project.completed_at.isoformat(),
+    })
+
+
+@app.route('/api/projects/<int:project_id>/milestones/<int:milestone_id>/status', methods=['POST'])
+@token_required
+def update_milestone_status(project_id, milestone_id):
+    """마일스톤 진행 상태 갱신.
+
+    지금까지 Milestone.status 를 변경하는 코드가 없어 모든 마일스톤이 영원히
+    pending 이었다. 즉 대시보드의 진행 표시가 실제 진행과 무관했다.
+
+    권한: 프로젝트 당사자 양측 + 관리자.
+      완료 전이(정산 트리거)와 달리 마일스톤은 진행 상황 공유 수단이므로
+      실제로 작업하는 컨설턴트가 갱신할 수 있어야 하고, 기업도 정정할 수 있어야 한다.
+    """
+    project = get_active_project_or_404(project_id)
+
+    is_admin = getattr(g.current_user, 'role', None) == 'admin'
+    if not is_admin:
+        forbidden = require_project_participant(project)
+        if forbidden:
+            return forbidden
+
+    milestone = Milestone.query.get_or_404(milestone_id)
+    # 다른 프로젝트의 마일스톤 id 를 넣어 남의 데이터를 바꾸지 못하게 한다.
+    if not _same_id(milestone.project_id, project.id):
+        abort(404)
+
+    if project.status not in ('contracted', 'in_progress', 'completed'):
+        return jsonify({'message': '계약이 체결된 프로젝트만 마일스톤을 갱신할 수 있습니다.'}), 400
+
+    data = request.json or {}
+    new_status = (data.get('status') or '').strip()
+    if new_status not in MILESTONE_STATUSES:
+        return jsonify({
+            'message': f"status 는 {', '.join(MILESTONE_STATUSES)} 중 하나여야 합니다."
+        }), 400
+
+    milestone.status = new_status
+
+    # 계약 직후 첫 마일스톤이 움직이면 프로젝트도 진행 중으로 올린다.
+    # (일정 확정 없이 바로 작업을 시작하는 경우를 상태에 반영한다)
+    if project.status == 'contracted' and new_status in ('in_progress', 'completed'):
+        project.status = 'in_progress'
+
+    db.session.commit()
+
+    return jsonify({
+        'message': '마일스톤 상태가 갱신되었습니다.',
+        'milestone': milestone.to_dict(),
+        'project_status': project.status,
     })
 
 # --- Cancel Consultant Request ---
@@ -4089,6 +4261,20 @@ def _health_verbose_payload():
         data['errors_24h'] = None
         data['warnings_24h'] = None
         data['errors_top'] = []
+
+    # cron 이 조용히 멈추면 리마인더·정리·다이제스트가 전부 사라진다.
+    # 그런데 "알림이 안 온다"는 사실은 아무도 신고하지 않으므로,
+    # 마지막 성공 실행 시각과 경과 시간을 여기서 드러낸다.
+    try:
+        data['cron'] = _cron_health_payload()
+    except Exception as e:
+        # cron_run 테이블이 아직 없는 배포 직후 등. health 를 500 으로 만들지 않는다.
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        print(f"[Health] cron summary failed: {type(e).__name__}")
+        data['cron'] = None
     return data
 
 
@@ -4612,6 +4798,607 @@ def get_error_log_detail(log_id):
     """개별 에러 상세 (스택 트레이스 포함). 관리자 전용."""
     log = ErrorLog.query.get_or_404(log_id)
     return jsonify(log.to_dict(include_traceback=True))
+
+
+# ============================================================
+# 시간 기반 자동화 (cron)
+# ============================================================
+# 이 플랫폼에는 지금까지 시간 기반 트리거가 하나도 없었다. 그래서 "N일 무응답
+# 리마인더", "만료 정리", "일일 요약" 같은 것이 원리적으로 불가능했다.
+#
+# 설계 원칙: **엔드포인트는 누가 호출하든 동작해야 한다.**
+#   vercel.json 이 레거시 version:2 + builds 형식이라 Vercel 의 crons 속성이
+#   실제로 등록되는지 공식 문서상 확인되지 않는다(문서가 둘의 조합을 언급하지
+#   않는다). 그래서 스케줄러(드라이버)를 Vercel cron -> GitHub Actions 로
+#   바꿔도 이 엔드포인트 코드는 그대로여야 한다. 인증을 헤더 하나
+#   (Authorization: Bearer <CRON_SECRET>)로 통일한 이유가 이것이다.
+#   Vercel 은 CRON_SECRET 환경변수가 있으면 이 헤더를 자동으로 붙이고,
+#   GitHub Actions 의 curl 도 같은 헤더를 쓰면 된다.
+#
+# 멱등성: Vercel 문서는 "cron 전달은 best effort 이며 같은 실행이 두 번
+#   호출될 수 있다"고 명시한다. 따라서 모든 작업은 두 번 돌아도 결과가
+#   같아야 한다. 새 컬럼을 추가하는 대신 이미 있는 Notification 행을 조회해
+#   최근 같은 알림이 있으면 건너뛰는 방식으로 이를 만족시킨다.
+#
+# Supabase keepalive: 이 cron 이 매일 DB 를 건드리므로 무료 티어의
+#   자동 일시정지(일정 기간 무활동 시 프로젝트 pause)가 자연히 방지된다.
+#   별도 keepalive 작업을 만들 필요가 없다.
+
+CRON_JOB_NAME = 'daily'
+
+# Vercel 서버리스 maxDuration 이 60초다. 한 작업이 테이블 전체를 훑다가
+# 타임아웃 나면 뒤 작업이 통째로 실행되지 않는다. 작업별 처리 상한을 두고,
+# 상한에 걸리면 실행 결과에 truncated 를 남긴다 — 조용한 절단은
+# "다 처리했다"로 오해되고, 밀린 건은 영원히 처리되지 않는다.
+CRON_MAX_ITEMS_PER_JOB = 200
+
+# 상한을 '실제로 처리한 건수' 가 아니라 '조회한 행 수' 에 걸면 굶는 행이 생긴다.
+# 앞의 200건이 전부 "이미 알렸음" 으로 건너뛰어져도 201번째는 영영 차례가 오지 않기
+# 때문이다. 그래서 조회는 더 넓게 하고(아래), 상한은 생성 건수에만 건다.
+CRON_MAX_SCAN_PER_JOB = 1000
+
+# 다이제스트 수신 관리자 수 상한 (실수로 admin 계정이 늘어나도 메일 폭주 방지)
+CRON_ADMIN_RECIPIENT_LIMIT = 5
+
+CRON_STALE_HOURS = 36           # 이보다 오래 성공 실행이 없으면 cron 이 멈춘 것으로 본다
+ERROR_DIGEST_HOURS = 24         # 다이제스트가 다루는 기간
+ERROR_DIGEST_REPEAT_HOURS = 20  # 같은 관리자에게 이 시간 안에는 다시 보내지 않는다
+
+SIGNATURE_REMINDER_DAYS = 3     # 한쪽만 서명한 채 이만큼 지나면 상대에게 알림
+PROPOSAL_REMINDER_DAYS = 3      # 제안 요청 후 이만큼 무응답이면 컨설턴트에게 알림
+REMINDER_REPEAT_DAYS = 3        # 같은 건으로 이 기간 안에는 다시 알리지 않는다
+# 이보다 오래된 건은 사실상 방치된 요청이다. 계속 리마인더를 보내면 알림이
+# 소음이 되어 정작 필요한 알림까지 무시된다.
+REMINDER_MAX_AGE_DAYS = 30
+
+INVITE_RETENTION_DAYS = 30      # 만료된 미사용 초대를 이만큼 더 보관한 뒤 정리
+ERROR_LOG_RETENTION_DAYS = 90   # 에러 로그 보관 기간 (migrations/README.md 의 수동 DELETE 를 대체)
+
+
+def _has_recent_notification(user_id, notif_type, link, within_hours):
+    """같은 사용자에게 같은 건으로 최근에 보낸 알림이 있는지 확인한다.
+
+    cron 은 매일 도는데 조건(예: 아직 서명 안 함)은 계속 참이므로,
+    이 검사가 없으면 매일 같은 알림이 나가 사용자가 알림을 통째로 무시하게 된다.
+    새 컬럼(last_reminded_at)을 만들지 않고 이미 있는 Notification 행으로
+    판정한다 — 스키마 변경 없이 멱등성까지 함께 얻는다.
+
+    link 에 프로젝트 id 를 담아 두면 "같은 종류의 다른 프로젝트 알림"까지
+    잘못 억제하는 것을 피할 수 있다.
+    """
+    since = _naive_utc_now() - datetime.timedelta(hours=within_hours)
+    query = Notification.query.filter(
+        Notification.user_id == user_id,
+        Notification.type == notif_type,
+        Notification.created_at >= since,
+    )
+    if link:
+        query = query.filter(Notification.link == link)
+    return db.session.query(query.exists()).scalar()
+
+
+def _recently_notified_links(notif_type, within_hours, limit=CRON_MAX_SCAN_PER_JOB * 2):
+    """최근 이 종류로 알림이 나간 link 집합을 한 번에 가져온다.
+
+    후보마다 EXISTS 질의를 날리면 후보 수만큼 DB 왕복이 생긴다. Supabase 는
+    네트워크 너머라 왕복 1회가 수십 ms 이고, 수백 건이면 그것만으로
+    maxDuration(60초)을 넘긴다. 한 번에 모아 와서 파이썬에서 대조한다.
+    """
+    since = _naive_utc_now() - datetime.timedelta(hours=within_hours)
+    rows = (
+        db.session.query(Notification.link)
+        .filter(Notification.type == notif_type, Notification.created_at >= since)
+        .distinct()
+        .limit(limit)
+        .all()
+    )
+    return {row[0] for row in rows}
+
+
+def _project_reminder_link(project_id):
+    """리마인더 알림의 링크 (= 중복 발송 판정 키)."""
+    return f'/dashboard.html?project={project_id}'
+
+
+# ---------- 작업 1. 에러 일일 다이제스트 ----------
+
+def _cron_job_error_digest():
+    """지난 24시간 ErrorLog 를 fingerprint 로 묶어 관리자에게 메일 1통.
+
+    0건이면 보내지 않는다. 매일 오는 "이상 없음" 메일은 곧 읽히지 않게 되고,
+    그러면 정작 문제가 생긴 날의 메일도 함께 묻힌다.
+    """
+    since = _naive_utc_now() - datetime.timedelta(hours=ERROR_DIGEST_HOURS)
+    base = ErrorLog.query.filter(ErrorLog.created_at >= since)
+    error_count = _apply_error_level_filter(base, 'error').count()
+    warning_count = _apply_error_level_filter(base, 'warning').count()
+
+    if error_count == 0 and warning_count == 0:
+        return {'errors': 0, 'warnings': 0, 'sent': 0, 'skipped': 'no_events'}
+
+    error_groups = error_group_summary(since=since, limit=10, level_filter='error')
+    warning_groups = error_group_summary(since=since, limit=10, level_filter='warning')
+
+    admins = User.query.filter_by(role='admin').order_by(User.id).limit(CRON_ADMIN_RECIPIENT_LIMIT).all()
+    if not admins:
+        return {'errors': error_count, 'warnings': warning_count, 'sent': 0, 'skipped': 'no_admin'}
+
+    base_url = frontend_base_url()
+    sent = 0
+    failed = 0
+    skipped = 0
+
+    for admin in admins:
+        # 하루에 두 번 호출돼도(Vercel 의 중복 invoke) 메일은 한 번만 나간다.
+        if _has_recent_notification(admin.id, 'error_digest', None, ERROR_DIGEST_REPEAT_HOURS):
+            skipped += 1
+            continue
+
+        email = (admin.email or '').strip()
+        if not email:
+            skipped += 1
+            continue
+
+        try:
+            result = email_service.send_error_digest(
+                to_email=email,
+                admin_name=admin.name,
+                hours=ERROR_DIGEST_HOURS,
+                error_count=error_count,
+                warning_count=warning_count,
+                error_groups=error_groups,
+                warning_groups=warning_groups,
+                admin_url=f'{base_url}/admin.html',
+            )
+        except Exception as e:
+            record_email_failure('error_digest', e)
+            failed += 1
+            continue
+
+        if not (result or {}).get('success'):
+            # send_email 은 SMTP 실패를 예외가 아니라 {'success': False} 로 돌려준다.
+            # 그대로 성공으로 세면 "다이제스트가 나가고 있다"고 착각하게 된다.
+            record_email_failure('error_digest', RuntimeError((result or {}).get('message', 'unknown')))
+            failed += 1
+            continue
+
+        # 발송 사실을 인앱 알림으로도 남긴다. 이 행이 곧 중복 발송 방지 키다.
+        db.session.add(Notification(
+            user_id=admin.id,
+            type='error_digest',
+            title=f'지난 {ERROR_DIGEST_HOURS}시간 오류 요약',
+            message=f'미처리 예외 {error_count}건 / 부분 실패 {warning_count}건이 기록되었습니다.',
+            link='/admin.html',
+        ))
+        sent += 1
+
+    db.session.commit()
+    return {
+        'errors': error_count,
+        'warnings': warning_count,
+        'errorGroups': len(error_groups),
+        'warningGroups': len(warning_groups),
+        'sent': sent,
+        'failed': failed,
+        'skipped': skipped,
+    }
+
+
+# ---------- 작업 2. 미서명 계약 리마인더 ----------
+
+def _cron_job_signature_reminder():
+    """한쪽만 서명한 채 멈춘 계약을, 아직 서명하지 않은 쪽에 알린다.
+
+    awaiting_signature 는 '한 명이 서명했고 상대를 기다리는' 상태다.
+    경과 시간의 기준은 먼저 서명한 쪽의 서명 시각 — 기다림이 시작된 시점이다.
+    """
+    now = _naive_utc_now()
+    stale_before = now - datetime.timedelta(days=SIGNATURE_REMINDER_DAYS)
+    give_up_before = now - datetime.timedelta(days=REMINDER_MAX_AGE_DAYS)
+
+    # awaiting_signature 는 본질적으로 소수이므로 상태로만 좁혀 가져오고
+    # 경과 판정은 파이썬에서 한다(nullable 두 컬럼의 OR 조건을 SQL 로 쓰면
+    # 읽기 어렵고 실수하기 쉽다).
+    rows = (
+        Project.query.filter(
+            Project.status == 'awaiting_signature',
+            Project.deleted_at.is_(None),
+        )
+        .order_by(Project.id)
+        .limit(CRON_MAX_SCAN_PER_JOB + 1)
+        .all()
+    )
+    scan_truncated = len(rows) > CRON_MAX_SCAN_PER_JOB
+    rows = rows[:CRON_MAX_SCAN_PER_JOB]
+
+    already_notified = _recently_notified_links(
+        'contract_signature_reminder', REMINDER_REPEAT_DAYS * 24)
+
+    notified = 0
+    skipped = 0
+    deferred = 0
+
+    for project in rows:
+        company_signed = _as_naive_utc(project.company_signed_at)
+        consultant_signed = _as_naive_utc(project.consultant_signed_at)
+
+        # 정확히 한쪽만 서명한 경우만 다룬다.
+        # 양쪽 다 서명했는데 상태가 남아 있으면 데이터 이상이라 건드리지 않고,
+        # 아무도 서명하지 않았으면 기다림의 시작 시점을 알 수 없다.
+        if bool(company_signed) == bool(consultant_signed):
+            skipped += 1
+            continue
+
+        waiting_since = company_signed or consultant_signed
+        if not (give_up_before <= waiting_since <= stale_before):
+            skipped += 1
+            continue
+
+        if company_signed:
+            # 기업이 서명했다 -> 컨설턴트가 미서명
+            target_user_id = get_project_consultant_user_id(project)
+            waiting_for = '전문가'
+        else:
+            target_user_id = project.company_id
+            waiting_for = '기업'
+
+        if not target_user_id:
+            skipped += 1
+            continue
+
+        link = _project_reminder_link(project.id)
+        if link in already_notified:
+            skipped += 1
+            continue
+
+        if notified >= CRON_MAX_ITEMS_PER_JOB:
+            # 상한 초과분은 다음 실행으로 넘긴다 (조건이 그대로라 다음 회차에 잡힌다)
+            deferred += 1
+            continue
+
+        days_waiting = max((now - waiting_since).days, SIGNATURE_REMINDER_DAYS)
+        db.session.add(Notification(
+            user_id=target_user_id,
+            type='contract_signature_reminder',
+            title='서명하지 않은 계약서가 있습니다',
+            message=(
+                f'"{project.title}" 계약서에 상대방이 {days_waiting}일 전 서명했지만 '
+                f'{waiting_for} 서명이 아직 완료되지 않았습니다.'
+            ),
+            link=link,
+        ))
+        notified += 1
+
+    db.session.commit()
+    return {
+        'scanned': len(rows),
+        'notified': notified,
+        'skipped': skipped,
+        'deferred': deferred,
+        'truncated': scan_truncated or deferred > 0,
+    }
+
+
+# ---------- 작업 3. 제안 무응답 리마인더 ----------
+
+def _cron_job_proposal_reminder():
+    """제안 요청을 받고 N일째 응답하지 않은 컨설턴트에게 알린다."""
+    now = _naive_utc_now()
+    stale_before = now - datetime.timedelta(days=PROPOSAL_REMINDER_DAYS)
+    give_up_before = now - datetime.timedelta(days=REMINDER_MAX_AGE_DAYS)
+
+    rows = (
+        Project.query.filter(
+            Project.status == 'proposal_pending',
+            Project.deleted_at.is_(None),
+            Project.created_at <= stale_before,
+            Project.created_at >= give_up_before,
+        )
+        .order_by(Project.id)
+        .limit(CRON_MAX_SCAN_PER_JOB + 1)
+        .all()
+    )
+    scan_truncated = len(rows) > CRON_MAX_SCAN_PER_JOB
+    rows = rows[:CRON_MAX_SCAN_PER_JOB]
+
+    already_notified = _recently_notified_links('proposal_reminder', REMINDER_REPEAT_DAYS * 24)
+
+    notified = 0
+    skipped = 0
+    deferred = 0
+
+    for project in rows:
+        target_user_id = get_project_consultant_user_id(project)
+        if not target_user_id:
+            skipped += 1
+            continue
+
+        link = _project_reminder_link(project.id)
+        if link in already_notified:
+            skipped += 1
+            continue
+
+        if notified >= CRON_MAX_ITEMS_PER_JOB:
+            deferred += 1
+            continue
+
+        created = _as_naive_utc(project.created_at) or now
+        days_waiting = max((now - created).days, PROPOSAL_REMINDER_DAYS)
+        db.session.add(Notification(
+            user_id=target_user_id,
+            type='proposal_reminder',
+            title='응답하지 않은 견적 요청이 있습니다',
+            message=(
+                f'"{project.title}" 요청을 받은 지 {days_waiting}일이 지났습니다. '
+                '제안서를 보내거나 거절해주세요.'
+            ),
+            link=link,
+        ))
+        notified += 1
+
+    db.session.commit()
+    return {
+        'scanned': len(rows),
+        'notified': notified,
+        'skipped': skipped,
+        'deferred': deferred,
+        'truncated': scan_truncated or deferred > 0,
+    }
+
+
+# ---------- 작업 4. 만료·보관기간 정리 ----------
+
+def _cron_job_expired_cleanup():
+    """만료된 미사용 초대와 보관기간이 지난 에러 로그를 정리한다.
+
+    사용(used_at)·취소(revoked_at)된 초대는 지우지 않는다 — 누가 언제 어떤
+    링크로 들어왔는지는 감사 이력이다. 지우는 것은 '한 번도 쓰이지 않은 채
+    만료된' 토큰뿐이고, 그마저도 만료 후 INVITE_RETENTION_DAYS 를 더 기다린다.
+
+    is_usable() 과 모순되지 않는다: 만료 시점부터 이미 사용 불가이고, 정리는
+    그보다 한참 뒤에 일어난다. (만료 직후 접근하면 지금처럼 '만료된 초대
+    링크입니다' 410 이 그대로 나온다.)
+    """
+    now = _naive_utc_now()
+    invite_cutoff = now - datetime.timedelta(days=INVITE_RETENTION_DAYS)
+
+    stale_invites = (
+        ConsultantInvite.query.filter(
+            ConsultantInvite.used_at.is_(None),
+            ConsultantInvite.revoked_at.is_(None),
+            ConsultantInvite.expires_at < invite_cutoff,
+        )
+        .order_by(ConsultantInvite.id)
+        .limit(CRON_MAX_ITEMS_PER_JOB + 1)
+        .all()
+    )
+    invites_truncated = len(stale_invites) > CRON_MAX_ITEMS_PER_JOB
+    stale_invites = stale_invites[:CRON_MAX_ITEMS_PER_JOB]
+    for invite in stale_invites:
+        db.session.delete(invite)
+
+    # 에러 로그 보관기간 정리.
+    # ErrorLog 는 카운터 UPDATE 대신 행을 그대로 쌓는 구조라 계속 늘어나기만 한다.
+    # migrations/README.md 가 "보관 기간 정리는 cron 인프라가 생기는 배치 3에서
+    # 붙인다"고 남겨둔 항목이 이것이다.
+    log_cutoff = now - datetime.timedelta(days=ERROR_LOG_RETENTION_DAYS)
+    old_log_ids = [
+        row.id for row in (
+            ErrorLog.query.with_entities(ErrorLog.id)
+            .filter(ErrorLog.created_at < log_cutoff)
+            .order_by(ErrorLog.id)
+            .limit(CRON_MAX_ITEMS_PER_JOB + 1)
+            .all()
+        )
+    ]
+    logs_truncated = len(old_log_ids) > CRON_MAX_ITEMS_PER_JOB
+    old_log_ids = old_log_ids[:CRON_MAX_ITEMS_PER_JOB]
+    if old_log_ids:
+        ErrorLog.query.filter(ErrorLog.id.in_(old_log_ids)).delete(synchronize_session=False)
+
+    db.session.commit()
+    return {
+        'invitesDeleted': len(stale_invites),
+        'errorLogsDeleted': len(old_log_ids),
+        'truncated': invites_truncated or logs_truncated,
+    }
+
+
+# 실행 순서 주의: 다이제스트가 에러 로그를 읽은 뒤에 정리 작업이 지운다.
+CRON_DAILY_JOBS = (
+    'error_digest',
+    'signature_reminder',
+    'proposal_reminder',
+    'expired_cleanup',
+)
+
+
+def _resolve_cron_job(name):
+    """작업 이름 -> 함수. 호출 시점에 모듈 전역에서 찾는다(늦은 바인딩).
+
+    튜플에 함수 객체를 직접 담아두면 참조가 모듈 로드 시점에 고정되어,
+    "한 작업이 터져도 나머지가 계속 도는가" 를 테스트로 확인할 수 없다.
+    """
+    return globals()[f'_cron_job_{name}']
+
+
+def run_daily_cron_jobs():
+    """등록된 작업을 순서대로 실행하고 (요약, 실패목록) 을 반환한다.
+
+    한 작업이 예외를 던져도 나머지는 계속 실행한다. 리마인더 하나가 깨졌다고
+    만료 정리와 다이제스트까지 멈추면, 고장 하나가 인프라 전체를 멈춘다.
+    각 작업은 스스로 커밋하므로 뒤 작업의 실패가 앞 작업의 결과를 되돌리지 않는다.
+    """
+    results = {}
+    failures = []
+
+    for name in CRON_DAILY_JOBS:
+        try:
+            results[name] = _resolve_cron_job(name)()
+        except Exception as e:
+            # 실패한 작업이 세션을 오염시킨 채로 넘기면 다음 작업이 연쇄 실패한다.
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            results[name] = {'error': f'{type(e).__name__}: {e}'[:300]}
+            failures.append(name)
+            # ErrorLog 에도 남겨 관리자 화면·다음 다이제스트에 드러나게 한다.
+            # (record_error_log 는 첫 동작이 rollback 이지만 이미 롤백했고
+            #  각 작업이 자기 결과를 커밋한 뒤이므로 잃을 변경이 없다.)
+            record_error_log(e, None)
+
+    return results, failures
+
+
+def _cron_trigger_source():
+    """호출 주체 추정. Vercel cron 은 User-Agent 가 'vercel-cron/1.0' 이다.
+
+    이 값이 있어야 "레거시 vercel.json(builds 형식)에서 Vercel crons 가 실제로
+    등록되는가" 를 배포 후 실측으로 판별할 수 있다. 공식 문서가 둘의 조합에
+    대해 아무 말도 하지 않으므로 추측 대신 기록으로 답한다.
+    """
+    agent = (request.headers.get('User-Agent') or '').lower()
+    if 'vercel-cron' in agent:
+        return 'vercel-cron'
+    return 'external-cron'
+
+
+def _authorize_cron_request():
+    """cron 엔드포인트 인증. (triggered_by, 거부응답) 을 반환한다.
+
+    허용 경로 두 가지:
+      1) Authorization: Bearer <CRON_SECRET>  — 스케줄러(Vercel cron / GitHub Actions)
+      2) 관리자 JWT                            — 배포 직후 수동 검증, cron 이 죽었을 때 수동 실행
+
+    CRON_SECRET 이 설정되지 않았다면 1번 경로는 아예 열리지 않는다.
+    빈 문자열을 secret 으로 받아들이면 누구나 배치를 돌릴 수 있게 되고,
+    그 배치는 메일을 보내고 DB 행을 지운다. 미설정 시 거부가 안전한 쪽이다.
+    (그 결과 cron 이 매일 401 로 튕기게 되는데, 이것은 /api/health?verbose=1 의
+     '마지막 성공 실행 경과 시간' 이 늘어나면서 드러난다.)
+    """
+    auth_header = request.headers.get('Authorization', '')
+    token = auth_header.split(' ', 1)[1].strip() if auth_header.startswith('Bearer ') else ''
+
+    secret = (os.environ.get('CRON_SECRET') or '').strip()
+    if secret and token and secrets.compare_digest(token, secret):
+        return _cron_trigger_source(), None
+
+    # 관리자 JWT 로도 실행할 수 있게 한다.
+    # (_is_admin_request_safe 는 인증 실패를 조용히 False 로 만든다)
+    if token and _is_admin_request_safe():
+        return 'admin', None
+
+    if not secret:
+        return None, (jsonify({
+            'message': 'CRON_SECRET 이 설정되지 않아 요청을 거부했습니다. '
+                       '환경변수를 설정하거나 관리자 토큰으로 호출하세요.'
+        }), 401)
+
+    return None, (jsonify({'message': '유효하지 않은 cron 인증입니다.'}), 401)
+
+
+@app.route('/api/cron/daily', methods=['GET', 'POST'])
+def run_daily_cron():
+    """일일 배치 실행 (드라이버 비종속).
+
+    Vercel cron 은 GET 으로만 호출하므로 GET 을 반드시 열어둔다.
+    관리자 화면의 '지금 실행' 버튼은 POST 를 쓴다.
+    """
+    triggered_by, denial = _authorize_cron_request()
+    if denial:
+        return denial
+
+    started_at = _naive_utc_now()
+    results, failures = run_daily_cron_jobs()
+    finished_at = _naive_utc_now()
+
+    error_message = None
+    if failures:
+        error_message = '; '.join(
+            f"{name}: {results[name].get('error', 'unknown')}" for name in failures
+        )[:2000]
+
+    # 실행 기록은 실패해도 응답 자체를 500 으로 만들지 않는다.
+    # (기록이 안 되는 것보다 배치가 안 도는 것이 더 큰 문제다)
+    run_id = None
+    try:
+        run = CronRun(
+            job=CRON_JOB_NAME,
+            started_at=started_at,
+            finished_at=finished_at,
+            success=not failures,
+            summary=json.dumps(results, ensure_ascii=False)[:8000],
+            error_message=error_message,
+            triggered_by=triggered_by,
+        )
+        db.session.add(run)
+        db.session.commit()
+        run_id = run.id
+    except Exception as e:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        print(f"[Cron] CronRun 기록 실패: {type(e).__name__}: {e}")
+
+    return jsonify({
+        'job': CRON_JOB_NAME,
+        'runId': run_id,
+        'triggeredBy': triggered_by,
+        'success': not failures,
+        'startedAt': started_at.isoformat(),
+        'finishedAt': finished_at.isoformat(),
+        'durationMs': int((finished_at - started_at).total_seconds() * 1000),
+        'failedJobs': failures,
+        'results': results,
+    })
+
+
+def _cron_health_payload():
+    """마지막 cron 실행 상태. cron 이 멈춘 사실이 드러나야 한다."""
+    last_success = (
+        CronRun.query.filter(CronRun.job == CRON_JOB_NAME, CronRun.success.is_(True))
+        .order_by(CronRun.started_at.desc(), CronRun.id.desc())
+        .first()
+    )
+    last_run = (
+        CronRun.query.filter(CronRun.job == CRON_JOB_NAME)
+        .order_by(CronRun.started_at.desc(), CronRun.id.desc())
+        .first()
+    )
+
+    age_hours = None
+    if last_success and last_success.started_at:
+        delta = _naive_utc_now() - _as_naive_utc(last_success.started_at)
+        age_hours = round(delta.total_seconds() / 3600, 1)
+
+    return {
+        'lastSuccessAt': _iso_or_none(last_success.started_at) if last_success else None,
+        'ageHours': age_hours,
+        # 한 번도 안 돌았거나(None) 하루를 훌쩍 넘겼으면 스케줄러가 죽은 것으로 본다.
+        'stale': age_hours is None or age_hours > CRON_STALE_HOURS,
+        'staleAfterHours': CRON_STALE_HOURS,
+        'lastRun': last_run.to_dict() if last_run else None,
+    }
+
+
+@app.route('/api/admin/cron-runs', methods=['GET'])
+@admin_required
+def get_cron_runs():
+    """최근 cron 실행 이력 (관리자용)."""
+    limit = request.args.get('limit', 10, type=int) or 10
+    limit = min(max(limit, 1), 50)
+    runs = (
+        CronRun.query.order_by(CronRun.started_at.desc(), CronRun.id.desc())
+        .limit(limit)
+        .all()
+    )
+    return jsonify({
+        'runs': [run.to_dict() for run in runs],
+        'health': _cron_health_payload(),
+    })
+
 
 # ========================================
 # 프로필 이미지 업로드 API
