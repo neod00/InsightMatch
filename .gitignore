@@ -97,3 +97,6 @@ poll_*.py
 오픈API 활용자가이드_*.pdf
 오픈API 활용자가이드_*.rtf
 오픈API 활용자가이드_*.txt
+setup_local_demo.py
+run_local.py
+.claude/launch.json
