@@ -72,7 +72,32 @@ class Consultant(db.Model):
     status = db.Column(db.String(20), default='pending')  # pending, verified, rejected
     rejection_reason = db.Column(db.Text)  # 거부 사유
     rejected_at = db.Column(db.DateTime)  # 거부 시각
-    
+
+    # ── 정산·세금계산서 정보 (A안: NGB가 원청으로 외주비를 지급하기 위해 필수) ──
+    # 이 정보가 없으면 프로젝트 종료 후 일일이 연락해 계좌를 받아야 하므로
+    # 등록 시점에 함께 수집한다.
+    business_type = db.Column(db.String(20))       # 'business'(사업자) | 'individual'(개인)
+    biz_reg_no = db.Column(db.String(20))          # 사업자등록번호 (숫자 10자리)
+    biz_name = db.Column(db.String(100))           # 사업자등록증상 상호
+    biz_ceo_name = db.Column(db.String(50))        # 대표자명
+    bank_name = db.Column(db.String(50))           # 은행명
+    account_number = db.Column(db.String(50))      # 계좌번호 (공개 API에서는 항상 마스킹)
+    account_holder = db.Column(db.String(50))      # 예금주
+
+    # ── 기본 협력계약 동의 (수수료율·직거래 금지·세금계산서 발행 의무) ──
+    partner_agreed_at = db.Column(db.DateTime)     # 동의 시각
+    partner_agreement_version = db.Column(db.String(20))  # 동의한 약관 버전
+
+    def masked_account(self):
+        """계좌번호를 마스킹해 반환 (뒤 4자리만 노출)."""
+        if not self.account_number:
+            return ''
+        digits = ''.join(ch for ch in self.account_number if ch.isdigit())
+        if len(digits) <= 4:
+            return '*' * len(digits)
+        return '*' * (len(digits) - 4) + digits[-4:]
+
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -108,6 +133,40 @@ class Consultant(db.Model):
             'rejectionReason': self.rejection_reason,
             'rejectedAt': self.rejected_at.isoformat() if self.rejected_at else None
         }
+
+class ConsultantInvite(db.Model):
+    """컨설턴트 초대 링크.
+
+    관리자가 검증한 후보에게만 1회용 링크를 발급한다.
+    공개 URL을 뿌리는 방식과 달리 아무나 등록할 수 없고,
+    카톡으로 링크만 보내면 되므로 온보딩 마찰이 낮다.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(100))        # 초대 대상 이름 (표시용)
+    email = db.Column(db.String(120))       # 초대 대상 이메일 (표시용)
+    memo = db.Column(db.String(200))        # 관리자 메모
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    created_at = db.Column(db.DateTime, default=utc_now)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used_at = db.Column(db.DateTime)
+    used_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    revoked_at = db.Column(db.DateTime)
+
+    def is_usable(self, now=None):
+        """사용 가능 여부와 사유를 함께 반환."""
+        now = now or utc_now()
+        if self.revoked_at:
+            return False, '취소된 초대 링크입니다.'
+        if self.used_at:
+            return False, '이미 사용된 초대 링크입니다.'
+        expires = self.expires_at
+        if expires and expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        if expires and expires < now:
+            return False, '만료된 초대 링크입니다.'
+        return True, ''
+    
 
 # 프로필 변경 이력 모델
 class ProfileChangeLog(db.Model):

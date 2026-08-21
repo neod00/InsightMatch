@@ -273,6 +273,40 @@
                 </div>
             </div>
 
+            <!-- 컨설턴트 초대 -->
+            <div class="card-glass" style="padding: 20px; margin-bottom: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <h3 style="margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="link" style="width: 18px; height: 18px;"></i>
+                        컨설턴트 초대 링크
+                    </h3>
+                    <button class="btn btn-sm btn-ghost" onclick="loadInvites()">
+                        <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i> 새로고침
+                    </button>
+                </div>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin: 8px 0 16px;">
+                    후보 컨설턴트에게 보낼 1회용 링크를 발급합니다. 링크를 받은 분이 직접 프로필·정산정보를 등록합니다. (유효기간 14일)
+                </p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1.2fr auto; gap: 10px; align-items: end;">
+                    <div class="form-group" style="margin: 0;">
+                        <label style="font-size: 0.85rem;">이름 (선택)</label>
+                        <input type="text" id="invite-name" placeholder="홍길동" maxlength="100">
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label style="font-size: 0.85rem;">이메일 (선택)</label>
+                        <input type="email" id="invite-email" placeholder="name@example.com" maxlength="120">
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label style="font-size: 0.85rem;">메모 (선택)</label>
+                        <input type="text" id="invite-memo" placeholder="예: 위원님 소개, 9001 전문" maxlength="200">
+                    </div>
+                    <button class="btn btn-primary" onclick="createInvite()" id="btn-create-invite">
+                        <i data-lucide="plus" style="width: 16px; height: 16px;"></i> 링크 발급
+                    </button>
+                </div>
+                <div id="invite-list" style="margin-top: 18px;"></div>
+            </div>
+
             <!-- Filter -->
             <div class="card-glass"
                 style="padding: 16px; margin-bottom: 24px; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
@@ -657,6 +691,110 @@
                 return response;
             }
 
+            // ===== 컨설턴트 초대 링크 =====
+            async function createInvite() {
+                const btn = document.getElementById('btn-create-invite');
+                const payload = {
+                    name: document.getElementById('invite-name').value.trim(),
+                    email: document.getElementById('invite-email').value.trim(),
+                    memo: document.getElementById('invite-memo').value.trim()
+                };
+                btn.disabled = true;
+                try {
+                    const res = await authFetch('/api/admin/consultant-invites', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        showNotification(data.message || '초대 링크 발급에 실패했습니다.', 'error');
+                        return;
+                    }
+                    document.getElementById('invite-name').value = '';
+                    document.getElementById('invite-email').value = '';
+                    document.getElementById('invite-memo').value = '';
+                    showNotification('초대 링크가 발급되었습니다.', 'success');
+                    if (data.invite_url) copyInvite(data.invite_url, true);
+                    loadInvites();
+                } catch (e) {
+                    showNotification('초대 링크 발급 중 오류가 발생했습니다.', 'error');
+                } finally {
+                    btn.disabled = false;
+                }
+            }
+
+            function copyInvite(url, silent) {
+                navigator.clipboard.writeText(url).then(() => {
+                    showNotification(silent ? '링크가 클립보드에 복사되었습니다. 카톡으로 보내세요.' : '복사되었습니다.', 'success');
+                }).catch(() => {
+                    window.prompt('아래 링크를 복사하세요:', url);
+                });
+            }
+
+            async function revokeInvite(id) {
+                if (!confirm('이 초대 링크를 취소하시겠습니까? 취소하면 사용할 수 없습니다.')) return;
+                const res = await authFetch(`/api/admin/consultant-invites/${id}/revoke`, { method: 'POST' });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    showNotification(data.message || '취소에 실패했습니다.', 'error');
+                    return;
+                }
+                showNotification('초대가 취소되었습니다.', 'success');
+                loadInvites();
+            }
+
+            async function loadInvites() {
+                const box = document.getElementById('invite-list');
+                if (!box) return;
+                try {
+                    const res = await authFetch('/api/admin/consultant-invites');
+                    if (!res.ok) return;
+                    const invites = await res.json();
+                    if (!Array.isArray(invites) || invites.length === 0) {
+                        box.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">발급된 초대 링크가 없습니다.</p>';
+                        return;
+                    }
+                    const badge = (s) => ({
+                        usable: '<span style="color:#10B981;font-weight:600;">사용 가능</span>',
+                        used: '<span style="color:var(--text-muted);">사용 완료</span>',
+                        revoked: '<span style="color:#dc2626;">취소됨</span>',
+                        expired: '<span style="color:#dc2626;">만료됨</span>'
+                    }[s] || s);
+
+                    box.innerHTML = `
+                        <table style="width:100%; font-size:0.85rem; border-collapse:collapse;">
+                            <thead>
+                                <tr style="border-bottom:1px solid var(--border); text-align:left; color:var(--text-muted);">
+                                    <th style="padding:8px 6px;">이름</th>
+                                    <th style="padding:8px 6px;">메모</th>
+                                    <th style="padding:8px 6px;">상태</th>
+                                    <th style="padding:8px 6px;">만료</th>
+                                    <th style="padding:8px 6px; text-align:right;">동작</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${invites.map(i => `
+                                    <tr style="border-bottom:1px solid var(--border);">
+                                        <td style="padding:8px 6px;">${escapeHtml(i.name || '-')}</td>
+                                        <td style="padding:8px 6px; color:var(--text-muted);">${escapeHtml(i.memo || '-')}</td>
+                                        <td style="padding:8px 6px;">${badge(i.status)}</td>
+                                        <td style="padding:8px 6px; color:var(--text-muted);">${escapeHtml((i.expires_at || '').slice(0, 10))}</td>
+                                        <td style="padding:8px 6px; text-align:right; white-space:nowrap;">
+                                            ${i.status === 'usable' ? `
+                                                <button class="btn btn-sm btn-ghost" onclick="copyInvite('${escapeAttr(i.invite_url)}')">복사</button>
+                                                <button class="btn btn-sm btn-ghost" style="color:#dc2626;" onclick="revokeInvite(${i.id})">취소</button>
+                                            ` : '-'}
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>`;
+                } catch (e) {
+                    console.warn('[Invites] load failed', e);
+                }
+            }
+
             function escapeHtml(value) {
                 return String(value ?? '').replace(/[&<>"']/g, (char) => ({
                     '&': '&amp;',
@@ -701,6 +839,7 @@
 
                 if (tab === 'consultants') {
                     fetchConsultantsAdmin();
+                    loadInvites();
                 }
                 if (tab === 'blog') {
                     fetchBlogPostsAdmin();

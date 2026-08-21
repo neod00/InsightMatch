@@ -10,7 +10,7 @@ import jwt
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../api')))
 
 from index import app, db
-from models import AdminActionLog, AnalysisJob, Consultant, ManualGeneration, Message, Milestone, Notification, PasswordResetToken, Post, Project, User
+from models import AdminActionLog, AnalysisJob, Consultant, ConsultantInvite, ManualGeneration, Message, Milestone, Notification, PasswordResetToken, Post, Project, User
 
 
 def make_token(user):
@@ -643,6 +643,15 @@ class TestWorkflowSecurity(unittest.TestCase):
             'match_reason': 'ISO 9001 implementation and audit preparation specialist.',
             'recent_projects': 'Led ISO 9001 certification projects for manufacturers.',
             'profile_image_url': '',
+            # 정산 정보 + 기본 협력계약 동의 (A안 구조에서 필수)
+            'business_type': 'business',
+            'biz_reg_no': '1234567891',
+            'biz_name': 'Test Consulting',
+            'biz_ceo_name': 'Hong',
+            'bank_name': '국민은행',
+            'account_number': '12345678901234',
+            'account_holder': 'Hong',
+            'partner_agreement_agreed': True,
         }
 
         response = self.client.post(
@@ -665,6 +674,163 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertEqual(created.status, 'pending')
         self.assertFalse(created.verified)
         self.assertEqual(created.email, 'new-consultant@example.com')
+
+    # ------------------------------------------------------------------
+    # 정산 정보 + 초대 링크
+    # ------------------------------------------------------------------
+    def _new_consultant_user(self, email):
+        user = User(email=email, password_hash='x', role='consultant', name='Invitee')
+        db.session.add(user)
+        db.session.commit()
+        return user
+
+    def _reg_payload(self, email, **overrides):
+        payload = {
+            'name': 'Invited Consultant',
+            'email': email,
+            'phone': '010-1111-2222',
+            'experience': 10,
+            'regions': 'Seoul',
+            'iso_experience': {'9001': True},
+            'industry_experience': ['Manufacturing'],
+            'match_reason': 'ISO 9001 specialist with 10 years of audit experience.',
+            'recent_projects': 'Multiple ISO 9001 certification projects.',
+            'profile_image_url': '',
+            'business_type': 'business',
+            'biz_reg_no': '1234567891',
+            'biz_name': 'Invitee Consulting',
+            'biz_ceo_name': 'Kim',
+            'bank_name': '신한은행',
+            'account_number': '110-123-456789',
+            'account_holder': 'Kim',
+            'partner_agreement_agreed': True,
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_registration_requires_settlement_info_and_agreement(self):
+        """정산 정보와 기본 협력계약 동의가 없으면 등록되지 않는다."""
+        user = self._new_consultant_user('settle1@example.com')
+
+        # 협력계약 미동의
+        resp = self.client.post(
+            '/api/consultants/register',
+            json=self._reg_payload('settle1@example.com', partner_agreement_agreed=False),
+            headers=auth_headers(user))
+        self.assertEqual(resp.status_code, 400)
+
+        # 계좌 정보 누락
+        resp = self.client.post(
+            '/api/consultants/register',
+            json=self._reg_payload('settle1@example.com', account_number=''),
+            headers=auth_headers(user))
+        self.assertEqual(resp.status_code, 400)
+
+        # 사업자등록번호 체크섬 오류
+        resp = self.client.post(
+            '/api/consultants/register',
+            json=self._reg_payload('settle1@example.com', biz_reg_no='1234567890'),
+            headers=auth_headers(user))
+        self.assertEqual(resp.status_code, 400)
+
+        # 정상 등록 → 정산 정보와 동의 시각이 저장됨
+        resp = self.client.post(
+            '/api/consultants/register',
+            json=self._reg_payload('settle1@example.com'),
+            headers=auth_headers(user))
+        self.assertEqual(resp.status_code, 201)
+
+        created = Consultant.query.filter_by(user_id=user.id).first()
+        self.assertEqual(created.business_type, 'business')
+        self.assertEqual(created.biz_reg_no, '1234567891')
+        self.assertEqual(created.bank_name, '신한은행')
+        self.assertIsNotNone(created.partner_agreed_at)
+        # 계좌번호 마스킹 확인 (뒤 4자리만 노출)
+        self.assertTrue(created.masked_account().endswith('6789'))
+        self.assertIn('*', created.masked_account())
+
+    def test_individual_consultant_does_not_need_biz_reg_no(self):
+        """개인(원천징수 대상)은 사업자등록번호 없이 등록 가능하다."""
+        user = self._new_consultant_user('indiv@example.com')
+        resp = self.client.post(
+            '/api/consultants/register',
+            json=self._reg_payload('indiv@example.com', business_type='individual',
+                                   biz_reg_no='', biz_name='', biz_ceo_name=''),
+            headers=auth_headers(user))
+        self.assertEqual(resp.status_code, 201)
+        created = Consultant.query.filter_by(user_id=user.id).first()
+        self.assertEqual(created.business_type, 'individual')
+
+    def test_consultant_invite_lifecycle(self):
+        """초대 링크: 관리자만 발급 / 공개 검증 / 1회용 소비 / 재사용 차단."""
+        # 관리자 아닌 사용자는 발급 불가
+        self.assertEqual(
+            self.client.post('/api/admin/consultant-invites', json={'name': 'X'},
+                             headers=auth_headers(self.company)).status_code, 403)
+
+        # 관리자 발급
+        resp = self.client.post('/api/admin/consultant-invites',
+                                json={'name': '홍길동', 'memo': '위원님 소개'},
+                                headers=auth_headers(self.admin_user))
+        self.assertEqual(resp.status_code, 201)
+        invite = resp.get_json()
+        self.assertIn('invite_url', invite)
+        self.assertIn('consultant_register.html?invite=', invite['invite_url'])
+
+        token = invite['invite_url'].split('invite=')[1]
+
+        # 공개 검증 (로그인 없이)
+        verify = self.client.get(f'/api/consultant-invites/{token}')
+        self.assertEqual(verify.status_code, 200)
+        self.assertTrue(verify.get_json()['valid'])
+
+        # 존재하지 않는 토큰
+        self.assertEqual(self.client.get('/api/consultant-invites/bogus-token').status_code, 404)
+
+        # 초대 토큰으로 등록 → 소비됨
+        user = self._new_consultant_user('invited@example.com')
+        reg = self.client.post('/api/consultants/register',
+                               json=self._reg_payload('invited@example.com', invite_token=token),
+                               headers=auth_headers(user))
+        self.assertEqual(reg.status_code, 201)
+
+        stored = ConsultantInvite.query.filter_by(token=token).first()
+        self.assertIsNotNone(stored.used_at)
+        self.assertEqual(stored.used_by_user_id, user.id)
+
+        # 재사용 차단
+        self.assertEqual(self.client.get(f'/api/consultant-invites/{token}').status_code, 410)
+        user2 = self._new_consultant_user('invited2@example.com')
+        reused = self.client.post('/api/consultants/register',
+                                  json=self._reg_payload('invited2@example.com', invite_token=token),
+                                  headers=auth_headers(user2))
+        self.assertEqual(reused.status_code, 400)
+
+    def test_consultant_invite_revoke(self):
+        """취소된 초대는 사용할 수 없다."""
+        resp = self.client.post('/api/admin/consultant-invites', json={'name': '취소대상'},
+                                headers=auth_headers(self.admin_user))
+        invite = resp.get_json()
+        token = invite['invite_url'].split('invite=')[1]
+
+        rev = self.client.post(f"/api/admin/consultant-invites/{invite['id']}/revoke",
+                               headers=auth_headers(self.admin_user))
+        self.assertEqual(rev.status_code, 200)
+        self.assertEqual(self.client.get(f'/api/consultant-invites/{token}').status_code, 410)
+
+    def test_account_number_not_exposed_publicly(self):
+        """계좌번호·사업자번호가 공개 API 응답에 노출되지 않는다."""
+        self.consultant.account_number = '110-999-888777'
+        self.consultant.biz_reg_no = '1234567891'
+        db.session.commit()
+
+        body = self.client.get('/api/consultants').get_data(as_text=True)
+        self.assertNotIn('110-999-888777', body)
+        self.assertNotIn('1234567891', body)
+
+        detail = self.client.get(f'/api/consultants/{self.consultant.id}').get_data(as_text=True)
+        self.assertNotIn('110-999-888777', detail)
+        self.assertNotIn('1234567891', detail)
 
     def test_admin_can_restore_rejected_consultant_and_logs_action(self):
         self.consultant.status = 'rejected'

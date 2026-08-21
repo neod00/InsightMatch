@@ -20,7 +20,7 @@ from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, AnalysisJob, AdminActionLog, Consultant, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry
+from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry
 from services import MatchingService, ProposalService, EmailService, AdvancedDiagnosticService
 from services.iso_manual_service import generate_iso_manual_stream
 
@@ -515,6 +515,80 @@ def is_valid_email(email):
     pattern = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
     return re.match(pattern, email) is not None
 
+# --- 정산·세금계산서 정보 검증 (A안: NGB 원청 구조의 외주비 지급에 필요) ---
+PARTNER_AGREEMENT_VERSION = '1.0'
+ALLOWED_BUSINESS_TYPES = {'business', 'individual'}
+
+
+def is_valid_biz_reg_no(value):
+    """사업자등록번호 형식 + 체크섬 검증.
+
+    국세청 진위확인 API 연동 전까지 오타를 걸러내는 로컬 검증이다.
+    (실제 사업자 존재 여부는 확인하지 못함)
+    """
+    digits = ''.join(ch for ch in str(value or '') if ch.isdigit())
+    if len(digits) != 10:
+        return False
+    weights = [1, 3, 7, 1, 3, 7, 1, 3, 5]
+    total = sum(int(digits[i]) * weights[i] for i in range(9))
+    total += (int(digits[8]) * 5) // 10
+    check = (10 - (total % 10)) % 10
+    return check == int(digits[9])
+
+
+def validate_settlement_fields(data):
+    """등록/수정 시 정산 정보를 검증해 정규화된 dict를 반환.
+
+    반환: (values: dict, error_message: str | None)
+    """
+    business_type = (data.get('business_type') or '').strip()
+    if business_type not in ALLOWED_BUSINESS_TYPES:
+        return None, '사업자 구분(사업자/개인)을 선택해주세요.'
+
+    bank_name = (data.get('bank_name') or '').strip()
+    account_number = ''.join(
+        ch for ch in str(data.get('account_number') or '') if ch.isdigit() or ch == '-'
+    ).strip()
+    account_holder = (data.get('account_holder') or '').strip()
+
+    if not bank_name or len(bank_name) > 50:
+        return None, '은행명을 입력해주세요.'
+    if not account_number or len(account_number) > 50:
+        return None, '계좌번호를 입력해주세요.'
+    if not account_holder or len(account_holder) > 50:
+        return None, '예금주를 입력해주세요.'
+
+    values = {
+        'business_type': business_type,
+        'bank_name': bank_name,
+        'account_number': account_number,
+        'account_holder': account_holder,
+        'biz_reg_no': '',
+        'biz_name': '',
+        'biz_ceo_name': '',
+    }
+
+    if business_type == 'business':
+        biz_reg_no = ''.join(ch for ch in str(data.get('biz_reg_no') or '') if ch.isdigit())
+        biz_name = (data.get('biz_name') or '').strip()
+        biz_ceo_name = (data.get('biz_ceo_name') or '').strip()
+
+        if not is_valid_biz_reg_no(biz_reg_no):
+            return None, '사업자등록번호가 올바르지 않습니다. 10자리 숫자를 확인해주세요.'
+        if not biz_name or len(biz_name) > 100:
+            return None, '상호(사업자등록증상)를 입력해주세요.'
+        if not biz_ceo_name or len(biz_ceo_name) > 50:
+            return None, '대표자명을 입력해주세요.'
+
+        values.update({
+            'biz_reg_no': biz_reg_no,
+            'biz_name': biz_name,
+            'biz_ceo_name': biz_ceo_name,
+        })
+
+    return values, None
+
+
 def register_consultant_validated():
     if g.current_user.role != 'consultant':
         return jsonify({'message': 'Only consultant accounts can register a consultant profile.'}), 403
@@ -584,6 +658,26 @@ def register_consultant_validated():
     if not recent_projects or len(recent_projects) > 3000:
         return jsonify({'message': 'Recent project history is required and must be 3000 characters or fewer.'}), 400
 
+    # 정산·세금계산서 정보 (등록 시점에 받아두지 않으면 정산 때 사람이 개입해야 함)
+    settlement, settlement_error = validate_settlement_fields(data)
+    if settlement_error:
+        return jsonify({'message': settlement_error}), 400
+
+    # 기본 협력계약 동의 (수수료율·직거래 금지·세금계산서 발행 의무)
+    if not data.get('partner_agreement_agreed'):
+        return jsonify({'message': '기본 협력계약에 동의해주세요.'}), 400
+
+    # 초대 링크로 들어온 경우 토큰 검증 (없으면 일반 등록으로 허용)
+    invite = None
+    invite_token = (data.get('invite_token') or '').strip()
+    if invite_token:
+        invite = ConsultantInvite.query.filter_by(token=invite_token).first()
+        if not invite:
+            return jsonify({'message': '유효하지 않은 초대 링크입니다.'}), 400
+        usable, reason = invite.is_usable()
+        if not usable:
+            return jsonify({'message': reason}), 400
+
     new_consultant = Consultant(
         user_id=user_id,
         name=name,
@@ -609,8 +703,23 @@ def register_consultant_validated():
         verified=False,
         trust_score=50.0,
         status='pending',
+        business_type=settlement['business_type'],
+        biz_reg_no=settlement['biz_reg_no'],
+        biz_name=settlement['biz_name'],
+        biz_ceo_name=settlement['biz_ceo_name'],
+        bank_name=settlement['bank_name'],
+        account_number=settlement['account_number'],
+        account_holder=settlement['account_holder'],
+        partner_agreed_at=datetime.datetime.now(datetime.timezone.utc),
+        partner_agreement_version=PARTNER_AGREEMENT_VERSION,
     )
     db.session.add(new_consultant)
+
+    # 초대 링크 소비 (1회용)
+    if invite:
+        invite.used_at = datetime.datetime.now(datetime.timezone.utc)
+        invite.used_by_user_id = user_id
+
     db.session.commit()
 
     user = User.query.get(user_id)
@@ -2982,6 +3091,98 @@ def delete_admin_job(job_id):
         'id': job_id,
         'deleted_at': job.deleted_at.isoformat()
     })
+
+# --- Consultant Invite Endpoints ---
+CONSULTANT_INVITE_TTL_DAYS = 14
+
+
+def _invite_public_url(token):
+    base = (os.environ.get('BASE_URL') or request.host_url.rstrip('/')).rstrip('/')
+    return f"{base}/consultant_register.html?invite={token}"
+
+
+def _invite_to_dict(inv, include_url=False):
+    usable, reason = inv.is_usable()
+    data = {
+        'id': inv.id,
+        'name': inv.name,
+        'email': inv.email,
+        'memo': inv.memo,
+        'created_at': inv.created_at.isoformat() if inv.created_at else None,
+        'expires_at': inv.expires_at.isoformat() if inv.expires_at else None,
+        'used_at': inv.used_at.isoformat() if inv.used_at else None,
+        'revoked_at': inv.revoked_at.isoformat() if inv.revoked_at else None,
+        'status': 'used' if inv.used_at else ('revoked' if inv.revoked_at else ('usable' if usable else 'expired')),
+    }
+    if include_url:
+        data['invite_url'] = _invite_public_url(inv.token)
+    return data
+
+
+@app.route('/api/admin/consultant-invites', methods=['GET', 'POST'])
+@admin_required
+def handle_consultant_invites():
+    """컨설턴트 초대 링크 발급·조회 (관리자 전용)."""
+    if request.method == 'POST':
+        data = request.json or {}
+        name = (data.get('name') or '').strip()[:100]
+        email = (data.get('email') or '').strip().lower()[:120]
+        memo = (data.get('memo') or '').strip()[:200]
+
+        if email and not is_valid_email(email):
+            return jsonify({'message': '이메일 형식이 올바르지 않습니다.'}), 400
+
+        invite = ConsultantInvite(
+            token=secrets.token_urlsafe(24),
+            name=name,
+            email=email,
+            memo=memo,
+            created_by=g.current_user.id,
+            expires_at=datetime.datetime.now(datetime.timezone.utc)
+            + datetime.timedelta(days=CONSULTANT_INVITE_TTL_DAYS),
+        )
+        db.session.add(invite)
+        db.session.commit()
+        log_admin_action('create_consultant_invite', 'consultant_invite', str(invite.id),
+                         {'name': name, 'email': email})
+        return jsonify(_invite_to_dict(invite, include_url=True)), 201
+
+    invites = ConsultantInvite.query.order_by(ConsultantInvite.created_at.desc()).limit(100).all()
+    return jsonify([_invite_to_dict(i, include_url=True) for i in invites])
+
+
+@app.route('/api/admin/consultant-invites/<int:invite_id>/revoke', methods=['POST'])
+@admin_required
+def revoke_consultant_invite(invite_id):
+    """미사용 초대 링크 취소."""
+    invite = ConsultantInvite.query.get_or_404(invite_id)
+    if invite.used_at:
+        return jsonify({'message': '이미 사용된 초대는 취소할 수 없습니다.'}), 400
+    invite.revoked_at = datetime.datetime.now(datetime.timezone.utc)
+    db.session.commit()
+    log_admin_action('revoke_consultant_invite', 'consultant_invite', str(invite.id), {})
+    return jsonify(_invite_to_dict(invite))
+
+
+@app.route('/api/consultant-invites/<string:token>', methods=['GET'])
+def verify_consultant_invite(token):
+    """초대 링크 유효성 확인 (등록 페이지 진입 시 호출, 공개).
+
+    토큰 자체를 아는 사람만 조회할 수 있고, 노출 정보는 표시용 이름뿐이다.
+    """
+    invite = ConsultantInvite.query.filter_by(token=token).first()
+    if not invite:
+        return jsonify({'valid': False, 'message': '유효하지 않은 초대 링크입니다.'}), 404
+    usable, reason = invite.is_usable()
+    if not usable:
+        return jsonify({'valid': False, 'message': reason}), 410
+    return jsonify({
+        'valid': True,
+        'name': invite.name,
+        'email': invite.email,
+        'expires_at': invite.expires_at.isoformat() if invite.expires_at else None,
+    })
+
 
 # --- Consultant Admin Endpoints ---
 @app.route('/api/admin/consultants/<int:consultant_id>/approve', methods=['POST'])

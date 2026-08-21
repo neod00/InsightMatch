@@ -20,6 +20,30 @@
 
 ---
 
+## 2026-08-09 — 컨설턴트 정산 정보 + 초대 링크
+
+```sql
+-- 정산·세금계산서 정보 (A안: NGB 원청 구조에서 외주비 지급에 필요)
+ALTER TABLE public.consultant ADD COLUMN IF NOT EXISTS business_type VARCHAR(20);
+ALTER TABLE public.consultant ADD COLUMN IF NOT EXISTS biz_reg_no    VARCHAR(20);
+ALTER TABLE public.consultant ADD COLUMN IF NOT EXISTS biz_name      VARCHAR(100);
+ALTER TABLE public.consultant ADD COLUMN IF NOT EXISTS biz_ceo_name  VARCHAR(50);
+ALTER TABLE public.consultant ADD COLUMN IF NOT EXISTS bank_name     VARCHAR(50);
+ALTER TABLE public.consultant ADD COLUMN IF NOT EXISTS account_number VARCHAR(50);
+ALTER TABLE public.consultant ADD COLUMN IF NOT EXISTS account_holder VARCHAR(50);
+
+-- 기본 협력계약 동의 이력
+ALTER TABLE public.consultant ADD COLUMN IF NOT EXISTS partner_agreed_at TIMESTAMP NULL;
+ALTER TABLE public.consultant ADD COLUMN IF NOT EXISTS partner_agreement_version VARCHAR(20);
+```
+
+`consultant_invite` 테이블은 신규 테이블이라 `create_all`이 자동 생성한다.
+**단, RLS는 자동으로 켜지지 않으므로** 배포 후 반드시 실행할 것:
+
+```sql
+ALTER TABLE IF EXISTS public.consultant_invite ENABLE ROW LEVEL SECURITY;
+```
+
 ## 2026-07-05 — 보안 수정 (Critical/High)
 
 ```sql

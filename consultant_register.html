@@ -719,6 +719,96 @@
                         <small style="color: var(--text-muted);">100자 이내로 본인의 강점을 어필해주세요</small>
                     </div>
 
+                    <!-- ===== 정산 정보 (외주비 지급·세금계산서용) ===== -->
+                    <h3 class="form-section-title" style="margin-top: 40px;">
+                        <i data-lucide="receipt"></i>
+                        정산 정보
+                    </h3>
+                    <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.9rem;">
+                        프로젝트 대금 지급과 세금계산서 처리를 위해 필요합니다.
+                        이 정보는 <strong>외부에 공개되지 않으며</strong> 정산 목적으로만 사용됩니다.
+                    </p>
+
+                    <div class="form-group">
+                        <label>사업자 구분 *</label>
+                        <div style="display: flex; gap: 20px; margin-top: 8px;">
+                            <label style="display: flex; align-items: center; gap: 8px; font-weight: 400; cursor: pointer;">
+                                <input type="radio" name="business_type" value="business" checked
+                                    onchange="toggleBizFields()"> 사업자 (세금계산서 발행 가능)
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; font-weight: 400; cursor: pointer;">
+                                <input type="radio" name="business_type" value="individual"
+                                    onchange="toggleBizFields()"> 개인 (원천징수 3.3%)
+                            </label>
+                        </div>
+                        <small style="color: var(--text-muted);">
+                            사업자등록이 있으신 경우 <strong>사업자</strong>를 선택해주세요. 세금 처리가 유리합니다.
+                        </small>
+                    </div>
+
+                    <div id="biz-fields">
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div class="form-group">
+                                <label>사업자등록번호 *</label>
+                                <input type="text" name="biz_reg_no" placeholder="000-00-00000" maxlength="14">
+                            </div>
+                            <div class="form-group">
+                                <label>대표자명 *</label>
+                                <input type="text" name="biz_ceo_name" placeholder="홍길동" maxlength="50">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>상호 (사업자등록증상) *</label>
+                            <input type="text" name="biz_name" placeholder="예: (주)인사이트컨설팅" maxlength="100">
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label>은행 *</label>
+                            <input type="text" name="bank_name" placeholder="예: 국민은행" maxlength="50" required>
+                        </div>
+                        <div class="form-group">
+                            <label>계좌번호 *</label>
+                            <input type="text" name="account_number" placeholder="숫자만 입력" maxlength="50" required>
+                        </div>
+                        <div class="form-group">
+                            <label>예금주 *</label>
+                            <input type="text" name="account_holder" placeholder="홍길동" maxlength="50" required>
+                        </div>
+                    </div>
+
+                    <!-- ===== 기본 협력계약 동의 ===== -->
+                    <h3 class="form-section-title" style="margin-top: 40px;">
+                        <i data-lucide="file-signature"></i>
+                        기본 협력계약
+                    </h3>
+                    <div style="border: 1px solid var(--border); border-radius: 12px; padding: 20px; background: var(--bg-subtle, #f9fafb); max-height: 220px; overflow-y: auto; font-size: 0.88rem; line-height: 1.7; color: var(--text-secondary);">
+                        <p><strong>제1조 (목적)</strong><br>
+                        본 계약은 InsightMatch를 통해 소개된 프로젝트를 수행함에 있어 필요한 기본 사항을 정합니다.</p>
+                        <p><strong>제2조 (계약 구조)</strong><br>
+                        기업과의 컨설팅 계약은 플랫폼 운영사가 체결하며, 컨설턴트는 운영사의 협력 파트너로서 용역을 수행합니다.
+                        개별 프로젝트의 금액·기간·산출물은 건별 발주서로 정합니다.</p>
+                        <p><strong>제3조 (대금 및 수수료)</strong><br>
+                        운영사는 프로젝트 대금에서 매칭 수수료를 공제한 금액을 컨설턴트에게 지급합니다.
+                        구체적 요율은 건별 발주서에 명시합니다. 지급은 기업으로부터 대금이 입금된 후 이루어집니다.</p>
+                        <p><strong>제4조 (세금계산서)</strong><br>
+                        사업자인 컨설턴트는 지급액에 대해 운영사에 세금계산서를 발행합니다.
+                        개인인 경우 관련 법령에 따라 원천징수 후 지급합니다.</p>
+                        <p><strong>제5조 (직접 거래 금지)</strong><br>
+                        컨설턴트는 플랫폼을 통해 소개받은 기업과 <strong>플랫폼을 거치지 않고 직접 계약하지 않습니다.</strong>
+                        본 조항은 소개일로부터 12개월간 유효하며, 위반 시 이용 제한 및 손해배상의 대상이 될 수 있습니다.</p>
+                        <p><strong>제6조 (비밀유지)</strong><br>
+                        컨설턴트는 업무상 알게 된 기업의 정보를 제3자에게 누설하지 않습니다.</p>
+                        <p style="color: var(--text-muted); font-size: 0.82rem;">버전 1.0</p>
+                    </div>
+                    <div class="form-group" style="margin-top: 16px;">
+                        <label style="display: flex; align-items: flex-start; gap: 10px; font-weight: 400; cursor: pointer;">
+                            <input type="checkbox" name="partner_agreement_agreed" required style="margin-top: 4px;">
+                            <span>위 <strong>기본 협력계약</strong>의 내용을 확인하였으며 이에 동의합니다. *</span>
+                        </label>
+                    </div>
+
                     <div class="step-navigation">
                         <button type="button" class="btn btn-outline btn-lg" onclick="prevStep()">
                             <i data-lucide="arrow-left" style="width: 18px; height: 18px;"></i>
@@ -823,6 +913,62 @@
 
         // ===== Lucide Icons =====
         lucide.createIcons();
+
+        // ===== 초대 링크 처리 =====
+        // 로그인 리다이렉트를 거쳐도 토큰이 유지되도록 sessionStorage에 보관한다.
+        function getInviteToken() {
+            const fromUrl = new URLSearchParams(window.location.search).get('invite');
+            if (fromUrl) {
+                sessionStorage.setItem('consultant_invite_token', fromUrl);
+                return fromUrl;
+            }
+            return sessionStorage.getItem('consultant_invite_token') || '';
+        }
+
+        (async function checkInvite() {
+            const token = getInviteToken();
+            if (!token) return;
+            try {
+                const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+                    ? 'http://localhost:5000' : '';
+                const res = await fetch(`${API}/api/consultant-invites/${encodeURIComponent(token)}`);
+                const info = await res.json().catch(() => ({}));
+                const banner = document.createElement('div');
+                banner.style.cssText =
+                    'max-width:900px;margin:0 auto 20px;padding:14px 18px;border-radius:12px;font-size:0.9rem;';
+                if (res.ok && info.valid) {
+                    banner.style.cssText += 'background:rgba(16,185,129,0.1);border:1px solid #10B981;color:#065f46;';
+                    banner.innerHTML = `<strong>초대 확인됨</strong> — ${info.name ? escapeHtml(info.name) + '님, ' : ''}초대 링크로 접속하셨습니다. 등록을 완료해주세요.`;
+                } else {
+                    sessionStorage.removeItem('consultant_invite_token');
+                    banner.style.cssText += 'background:rgba(220,38,38,0.08);border:1px solid #dc2626;color:#991b1b;';
+                    banner.innerHTML = `<strong>초대 링크 오류</strong> — ${escapeHtml(info.message || '유효하지 않은 링크입니다.')} 일반 등록으로 진행하실 수 있습니다.`;
+                }
+                const container = document.querySelector('.container');
+                if (container) container.insertBefore(banner, container.firstChild);
+            } catch (e) {
+                console.warn('[Invite] 확인 실패:', e);
+            }
+        })();
+
+        function escapeHtml(v) {
+            return String(v == null ? '' : v)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        // ===== 사업자/개인 필드 토글 =====
+        function toggleBizFields() {
+            const type = (document.querySelector('input[name="business_type"]:checked') || {}).value;
+            const box = document.getElementById('biz-fields');
+            const isBusiness = type === 'business';
+            box.style.display = isBusiness ? '' : 'none';
+            ['biz_reg_no', 'biz_name', 'biz_ceo_name'].forEach(n => {
+                const el = document.querySelector(`input[name="${n}"]`);
+                if (el) el.required = isBusiness;
+            });
+        }
+        document.addEventListener('DOMContentLoaded', toggleBizFields);
 
         // ===== Step Navigation =====
         let currentStep = 1;
@@ -1191,7 +1337,20 @@
                 match_reason: document.querySelector('input[name="match_reason"]').value,
                 specialty: getCheckedValues('industry_experience').join(', '),
                 avatar: document.querySelector('input[name="name"]').value.charAt(0),
-                profile_image_url: document.getElementById('profile-image-url').value
+                profile_image_url: document.getElementById('profile-image-url').value,
+
+                // 정산 정보
+                business_type: (document.querySelector('input[name="business_type"]:checked') || {}).value || '',
+                biz_reg_no: document.querySelector('input[name="biz_reg_no"]').value,
+                biz_name: document.querySelector('input[name="biz_name"]').value,
+                biz_ceo_name: document.querySelector('input[name="biz_ceo_name"]').value,
+                bank_name: document.querySelector('input[name="bank_name"]').value,
+                account_number: document.querySelector('input[name="account_number"]').value,
+                account_holder: document.querySelector('input[name="account_holder"]').value,
+
+                // 기본 협력계약 동의 + 초대 토큰
+                partner_agreement_agreed: document.querySelector('input[name="partner_agreement_agreed"]').checked,
+                invite_token: getInviteToken()
             };
 
             try {
