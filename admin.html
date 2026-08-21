@@ -467,6 +467,12 @@
                     </div>
                     <p style="color: var(--text-muted);">서비스 상태 (/api/health)</p>
                 </div>
+                <div class="feature-card" style="text-align: center;">
+                    <div id="error-stat-email" style="font-size: 2.5rem; font-weight: 800; color: var(--text-muted);">-
+                    </div>
+                    <p style="color: var(--text-muted);">이메일 발송</p>
+                    <p id="error-stat-email-note" style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;"></p>
+                </div>
             </div>
 
             <!-- Filter -->
@@ -940,6 +946,22 @@
                     cell.style.color = healthy ? 'var(--success)' : 'var(--error)';
                     if (typeof data.errors_24h === 'number') {
                         document.getElementById('error-count').textContent = data.errors_24h;
+                    }
+
+                    // SMTP 미설정이면 EmailService 가 발송을 건너뛰고도 성공을 반환한다.
+                    // 화면에 드러내지 않으면 "메일이 나가고 있다"고 착각하게 된다.
+                    const emailCell = document.getElementById('error-stat-email');
+                    const emailNote = document.getElementById('error-stat-email-note');
+                    if (typeof data.email_configured === 'boolean') {
+                        emailCell.textContent = data.email_configured ? '설정됨' : '미설정';
+                        emailCell.style.color = data.email_configured ? 'var(--success)' : 'var(--error)';
+                        emailNote.textContent = data.email_configured
+                            ? 'SMTP 자격증명이 설정되어 실제로 발송됩니다.'
+                            : 'SMTP 미설정 — 모든 메일이 발송되지 않고 성공으로 처리됩니다.';
+                    } else {
+                        emailCell.textContent = '확인 불가';
+                        emailCell.style.color = 'var(--text-muted)';
+                        emailNote.textContent = '';
                     }
                 } catch (e) {
                     cell.textContent = '확인 불가';
