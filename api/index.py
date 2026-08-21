@@ -63,6 +63,14 @@ else:
         database_url = database_url.replace("postgres://", "postgresql://", 1)
     database_url = database_url or os.environ.get('SUPABASE_DB_URL', 'sqlite:///insightmatch.db')
 
+# 테스트 전용 오버라이드.
+# 테스트는 SQLALCHEMY_DATABASE_URI 환경변수로 인메모리 DB를 지정한다.
+# 이 훅이 없으면 db.init_app() 시점에 파일 DB로 엔진이 만들어져,
+# 테스트가 config를 나중에 바꿔도 무시되고 drop_all()이 실제 개발 DB를 지운다.
+_db_override = os.environ.get('SQLALCHEMY_DATABASE_URI')
+if _db_override:
+    database_url = _db_override
+
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')

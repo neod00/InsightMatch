@@ -9,6 +9,11 @@ import jwt
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../api')))
 
+# index 를 import 하기 전에 인메모리 DB 를 지정해야 한다.
+# import 시점에 엔진이 만들어지므로, 나중에 config 만 바꾸면 적용되지 않아
+# 테스트의 drop_all() 이 로컬 개발용 insightmatch.db 를 삭제해 버린다.
+os.environ['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+
 from index import app, db
 from models import AdminActionLog, AnalysisJob, Consultant, ConsultantInvite, ManualGeneration, Message, Milestone, Notification, PasswordResetToken, Post, Project, User
 

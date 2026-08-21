@@ -1254,16 +1254,40 @@
             const user = JSON.parse(localStorage.getItem('user'));
             const token = localStorage.getItem('token');
 
+            // 초대 링크로 온 경우 돌아올 주소에 토큰을 실어 보낸다
+            const inviteToken = getInviteToken();
+            const returnTo = encodeURIComponent(
+                inviteToken ? `consultant_register.html?invite=${inviteToken}` : 'consultant_register.html'
+            );
+
             if (!user || !token) {
-                showNotification('전문가 등록은 로그인이 필요합니다. 로그인 페이지로 이동합니다.', 'error');
-                setTimeout(() => {
-                    window.location.href = 'login.html?redirect=consultant_register.html';
-                }, 2000);
+                if (inviteToken) {
+                    // 초대받은 분은 대개 계정이 없으므로 '가입'으로 안내한다
+                    showNotification('초대 링크로 접속하셨습니다. 먼저 컨설턴트 계정을 만들어주세요.', 'error');
+                    setTimeout(() => {
+                        window.location.href = `signup.html?role=consultant&redirect=${returnTo}`;
+                    }, 2200);
+                } else {
+                    showNotification('전문가 등록은 로그인이 필요합니다. 로그인 페이지로 이동합니다.', 'error');
+                    setTimeout(() => {
+                        window.location.href = `login.html?redirect=${returnTo}`;
+                    }, 2000);
+                }
                 return false;
             }
 
             // 컨설턴트 역할 체크
             if (user.role !== 'consultant') {
+                if (inviteToken) {
+                    // 기업 계정 등으로 로그인된 상태에서 초대 링크를 연 경우
+                    showNotification('현재 로그인된 계정은 컨설턴트가 아닙니다. 로그아웃 후 컨설턴트로 가입해주세요.', 'error');
+                    setTimeout(() => {
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('user');
+                        window.location.href = `signup.html?role=consultant&redirect=${returnTo}`;
+                    }, 2600);
+                    return false;
+                }
                 showNotification('컨설턴트 계정만 전문가 등록이 가능합니다.', 'error');
                 setTimeout(() => {
                     window.location.href = 'dashboard.html';

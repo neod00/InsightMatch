@@ -415,12 +415,13 @@
                     // Redirect based on role and profile status
                     if (userRole === 'admin') {
                         window.location.href = 'admin.html';
+                    } else if (redirectTo) {
+                        // 명시적으로 지정된 복귀 주소를 최우선으로 존중한다.
+                        // (초대 링크처럼 ?invite=... 쿼리가 붙은 주소가 유실되면 안 됨)
+                        window.location.href = redirectTo;
                     } else if (userRole === 'consultant' && !data.user.has_consultant_profile) {
                         // 컨설턴트 프로필이 없으면 등록 페이지로 이동
                         window.location.href = 'consultant_register.html';
-                    } else if (redirectTo) {
-                        // URL 파라미터로 지정된 페이지로 이동
-                        window.location.href = redirectTo;
                     } else {
                         window.location.href = 'dashboard.html';
                     }
