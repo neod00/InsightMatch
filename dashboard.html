@@ -1082,6 +1082,7 @@
         <a href="index.html" class="hover:text-brand-gold transition-colors dark:text-white">홈</a>
         <a href="dashboard.html" class="text-brand-gold text-xl font-bold">대시보드</a>
         <a href="blog.html" class="hover:text-brand-gold transition-colors dark:text-white">블로그</a>
+        <a href="contact.html" class="hover:text-brand-gold transition-colors dark:text-white">문의하기</a>
         <div class="h-px w-32 bg-brand-stone dark:bg-brand-darkBorder my-4"></div>
         <span id="mobile-user-name" class="text-brand-gold font-medium"></span>
         <button onclick="logout(); closeMobileMenu();"
@@ -1657,12 +1658,126 @@
         </div>
     </div>
 
+    <!-- ===========================================================
+         지원 및 계정 관리
+         -----------------------------------------------------------
+         로그인 후 화면에 문의 경로가 전혀 없어, 유료 퍼널 한가운데서
+         막힌 사용자가 연락할 방법이 없었다. 탈퇴도 화면에서 처리할 수
+         없어 운영자가 DB 를 직접 만져야 했다. 둘 다 여기서 해결한다.
+         =========================================================== -->
+    <div class="container" style="margin-top: 48px;">
+        <div class="card" style="padding: 28px;">
+            <h3 style="margin: 0 0 6px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="life-buoy" style="width: 20px; height: 20px;"></i>
+                도움이 필요하신가요?
+            </h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin: 0 0 20px;">
+                진행 중 막히는 부분이 있으면 문의를 남겨주세요. 영업일 기준 1~2일 내에 이메일로 답변드립니다.
+            </p>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <a href="contact.html" class="btn btn-primary">
+                    <i data-lucide="message-square" style="width: 16px; height: 16px;"></i>
+                    문의하기
+                </a>
+                <a href="index.html#faq" class="btn btn-secondary" id="account-faq-link">
+                    <i data-lucide="help-circle" style="width: 16px; height: 16px;"></i>
+                    자주 묻는 질문
+                </a>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid var(--border); margin: 28px 0 20px;">
+
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+                <div>
+                    <h4 style="margin: 0 0 4px; font-size: 0.95rem;">계정 관리</h4>
+                    <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">
+                        더 이상 서비스를 이용하지 않으신다면 회원 탈퇴를 신청하실 수 있습니다.
+                    </p>
+                </div>
+                <button class="btn btn-ghost btn-sm" style="color: #dc2626;" onclick="openWithdrawModal()">
+                    <i data-lucide="user-x" style="width: 16px; height: 16px;"></i>
+                    회원 탈퇴
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 회원 탈퇴 모달 -->
+    <div id="withdraw-modal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeWithdrawModal()"></div>
+        <div class="modal-content card"
+            style="max-width: 520px; max-height: 85vh; overflow-y: auto; padding: 24px; background: var(--bg-card); border-radius: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0; color: #dc2626; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="user-x" style="width: 20px; height: 20px;"></i>
+                    회원 탈퇴
+                </h3>
+                <button onclick="closeWithdrawModal()" class="btn btn-ghost" style="padding: 8px;">
+                    <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+                </button>
+            </div>
+
+            <div
+                style="background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); border-radius: 10px; padding: 16px; margin-bottom: 20px; font-size: 0.88rem; line-height: 1.8;">
+                <strong style="display: block; margin-bottom: 8px;">탈퇴하면 다음과 같이 처리됩니다.</strong>
+                <ul style="margin: 0; padding-left: 18px; color: var(--text-secondary);">
+                    <li>즉시 로그아웃되며 다시 로그인할 수 없습니다.</li>
+                    <li>이름·이메일·연락처 등 개인정보는 식별할 수 없는 값으로 바뀝니다.</li>
+                    <li id="withdraw-consultant-note" style="display: none;">
+                        전문가 프로필이 매칭 노출에서 제외되고, 등록하신 계좌·사업자 정보가 삭제됩니다.
+                    </li>
+                    <li>대금 결제·계약 이력 등 <strong>법령상 보존이 필요한 거래 기록은 남습니다.</strong>
+                        (상대방의 거래 이력이기도 하기 때문입니다)</li>
+                    <li><strong>계약이 체결되었거나 진행 중인 프로젝트가 있으면 탈퇴할 수 없습니다.</strong></li>
+                </ul>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <label for="withdraw-password"
+                    style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
+                    비밀번호 확인 <span style="color: #dc2626;">*</span>
+                </label>
+                <input type="password" id="withdraw-password" autocomplete="current-password"
+                    placeholder="본인 확인을 위해 비밀번호를 입력해주세요"
+                    style="width: 100%; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary);">
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <label for="withdraw-reason"
+                    style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
+                    탈퇴 사유 (선택)
+                </label>
+                <textarea id="withdraw-reason" maxlength="500" placeholder="서비스 개선에 참고하겠습니다."
+                    style="width: 100%; height: 80px; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); resize: vertical;"></textarea>
+            </div>
+
+            <div id="withdraw-error"
+                style="display: none; padding: 12px 14px; border-radius: 8px; background: rgba(239,68,68,0.12); color: #dc2626; font-size: 0.85rem; margin-bottom: 16px; line-height: 1.7;">
+            </div>
+
+            <div style="display: flex; gap: 12px;">
+                <button class="btn btn-outline" style="flex: 1;" onclick="closeWithdrawModal()">취소</button>
+                <button class="btn btn-primary" style="flex: 1; background: #dc2626; border-color: #dc2626;"
+                    id="withdraw-submit-btn" onclick="submitWithdrawal()">
+                    탈퇴하기
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="footer" style="margin-top: 40px;">
         <div class="container">
             <div class="footer-bottom" style="border-top: none; margin-top: 0; padding-top: 0;">
                 <span>© 2025 OpenBrain Limited. All rights reserved.</span>
                 <span>InsightMatch - AI-Powered ISO Consultant Matching</span>
+            </div>
+            <div class="footer-bottom" style="border-top: none; margin-top: 0; padding-top: 8px;">
+                <span>
+                    <a href="contact.html">문의하기</a> ·
+                    <a href="terms.html">이용약관</a> ·
+                    <a href="privacy.html">개인정보처리방침</a>
+                </span>
             </div>
         </div>
     </footer>
@@ -1732,6 +1847,18 @@
 
         document.getElementById('user-name').textContent = `${user.name}님`;
         document.getElementById('mobile-user-name').textContent = `${user.name}님`;
+
+        // 전문가에게는 기업용 FAQ 대신 전문가 FAQ 를 보여준다
+        // (정산·수수료·승인 기준은 기업용 FAQ 에 없다).
+        if (user.role === 'consultant') {
+            const faqLink = document.getElementById('account-faq-link');
+            if (faqLink) {
+                faqLink.href = 'consultant-faq.html';
+                faqLink.innerHTML =
+                    '<i data-lucide="help-circle" style="width: 16px; height: 16px;"></i> 전문가 FAQ';
+                lucide.createIcons();  // 위에서 이미 한 번 돌았으므로 교체한 아이콘을 다시 그린다
+            }
+        }
 
         // API Base URL
         const API_BASE_URL = (() => {
@@ -2986,6 +3113,94 @@
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.href = 'index.html';
+        }
+
+        // ===========================================================
+        // 회원 탈퇴
+        // ===========================================================
+        // 서버는 진행 중인 프로젝트가 있으면 409(WITHDRAWAL_BLOCKED)로 거부하고
+        // 막고 있는 프로젝트 목록을 함께 돌려준다. 여기서 그대로 보여줘야
+        // 사용자가 "왜 안 되는지" 를 알 수 있다.
+
+        function openWithdrawModal() {
+            document.getElementById('withdraw-password').value = '';
+            document.getElementById('withdraw-reason').value = '';
+            const errorBox = document.getElementById('withdraw-error');
+            errorBox.style.display = 'none';
+            errorBox.innerHTML = '';
+
+            // 전문가에게만 해당하는 안내(계좌·매칭 노출)를 조건부로 노출한다.
+            const consultantNote = document.getElementById('withdraw-consultant-note');
+            if (consultantNote) {
+                consultantNote.style.display = (user && user.role === 'consultant') ? 'list-item' : 'none';
+            }
+
+            document.getElementById('withdraw-modal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeWithdrawModal() {
+            document.getElementById('withdraw-modal').classList.add('hidden');
+        }
+
+        function showWithdrawError(html) {
+            const box = document.getElementById('withdraw-error');
+            box.style.display = 'block';
+            box.innerHTML = html;
+        }
+
+        async function submitWithdrawal() {
+            const password = document.getElementById('withdraw-password').value;
+            const reason = document.getElementById('withdraw-reason').value.trim();
+
+            if (!password) {
+                showWithdrawError('비밀번호를 입력해주세요.');
+                return;
+            }
+            if (!confirm('정말 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+                return;
+            }
+
+            const button = document.getElementById('withdraw-submit-btn');
+            const originalLabel = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '처리 중...';
+
+            try {
+                const response = await authFetch(`${API_BASE_URL}/api/auth/withdraw`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password, reason })
+                });
+                const data = await response.json().catch(() => ({}));
+
+                if (!response.ok) {
+                    if (data.code === 'WITHDRAWAL_BLOCKED' && Array.isArray(data.blockers)) {
+                        const items = data.blockers
+                            .map(b => `<li>${escapeHtml(b.title || '(제목 없음)')} — ${escapeHtml(STATUS_CONFIG[b.status]?.text || b.status || '')}</li>`)
+                            .join('');
+                        showWithdrawError(
+                            `${escapeHtml(data.message || '탈퇴할 수 없습니다.')}` +
+                            `<ul style="margin: 8px 0 0; padding-left: 18px;">${items}</ul>`
+                        );
+                    } else {
+                        showWithdrawError(escapeHtml(data.message || '탈퇴 처리에 실패했습니다.'));
+                    }
+                    return;
+                }
+
+                // 서버가 token_version 을 올려 기존 토큰은 이미 무효다.
+                // 로컬 저장소도 함께 비워야 화면이 로그인 상태로 남지 않는다.
+                alert(data.message || '탈퇴가 완료되었습니다.');
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = 'index.html';
+            } catch (error) {
+                showWithdrawError('서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = originalLabel;
+            }
         }
 
         function showNotification(message, type) {

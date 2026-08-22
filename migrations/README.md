@@ -20,6 +20,81 @@
 
 ---
 
+## 2026-08-22 (3) — L1-C1 문의 접수 + 회원 탈퇴: `inquiry` 신규 + `user.deleted_at` 추가
+
+⚠️ **기존 테이블(`user`)에 컬럼을 추가한다.** `create_all()` 은 기존 테이블에
+컬럼을 추가하지 못하므로 **배포 전에 반드시 아래 ALTER 를 먼저 실행**해야 한다.
+빠뜨리면 로그인을 포함해 사용자를 조회하는 **모든 API 가 500 으로 실패**한다
+(전례 있음).
+
+이번 배치의 스키마 변경은 **`user.deleted_at` 컬럼 1개 + `inquiry` 테이블 1개**뿐이다.
+
+```sql
+-- ① 기존 테이블 컬럼 추가 — create_all 이 못 하는 부분. 배포 전 필수.
+--    회원 탈퇴(소프트 삭제) 시각. NULL 이면 정상 계정.
+--    행을 지우지 않는 이유: user.id 를 참조하는 FK 가 10곳이 넘어
+--    (project.company_id / consultant.user_id / message.sender_id /
+--     notification.user_id / admin_action_log.admin_user_id 등)
+--    하드 삭제하면 상대방의 거래 이력과 감사 로그까지 함께 망가진다.
+ALTER TABLE public."user" ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL;
+
+-- 탈퇴 계정 제외 조회(로그인·관리자 통지·cron 발송 대상)에 맞춘 부분 인덱스.
+-- 탈퇴자는 소수이므로 정상 계정만 인덱스에 남긴다.
+CREATE INDEX IF NOT EXISTS ix_user_active
+    ON public."user" (id)
+    WHERE deleted_at IS NULL;
+
+-- ② 신규 테이블: 문의 접수
+--    create_all 이 자동 생성하지만 미리 만들어도 무방하다.
+CREATE TABLE IF NOT EXISTS public.inquiry (
+    id         SERIAL NOT NULL,
+    user_id    INTEGER NULL REFERENCES public."user"(id),  -- 비로그인 접수면 NULL
+    name       VARCHAR(100) NOT NULL,
+    email      VARCHAR(120) NOT NULL,
+    category   VARCHAR(30)  NOT NULL DEFAULT 'etc',
+    subject    VARCHAR(200) NOT NULL,
+    content    TEXT         NOT NULL,
+    status     VARCHAR(20)  NOT NULL DEFAULT 'received',   -- received | checked | done
+    admin_memo TEXT,
+    created_at TIMESTAMP WITHOUT TIME ZONE,
+    updated_at TIMESTAMP WITHOUT TIME ZONE,
+    PRIMARY KEY (id)
+);
+
+-- 관리자 화면의 조회 조건(상태 필터 + 최신순 정렬)에 맞춘 인덱스
+CREATE INDEX IF NOT EXISTS ix_inquiry_status     ON public.inquiry (status);
+CREATE INDEX IF NOT EXISTS ix_inquiry_created_at ON public.inquiry (created_at);
+
+-- ③ ⚠️ 필수: 신규 테이블의 RLS 활성화 (create_all 은 RLS 를 켜주지 않는다)
+ALTER TABLE IF EXISTS public.inquiry ENABLE ROW LEVEL SECURITY;
+```
+
+적용 확인:
+
+```sql
+-- 컬럼 추가 확인
+SELECT column_name FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = 'user' AND column_name = 'deleted_at';
+
+-- RLS 확인 (rowsecurity = true 여야 함)
+SELECT tablename, rowsecurity FROM pg_tables
+WHERE schemaname = 'public' AND tablename = 'inquiry';
+```
+
+### 운영 메모 — 탈퇴 계정의 이메일 재사용
+
+탈퇴 시 `user.email` 을 `deleted_<id>@deleted.invalid` 로 치환한다
+(`.invalid` 는 RFC 2606 예약 도메인이라 실제로 존재할 수 없다).
+따라서 **탈퇴자는 같은 이메일로 재가입할 수 있다.** `user.email` 의 unique
+제약을 유지하면서 개인정보를 파기하기 위한 선택이며, 원본 이메일을 남겨두면
+파기 의무(개인정보보호법 제21조)에 반하고 재가입도 영구히 막히게 된다.
+
+> ⚠️ 부작용: 사용자당 하루 한도(`DAILY_MANUAL_LIMIT`, AI 매뉴얼 1회/일)가
+> 탈퇴 후 재가입으로 초기화된다. IP 기준 `check_rate_limit` 이 남아 있으므로
+> 무제한은 아니지만, 남용이 관측되면 별도 방어를 붙여야 한다.
+
+---
+
 ## 2026-08-22 (2) — L1-B 통지·리마인더: `notification.emailed_at` 추가
 
 ⚠️ **기존 테이블에 컬럼을 추가한다.** `create_all()` 은 기존 테이블에 컬럼을

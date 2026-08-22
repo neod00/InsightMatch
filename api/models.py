@@ -21,6 +21,22 @@ class User(db.Model):
     # 이전에 발급된 JWT는 즉시 무효가 된다.
     token_version = db.Column(db.Integer, nullable=False, default=0, server_default='0')
 
+    # ── 회원 탈퇴(소프트 삭제) 시각. NULL 이면 정상 계정 ──
+    #
+    # 행을 지우지 않는 이유: user.id 를 참조하는 곳이 너무 많다.
+    #   project.company_id / consultant.user_id / message.sender_id /
+    #   notification.user_id / admin_action_log.admin_user_id /
+    #   password_reset_token.user_id / manual_generation.user_id /
+    #   company.user_id / profile_change_log.changed_by /
+    #   consultant_invite.created_by · used_by_user_id
+    # 하드 삭제하면 상대방(기업↔컨설턴트)의 거래 이력과 감사 로그까지 함께
+    # 망가진다. 탈퇴자 본인의 개인정보는 익명화로 지우고 행은 남긴다.
+    #
+    # ⚠️ deleted_at 이 찍힌 사용자는 로그인·API 접근이 모두 차단되어야 한다.
+    #    (index.py 의 token_required / token_optional / login /
+    #     require_admin_request / request-reset / find-email 에서 확인)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+
 class Company(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id')) # Link to User
@@ -485,6 +501,54 @@ class PasswordResetToken(db.Model):
     expires_at = db.Column(db.DateTime, nullable=False)
     used = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=utc_now)
+
+
+class Inquiry(db.Model):
+    """문의 접수.
+
+    지금까지 문의 경로는 푸터의 개인 Gmail `mailto:` 하나뿐이었다. 그래서
+    문의가 플랫폼 밖 개인 메일함에만 쌓여 (1) 이력이 남지 않고, (2) FAQ 를
+    무엇으로 채워야 하는지 알려주는 원천 데이터가 통째로 유실됐다.
+    로그인 후 화면(dashboard.html)에는 문의 경로 자체가 없어, 유료 퍼널
+    한가운데서 막힌 사용자가 연락할 방법이 없었다.
+
+    ⚠️ 무인증 공개 경로(POST /api/inquiries)로 들어오므로 name·email·
+       subject·content 는 **전부 외부 입력**이다. 렌더링하는 쪽
+       (admin.html)은 반드시 escapeHtml 을 거쳐야 한다.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+
+    # 로그인 상태로 접수했으면 계정을 연결한다. 비로그인 접수면 NULL.
+    # (탈퇴해도 문의 이력은 남아야 하므로 소프트 삭제 정책과 충돌하지 않는다)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+    name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), nullable=False)
+    category = db.Column(db.String(30), nullable=False, default='etc')
+    subject = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+
+    # received(접수) → checked(확인) → done(완료)
+    status = db.Column(db.String(20), nullable=False, default='received', index=True)
+
+    admin_memo = db.Column(db.Text)          # 관리자 내부 메모 (문의자에게 노출하지 않는다)
+    created_at = db.Column(db.DateTime, default=utc_now, index=True)
+    updated_at = db.Column(db.DateTime, default=utc_now)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'userId': self.user_id,
+            'name': self.name,
+            'email': self.email,
+            'category': self.category,
+            'subject': self.subject,
+            'content': self.content,
+            'status': self.status,
+            'adminMemo': self.admin_memo,
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
+            'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
+        }
 
 
 class ErrorLog(db.Model):

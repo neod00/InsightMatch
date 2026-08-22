@@ -53,7 +53,16 @@ backup_ai_analysis/
 data/
 
 # Test files (local only)
+# 루트에 흩어지는 일회성 스크립트(test_xxx.py)를 걸러내기 위한 규칙이다.
+# 단 tests/ 안의 정식 테스트까지 삼키면 안 된다 — 새 테스트를 test_*.py 로
+# 만들면 git 이 조용히 무시해서, 통과하는 테스트가 리포지토리에 없는 상태가
+# 된다(실제로 한 번 발생했다). tests/ 는 예외로 둔다.
 test_*.py
+!tests/
+!tests/**
+# 단 tests/ 를 통째로 되살리면 파이썬 캐시까지 딸려온다. 다시 제외한다.
+tests/__pycache__/
+tests/**/__pycache__/
 full_models_list.txt
 
 # Agent config (local only)

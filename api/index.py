@@ -23,7 +23,7 @@ import jwt
 from sqlalchemy import and_, case, func, text
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, CronRun, ErrorLog, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry
+from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, CronRun, ErrorLog, Inquiry, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry
 from services import MatchingService, ProposalService, EmailService
 from services.iso_manual_service import generate_iso_manual_stream
 
@@ -136,6 +136,11 @@ def token_required(f):
             current_user = User.query.get(payload['user_id'])
             if not current_user:
                 return jsonify({'message': '유효하지 않은 사용자입니다.'}), 401
+            # 탈퇴 검사: 소프트 삭제라 행이 남아 있으므로 여기서 막지 않으면
+            # 탈퇴한 사용자가 기존 JWT 로 계속 API 를 쓸 수 있다.
+            # (token_version 도 함께 올리지만, 두 방어선을 모두 둔다)
+            if getattr(current_user, 'deleted_at', None) is not None:
+                return jsonify({'message': '탈퇴한 계정입니다.'}), 401
             # 토큰 폐기 검사: 비밀번호 재설정 등으로 버전이 오르면 기존 토큰은 무효
             if payload.get('tv', 0) != (current_user.token_version or 0):
                 return jsonify({'message': '세션이 만료되었습니다. 다시 로그인해주세요.'}), 401
@@ -158,7 +163,12 @@ def token_optional(f):
             token = auth_header.split(' ', 1)[1]
             try:
                 payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-                g.current_user = User.query.get(payload['user_id'])
+                candidate = User.query.get(payload['user_id'])
+                # 탈퇴한 계정은 '비로그인' 과 동일하게 취급한다.
+                # (여기서 걸러내지 않으면 탈퇴자가 공개 API 에서 로그인 사용자로
+                #  인식되어 문의 자동 연결·관리자 목록 노출 등이 그대로 동작한다)
+                if candidate is not None and getattr(candidate, 'deleted_at', None) is None:
+                    g.current_user = candidate
             except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
                 pass
         return f(*args, **kwargs)
@@ -696,6 +706,10 @@ def require_admin_request():
 
     if not current_user:
         return jsonify({'message': 'Invalid user'}), 401
+    # 탈퇴 검사 (token_required 와 동일한 이유). 관리자 경로는 별도 데코레이터라
+    # 여기에 넣지 않으면 관리자 API 만 탈퇴 후에도 열려 있게 된다.
+    if getattr(current_user, 'deleted_at', None) is not None:
+        return jsonify({'message': '탈퇴한 계정입니다.'}), 401
     if current_user.role != 'admin':
         return jsonify({'message': 'Admin role required'}), 403
 
@@ -829,7 +843,7 @@ def notify_admins(notif_type, title, message, link='/admin.html', email_spec=Non
         (생성한 알림 수, 메일 발송 성공 수)
     """
     admins = (
-        User.query.filter_by(role='admin')
+        User.query.filter(User.role == 'admin', User.deleted_at.is_(None))
         .order_by(User.id)
         .limit(ADMIN_NOTIFY_RECIPIENT_LIMIT)
         .all()
@@ -1300,6 +1314,9 @@ def signup():
     if not password or len(password) < 8:
         return jsonify({'message': '비밀번호는 8자 이상이어야 합니다.'}), 400
     
+    # 탈퇴 계정은 이메일이 deleted_<id>@deleted.invalid 로 치환되어 있으므로
+    # 여기에 걸리지 않는다 = 탈퇴 후 같은 이메일로 재가입이 가능하다(의도된 정책).
+    # 근거는 withdraw_account() 의 주석 참조.
     if User.query.filter_by(email=email).first():
         return jsonify({'message': 'Email already exists'}), 400
     
@@ -1354,7 +1371,15 @@ def login():
 
     if not user or not check_password_hash(user.password_hash, password):
         return jsonify({'message': 'Invalid credentials'}), 401
-        
+
+    # 탈퇴 계정 차단.
+    # 탈퇴 시 이메일을 deleted_<id>@deleted.invalid 로 치환하므로 원래 이메일로는
+    # 애초에 조회되지 않지만, 익명화가 부분 실패한 경우까지 대비한 방어선이다.
+    # 계정 존재 여부를 흘리지 않도록 자격증명 오류와 같은 응답을 준다.
+    if getattr(user, 'deleted_at', None) is not None:
+        return jsonify({'message': 'Invalid credentials'}), 401
+
+
     token = jwt.encode({
         'user_id': user.id,
         'role': user.role,
@@ -1400,8 +1425,10 @@ def request_password_reset():
         success_message = '입력하신 이메일로 비밀번호 재설정 링크를 발송했습니다. 이메일을 확인해주세요.'
         
         user = User.query.filter_by(email=email).first()
-        if not user:
-            print("[Password Reset] Email not found in database (address redacted)")
+        # 탈퇴 계정에는 재설정 링크를 발급하지 않는다 (링크로 계정이 되살아나면 안 된다).
+        # 열거 방지를 위해 응답은 동일하게 성공으로 돌려준다.
+        if not user or getattr(user, 'deleted_at', None) is not None:
+            print("[Password Reset] Email not found or withdrawn (address redacted)")
             # Silently succeed to prevent enumeration
             return jsonify({'message': success_message})
         
@@ -1486,9 +1513,10 @@ def reset_password():
     
     # Update password
     user = User.query.get(reset_token.user_id)
-    if not user:
+    if not user or getattr(user, 'deleted_at', None) is not None:
+        # 탈퇴 전에 발급된 링크가 남아 있어도 계정을 되살릴 수 없어야 한다.
         return jsonify({'message': '사용자를 찾을 수 없습니다.'}), 404
-    
+
     user.password_hash = generate_password_hash(new_password)
     # 비밀번호가 바뀌면 기존에 발급된 모든 토큰을 무효화한다
     # (계정 탈취 시 공격자의 세션이 최대 24시간 살아있던 문제 해결)
@@ -1512,7 +1540,9 @@ def find_email():
     phone_normalized = phone.replace('-', '').replace(' ', '')
     
     # Find user with matching name and phone
-    users = User.query.filter_by(name=name).all()
+    # 탈퇴 계정은 제외한다. (이름·전화가 익명화되어 매칭될 일이 사실상 없지만,
+    #  익명화가 부분 실패했을 때 탈퇴자의 이메일이 노출되는 것을 막는 방어선)
+    users = User.query.filter(User.name == name, User.deleted_at.is_(None)).all()
     
     matched_user = None
     for user in users:
@@ -1537,6 +1567,249 @@ def find_email():
         'message': '이메일을 찾았습니다.',
         'email': masked_email
     })
+
+
+# ============================================================
+# 회원 탈퇴 (소프트 삭제 + 개인정보 익명화)
+# ============================================================
+# 지금까지 탈퇴 기능이 라우트도 UI 도 없었다. 탈퇴하려면 운영자가 DB 를 직접
+# 만져야 했고, 약관·개인정보처리방침에는 "메일로 요청" 이라고 쓸 수밖에 없었다.
+#
+# 설계 원칙:
+#  1) User 행을 지우지 않는다. user.id 를 참조하는 FK 가 10곳이 넘어(models.py
+#     User.deleted_at 주석 참조) 하드 삭제하면 상대방의 거래 이력과 감사 로그가
+#     함께 망가진다.
+#  2) 대신 개인정보(이메일·이름·전화)를 식별 불가능한 값으로 치환한다.
+#  3) token_version 을 올려 발급된 JWT 를 즉시 무효화하고, deleted_at 으로
+#     로그인·API 접근을 모두 차단한다.
+#
+# ⚠️ 법률 확인 필요 지점 (임의로 정하지 않았다):
+#    전자상거래법상 계약·대금결제 기록 5년 보존 의무와 개인정보보호법 제21조의
+#    파기 의무가 충돌하는 구간이 있다. 지금 구현은 "행은 남기고 개인 식별정보만
+#    지운다" 는 방어적 선택이며, **거래 이력이 있는 사용자의 보존 범위·기간은
+#    변호사 확인 후 확정해야 한다.**
+
+# 탈퇴를 거부하는 프로젝트 상태.
+# 계약이 형성됐거나 형성 중인 건은 상대방(기업/컨설턴트)에게 이행 상대가
+# 사라지는 것이므로 화면에서 일방적으로 끊게 두면 안 된다.
+WITHDRAWAL_BLOCKING_PROJECT_STATUSES = (
+    'pending_contract',     # 계약서 초안 검토 중
+    'awaiting_signature',   # 한쪽 서명 완료, 상대 서명 대기
+    'contracted',           # 계약 체결
+    'in_progress',          # 수행 중
+)
+
+# 탈퇴 시 자동으로 종료 처리하는 '계약 전' 상태.
+# 그대로 두면 상대방이 영영 응답을 기다리고, cron 리마인더도 계속 돈다.
+WITHDRAWAL_AUTO_CLOSE_PROJECT_STATUSES = (
+    'proposal_pending',
+    'proposal_submitted',
+    'reviewing',
+    'negotiating',
+    'planning',
+)
+
+
+def _anonymized_email(user_id):
+    """탈퇴 계정의 치환 이메일.
+
+    `.invalid` 는 RFC 2606 이 예약한 도메인이라 실제로 존재할 수 없다.
+    익명화 누락으로 어딘가에서 메일을 보내려 해도 외부로 나가지 않는다.
+    user_id 를 넣어 `user.email` 의 unique 제약과 충돌하지 않게 한다.
+    """
+    return f'deleted_{user_id}@deleted.invalid'
+
+
+def find_withdrawal_blockers(user):
+    """탈퇴를 거부해야 하는 사유 목록을 반환한다. 비어 있으면 탈퇴 가능.
+
+    ⚠️ 정산 기능(L1-A)이 붙으면 **미정산 건 검사를 여기에 추가해야 한다.**
+       컨설턴트에게 지급하지 않은 외주비가 남은 채로 계정이 익명화되면
+       계좌·사업자 정보가 지워져 지급 자체가 불가능해진다. 지금은 정산
+       테이블이 존재하지 않으므로 프로젝트 상태로만 판단한다.
+    """
+    blockers = []
+
+    query = None
+    if user.role == 'company':
+        query = Project.query.filter(Project.company_id == user.id)
+    elif user.role == 'consultant':
+        consultant = Consultant.query.filter_by(user_id=user.id).first()
+        if consultant:
+            query = Project.query.filter(Project.consultant_id == consultant.id)
+
+    if query is not None:
+        active = (
+            query.filter(
+                Project.deleted_at.is_(None),
+                Project.status.in_(WITHDRAWAL_BLOCKING_PROJECT_STATUSES),
+            )
+            .order_by(Project.id)
+            .limit(20)
+            .all()
+        )
+        for project in active:
+            blockers.append({
+                'type': 'project',
+                'projectId': project.id,
+                'title': project.title,
+                'status': project.status,
+            })
+
+    return blockers
+
+
+def _close_open_projects_on_withdrawal(user):
+    """탈퇴자의 '계약 전' 프로젝트를 종료 상태로 전이시킨다.
+
+    이 처리가 없으면 상대방은 오지 않을 제안서를 기다리고, cron 의
+    제안·서명 리마인더가 탈퇴자를 대상으로 계속 돈다.
+    프로젝트 행 자체는 지우지 않는다(대화·협상 이력 보존).
+    """
+    now = _naive_utc_now()
+    closed = 0
+
+    if user.role == 'company':
+        projects = Project.query.filter(
+            Project.company_id == user.id,
+            Project.deleted_at.is_(None),
+            Project.status.in_(WITHDRAWAL_AUTO_CLOSE_PROJECT_STATUSES),
+        ).all()
+        for project in projects:
+            project.status = 'cancelled_by_company'
+            project.cancelled_at = now
+            project.cancelled_reason = '기업 회원 탈퇴로 자동 취소'
+            closed += 1
+    elif user.role == 'consultant':
+        consultant = Consultant.query.filter_by(user_id=user.id).first()
+        if consultant:
+            projects = Project.query.filter(
+                Project.consultant_id == consultant.id,
+                Project.deleted_at.is_(None),
+                Project.status.in_(WITHDRAWAL_AUTO_CLOSE_PROJECT_STATUSES),
+            ).all()
+            for project in projects:
+                project.status = 'declined_by_consultant'
+                project.cancelled_at = now
+                project.cancelled_reason = '전문가 회원 탈퇴로 자동 종료'
+                closed += 1
+
+    return closed
+
+
+@app.route('/api/auth/withdraw', methods=['POST'])
+@token_required
+def withdraw_account():
+    """회원 탈퇴 (소프트 삭제 + 개인정보 익명화).
+
+    Body: {"password": "...", "reason": "선택 입력"}
+    """
+    user = g.current_user
+
+    # 관리자 계정은 화면에서 탈퇴할 수 없다.
+    # admin_action_log.admin_user_id 가 감사 기록의 주체이고, 운영자가 실수로
+    # 자기 계정을 끊으면 플랫폼을 관리할 수단 자체가 사라진다.
+    if user.role == 'admin':
+        return jsonify({'message': '관리자 계정은 화면에서 탈퇴할 수 없습니다.'}), 403
+
+    data = request.json or {}
+    password = data.get('password') or ''
+    reason = str(data.get('reason') or '').strip()[:500]
+
+    # 오조작 방지: 비밀번호 재확인 필수.
+    # 남의 기기에 로그인된 세션으로 계정이 날아가는 것을 막는다.
+    if not password or not check_password_hash(user.password_hash, password):
+        return jsonify({'message': '비밀번호가 일치하지 않습니다.'}), 403
+
+    blockers = find_withdrawal_blockers(user)
+    if blockers:
+        return jsonify({
+            'message': '진행 중인 프로젝트가 있어 탈퇴할 수 없습니다. '
+                       '프로젝트를 완료하거나 취소한 뒤 다시 시도해주세요.',
+            'code': 'WITHDRAWAL_BLOCKED',
+            'blockers': blockers,
+        }), 409
+
+    user_id = user.id
+    original_role = user.role
+    now = _naive_utc_now()
+
+    closed_projects = _close_open_projects_on_withdrawal(user)
+
+    # ── 컨설턴트: 매칭 노출에서 제거 + 프로필 개인정보 삭제 ──
+    if original_role == 'consultant':
+        consultant = Consultant.query.filter_by(user_id=user_id).first()
+        if consultant:
+            # 공개 목록·매칭 질의는 (verified == True) OR (status == 'verified')
+            # 조건이라 **둘 다** 꺼야 노출에서 빠진다.
+            consultant.verified = False
+            consultant.status = 'withdrawn'
+            consultant.name = '탈퇴한 전문가'
+            consultant.email = None
+            consultant.phone = None
+            consultant.bio = None
+            consultant.profile_image_url = None
+            consultant.introduction_video_url = None
+            consultant.portfolio_files = None
+            consultant.pending_changes = None
+            consultant.pending_changes_at = None
+            # 정산·금융정보는 남길 이유가 없다. 정산 기능이 아직 없어
+            # (L1-A 미착수) 보존해야 할 지급 이력 자체가 존재하지 않는다.
+            # ⚠️ 정산이 생기면 "지급 완료 건의 증빙 보존" 과 충돌하므로
+            #    이 블록을 조건부 삭제로 바꿔야 한다 (변호사 확인 필요).
+            consultant.business_type = None
+            consultant.biz_reg_no = None
+            consultant.biz_name = None
+            consultant.biz_ceo_name = None
+            consultant.bank_name = None
+            consultant.account_number = None
+            consultant.account_holder = None
+
+    # ── 기업 프로필의 연락처 이메일도 함께 지운다 ──
+    # company.name(회사명)은 남긴다. 상대 컨설턴트의 거래 기록에서
+    # "누구와 계약했는지" 가 사라지면 그쪽 이력이 무의미해진다.
+    for company in Company.query.filter_by(user_id=user_id).all():
+        company.email = None
+
+    # ── 미사용 비밀번호 재설정 토큰 폐기 ──
+    try:
+        PasswordResetToken.query.filter_by(user_id=user_id, used=False).update({'used': True})
+    except Exception as e:
+        print(f"[Withdraw] 재설정 토큰 폐기 실패 (계속 진행): {e}")
+
+    # ── 계정 본체 익명화 ──
+    user.email = _anonymized_email(user_id)
+    user.name = '탈퇴한 회원'
+    user.phone = None
+    # 로그인 자체를 불가능하게 만든다. deleted_at 검사가 뚫려도 통과할 수 없다.
+    user.password_hash = generate_password_hash(secrets.token_urlsafe(32))
+    # 발급된 JWT 즉시 무효화 (비밀번호 재설정과 같은 메커니즘 재사용)
+    user.token_version = (user.token_version or 0) + 1
+    user.deleted_at = now
+    # company_name 은 남긴다 — 법인명은 상대방 거래기록의 일부다.
+    # ⚠️ 개인사업자의 상호는 개인정보에 해당할 수 있다 (변호사 확인 필요).
+
+    db.session.commit()
+
+    # 통지는 커밋 이후에 별도 트랜잭션으로. 실패해도 탈퇴는 이미 확정이다.
+    try:
+        notify_admins(
+            'member_withdrawal',
+            '회원 탈퇴가 처리되었습니다',
+            f'user #{user_id} ({original_role}) 탈퇴 — 자동 종료된 프로젝트 {closed_projects}건'
+            + (f' / 사유: {reason}' if reason else ''),
+            link='/admin.html',
+        )
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[Withdraw] 관리자 통지 실패: {type(e).__name__}: {e}")
+
+    return jsonify({
+        'message': '탈퇴가 완료되었습니다. 그동안 이용해주셔서 감사합니다.',
+        'closedProjects': closed_projects,
+    })
+
 
 # --- Analysis Endpoints (제거됨) ---
 # 레거시 /api/analyze (POST·GET)는 2026-07-05 제거.
@@ -4945,6 +5218,191 @@ def get_admin_action_logs():
         result.append(item)
     return jsonify(result)
 
+# ============================================================
+# 문의 접수 (Inquiry)
+# ============================================================
+# 기존 문의 경로는 푸터의 개인 Gmail mailto: 하나뿐이었다. 이력이 남지 않아
+# FAQ 개선의 원천 데이터가 유실되고, 로그인 후 화면에는 경로 자체가 없었다.
+
+INQUIRY_CATEGORIES = {
+    'service':     '서비스 이용 문의',
+    'matching':    '컨설턴트 매칭 문의',
+    'consultant':  '전문가 등록·정산 문의',
+    'account':     '계정·회원정보 문의',
+    'bug':         '오류 신고',
+    'partnership': '제휴·제안',
+    'etc':         '기타',
+}
+INQUIRY_STATUSES = ('received', 'checked', 'done')
+INQUIRY_STATUS_LABELS = {'received': '접수', 'checked': '확인', 'done': '완료'}
+
+INQUIRY_MAX_NAME = 100
+INQUIRY_MAX_SUBJECT = 200
+INQUIRY_MAX_CONTENT = 4000
+INQUIRY_MAX_MEMO = 2000
+
+
+@app.route('/api/inquiries', methods=['POST'])
+@token_optional
+def create_inquiry():
+    """문의 접수. **무인증 공개 경로**.
+
+    로그인 상태면 user_id 와 계정 이메일을 자동으로 연결한다.
+    """
+    # 스팸 방지. 무인증이라 방어선이 이것뿐이므로 pwreset(5회/시간)보다 더 좁게 잡는다.
+    # 관리자 1인당 메일 1통이 즉시 나가므로 발송량이 호출자 통제 하에 놓이지
+    # 않도록 하는 것이 목적이다 (ADMIN_NOTIFY_RECIPIENT_LIMIT=5 와 함께 상한이 결정된다).
+    if not check_rate_limit('inquiry', limit=3, window_minutes=60):
+        return jsonify({
+            'message': '문의 접수가 너무 많습니다. 잠시 후 다시 시도해주세요.',
+            'code': 'RATE_LIMITED',
+        }), 429
+
+    data = request.json or {}
+    current_user = getattr(g, 'current_user', None)
+
+    name = str(data.get('name') or '').strip()[:INQUIRY_MAX_NAME]
+    email = str(data.get('email') or '').strip().lower()[:120]
+    category = str(data.get('category') or 'etc').strip()
+    subject = str(data.get('subject') or '').strip()[:INQUIRY_MAX_SUBJECT]
+    content = str(data.get('content') or '').strip()[:INQUIRY_MAX_CONTENT]
+
+    # 로그인 사용자는 폼 입력값보다 계정 정보를 우선한다.
+    # (사칭 방지 + 답변 보낼 주소를 확실히 하기 위함)
+    if current_user is not None:
+        email = (current_user.email or email or '').strip().lower()
+        if not name:
+            name = (current_user.name or '').strip()[:INQUIRY_MAX_NAME]
+
+    if not name:
+        return jsonify({'message': '이름을 입력해주세요.'}), 400
+    if not is_valid_email(email):
+        return jsonify({'message': '유효하지 않은 이메일 형식입니다.'}), 400
+    if category not in INQUIRY_CATEGORIES:
+        return jsonify({'message': '유효하지 않은 문의 유형입니다.'}), 400
+    if not subject:
+        return jsonify({'message': '제목을 입력해주세요.'}), 400
+    if len(content) < 5:
+        return jsonify({'message': '문의 내용을 5자 이상 입력해주세요.'}), 400
+
+    inquiry = Inquiry(
+        user_id=current_user.id if current_user is not None else None,
+        name=name,
+        email=email,
+        category=category,
+        subject=subject,
+        content=content,
+        status='received',
+    )
+    db.session.add(inquiry)
+    db.session.commit()
+
+    # 관리자 통지 — 인앱 + 메일 즉시.
+    # 리드 통지(/api/match)와 달리 문의는 '답변을 기다리는 사람' 이 있는
+    # 이벤트라 하루 뒤 다이제스트로 미루면 응대가 그만큼 늦어진다.
+    # 접수는 이미 커밋됐으므로 통지 실패가 접수를 되돌리면 안 된다.
+    try:
+        notify_admins(
+            'new_inquiry',
+            '새 문의가 접수되었습니다',
+            f'[{INQUIRY_CATEGORIES[category]}] {subject}',
+            link='/admin.html',
+            email_spec={
+                'subject_label': f'새 문의 — {subject}',
+                'heading': '새 문의가 접수되었습니다',
+                'summary': content[:500],
+                'rows': [
+                    ('문의 유형', INQUIRY_CATEGORIES[category]),
+                    ('이름', name),
+                    ('이메일', email),
+                    ('회원 여부', f'회원 (user #{inquiry.user_id})' if inquiry.user_id else '비회원'),
+                    ('제목', subject),
+                ],
+                'cta_label': '관리자 화면에서 확인하기 →',
+            },
+        )
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        # record_error_log 가 아니라 record_email_failure 를 쓴다
+        # (전자는 첫 동작이 rollback 이라 앞선 변경을 날린다).
+        record_email_failure('new_inquiry', e, commit=True)
+
+    return jsonify({
+        'message': '문의가 접수되었습니다. 입력하신 이메일로 답변드리겠습니다.',
+        'inquiryId': inquiry.id,
+    }), 201
+
+
+@app.route('/api/admin/inquiries', methods=['GET'])
+@admin_required
+def get_admin_inquiries():
+    """문의 목록 조회 (관리자 전용). ?status=received&page=1&per_page=20"""
+    page = max(request.args.get('page', 1, type=int) or 1, 1)
+    per_page = min(max(request.args.get('per_page', 20, type=int) or 20, 1), 100)
+    status_filter = (request.args.get('status') or '').strip()
+
+    query = Inquiry.query
+    if status_filter in INQUIRY_STATUSES:
+        query = query.filter(Inquiry.status == status_filter)
+
+    total = query.count()
+    inquiries = (
+        query.order_by(Inquiry.created_at.desc(), Inquiry.id.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+
+    # 상태별 건수 — 탭 배지와 필터 버튼에 쓴다.
+    counts = {status: 0 for status in INQUIRY_STATUSES}
+    for status, count in db.session.query(Inquiry.status, func.count(Inquiry.id)).group_by(Inquiry.status).all():
+        if status in counts:
+            counts[status] = count
+
+    return jsonify({
+        'inquiries': [item.to_dict() for item in inquiries],
+        'counts': counts,
+        'total': total,
+        'page': page,
+        'perPage': per_page,
+        'totalPages': (total + per_page - 1) // per_page if total else 0,
+        'status': status_filter or None,
+        'categories': INQUIRY_CATEGORIES,
+    })
+
+
+@app.route('/api/admin/inquiries/<int:inquiry_id>', methods=['POST'])
+@admin_required
+def update_admin_inquiry(inquiry_id):
+    """문의 처리 상태·관리자 메모 갱신 (관리자 전용)."""
+    inquiry = Inquiry.query.get_or_404(inquiry_id)
+    data = request.json or {}
+
+    changed = {}
+
+    if 'status' in data:
+        new_status = str(data.get('status') or '').strip()
+        if new_status not in INQUIRY_STATUSES:
+            return jsonify({'message': '유효하지 않은 처리 상태입니다.'}), 400
+        if new_status != inquiry.status:
+            changed['status'] = {'from': inquiry.status, 'to': new_status}
+            inquiry.status = new_status
+
+    if 'memo' in data:
+        memo = str(data.get('memo') or '').strip()[:INQUIRY_MAX_MEMO]
+        if memo != (inquiry.admin_memo or ''):
+            changed['memo'] = True
+            inquiry.admin_memo = memo or None
+
+    if changed:
+        inquiry.updated_at = _naive_utc_now()
+        log_admin_action('update_inquiry', 'inquiry', inquiry.id, changed)
+
+    db.session.commit()
+    return jsonify(inquiry.to_dict())
+
+
 # ========================================
 # 관리자용 에러 로그 조회 API (관측성)
 # ========================================
@@ -5107,6 +5565,11 @@ def _send_cron_reminder_email(user_id, title, message, link, purpose):
         return None
 
     user = User.query.get(user_id)
+    # 탈퇴 계정은 이메일이 deleted_<id>@deleted.invalid 로 치환되어 있다.
+    # 걸러내지 않으면 존재할 수 없는 도메인으로 SMTP 를 시도해 매일
+    # 에러 로그(warning)만 쌓인다.
+    if user is not None and getattr(user, 'deleted_at', None) is not None:
+        return None
     email = (user.email or '').strip() if user else ''
     if not email:
         return None
@@ -5195,7 +5658,10 @@ def _cron_job_error_digest():
     error_groups = error_group_summary(since=since, limit=10, level_filter='error')
     warning_groups = error_group_summary(since=since, limit=10, level_filter='warning')
 
-    admins = User.query.filter_by(role='admin').order_by(User.id).limit(CRON_ADMIN_RECIPIENT_LIMIT).all()
+    admins = (
+        User.query.filter(User.role == 'admin', User.deleted_at.is_(None))
+        .order_by(User.id).limit(CRON_ADMIN_RECIPIENT_LIMIT).all()
+    )
     if not admins:
         return {'errors': error_count, 'warnings': warning_count, 'sent': 0, 'skipped': 'no_admin'}
 
@@ -5510,6 +5976,9 @@ def _cron_job_unread_digest():
             continue
 
         user = User.query.get(user_id)
+        # 탈퇴 계정은 발송 대상에서 제외한다 (_send_cron_reminder_email 과 같은 이유).
+        if user is not None and getattr(user, 'deleted_at', None) is not None:
+            user = None
         email = (user.email or '').strip() if user else ''
         if not email:
             # 발송할 곳이 없다. emailed_at 을 거짓으로 채우지 않는다 —
