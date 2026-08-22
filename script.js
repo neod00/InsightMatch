@@ -1095,7 +1095,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (displayConsultants.length === 0) {
-            consultantList.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">조건에 맞는 전문가를 찾고 있습니다...</div>';
+            // 이전 문구는 "찾고 있습니다..." 였는데, 로딩 중처럼 보이는데 끝나지 않아
+            // 방문자가 기다리다 이탈했다. 결과가 없으면 없다고 말하고 다음 행동을 준다.
+            consultantList.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 48px 24px;">
+                    <div style="font-size: 2rem; margin-bottom: 12px;">🔍</div>
+                    <p style="font-weight: 600; margin-bottom: 8px;">조건에 맞는 전문가가 아직 없습니다</p>
+                    <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.7;">
+                        현재 ISO 전문가를 모집하고 있습니다.<br>
+                        규격이나 지역 조건을 넓혀 다시 시도해보시거나, 아래로 문의해 주세요.
+                    </p>
+                    <a href="mailto:openbrain.main@gmail.com?subject=InsightMatch 전문가 매칭 문의"
+                       style="display: inline-block; margin-top: 18px; padding: 10px 20px;
+                              border: 1px solid var(--primary); border-radius: 8px;
+                              color: var(--primary); text-decoration: none; font-size: 0.92rem;">
+                        문의하기
+                    </a>
+                </div>`;
             return;
         }
 
