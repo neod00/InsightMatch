@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../a
 # 테스트의 drop_all() 이 로컬 개발용 insightmatch.db 를 삭제해 버린다.
 os.environ['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
 
-from index import app, db
+from index import app, db, NEW_CONSULTANT_RATING
 from models import AdminActionLog, AnalysisJob, Consultant, ConsultantInvite, CronRun, ErrorLog, ManualGeneration, Message, Milestone, Notification, PasswordResetToken, Post, Project, User
 
 
@@ -2348,6 +2348,222 @@ class TestWorkflowSecurity(unittest.TestCase):
             ).status_code,
             404,
         )
+
+    # ------------------------------------------------------------------
+    # L0-d: 신규 컨설턴트 평점 시드 통일
+    # ------------------------------------------------------------------
+    def test_all_signup_paths_seed_the_same_consultant_rating(self):
+        """가입 경로가 달라도 신규 컨설턴트의 rating 시드는 같아야 한다.
+
+        예전에는 등록 폼 5.0 / 회원가입 0.0 으로 갈려 있어서, 어느 경로로
+        들어왔느냐만으로 매칭 평점 점수가 달라졌다(리뷰는 양쪽 다 0건인데).
+        """
+        # 경로 1: 회원가입에서 role='consultant'
+        signup = self.client.post('/api/auth/signup', json={
+            'email': 'path-signup@example.com',
+            'password': 'Str0ngPassw0rd!',
+            'name': 'Signup Path',
+            'role': 'consultant',
+        })
+        self.assertEqual(signup.status_code, 201)
+        via_signup = Consultant.query.join(User, Consultant.user_id == User.id).filter(
+            User.email == 'path-signup@example.com'
+        ).first()
+        self.assertIsNotNone(via_signup)
+
+        # 경로 2: 컨설턴트 등록 폼 (/api/consultants/register)
+        reg_user = self._new_consultant_user('path-register@example.com')
+        registered = self.client.post(
+            '/api/consultants/register',
+            json=self._reg_payload('path-register@example.com'),
+            headers=auth_headers(reg_user),
+        )
+        self.assertEqual(registered.status_code, 201)
+        via_register = Consultant.query.filter_by(user_id=reg_user.id).first()
+        self.assertIsNotNone(via_register)
+
+        self.assertEqual(via_signup.rating, via_register.rating)
+        self.assertEqual(via_signup.rating, NEW_CONSULTANT_RATING)
+        self.assertEqual(via_signup.reviews, 0)
+        self.assertEqual(via_register.reviews, 0)
+
+    def test_no_consultant_creation_path_hardcodes_a_perfect_rating(self):
+        """어떤 경로도 rating 을 5.0 으로 직접 박아 두면 안 된다.
+
+        경로가 하나 더 늘어날 때 5.0 이 다시 새어 들어오는 것을 막는다.
+        """
+        index_path = os.path.join(os.path.dirname(__file__), '..', 'api', 'index.py')
+        with open(index_path, encoding='utf-8') as fh:
+            source = fh.read()
+        self.assertNotIn('rating=5.0', source)
+        self.assertEqual(source.count('rating=NEW_CONSULTANT_RATING'), 3)
+
+    # ------------------------------------------------------------------
+    # L0-d: 퍼널 계측 (파생 집계 — 새 테이블 없음)
+    # ------------------------------------------------------------------
+    def _seed_funnel_rows(self):
+        """설문 3건 / 견적 6건으로 각 단계에 도달한 표본을 만든다."""
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        recent = now - datetime.timedelta(days=1)
+
+        jobs = []
+        for idx in range(3):
+            job = AnalysisJob(
+                id=f'funnel-job-{idx}',
+                company_name=f'Funnel Co {idx}',
+                status='completed',
+                created_at=recent,
+                result=json.dumps({'consultants': []}),
+            )
+            jobs.append(job)
+        db.session.add_all(jobs)
+
+        # job-0: 견적 2건 (1건은 제안 제출 → 계약 → 일정 확정 → 완료)
+        # job-1: 견적 1건 (제안 제출까지)
+        # job-2: 견적 0건 (여기서 이탈)
+        projects = [
+            Project(company_id=self.company.id, consultant_id=self.consultant.id,
+                    title='F0-a', session_id='funnel-job-0', status='completed',
+                    created_at=recent, proposal_submitted_at=recent,
+                    company_signed_at=recent, consultant_signed_at=recent,
+                    schedule_confirmed_at=recent, completed_at=recent),
+            Project(company_id=self.company.id, consultant_id=self.consultant.id,
+                    title='F0-b', session_id='funnel-job-0', status='proposal_pending',
+                    created_at=recent),
+            Project(company_id=self.company.id, consultant_id=self.consultant.id,
+                    title='F1-a', session_id='funnel-job-1', status='proposal_submitted',
+                    created_at=recent, proposal_submitted_at=recent,
+                    negotiation_requested_at=recent),
+        ]
+        db.session.add_all(projects)
+        db.session.commit()
+        return jobs, projects
+
+    def _funnel(self, days=30):
+        response = self.client.get(
+            f'/api/admin/funnel-stats?days={days}',
+            headers=auth_headers(self.admin_user),
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        stages = {s['key']: s for s in data['surveyFunnel'] + data['projectFunnel']}
+        return data, stages
+
+    def test_funnel_stats_requires_admin(self):
+        """L0: 퍼널 통계(전체 거래 규모가 드러난다)는 관리자만 볼 수 있다."""
+        self.assertEqual(self.client.get('/api/admin/funnel-stats').status_code, 401)
+        self.assertEqual(
+            self.client.get('/api/admin/funnel-stats',
+                            headers=auth_headers(self.company)).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.client.get('/api/admin/funnel-stats',
+                            headers=auth_headers(self.consultant_user)).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.client.get('/api/admin/funnel-stats',
+                            headers=auth_headers(self.admin_user)).status_code,
+            200,
+        )
+
+    def test_funnel_stats_counts_each_stage_and_conversion(self):
+        """단계별 건수와 직전 단계 대비 전환율이 맞아야 한다."""
+        self._seed_funnel_rows()
+        data, stages = self._funnel()
+
+        # 설문 3건 중 2건이 견적 요청으로 이어졌다
+        self.assertEqual(stages['survey_completed']['count'], 3)
+        self.assertEqual(stages['quote_requested']['count'], 2)
+        self.assertAlmostEqual(stages['quote_requested']['rateFromPrev'], 66.7, places=1)
+
+        # 견적은 setUp 의 2건 + 여기서 만든 3건 = 5건
+        self.assertEqual(stages['quote_requests']['count'], 5)
+        self.assertEqual(stages['proposal_submitted']['count'], 2)
+        self.assertEqual(stages['contracted']['count'], 1)
+        self.assertEqual(stages['schedule_confirmed']['count'], 1)
+        self.assertEqual(stages['completed']['count'], 1)
+
+        # 계약(1) / 제안(2) = 50%
+        self.assertAlmostEqual(stages['contracted']['rateFromPrev'], 50.0, places=1)
+        # 첫 단계는 기준이 없으므로 전환율이 없다
+        self.assertIsNone(stages['survey_completed']['rateFromPrev'])
+        self.assertIsNone(stages['quote_requests']['rateFromPrev'])
+
+        # 협상은 본류가 아니라 분기 — 단계가 아니라 side 로 나온다
+        self.assertEqual(data['side']['negotiationRequested'], 1)
+
+    def test_funnel_stats_excludes_soft_deleted_rows(self):
+        """소프트 삭제된 설문·견적은 집계에서 빠져야 한다."""
+        jobs, projects = self._seed_funnel_rows()
+        _, before = self._funnel()
+
+        # 설문 1건과 견적 1건(완료까지 간 건)을 소프트 삭제
+        jobs[2].deleted_at = datetime.datetime.now(datetime.timezone.utc)
+        projects[0].deleted_at = datetime.datetime.now(datetime.timezone.utc)
+        db.session.commit()
+
+        _, after = self._funnel()
+        self.assertEqual(after['survey_completed']['count'],
+                         before['survey_completed']['count'] - 1)
+        self.assertEqual(after['quote_requests']['count'],
+                         before['quote_requests']['count'] - 1)
+        self.assertEqual(after['completed']['count'], 0)
+
+    def test_funnel_stats_excludes_jobs_marked_deleted_by_status(self):
+        """AnalysisJob 은 status='deleted' 로도 삭제된다 — deleted_at 만 보면 샌다."""
+        jobs, _ = self._seed_funnel_rows()
+        jobs[1].status = 'deleted'
+        db.session.commit()
+
+        _, stages = self._funnel()
+        self.assertEqual(stages['survey_completed']['count'], 2)
+
+    def test_funnel_stats_returns_zero_without_dividing_by_zero(self):
+        """데이터가 0건이어도 500 이 나면 안 되고, 전환율은 0%가 아니라 '없음'이다."""
+        Project.query.delete()
+        db.session.commit()
+
+        data, stages = self._funnel()
+        self.assertEqual(stages['survey_completed']['count'], 0)
+        self.assertEqual(stages['quote_requests']['count'], 0)
+        # 분모가 0 — 0% 로 내보내면 "전환이 하나도 안 됐다"로 오해된다
+        self.assertIsNone(stages['quote_requested']['rateFromPrev'])
+        self.assertIsNone(stages['proposal_submitted']['rateFromPrev'])
+        self.assertIsNone(data['overallRate'])
+
+    def test_funnel_stats_respects_period_and_clamps_days(self):
+        """기간 밖 데이터는 빠지고, days 파라미터는 안전 범위로 제한된다."""
+        self._seed_funnel_rows()
+        old_job = AnalysisJob(
+            id='funnel-job-old',
+            company_name='Old Co',
+            status='completed',
+            created_at=datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+            - datetime.timedelta(days=120),
+        )
+        db.session.add(old_job)
+        db.session.commit()
+
+        _, recent = self._funnel(days=30)
+        self.assertEqual(recent['survey_completed']['count'], 3)
+
+        _, wide = self._funnel(days=365)
+        self.assertEqual(wide['survey_completed']['count'], 4)
+
+        # 상한을 넘겨도 거부하지 않고 잘라서 처리한다
+        response = self.client.get('/api/admin/funnel-stats?days=99999',
+                                   headers=auth_headers(self.admin_user))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()['days'], 365)
+
+    def test_funnel_stats_states_its_measurement_limits(self):
+        """파생 집계의 한계를 응답이 스스로 밝혀야 한다 (숨기면 전환율을 오해한다)."""
+        data, _ = self._funnel()
+        self.assertTrue(data['limitations'])
+        joined = ' '.join(data['limitations'])
+        self.assertIn('설문 완료', joined)   # 첫 단계가 '방문'이 아님을 명시
 
 
 if __name__ == '__main__':

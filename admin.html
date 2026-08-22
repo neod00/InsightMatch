@@ -224,6 +224,11 @@
                 블로그 관리
                 <span class="badge-count" id="blog-count">-</span>
             </button>
+            <button class="admin-tab" onclick="switchTab('funnel')">
+                <i data-lucide="filter" style="width: 18px; height: 18px;"></i>
+                전환 퍼널
+                <span class="badge-count" id="funnel-count">-</span>
+            </button>
             <button class="admin-tab" onclick="switchTab('errors')">
                 <i data-lucide="alert-triangle" style="width: 18px; height: 18px;"></i>
                 에러 로그
@@ -445,6 +450,86 @@
                     <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
                     <p style="color: var(--text-muted);">블로그 게시글을 불러오는 중...</p>
                 </div>
+            </div>
+        </div>
+
+        <!-- Funnel Tab Content -->
+        <!-- 이벤트 테이블 없이 기존 타임스탬프에서 파생한 집계다.
+             그래서 '설문을 시작만 하고 이탈한' 사용자는 잡히지 않는다.
+             이 한계를 화면에 적어 두지 않으면 전환율을 실제보다 좋게 오해한다. -->
+        <div id="funnel-tab" class="tab-content" style="display: none;">
+            <!-- Filter -->
+            <div class="card-glass"
+                style="padding: 16px; margin-bottom: 24px; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
+                <span style="color: var(--text-muted); font-size: 0.9rem;">집계 기간:</span>
+                <select id="funnel-days" onchange="loadFunnelStats()"
+                    style="padding: 8px 12px; border-radius: 8px; background: transparent; border: 1px solid var(--border); color: inherit;">
+                    <option value="7">최근 7일</option>
+                    <option value="30" selected>최근 30일</option>
+                    <option value="90">최근 90일</option>
+                    <option value="365">최근 1년</option>
+                </select>
+                <span id="funnel-overall" style="color: var(--text-muted); font-size: 0.85rem;"></span>
+                <button class="btn btn-sm btn-ghost" style="margin-left: auto;" onclick="loadFunnelStats()">
+                    <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i> 새로고침
+                </button>
+            </div>
+
+            <!-- 1구간: 설문 단위 -->
+            <div class="card-glass" style="padding: 20px; margin-bottom: 24px;">
+                <h3 style="margin: 0 0 4px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="clipboard-list" style="width: 18px; height: 18px;"></i>
+                    1단계 — 설문 기준
+                </h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin: 8px 0 16px;">
+                    설문 1건이 컨설턴트 여러 명에게 견적을 요청할 수 있으므로, 여기까지는 <strong>설문 건수</strong>가 단위입니다.
+                </p>
+                <div id="funnel-survey-list"></div>
+            </div>
+
+            <!-- 2구간: 견적 요청 단위 -->
+            <div class="card-glass" style="padding: 20px; margin-bottom: 24px;">
+                <h3 style="margin: 0 0 4px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="file-signature" style="width: 18px; height: 18px;"></i>
+                    2단계 — 견적 요청 기준
+                </h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin: 8px 0 16px;">
+                    여기서부터는 <strong>견적 요청(프로젝트) 건수</strong>가 단위입니다. 전환율이 낮은 구간이 병목입니다.
+                </p>
+                <div id="funnel-project-list"></div>
+            </div>
+
+            <!-- 본류가 아닌 분기 -->
+            <div class="features-grid fade-in-up" style="margin-bottom: 24px;">
+                <div class="feature-card" style="text-align: center;">
+                    <div id="funnel-side-negotiation"
+                        style="font-size: 2.5rem; font-weight: 800; color: var(--warning);">-</div>
+                    <p style="color: var(--text-muted);">조건 협의 요청</p>
+                    <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">선택 단계 — 퍼널 단계로 세지 않습니다.</p>
+                </div>
+                <div class="feature-card" style="text-align: center;">
+                    <div id="funnel-side-cancelled"
+                        style="font-size: 2.5rem; font-weight: 800; color: var(--error);">-</div>
+                    <p style="color: var(--text-muted);">취소된 견적</p>
+                    <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">진행이 아니라 이탈입니다.</p>
+                </div>
+                <div class="feature-card" style="text-align: center;">
+                    <div id="funnel-side-result"
+                        style="font-size: 2.5rem; font-weight: 800; color: var(--text-muted);">-</div>
+                    <p style="color: var(--text-muted);">매칭 결과가 저장된 설문</p>
+                    <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">설문 완료와 매칭 실행은 같은 요청입니다.</p>
+                </div>
+            </div>
+
+            <!-- 측정의 한계 (백엔드가 내려주는 문구를 그대로 표시) -->
+            <div class="card-glass" style="padding: 20px; border-left: 3px solid var(--warning);">
+                <h3 style="margin: 0 0 12px; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="info" style="width: 16px; height: 16px;"></i>
+                    이 수치를 읽을 때 주의할 점
+                </h3>
+                <ul id="funnel-limitations"
+                    style="margin: 0; padding-left: 20px; color: var(--text-muted); font-size: 0.85rem; line-height: 1.8;">
+                </ul>
             </div>
         </div>
 
@@ -919,6 +1004,7 @@
                 document.getElementById('analysis-tab').style.display = tab === 'analysis' ? 'block' : 'none';
                 document.getElementById('consultants-tab').style.display = tab === 'consultants' ? 'block' : 'none';
                 document.getElementById('blog-tab').style.display = tab === 'blog' ? 'block' : 'none';
+                document.getElementById('funnel-tab').style.display = tab === 'funnel' ? 'block' : 'none';
                 document.getElementById('errors-tab').style.display = tab === 'errors' ? 'block' : 'none';
                 document.getElementById('stats-cards').style.display = tab === 'analysis' ? 'grid' : 'none';
 
@@ -929,11 +1015,98 @@
                 if (tab === 'blog') {
                     fetchBlogPostsAdmin();
                 }
+                if (tab === 'funnel') {
+                    loadFunnelStats();
+                }
                 if (tab === 'errors') {
                     errorFingerprintFilter = '';
                     loadErrorLogs(1);
                     loadHealthStatus();
                 }
+            }
+
+            // ========================================
+            // 전환 퍼널 (파생 집계 — 새 이벤트 테이블 없음)
+            // ========================================
+            async function loadFunnelStats() {
+                const days = document.getElementById('funnel-days').value || '30';
+                const surveyBox = document.getElementById('funnel-survey-list');
+                const projectBox = document.getElementById('funnel-project-list');
+                surveyBox.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">불러오는 중...</p>';
+                projectBox.innerHTML = '';
+
+                try {
+                    const res = await authFetch(`/api/admin/funnel-stats?days=${encodeURIComponent(days)}`);
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        surveyBox.innerHTML = `<p style="color: var(--error); font-size: 0.85rem;">${escapeHtml(data.message || '퍼널 통계를 불러오지 못했습니다.')}</p>`;
+                        return;
+                    }
+
+                    renderFunnelStages(surveyBox, data.surveyFunnel || []);
+                    renderFunnelStages(projectBox, data.projectFunnel || []);
+
+                    const first = (data.surveyFunnel || [])[0];
+                    document.getElementById('funnel-count').textContent = first ? first.count : '0';
+
+                    const overall = document.getElementById('funnel-overall');
+                    overall.textContent = data.overallRate === null || data.overallRate === undefined
+                        ? '견적 요청 → 완료: 집계할 데이터가 없습니다.'
+                        : `견적 요청 → 완료 전체 전환율: ${data.overallRate}%`;
+
+                    const side = data.side || {};
+                    document.getElementById('funnel-side-negotiation').textContent = side.negotiationRequested ?? '-';
+                    document.getElementById('funnel-side-cancelled').textContent = side.cancelled ?? '-';
+                    document.getElementById('funnel-side-result').textContent = side.surveysWithResult ?? '-';
+
+                    // 한계 문구는 백엔드가 유일한 출처다 (화면과 API 설명이 어긋나지 않도록)
+                    document.getElementById('funnel-limitations').innerHTML =
+                        (data.limitations || []).map(text => `<li>${escapeHtml(text)}</li>`).join('');
+
+                    lucide.createIcons();
+                } catch (e) {
+                    surveyBox.innerHTML = '<p style="color: var(--error); font-size: 0.85rem;">서버 연결에 실패했습니다.</p>';
+                }
+            }
+
+            // 전환율이 낮은 구간이 눈에 띄어야 의미가 있다.
+            // 막대 길이는 첫 단계 대비 비율, 색은 직전 단계 대비 전환율로 칠한다.
+            function renderFunnelStages(box, stages) {
+                if (!stages.length) {
+                    box.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">표시할 데이터가 없습니다.</p>';
+                    return;
+                }
+                const base = stages[0].count || 0;
+
+                box.innerHTML = stages.map((stage, idx) => {
+                    const width = base > 0 ? Math.max((stage.count / base) * 100, stage.count > 0 ? 2 : 0) : 0;
+                    const rate = stage.rateFromPrev;
+                    // 전환율 없음(첫 단계 또는 분모 0)과 낮은 전환율은 다르게 보여야 한다
+                    let rateColor = 'var(--text-muted)';
+                    let rateText = idx === 0 ? '기준 단계' : '집계 불가';
+                    if (typeof rate === 'number') {
+                        rateText = `${rate}%`;
+                        if (rate >= 60) rateColor = 'var(--success)';
+                        else if (rate >= 30) rateColor = 'var(--warning)';
+                        else rateColor = 'var(--error)';
+                    }
+                    const dropped = idx > 0 && typeof rate === 'number' && rate < 30;
+
+                    return `
+                        <div style="margin-bottom:14px;">
+                            <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:6px;">
+                                <span style="font-weight:600; font-size:0.9rem;">${escapeHtml(stage.label)}</span>
+                                <span style="font-size:0.85rem; color:var(--text-muted);">
+                                    <strong style="color:inherit; font-size:1rem;">${escapeHtml(String(stage.count))}</strong>${escapeHtml(stage.unit || '')}
+                                    · 직전 대비 <strong style="color:${rateColor};">${escapeHtml(rateText)}</strong>
+                                </span>
+                            </div>
+                            <div style="height:14px; border-radius:7px; background:rgba(127,127,127,0.15); overflow:hidden;">
+                                <div style="height:100%; width:${width}%; border-radius:7px; background:${dropped ? 'var(--error)' : 'var(--primary)'};"></div>
+                            </div>
+                            ${dropped ? `<div style="font-size:0.78rem; color:var(--error); margin-top:4px;">⚠️ 이 구간에서 대부분 이탈합니다.</div>` : ''}
+                        </div>`;
+                }).join('');
             }
 
             // ========================================

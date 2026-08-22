@@ -20,7 +20,7 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import jwt
-from sqlalchemy import func, text
+from sqlalchemy import and_, case, func, text
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, CronRun, ErrorLog, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry
@@ -99,6 +99,17 @@ db.init_app(app)
 matching_service = MatchingService()
 proposal_service = ProposalService()
 email_service = EmailService()
+
+# 신규 컨설턴트의 평점 초기값.
+# 가입 경로가 3개(등록 폼 / 일반 회원가입 / 프로필 등록)인데 각각 5.0 · 0.0 · 5.0
+# 으로 제각각이라, 어느 경로로 들어왔느냐에 따라 매칭 평점 점수가 갈렸다.
+# 리뷰가 0건인데 5.0 만점으로 출발하는 것은 기업에게 없는 실적을 있다고
+# 말하는 것이므로 0.0 으로 통일한다.
+#
+# 신규 컨설턴트가 이 때문에 불리해지지는 않는다. matching_service 의 평점 블록은
+# reviews == 0 이면 rating 값을 아예 쓰지 않고 중립값을 준다
+# (services/matching_service.py 의 _rating_block 참조).
+NEW_CONSULTANT_RATING = 0.0
 
 # Create tables on first request
 @app.before_request
@@ -1090,7 +1101,7 @@ def register_consultant_validated():
         avatar=((data.get('avatar') or name[0]) if name else 'N')[:10],
         specialty=specialty,
         experience=f'{experience_years} years',
-        rating=5.0,
+        rating=NEW_CONSULTANT_RATING,
         reviews=0,
         match_reason=match_reason,
         regions=regions,
@@ -1199,7 +1210,7 @@ def signup():
             name=name.strip(),
             specialty='General',
             experience='0년',
-            rating=0.0,
+            rating=NEW_CONSULTANT_RATING,
             reviews=0,
             match_reason="New Joiner"
         )
@@ -1905,7 +1916,7 @@ def register_consultant():
             avatar=data.get('avatar', data.get('name', 'N')[0] if data.get('name') else 'N'),
             specialty=data.get('specialty'),
             experience=f"{data.get('experience')}년",
-            rating=5.0,
+            rating=NEW_CONSULTANT_RATING,
             reviews=0,
             match_reason=data.get('match_reason'),
             regions=data.get('regions', ''),
@@ -5397,6 +5408,167 @@ def get_cron_runs():
     return jsonify({
         'runs': [run.to_dict() for run in runs],
         'health': _cron_health_payload(),
+    })
+
+
+# ============================================================
+# 퍼널 계측 (전환율)
+# ============================================================
+# 설계 결정: **이벤트 테이블을 새로 만들지 않는다.**
+#   퍼널 단계가 거의 전부 이미 저장된 타임스탬프에서 파생 가능하기 때문이다.
+#   설문 완료 → AnalysisJob.created_at
+#   견적 요청 → Project.created_at (+ session_id 로 설문과 연결)
+#   제안 제출 → Project.proposal_submitted_at
+#   계약 체결 → company_signed_at + consultant_signed_at
+#   일정 확정 → Project.schedule_confirmed_at
+#   완료      → Project.completed_at
+#
+#   파생 집계의 장점: 새 쓰기 경로가 없어 요청 경로가 느려지지 않고,
+#   과거 데이터에 소급 적용되며, 이벤트 적재 실패로 통계가 비는 일이 없다.
+#
+# ⚠️ 파생 집계의 한계 (숨기면 전환율을 실제보다 좋게 오해한다):
+#   1) 설문을 '시작만 하고 이탈한' 사용자는 DB 에 아무 흔적이 없다.
+#      POST /api/match 가 성공해야 AnalysisJob 이 생기기 때문이다.
+#      따라서 이 퍼널의 첫 단계는 "방문"이 아니라 "설문 완료"다.
+#      실제 방문→완료 이탈을 보려면 별도의 프론트엔드 계측이 필요하다.
+#   2) 단계별 단위가 도중에 바뀐다. 1~2단계는 '설문(AnalysisJob)' 단위,
+#      3단계부터는 '견적 요청(Project)' 단위다. 설문 1건이 컨설턴트 N명에게
+#      견적을 요청하면 Project 가 N개 생기므로 같은 축으로 나눌 수 없다.
+#      그래서 응답을 두 구간으로 분리하고 각 구간에 단위를 명시한다.
+#   3) 기간 필터는 '생성 시각' 기준이다. 기간 안에 시작해 기간 뒤에 계약된
+#      건은 아직 계약으로 잡히지 않는다(진행 중인 코호트는 과소 집계된다).
+
+FUNNEL_DEFAULT_DAYS = 30
+FUNNEL_MAX_DAYS = 365
+
+FUNNEL_LIMITATIONS = [
+    '설문을 시작만 하고 이탈한 사용자는 DB에 기록이 남지 않습니다. 첫 단계는 "방문"이 아니라 "설문 완료"입니다.',
+    '1~2단계는 설문 건수, 3단계부터는 견적 요청 건수가 단위입니다. 설문 1건이 여러 컨설턴트에게 견적을 요청하면 견적 건수가 더 많아집니다.',
+    '기간 필터는 생성 시각 기준입니다. 최근에 시작된 건은 아직 뒷단계에 도달할 시간이 없어 전환율이 낮게 나옵니다.',
+]
+
+
+def _funnel_rate(numerator, denominator):
+    """단계 간 전환율(%). 분모가 0이면 None.
+
+    0건일 때 0% 로 내보내면 "전환이 하나도 안 됐다"로 읽힌다.
+    데이터가 없는 것과 전환이 0인 것은 다르므로 None(화면에서 '-')으로 구분한다.
+    """
+    if not denominator:
+        return None
+    return round(numerator / denominator * 100, 1)
+
+
+def _funnel_stage(key, label, count, prev_count, unit):
+    return {
+        'key': key,
+        'label': label,
+        'count': int(count or 0),
+        'unit': unit,
+        # 직전 단계 대비 전환율. 첫 단계는 기준이 없으므로 None.
+        'rateFromPrev': None if prev_count is None else _funnel_rate(count or 0, prev_count),
+    }
+
+
+@app.route('/api/admin/funnel-stats', methods=['GET'])
+@admin_required
+def get_funnel_stats():
+    """퍼널 단계별 건수와 전환율 (관리자용). 쿼리: ?days=30
+
+    집계는 테이블당 한 번의 조건부 집계 쿼리로 끝낸다(총 3회 왕복).
+    Supabase 는 네트워크 왕복이 곧 지연이라 단계마다 count() 를 날리면
+    단계 수만큼 느려진다.
+    """
+    days = request.args.get('days', FUNNEL_DEFAULT_DAYS, type=int) or FUNNEL_DEFAULT_DAYS
+    days = min(max(days, 1), FUNNEL_MAX_DAYS)
+    since = _naive_utc_now() - datetime.timedelta(days=days)
+
+    # 소프트 삭제 + status='deleted' 를 모두 제외한다.
+    # (AnalysisJob 은 두 방식이 혼재한다 — deleted_at 만 보면 과거 삭제 건이 남는다)
+    job_filters = [
+        AnalysisJob.created_at >= since,
+        AnalysisJob.deleted_at.is_(None),
+        AnalysisJob.status != 'deleted',
+    ]
+    project_filters = [
+        Project.created_at >= since,
+        Project.deleted_at.is_(None),
+    ]
+
+    # ── 1회차: 설문(AnalysisJob) 집계 ──
+    job_row = db.session.query(
+        func.count(AnalysisJob.id).label('surveys'),
+        func.sum(case((AnalysisJob.result.isnot(None), 1), else_=0)).label('with_result'),
+    ).filter(*job_filters).one()
+
+    surveys = int(job_row.surveys or 0)
+    surveys_with_result = int(job_row.with_result or 0)
+
+    # ── 2회차: 견적 요청(Project) 단계별 집계 ──
+    #   조건부 SUM 하나로 전 단계를 한 번에 센다.
+    both_signed = and_(
+        Project.company_signed_at.isnot(None),
+        Project.consultant_signed_at.isnot(None),
+    )
+    project_row = db.session.query(
+        func.count(Project.id).label('requests'),
+        func.sum(case((Project.proposal_submitted_at.isnot(None), 1), else_=0)).label('proposals'),
+        func.sum(case((both_signed, 1), else_=0)).label('contracted'),
+        func.sum(case((Project.schedule_confirmed_at.isnot(None), 1), else_=0)).label('scheduled'),
+        func.sum(case((Project.completed_at.isnot(None), 1), else_=0)).label('completed'),
+        func.sum(case((Project.negotiation_requested_at.isnot(None), 1), else_=0)).label('negotiations'),
+        func.sum(case((Project.cancelled_at.isnot(None), 1), else_=0)).label('cancelled'),
+    ).filter(*project_filters).one()
+
+    requests_count = int(project_row.requests or 0)
+    proposals = int(project_row.proposals or 0)
+    contracted = int(project_row.contracted or 0)
+    scheduled = int(project_row.scheduled or 0)
+    completed = int(project_row.completed or 0)
+
+    # ── 3회차: 설문 → 견적 요청 전환 (코호트 정렬) ──
+    #   그냥 "기간 내 Project 의 distinct session_id" 를 세면, 기간 이전 설문에서
+    #   생긴 견적이 섞여 전환율이 100% 를 넘을 수 있다. 기간 내 '설문' 을 기준으로
+    #   조인해 그 설문이 견적으로 이어졌는지만 센다.
+    surveys_with_quote = int(
+        db.session.query(func.count(func.distinct(AnalysisJob.id)))
+        .select_from(AnalysisJob)
+        .join(Project, Project.session_id == AnalysisJob.id)
+        .filter(*job_filters)
+        .filter(Project.deleted_at.is_(None))
+        .scalar() or 0
+    )
+
+    # 1~2단계: 설문 단위
+    survey_funnel = [
+        _funnel_stage('survey_completed', '설문 완료 (= 매칭 실행)', surveys, None, '설문'),
+        _funnel_stage('quote_requested', '견적 요청으로 진행', surveys_with_quote, surveys, '설문'),
+    ]
+
+    # 3단계 이후: 견적 요청 단위
+    project_funnel = [
+        _funnel_stage('quote_requests', '견적 요청', requests_count, None, '견적'),
+        _funnel_stage('proposal_submitted', '제안 제출', proposals, requests_count, '견적'),
+        _funnel_stage('contracted', '계약 체결 (양측 서명)', contracted, proposals, '견적'),
+        _funnel_stage('schedule_confirmed', '일정 확정', scheduled, contracted, '견적'),
+        _funnel_stage('completed', '프로젝트 완료', completed, scheduled, '견적'),
+    ]
+
+    return jsonify({
+        'days': days,
+        'since': since.isoformat(),
+        'surveyFunnel': survey_funnel,
+        'projectFunnel': project_funnel,
+        # 본류가 아닌 분기들 — 단계로 세면 퍼널이 왜곡되므로 따로 낸다.
+        # (협상은 선택 단계이고, 취소는 이탈이지 진행이 아니다)
+        'side': {
+            'surveysWithResult': surveys_with_result,
+            'negotiationRequested': int(project_row.negotiations or 0),
+            'cancelled': int(project_row.cancelled or 0),
+        },
+        # 견적 요청 → 완료까지의 전체 전환율
+        'overallRate': _funnel_rate(completed, requests_count),
+        'limitations': FUNNEL_LIMITATIONS,
     })
 
 

@@ -5,8 +5,9 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../api')))
 
-from index import app, db
+from index import app, db, NEW_CONSULTANT_RATING
 from models import Consultant
+from services import matching_service as matching_module
 from services.matching_service import MatchingService
 
 
@@ -177,11 +178,151 @@ class TestMatchingService(unittest.TestCase):
             self.assertLessEqual(r['matchScore'], 100, f"{r['name']} 점수 100 초과")
 
     # ------------------------------------------------------------------
-    # 9. 예산 필터 (구현 후 활성화)
+    # 9. 가중치 정합성 — 배분표의 합이 100인가
     # ------------------------------------------------------------------
-    # def test_budget_filter(self):
-    #     """예산 범위가 맞는 컨설턴트가 우선 추천돼야 한다."""
-    #     pass
+    def test_weights_sum_to_max_base_score(self):
+        """가중치 합은 정확히 100이어야 한다.
+
+        이 검증이 없어서 '예산 15pt'가 죽은 채로 남아 실질 만점이 85점인데
+        화면에는 100점 만점으로 표시되는 상태가 오래 유지됐다.
+        가중치를 조정할 때 이 테스트가 합계를 지킨다.
+        """
+        total = (
+            matching_module.WEIGHT_ISO
+            + matching_module.WEIGHT_REGION
+            + matching_module.WEIGHT_INDUSTRY
+            + matching_module.WEIGHT_RATING
+        )
+        self.assertEqual(total, matching_module.MAX_BASE_SCORE)
+        self.assertEqual(total, 100)
+
+    def test_rating_subweights_sum_to_one(self):
+        """평점 블록 내부 배분(평점:리뷰)의 합은 1.0이어야 한다."""
+        self.assertAlmostEqual(
+            matching_module.RATING_SUB_SCORE + matching_module.RATING_SUB_REVIEWS,
+            1.0,
+        )
+
+    def test_no_dead_budget_criterion_remains(self):
+        """존재하지 않는 컬럼(fee_range)을 참조하는 죽은 분기가 남아 있으면 안 된다."""
+        self.assertFalse(hasattr(Consultant, 'fee_range'))
+        source_path = os.path.join(
+            os.path.dirname(__file__), '..', 'api', 'services', 'matching_service.py'
+        )
+        with open(source_path, encoding='utf-8') as fh:
+            source = fh.read()
+        # 주석(설명·이력)에는 남아 있어도 되지만 실행 코드에는 없어야 한다.
+        code_lines = [
+            line for line in source.splitlines()
+            if 'fee_range' in line and not line.strip().startswith('#')
+        ]
+        self.assertEqual(code_lines, [], f"죽은 fee_range 분기가 남아 있다: {code_lines}")
+
+    # ------------------------------------------------------------------
+    # 10. ISO 표기 정규화 — 세 vocabulary 가 서로 일치해야 한다
+    # ------------------------------------------------------------------
+    def test_iso_code_normalization_covers_all_three_vocabularies(self):
+        """설문 폼·등록 폼·시드 데이터가 같은 규격을 다르게 적어도 같게 취급해야 한다."""
+        normalize = matching_module._normalize_iso
+        # 기업 설문(index.html) / 컨설턴트 등록 폼 / 시드 데이터
+        self.assertEqual(normalize('ISO 9001:2015'), normalize('9001'))
+        self.assertEqual(normalize('ISO 9001:2015'), normalize('ISO 9001'))
+        self.assertEqual(normalize('ISO/IEC 27001:2022'), normalize('27001'))
+        self.assertEqual(normalize('IATF 16949:2016'), normalize('IATF16949'))
+        self.assertEqual(normalize('ISO 14064-1:2018'), normalize('14064'))
+        # 다른 규격끼리는 섞이면 안 된다
+        self.assertNotEqual(normalize('ISO 27001:2022'), normalize('ISO 27017:2015'))
+        self.assertNotEqual(normalize('ISO 9001:2015'), normalize('ISO 14001:2015'))
+
+    def test_full_iso_code_from_survey_matches_bare_code_from_register_form(self):
+        """설문이 'ISO 9001:2015'를 보내도 '9001'로 등록한 컨설턴트가 ISO 점수를 받아야 한다.
+
+        이 정규화가 없으면 최대 가중치(ISO)가 실제 컨설턴트 전원에게 0점이었다.
+        """
+        criteria = {'recommended_iso': [{'code': 'ISO 9001:2015'}], 'timeline': 'flexible'}
+        results = self.svc.match_consultants(criteria)
+        score_a = next(r['matchScore'] for r in results if r['name'] == 'Expert A')
+
+        no_iso = self.svc.match_consultants({'timeline': 'flexible'})
+        base_a = next(r['matchScore'] for r in no_iso if r['name'] == 'Expert A')
+
+        self.assertGreater(score_a, base_a, 'ISO 표기가 달라 점수가 0점으로 죽었다')
+
+    # ------------------------------------------------------------------
+    # 11. 지역 — '전국' 선택자는 어떤 지역 요청에도 걸려야 한다
+    # ------------------------------------------------------------------
+    def test_nationwide_consultant_matches_any_region(self):
+        """'전국 가능'을 선택한 컨설턴트가 특정 지역 요청에서 0점이 되면 안 된다."""
+        nationwide = make_consultant(name='Nationwide', regions='전국', rating=4.0, reviews=1)
+        db.session.add(nationwide)
+        db.session.commit()
+
+        results = self.svc.match_consultants({'region': '제주', 'timeline': 'flexible'})
+        scored = next(r for r in results if r['name'] == 'Nationwide')
+        unmatched = next(r for r in results if r['name'] == 'Expert B')  # regions='부산'
+
+        self.assertGreater(scored['matchScore'], unmatched['matchScore'])
+
+    # ------------------------------------------------------------------
+    # 12. 신규 컨설턴트 — "평가 없음"과 "낮은 평가"의 구분
+    # ------------------------------------------------------------------
+    def test_zero_review_consultant_is_not_penalised_by_rating_seed(self):
+        """리뷰가 0건이면 rating 시드 값(0.0이든 5.0이든)이 점수에 영향을 주면 안 된다.
+
+        가입 경로마다 rating 시드가 5.0/0.0으로 갈렸던 버그의 재발 방지.
+        시드를 0.0으로 통일해도 신규 컨설턴트가 불리해지지 않는다는 근거이기도 하다.
+        """
+        seeded_zero = make_consultant(name='Zero Seed', rating=0.0, reviews=0, regions='')
+        seeded_five = make_consultant(name='Five Seed', rating=5.0, reviews=0, regions='')
+        db.session.add_all([seeded_zero, seeded_five])
+        db.session.commit()
+
+        results = self.svc.match_consultants({'timeline': 'flexible'})
+        by_name = {r['name']: r['matchScore'] for r in results}
+        self.assertEqual(by_name['Zero Seed'], by_name['Five Seed'])
+
+    def test_unreviewed_consultant_scores_between_bad_and_good(self):
+        """리뷰 0건은 중립 — 최하점도 만점도 아니어야 한다."""
+        block = matching_module._rating_block
+        neutral = block(NEW_CONSULTANT_RATING, 0)
+        worst = block(3.0, 5)          # 리뷰는 있는데 평점이 낮은 경우
+        best = block(5.0, 50)          # 평점·리뷰 모두 최상
+
+        self.assertGreater(neutral, worst)
+        self.assertLess(neutral, best)
+
+    def test_urgent_penalty_does_not_apply_to_unreviewed_consultants(self):
+        """긴급 요청 페널티는 '평가가 낮은' 사람에게만 — '평가가 없는' 사람에겐 아니다."""
+        rookie = make_consultant(name='Rookie', rating=NEW_CONSULTANT_RATING, reviews=0, regions='')
+        db.session.add(rookie)
+        db.session.commit()
+
+        flexible = self.svc.match_consultants({'timeline': 'flexible'})
+        urgent = self.svc.match_consultants({'timeline': 'urgent'})
+
+        score_flexible = next(r['matchScore'] for r in flexible if r['name'] == 'Rookie')
+        score_urgent = next(r['matchScore'] for r in urgent if r['name'] == 'Rookie')
+        self.assertEqual(score_flexible, score_urgent)
+
+    # ------------------------------------------------------------------
+    # 13. 표시 점수 상한 — "100점 만점"인데 100을 넘으면 안 된다
+    # ------------------------------------------------------------------
+    def test_display_score_never_exceeds_hundred_with_bonuses(self):
+        """보너스까지 더해 원점수가 100을 넘어도 표시 점수는 100을 넘지 않는다."""
+        criteria = {
+            'industry': 'Manufacturing',
+            'recommended_iso': [{'code': 'ISO 9001:2015'}, {'code': 'ISO 14001:2015'}],
+            'region': '서울',
+            'project_type': 'New',
+            'timeline': 'flexible',
+        }
+        results = self.svc.match_consultants(criteria)
+        top = next(r for r in results if r['name'] == 'Expert A')
+        # 원점수는 100을 넘는 상황이어야 이 테스트가 의미가 있다
+        raw = self.svc._display_score(999)
+        self.assertEqual(raw, 100)
+        self.assertLessEqual(top['matchScore'], 100)
+        self.assertGreaterEqual(top['matchScore'], 0)
 
 
 if __name__ == '__main__':

@@ -21,6 +21,14 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
+// ========== 매칭 적합도 표시 ==========
+// 예전에는 `${c.matchScore || 95}%` 였다. matchScore 가 0(조건이 하나도 맞지
+// 않은 최악의 매칭)이면 falsy 라서 화면에는 "적합도 95%" 로 표시됐다.
+// 없는 값과 0점은 다르므로 분리한다 — 없으면 '-', 0점이면 0%.
+function formatMatchScore(score) {
+    return typeof score === 'number' && !Number.isNaN(score) ? `${score}%` : '-';
+}
+
 // ========== Privacy Protection: Name Masking ==========
 // Mask consultant names for non-logged-in users
 function maskName(name) {
@@ -1189,7 +1197,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="consultant-stats">
                     <span>경력 ${escapeHtml(c.experience || '정보없음')}</span>
                     <span>후기 ${c.reviews || 0}개</span>
-                    <span class="match-score">적합도 ${c.matchScore || 95}%</span>
+                    <span class="match-score">적합도 ${formatMatchScore(c.matchScore)}</span>
                 </div>
                 
                 <div style="display: flex; gap: 8px; margin-top: 16px;">
@@ -1493,7 +1501,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </tr>
                         <tr>
                             <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">적합도</td>
-                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--primary);">${c.matchScore || 95}%</td>`).join('')}
+                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--primary);">${formatMatchScore(c.matchScore)}</td>`).join('')}
                         </tr>
                         <tr>
                             <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">리뷰 수</td>
