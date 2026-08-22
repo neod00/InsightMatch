@@ -20,6 +20,47 @@
 
 ---
 
+## 2026-08-22 (2) — L1-B 통지·리마인더: `notification.emailed_at` 추가
+
+⚠️ **기존 테이블에 컬럼을 추가한다.** `create_all()` 은 기존 테이블에 컬럼을
+추가하지 못하므로 **배포 전에 반드시 아래 ALTER 를 실행**해야 한다. 빠뜨리면
+알림을 조회·생성하는 모든 API 가 500 으로 실패한다(전례 있음).
+
+이번 배치의 **스키마 변경은 이 컬럼 하나뿐**이다.
+
+```sql
+-- 이 알림이 메일로도 나갔는지(= 나간 시각). NULL 이면 아직 인앱 전용.
+-- 일일 배치의 '미열람 알림 메일 승격' 이 이 값으로 재발송을 막는다.
+ALTER TABLE public.notification ADD COLUMN IF NOT EXISTS emailed_at TIMESTAMP NULL;
+
+-- 승격 배치의 조회 조건(미열람 + 미발송 + 생성시각 범위)에 맞춘 부분 인덱스.
+-- 발송이 끝난 행은 인덱스에서 빠지므로 알림이 쌓여도 조회 비용이 늘지 않는다.
+CREATE INDEX IF NOT EXISTS ix_notification_pending_email
+    ON public.notification (created_at)
+    WHERE emailed_at IS NULL AND is_read IS NOT TRUE;
+```
+
+적용 확인:
+
+```sql
+SELECT column_name FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = 'notification' AND column_name = 'emailed_at';
+```
+
+### 배포 직후 주의 — 과거 미열람 알림의 일괄 발송
+
+배포 시점에 **기존 알림은 전부 `emailed_at IS NULL`** 이다. 코드에는
+`UNREAD_PROMOTION_MAX_AGE_DAYS = 7` 상한이 있어 7일보다 오래된 것은 승격 대상이
+아니지만, 최근 7일치 미열람 알림은 첫 배치에서 한 번에 메일로 나간다.
+그것도 원치 않는다면 배포 직후 아래로 과거분을 '이미 처리됨' 으로 눌러둔다.
+
+```sql
+-- 선택 사항: 배포 이전의 알림은 메일 승격 대상에서 제외한다.
+UPDATE public.notification SET emailed_at = NOW() WHERE emailed_at IS NULL;
+```
+
+---
+
 ## 2026-08-22 — L0 시간 기반 자동화: `cron_run` 신규 + `project.completed_at` 추가
 
 ⚠️ **이번 변경은 기존 테이블에 컬럼을 추가한다.** `project.completed_at` 은

@@ -18,6 +18,12 @@ from datetime import datetime
 from typing import List, Dict, Optional
 
 
+# SMTP 연결·응답 대기 상한(초). Vercel maxDuration 이 60초이고 일일 배치가
+# 루프 안에서 여러 통을 보내므로, 한 통이 오래 잡고 있으면 뒤 작업이 통째로
+# 잘린다. 정상 발송은 1~3초면 끝나므로 10초면 넉넉하다.
+SMTP_TIMEOUT_SECONDS = int(os.environ.get('SMTP_TIMEOUT_SECONDS', '10'))
+
+
 def _mask_email(email):
     """로그에 개인정보를 그대로 남기지 않도록 이메일을 마스킹한다."""
     if not email or '@' not in str(email):
@@ -44,8 +50,17 @@ class EmailService:
             print("[EmailService] Warning: SMTP credentials not configured. Emails will be logged only.")
     
     def _get_smtp_connection(self):
-        """SMTP 연결 생성"""
-        server = smtplib.SMTP(self.smtp_host, self.smtp_port)
+        """SMTP 연결 생성.
+
+        ⚠️ timeout 은 필수다. 없으면 소켓 기본값(무한)으로 대기한다.
+           일일 배치가 루프 안에서 메일을 보내므로, SMTP 서버가 응답하지 않으면
+           배치 전체가 매달리다 Vercel maxDuration(60초)에 잘린다. 그러면
+           CronRun 기록도 남지 않아 관리자 화면에는 "cron 이 아예 안 돌았다"로
+           보이고, 원인이 메일 한 통이라는 사실이 드러나지 않는다.
+           발송 건수 상한(CRON_MAX_EMAILS_PER_RUN)은 건수를 막을 뿐 시간을
+           막지 못하므로, 시간 상한은 여기서 걸어야 한다.
+        """
+        server = smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=SMTP_TIMEOUT_SECONDS)
         server.starttls()
         server.login(self.smtp_user, self.smtp_password)
         return server
@@ -758,6 +773,314 @@ class EmailService:
 """
 
         return self.send_email(to_email, subject, html_content)
+
+    # ------------------------------------------------------------------
+    # 통지·리마인더 (L1-B)
+    # ------------------------------------------------------------------
+    # 아래 메일은 전부 **거래적(transactional)** 통지다. 회원 본인의 계정·
+    # 프로젝트 진행 상황에 대한 안내이며 광고·홍보 문구를 넣지 않는다.
+    # 정보통신망법상 광고성 정보는 별도 수신동의가 필요하므로, 성격이
+    # 오해되지 않도록 본문 하단에 안내 문구를 명시한다.
+    TRANSACTIONAL_NOTICE = (
+        '이 메일은 회원님의 InsightMatch 활동(계정·프로젝트 진행 상황)에 대한 안내입니다. '
+        '광고성 정보가 아닙니다.'
+    )
+
+    def _footer(self, extra: Optional[str] = None) -> str:
+        """모든 통지 메일 공통 푸터 (거래적 메일임을 명시)."""
+        extra_line = f'<p>{extra}</p>' if extra else ''
+        return f"""
+        <div class="footer">
+            <p>{self.TRANSACTIONAL_NOTICE}</p>
+            {extra_line}
+            <p>© 2025 OpenBrain Limited. All rights reserved.</p>
+        </div>"""
+
+    @staticmethod
+    def _base_style(accent: str, gradient: str) -> str:
+        """통지 메일 공통 스타일. 기존 템플릿들과 같은 톤을 유지한다."""
+        return f"""
+        body {{ font-family: 'Pretendard', -apple-system, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 620px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: {gradient}; color: white; padding: 26px; border-radius: 12px 12px 0 0; text-align: center; }}
+        .content {{ background: #f8fafc; padding: 26px; border: 1px solid #e2e8f0; }}
+        .item {{ background: white; border: 1px solid #e2e8f0; border-left: 4px solid {accent}; border-radius: 8px; padding: 14px 16px; margin: 0 0 12px; }}
+        .item .t {{ font-weight: 700; color: #1e293b; margin-bottom: 4px; }}
+        .item .m {{ font-size: 0.9rem; color: #475569; }}
+        .item .go {{ display: inline-block; margin-top: 8px; font-size: 0.85rem; color: {accent}; text-decoration: none; font-weight: 600; }}
+        .kv {{ background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px 16px; margin: 16px 0; }}
+        .kv div {{ padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }}
+        .kv div:last-child {{ border-bottom: none; }}
+        .kv .label {{ color: #64748b; display: inline-block; min-width: 92px; }}
+        .cta-button {{ display: inline-block; background: {accent}; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 20px; }}
+        .note {{ background: #fef3c7; border-left: 4px solid #f59e0b; padding: 14px; margin: 20px 0; border-radius: 4px; font-size: 0.9rem; }}
+        .footer {{ text-align: center; color: #94a3b8; font-size: 0.8rem; padding: 20px; line-height: 1.5; }}"""
+
+    def send_notification_digest(
+        self,
+        to_email: str,
+        user_name: Optional[str],
+        items: List[Dict],
+        total_count: int,
+        dashboard_url: str = "https://www.insightmatch.com/dashboard.html"
+    ) -> Dict:
+        """읽지 않은 인앱 알림을 **사용자당 1통**으로 묶어 보낸다.
+
+        알림은 지금까지 인앱 전용이라 사용자가 사이트에 접속하지 않으면 아무것도
+        모르는 상태였다. 이벤트마다 메일 코드를 붙이는 대신, 이미 잘 쌓이고 있는
+        Notification 행을 하루 한 번 메일로 승격시킨다.
+
+        묶는 것이 핵심이다. 미열람이 5건일 때 메일 5통을 보내면 알림 자체가
+        소음이 되어 정작 중요한 메일까지 무시된다.
+
+        Args:
+            items: [{'title', 'message', 'link'}] — 본문에 나열할 알림 (이미 잘려 있음)
+            total_count: 실제 미열람 총건수 (items 보다 많으면 '외 N건' 으로 표기)
+        """
+        safe_name = html.escape(str(user_name or '회원'))
+        subject = (
+            f"[InsightMatch] 확인하지 않은 알림 {total_count}건이 있습니다"
+            if total_count > 1 else
+            "[InsightMatch] 확인하지 않은 알림이 있습니다"
+        )
+
+        blocks = []
+        for item in items:
+            # 알림 제목·본문에는 프로젝트명·상대방 이름 등 사용자 입력이 그대로
+            # 들어간다. 메일 클라이언트에서 렌더링되므로 반드시 이스케이프한다.
+            title = html.escape(str(item.get('title') or '알림'))
+            message = html.escape(str(item.get('message') or '')[:300])
+            link = item.get('link') or ''
+            go = (
+                f'<a class="go" href="{html.escape(str(link), quote=True)}">바로 확인하기 →</a>'
+                if link else ''
+            )
+            blocks.append(f"""
+            <div class="item">
+                <div class="t">{title}</div>
+                <div class="m">{message}</div>
+                {go}
+            </div>""")
+
+        remaining = max(total_count - len(items), 0)
+        more_block = (
+            f'<p style="color:#64748b; font-size:0.9rem;">외 {remaining}건이 더 있습니다.</p>'
+            if remaining else ''
+        )
+
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>{self._base_style('#6366f1', 'linear-gradient(135deg, #6366f1, #8b5cf6)')}</style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div style="font-size: 2.2rem; margin-bottom: 8px;">🔔</div>
+            <h1 style="margin: 0; font-size: 1.3rem;">확인하지 않은 알림 {total_count}건</h1>
+        </div>
+
+        <div class="content">
+            <p>{safe_name}님, 아직 확인하지 않으신 알림이 있어 안내드립니다.</p>
+            {''.join(blocks)}
+            {more_block}
+            <p style="text-align: center;">
+                <a href="{dashboard_url}" class="cta-button">대시보드에서 전체 보기 →</a>
+            </p>
+        </div>
+{self._footer('알림을 대시보드에서 확인하시면 같은 내용을 다시 보내드리지 않습니다.')}
+    </div>
+</body>
+</html>
+"""
+
+        return self.send_email(to_email, subject, html_content)
+
+    def send_reminder_notice(
+        self,
+        to_email: str,
+        user_name: Optional[str],
+        title: str,
+        message: str,
+        action_url: str,
+        cta_label: str = "대시보드에서 처리하기"
+    ) -> Dict:
+        """"당신이 늦고 있다" 는 리마인더 메일 (미서명 계약 / 무응답 견적 요청).
+
+        이 두 건은 성격상 하루라도 빨리 닿아야 하므로, 미열람 승격을 기다리지 않고
+        인앱 알림을 만드는 그 시점에 바로 보낸다. 호출부가 Notification.emailed_at
+        을 채우므로 승격 배치가 같은 건을 다시 보내지 않는다.
+        """
+        safe_name = html.escape(str(user_name or '회원'))
+        safe_title = html.escape(str(title or '처리가 필요한 항목이 있습니다'))
+        safe_message = html.escape(str(message or '')).replace('\n', '<br>')
+
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>{self._base_style('#f59e0b', 'linear-gradient(135deg, #f59e0b, #f97316)')}</style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div style="font-size: 2.2rem; margin-bottom: 8px;">⏰</div>
+            <h1 style="margin: 0; font-size: 1.3rem;">{safe_title}</h1>
+        </div>
+
+        <div class="content">
+            <p>{safe_name}님, 아래 건이 처리를 기다리고 있습니다.</p>
+            <div class="item">
+                <div class="m">{safe_message}</div>
+            </div>
+            <p style="text-align: center;">
+                <a href="{action_url}" class="cta-button">{html.escape(str(cta_label))}</a>
+            </p>
+        </div>
+{self._footer()}
+    </div>
+</body>
+</html>
+"""
+
+        return self.send_email(to_email, f"[InsightMatch] {safe_title}", html_content)
+
+    def send_admin_alert(
+        self,
+        to_email: str,
+        admin_name: Optional[str],
+        subject_label: str,
+        heading: str,
+        summary: str,
+        rows: Optional[List] = None,
+        action_url: str = "https://www.insightmatch.com/admin.html",
+        cta_label: str = "관리자 화면에서 보기 →"
+    ) -> Dict:
+        """관리자에게 즉시 알려야 하는 운영 이벤트 (예: 신규 컨설턴트 심사 대기).
+
+        관리자가 화면을 직접 새로고침해야만 알 수 있으면 승인이 늦어지고,
+        컨설턴트는 방치됐다고 느낀다.
+
+        Args:
+            rows: [(라벨, 값)] — 표 형태로 붙일 상세. 값은 전부 이스케이프한다.
+        """
+        safe_admin = html.escape(str(admin_name or '관리자'))
+        safe_heading = html.escape(str(heading or '운영 알림'))
+        safe_summary = html.escape(str(summary or '')).replace('\n', '<br>')
+
+        row_html = ''
+        if rows:
+            cells = []
+            for label, value in rows:
+                cells.append(
+                    f'<div><span class="label">{html.escape(str(label))}</span>'
+                    f'<strong>{html.escape(str(value if value not in (None, "") else "-"))}</strong></div>'
+                )
+            row_html = f'<div class="kv">{"".join(cells)}</div>'
+
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>{self._base_style('#0ea5e9', 'linear-gradient(135deg, #0ea5e9, #6366f1)')}</style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div style="font-size: 2.2rem; margin-bottom: 8px;">🛎️</div>
+            <h1 style="margin: 0; font-size: 1.3rem;">{safe_heading}</h1>
+        </div>
+
+        <div class="content">
+            <p>{safe_admin}님, {safe_summary}</p>
+            {row_html}
+            <p style="text-align: center;">
+                <a href="{action_url}" class="cta-button">{html.escape(str(cta_label))}</a>
+            </p>
+        </div>
+{self._footer('이 메일은 InsightMatch 운영자에게 발송되는 관리용 통지입니다.')}
+    </div>
+</body>
+</html>
+"""
+
+        return self.send_email(to_email, f"[InsightMatch] {subject_label}", html_content)
+
+    def send_consultant_invite(
+        self,
+        to_email: str,
+        invite_name: Optional[str],
+        invite_url: str,
+        expires_at_text: str,
+        ttl_days: int = 14,
+        memo: Optional[str] = None
+    ) -> Dict:
+        """컨설턴트 초대 링크 메일.
+
+        지금까지는 관리자가 발급된 URL 을 복사해 카톡 등으로 직접 전달해야 했다.
+        발급 시점에 메일로 함께 보낸다. 단, 이 메일 실패가 초대 생성 자체를
+        실패시키면 안 된다 — 복사·직접 전달 경로는 그대로 살아 있어야 한다.
+        """
+        safe_name = html.escape(str(invite_name or '전문가'))
+        safe_expires = html.escape(str(expires_at_text or ''))
+        safe_url = html.escape(str(invite_url or ''), quote=True)
+        # 관리자가 입력한 메모가 본문에 들어간다.
+        safe_memo = html.escape(str(memo)).replace('\n', '<br>') if memo else ''
+        memo_block = (
+            f'<div class="item"><div class="t">전달 사항</div><div class="m">{safe_memo}</div></div>'
+            if safe_memo else ''
+        )
+
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>{self._base_style('#10b981', 'linear-gradient(135deg, #10b981, #059669)')}</style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div style="font-size: 2.2rem; margin-bottom: 8px;">✉️</div>
+            <h1 style="margin: 0; font-size: 1.3rem;">InsightMatch 전문가 등록 초대</h1>
+        </div>
+
+        <div class="content">
+            <p>안녕하세요, {safe_name}님.</p>
+            <p>InsightMatch 운영팀이 ISO 인증 전문가 등록을 위해 초대 링크를 보내드립니다.
+               아래 버튼을 눌러 프로필을 등록해주세요.</p>
+            {memo_block}
+            <p style="text-align: center;">
+                <a href="{safe_url}" class="cta-button">전문가 등록 시작하기</a>
+            </p>
+
+            <div class="note">
+                <strong>⚠️ 유효기간 안내</strong>
+                <ul style="margin: 8px 0 0; padding-left: 20px;">
+                    <li>이 링크는 발급일로부터 <strong>{ttl_days}일간</strong>({safe_expires} UTC까지) 유효합니다.</li>
+                    <li>1회만 사용할 수 있으며, 만료 후에는 운영팀에 재발급을 요청해주세요.</li>
+                </ul>
+            </div>
+
+            <p style="color: #64748b; font-size: 0.85rem; word-break: break-all;">
+                버튼이 동작하지 않으면 아래 주소를 브라우저에 붙여넣어 주세요.<br>{safe_url}
+            </p>
+
+            <p style="color: #64748b; font-size: 0.9rem; margin-top: 20px;">
+                문의사항이 있으시면 <a href="mailto:openbrain.main@gmail.com">openbrain.main@gmail.com</a>으로 연락주세요.
+            </p>
+        </div>
+{self._footer('본인이 요청하지 않은 초대라면 이 메일을 무시하셔도 됩니다.')}
+    </div>
+</body>
+</html>
+"""
+
+        return self.send_email(to_email, "[InsightMatch] 전문가 등록 초대 링크 안내", html_content)
 
 
 # 카카오톡 알림톡 준비용 클래스 (향후 구현)

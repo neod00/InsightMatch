@@ -880,10 +880,20 @@
                         showNotification(data.message || '초대 링크 발급에 실패했습니다.', 'error');
                         return;
                     }
+                    const sentEmail = payload.email;
                     document.getElementById('invite-name').value = '';
                     document.getElementById('invite-email').value = '';
                     document.getElementById('invite-memo').value = '';
-                    showNotification('초대 링크가 발급되었습니다.', 'success');
+
+                    // 메일 발송은 초대 생성과 별개로 실패할 수 있다.
+                    // 실패했다면 관리자가 링크를 직접 전달해야 하므로 반드시 알려준다.
+                    if (data.email_sent) {
+                        showNotification(`초대 링크를 발급하고 ${sentEmail} 로 메일을 보냈습니다.`, 'success');
+                    } else if (data.email_skipped === 'no_email') {
+                        showNotification('초대 링크가 발급되었습니다. (이메일 미입력 — 링크를 직접 전달하세요)', 'success');
+                    } else {
+                        showNotification('초대 링크는 발급됐지만 메일 발송에 실패했습니다. 복사된 링크를 직접 전달해주세요.', 'error');
+                    }
                     if (data.invite_url) copyInvite(data.invite_url, true);
                     loadInvites();
                 } catch (e) {

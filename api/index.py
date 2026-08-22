@@ -775,13 +775,14 @@ def notify_consultant_review_result(consultant, notification_type, title, messag
     if not (consultant and consultant.user_id):
         return
 
-    db.session.add(Notification(
+    notification = Notification(
         user_id=consultant.user_id,
         type=notification_type,
         title=title,
         message=message,
         link='/dashboard.html'
-    ))
+    )
+    db.session.add(notification)
 
     # 메일 실패가 승인 처리 자체를 되돌리면 안 된다.
     # commit=False: 호출부(approve/reject/revoke/restore)가 바로 뒤에서 커밋하므로
@@ -792,7 +793,7 @@ def notify_consultant_review_result(consultant, notification_type, title, messag
 
     try:
         base_url = frontend_base_url()
-        email_service.send_consultant_review_result(
+        result = email_service.send_consultant_review_result(
             consultant_email=consultant_email,
             consultant_name=consultant.name,
             notification_type=notification_type,
@@ -800,8 +801,93 @@ def notify_consultant_review_result(consultant, notification_type, title, messag
             dashboard_url=f'{base_url}/dashboard.html',
             register_url=f'{base_url}/consultant_register.html'
         )
+        if (result or {}).get('success'):
+            # 이 알림은 이미 메일로 나갔다. 표식을 남기지 않으면 미열람 승격
+            # 배치가 하루 뒤 같은 내용을 다시 메일로 보낸다.
+            notification.emailed_at = _naive_utc_now()
     except Exception as e:
         record_email_failure(f'consultant_review_result:{notification_type}', e)
+
+
+# 관리자 통지 수신자 상한. admin 계정이 늘어도 이벤트 1건당 메일이
+# 무한정 늘어나지 않게 한다 (cron 의 CRON_ADMIN_RECIPIENT_LIMIT 과 같은 취지).
+ADMIN_NOTIFY_RECIPIENT_LIMIT = 5
+
+
+def notify_admins(notif_type, title, message, link='/admin.html', email_spec=None):
+    """관리자 전원(상한 내)에게 인앱 알림을 만들고, 필요하면 메일도 보낸다.
+
+    커밋은 하지 않는다 — 호출부가 자기 트랜잭션과 함께 커밋한다.
+
+    Args:
+        email_spec: None 이면 인앱 알림만 만들고 emailed_at 을 비워둔다. 그러면
+               미열람 승격 배치가 하루 1통으로 묶어 보낸다(리드 통지가 이 경로다).
+               dict 를 주면 그 자리에서 메일을 보내고 emailed_at 을 채운다.
+               {'subject_label', 'heading', 'summary', 'rows', 'cta_label'}
+
+    Returns:
+        (생성한 알림 수, 메일 발송 성공 수)
+    """
+    admins = (
+        User.query.filter_by(role='admin')
+        .order_by(User.id)
+        .limit(ADMIN_NOTIFY_RECIPIENT_LIMIT)
+        .all()
+    )
+    if not admins:
+        return 0, 0
+
+    base_url = frontend_base_url()
+    admin_url = f"{base_url}{link if str(link).startswith('/') else '/' + str(link)}"
+    created = 0
+    sent = 0
+
+    for admin in admins:
+        notification = Notification(
+            user_id=admin.id,
+            type=notif_type,
+            title=title,
+            message=message,
+            link=link,
+        )
+        db.session.add(notification)
+        created += 1
+
+        if not email_spec:
+            continue
+
+        admin_email = (admin.email or '').strip()
+        if not admin_email:
+            continue
+
+        try:
+            result = email_service.send_admin_alert(
+                to_email=admin_email,
+                admin_name=admin.name,
+                subject_label=email_spec.get('subject_label') or title,
+                heading=email_spec.get('heading') or title,
+                summary=email_spec.get('summary') or message,
+                rows=email_spec.get('rows'),
+                action_url=admin_url,
+                cta_label=email_spec.get('cta_label') or '관리자 화면에서 보기 →',
+            )
+        except Exception as e:
+            record_email_failure(f'admin_alert:{notif_type}', e)
+            continue
+
+        if not (result or {}).get('success'):
+            # send_email 은 SMTP 실패를 예외가 아니라 {'success': False} 로 돌려준다.
+            record_email_failure(
+                f'admin_alert:{notif_type}',
+                RuntimeError((result or {}).get('message', 'unknown')),
+            )
+            continue
+
+        notification.emailed_at = _naive_utc_now()
+        sent += 1
+
+    return created, sent
+
 
 def _same_id(left, right):
     """Compare database ids robustly across int/string legacy values."""
@@ -1145,6 +1231,38 @@ def register_consultant_validated():
     if user and not user.phone and phone:
         user.phone = phone
     db.session.commit()
+
+    # 관리자 통지 (인앱 + 메일 즉시).
+    # 지금까지 신규 등록은 관리자가 화면을 직접 새로고침해야만 알 수 있었다.
+    # 승인이 늦으면 컨설턴트는 방치됐다고 느낀다 — 심사 대기는 '사람이 기다리는'
+    # 이벤트라 하루 뒤 다이제스트로 미루지 않고 즉시 보낸다.
+    # 등록은 이미 커밋됐으므로 통지 실패가 등록을 되돌리면 안 된다.
+    try:
+        notify_admins(
+            'consultant_pending_review',
+            '신규 전문가 등록 — 심사 대기',
+            f'{name}님이 전문가 등록을 신청했습니다. 심사가 필요합니다.',
+            link='/admin.html',
+            email_spec={
+                'subject_label': f'신규 전문가 심사 대기 — {name}',
+                'heading': '신규 전문가 등록 신청',
+                'summary': '새 전문가 등록 신청이 접수되어 심사를 기다리고 있습니다.',
+                'rows': [
+                    ('이름', name),
+                    ('소속', company_name or '-'),
+                    ('전문 분야', specialty or '-'),
+                    ('경력', f'{experience_years}년'),
+                    ('연락처', phone),
+                    ('이메일', email),
+                    ('초대 링크', '초대 링크 경유' if invite else '직접 등록'),
+                ],
+                'cta_label': '관리자 화면에서 심사하기 →',
+            },
+        )
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        record_email_failure('consultant_pending_review', e, commit=True)
 
     return jsonify({
         'message': 'Consultant registration submitted for admin review.',
@@ -1825,7 +1943,36 @@ def direct_match():
     except Exception as e:
         print(f"[Direct Match] Error saving job to DB: {e}")
         db.session.rollback()
-    
+
+    # 관리자 리드 통지 — **인앱만 즉시, 메일은 승격 배치가 하루 1통으로 묶는다.**
+    #
+    # 여기는 무인증 공개 경로이고 방어는 IP당 20회/시간 뿐이다. 즉 메일 발송량이
+    # 사실상 호출자 통제 하에 있다. 건당 즉시 발송으로 두면 관리자 메일함이
+    # 리드로 도배되고, 같은 메일함으로 오는 오류 다이제스트·전문가 심사 대기처럼
+    # 정작 조치가 필요한 통지가 묻힌다. 반면 리드는 '기다리는 사람' 이 없어
+    # (신규 전문가 등록과 달리) 몇 시간 지연이 무언가를 막지 않는다.
+    #
+    # emailed_at 을 비워두면 작업 1(미열람 승격)이 이 알림들을 자동으로 하루
+    # 1통 다이제스트로 묶어 보낸다. 리드 전용 요약 작업을 따로 만들 필요가 없다.
+    #
+    # 별도 try/except + 별도 커밋: 통지 실패가 위에서 저장한 AnalysisJob 을
+    # 롤백시키면 리드 자체가 사라진다.
+    try:
+        # 무인증 입력이므로 길이를 잘라서 넣는다 (알림 목록이 한 건에 밀리지 않게).
+        lead_company = str(company_name or '기업')[:100]
+        lead_standards = ', '.join(str(s)[:40] for s in all_standards[:3]) or '규격 미선택'
+        notify_admins(
+            'new_match_request',
+            '신규 매칭 요청이 접수되었습니다',
+            f'{lead_company} — {lead_standards}'
+            f'{" 외" if len(all_standards) > 3 else ""} / 전문가 {len(matched_consultants)}명 매칭',
+            link='/admin.html',
+        )
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[Direct Match] 관리자 리드 알림 실패: {type(e).__name__}: {e}")
+
     return jsonify(result)
 
 # --- Consultant Endpoints ---
@@ -2492,7 +2639,7 @@ def submit_proposal(project_id):
             # 실패해도 제안서 제출 자체는 성공 응답을 준다(위 커밋은 이미 끝났다).
             if company_user.email:
                 try:
-                    email_service.send_proposal_notification(
+                    result = email_service.send_proposal_notification(
                         company_email=company_user.email,
                         company_name=company_user.company_name or company_user.name or '고객',
                         consultant_name=consultant.name,
@@ -2501,6 +2648,11 @@ def submit_proposal(project_id):
                         proposal_duration=project.proposal_duration,
                         dashboard_url=f'{frontend_base_url()}/dashboard.html'
                     )
+                    if (result or {}).get('success'):
+                        # 이미 메일이 나갔음을 표시한다. 없으면 미열람 승격
+                        # 배치가 하루 뒤 같은 건을 다시 메일로 보낸다.
+                        notification.emailed_at = _naive_utc_now()
+                        db.session.commit()
                 except Exception as e:
                     # 세션은 위에서 이미 커밋했으므로 여기서 커밋해도 안전하다.
                     record_email_failure('proposal_notification', e, commit=True)
@@ -3642,6 +3794,41 @@ def _invite_to_dict(inv, include_url=False):
     return data
 
 
+def _send_consultant_invite_email(invite, invite_url):
+    """초대 링크를 이메일로 보낸다. 발송 결과를 응답에 담을 dict 로 돌려준다.
+
+    ⚠️ 메일 실패가 초대 생성 자체를 실패시키면 안 된다. 관리자가 URL 을 복사해
+       직접 전달하는 기존 경로는 그대로 살아 있어야 하므로, 여기서는 예외를
+       바깥으로 내보내지 않고 결과만 보고한다(admin.html 이 이를 표시한다).
+
+    초대는 이미 커밋된 뒤라 record_email_failure(commit=True) 가 안전하다.
+    """
+    if not invite.email:
+        return {'email_sent': False, 'email_skipped': 'no_email'}
+
+    expires_text = invite.expires_at.strftime('%Y-%m-%d %H:%M') if invite.expires_at else ''
+    try:
+        result = email_service.send_consultant_invite(
+            to_email=invite.email,
+            invite_name=invite.name,
+            invite_url=invite_url,
+            expires_at_text=expires_text,
+            ttl_days=CONSULTANT_INVITE_TTL_DAYS,
+            memo=invite.memo,
+        )
+    except Exception as e:
+        record_email_failure('consultant_invite', e, commit=True)
+        return {'email_sent': False, 'email_error': f'{type(e).__name__}'}
+
+    if not (result or {}).get('success'):
+        # send_email 은 SMTP 실패를 예외가 아니라 {'success': False} 로 돌려준다.
+        message = (result or {}).get('message', 'unknown')
+        record_email_failure('consultant_invite', RuntimeError(message), commit=True)
+        return {'email_sent': False, 'email_error': str(message)[:200]}
+
+    return {'email_sent': True, 'email_simulated': bool(result.get('simulated'))}
+
+
 @app.route('/api/admin/consultant-invites', methods=['GET', 'POST'])
 @admin_required
 def handle_consultant_invites():
@@ -3668,7 +3855,10 @@ def handle_consultant_invites():
         db.session.commit()
         log_admin_action('create_consultant_invite', 'consultant_invite', str(invite.id),
                          {'name': name, 'email': email})
-        return jsonify(_invite_to_dict(invite, include_url=True)), 201
+
+        payload = _invite_to_dict(invite, include_url=True)
+        payload.update(_send_consultant_invite_email(invite, payload['invite_url']))
+        return jsonify(payload), 201
 
     invites = ConsultantInvite.query.order_by(ConsultantInvite.created_at.desc()).limit(100).all()
     return jsonify([_invite_to_dict(i, include_url=True) for i in invites])
@@ -4865,6 +5055,81 @@ REMINDER_MAX_AGE_DAYS = 30
 INVITE_RETENTION_DAYS = 30      # 만료된 미사용 초대를 이만큼 더 보관한 뒤 정리
 ERROR_LOG_RETENTION_DAYS = 90   # 에러 로그 보관 기간 (migrations/README.md 의 수동 DELETE 를 대체)
 
+# ---- 미열람 알림 메일 승격 (L1-B 작업 1) ----
+# 생성 후 이만큼 지나도 안 읽힌 알림을 메일로 승격한다.
+# 24시간보다 반드시 작아야 한다: 배치는 하루 한 번 도는데 임계값이 24시간이면
+# 배치 시각 직후에 생긴 알림은 그날 회차에서 조건을 못 채우고 이틀 뒤에야 나간다.
+# 6시간이면 사용자가 인앱으로 먼저 볼 여지를 주면서도 하루 안에 반드시 걸린다.
+UNREAD_PROMOTION_HOURS = 6
+# 이보다 오래된 미열람 알림은 승격하지 않는다.
+# 이 기능을 처음 배포하는 순간 기존 미열람 알림이 전부 emailed_at IS NULL 이다.
+# 상한이 없으면 몇 달치 과거 알림이 한꺼번에 메일로 쏟아진다. 게다가 일주일 넘게
+# 안 읽은 알림은 지금 메일을 보내도 행동으로 이어지지 않는다.
+UNREAD_PROMOTION_MAX_AGE_DAYS = 7
+# 다이제스트 본문에 나열할 알림 수. 나머지는 '외 N건' 으로 표기한다.
+UNREAD_DIGEST_MAX_ITEMS = 10
+
+# 한 번의 배치 실행에서 보낼 수 있는 메일 총량.
+# Vercel 서버리스 maxDuration 이 60초인데 SMTP 는 1통마다 TLS 핸드셰이크를 새로
+# 하므로 1통에 1초 안팎이 든다. 작업별 상한(CRON_MAX_ITEMS_PER_JOB=200)만으로는
+# 메일을 보내는 작업이 여러 개 겹쳤을 때 시간이 초과되고, 그러면 뒤 작업(정리 등)이
+# 통째로 실행되지 않는다. 그래서 발송량은 작업별이 아니라 **실행 전체**로 묶어
+# 제한한다. 상한에 걸린 건은 emailed_at 을 채우지 않으므로 다음 회차에 다시 잡힌다.
+CRON_MAX_EMAILS_PER_RUN = 40
+
+# 실행 단위 카운터. 모듈 전역이지만 run_daily_cron_jobs() 진입 시 항상 리셋하므로
+# 서버리스 인스턴스가 재사용돼도 이전 실행의 잔량이 넘어오지 않는다.
+_cron_email_budget = {'remaining': CRON_MAX_EMAILS_PER_RUN}
+
+
+def _reset_cron_email_budget():
+    _cron_email_budget['remaining'] = CRON_MAX_EMAILS_PER_RUN
+
+
+def _take_cron_email_budget():
+    """이번 실행에서 메일을 한 통 더 보내도 되는지. 소비하면 True."""
+    if _cron_email_budget['remaining'] <= 0:
+        return False
+    _cron_email_budget['remaining'] -= 1
+    return True
+
+
+def _send_cron_reminder_email(user_id, title, message, link, purpose):
+    """리마인더를 생성 시점에 바로 메일로 보낸다 (작업 2).
+
+    이 두 리마인더는 본질적으로 "당신이 늦고 있다" 는 푸시라, 작업 1의 미열람
+    승격(하루 뒤)을 기다리면 그만큼 더 늦어진다.
+
+    Returns:
+        발송에 성공했으면 발송 시각(=Notification.emailed_at 에 넣을 값), 아니면 None.
+    """
+    if not _take_cron_email_budget():
+        return None
+
+    user = User.query.get(user_id)
+    email = (user.email or '').strip() if user else ''
+    if not email:
+        return None
+
+    try:
+        result = email_service.send_reminder_notice(
+            to_email=email,
+            user_name=user.name,
+            title=title,
+            message=message,
+            action_url=f'{frontend_base_url()}{link}',
+        )
+    except Exception as e:
+        record_email_failure(purpose, e)
+        return None
+
+    if not (result or {}).get('success'):
+        # send_email 은 SMTP 실패를 예외가 아니라 {'success': False} 로 돌려준다.
+        record_email_failure(purpose, RuntimeError((result or {}).get('message', 'unknown')))
+        return None
+
+    return _naive_utc_now()
+
 
 def _has_recent_notification(user_id, notif_type, link, within_hours):
     """같은 사용자에게 같은 건으로 최근에 보낸 알림이 있는지 확인한다.
@@ -4950,6 +5215,11 @@ def _cron_job_error_digest():
             skipped += 1
             continue
 
+        if not _take_cron_email_budget():
+            # 발송 예산 소진. emailed_at·알림 행을 만들지 않았으므로 다음 회차에 다시 잡힌다.
+            skipped += 1
+            continue
+
         try:
             result = email_service.send_error_digest(
                 to_email=email,
@@ -4974,12 +5244,15 @@ def _cron_job_error_digest():
             continue
 
         # 발송 사실을 인앱 알림으로도 남긴다. 이 행이 곧 중복 발송 방지 키다.
+        # emailed_at 을 함께 채운다 — 안 그러면 미열람 승격 배치가 하루 뒤
+        # "확인하지 않은 알림" 다이제스트로 같은 내용을 또 보낸다.
         db.session.add(Notification(
             user_id=admin.id,
             type='error_digest',
             title=f'지난 {ERROR_DIGEST_HOURS}시간 오류 요약',
             message=f'미처리 예외 {error_count}건 / 부분 실패 {warning_count}건이 기록되었습니다.',
             link='/admin.html',
+            emailed_at=_naive_utc_now(),
         ))
         sent += 1
 
@@ -5026,6 +5299,7 @@ def _cron_job_signature_reminder():
         'contract_signature_reminder', REMINDER_REPEAT_DAYS * 24)
 
     notified = 0
+    emailed = 0
     skipped = 0
     deferred = 0
 
@@ -5068,22 +5342,33 @@ def _cron_job_signature_reminder():
             continue
 
         days_waiting = max((now - waiting_since).days, SIGNATURE_REMINDER_DAYS)
+        title = '서명하지 않은 계약서가 있습니다'
+        message = (
+            f'"{project.title}" 계약서에 상대방이 {days_waiting}일 전 서명했지만 '
+            f'{waiting_for} 서명이 아직 완료되지 않았습니다.'
+        )
+        # 생성 시점에 바로 메일을 보내고 emailed_at 을 채운다 (작업 2).
+        # 미열람 승격(작업 1)을 기다리면 하루가 더 늦어지고, emailed_at 을
+        # 채워두면 그 승격이 같은 건을 중복 발송하지 않는다.
+        emailed_at = _send_cron_reminder_email(
+            target_user_id, title, message, link, 'contract_signature_reminder')
         db.session.add(Notification(
             user_id=target_user_id,
             type='contract_signature_reminder',
-            title='서명하지 않은 계약서가 있습니다',
-            message=(
-                f'"{project.title}" 계약서에 상대방이 {days_waiting}일 전 서명했지만 '
-                f'{waiting_for} 서명이 아직 완료되지 않았습니다.'
-            ),
+            title=title,
+            message=message,
             link=link,
+            emailed_at=emailed_at,
         ))
         notified += 1
+        if emailed_at:
+            emailed += 1
 
     db.session.commit()
     return {
         'scanned': len(rows),
         'notified': notified,
+        'emailed': emailed,
         'skipped': skipped,
         'deferred': deferred,
         'truncated': scan_truncated or deferred > 0,
@@ -5115,6 +5400,7 @@ def _cron_job_proposal_reminder():
     already_notified = _recently_notified_links('proposal_reminder', REMINDER_REPEAT_DAYS * 24)
 
     notified = 0
+    emailed = 0
     skipped = 0
     deferred = 0
 
@@ -5135,29 +5421,157 @@ def _cron_job_proposal_reminder():
 
         created = _as_naive_utc(project.created_at) or now
         days_waiting = max((now - created).days, PROPOSAL_REMINDER_DAYS)
+        title = '응답하지 않은 견적 요청이 있습니다'
+        message = (
+            f'"{project.title}" 요청을 받은 지 {days_waiting}일이 지났습니다. '
+            '제안서를 보내거나 거절해주세요.'
+        )
+        # 작업 2: 생성 시점 즉시 발송 + emailed_at 표기 (서명 리마인더와 동일한 이유)
+        emailed_at = _send_cron_reminder_email(
+            target_user_id, title, message, link, 'proposal_reminder')
         db.session.add(Notification(
             user_id=target_user_id,
             type='proposal_reminder',
-            title='응답하지 않은 견적 요청이 있습니다',
-            message=(
-                f'"{project.title}" 요청을 받은 지 {days_waiting}일이 지났습니다. '
-                '제안서를 보내거나 거절해주세요.'
-            ),
+            title=title,
+            message=message,
             link=link,
+            emailed_at=emailed_at,
         ))
         notified += 1
+        if emailed_at:
+            emailed += 1
 
     db.session.commit()
     return {
         'scanned': len(rows),
         'notified': notified,
+        'emailed': emailed,
         'skipped': skipped,
         'deferred': deferred,
         'truncated': scan_truncated or deferred > 0,
     }
 
 
-# ---------- 작업 4. 만료·보관기간 정리 ----------
+# ---------- 작업 4. 미열람 알림 메일 승격 ----------
+
+def _cron_job_unread_digest():
+    """읽지 않은 채 방치된 인앱 알림을 사용자별 메일 1통으로 묶어 보낸다.
+
+    **이 플랫폼의 알림은 13종 이벤트에 대해 잘 생성되지만 전부 인앱 전용이었다.**
+    사용자가 사이트에 접속하지 않으면 아무것도 모르고, 퍼널이 거기서 멈춘다.
+    이벤트마다 메일 코드를 붙이는 대신 이미 쌓이고 있는 Notification 행을
+    하루 한 번 메일로 승격시킨다 — **하나의 메커니즘으로 13종 전부를 덮는다.**
+
+    설계 규칙 세 가지:
+      1) 사용자당 1통. 미열람 5건에 메일 5통을 보내면 알림이 소음이 되어
+         정작 중요한 메일까지 무시된다.
+      2) emailed_at 으로 재발송 방지. cron 은 매일 도는데 "안 읽음" 조건은
+         계속 참이므로 이 표식이 없으면 매일 같은 메일이 나간다.
+      3) 이미 다른 경로로 메일이 나간 알림(심사 결과·리마인더·오류 다이제스트)은
+         생성 시점에 emailed_at 이 채워져 있어 여기서 자연히 제외된다.
+    """
+    now = _naive_utc_now()
+    ready_before = now - datetime.timedelta(hours=UNREAD_PROMOTION_HOURS)
+    too_old_before = now - datetime.timedelta(days=UNREAD_PROMOTION_MAX_AGE_DAYS)
+
+    rows = (
+        Notification.query
+        .filter(
+            # is_read 는 nullable 이라 is_(False) 만으로는 NULL 행을 놓친다.
+            db.or_(Notification.is_read.is_(False), Notification.is_read.is_(None)),
+            Notification.emailed_at.is_(None),
+            Notification.created_at <= ready_before,
+            Notification.created_at >= too_old_before,
+        )
+        # 사용자별로 묶어야 하므로 user_id 로 먼저 정렬한다.
+        # 상한에 걸려 잘리더라도 한 사용자의 알림이 두 회차로 쪼개질 뿐,
+        # 각 회차는 여전히 '사용자당 1통' 을 지킨다.
+        .order_by(Notification.user_id, Notification.created_at.desc())
+        .limit(CRON_MAX_SCAN_PER_JOB + 1)
+        .all()
+    )
+    scan_truncated = len(rows) > CRON_MAX_SCAN_PER_JOB
+    rows = rows[:CRON_MAX_SCAN_PER_JOB]
+
+    grouped = {}
+    for notification in rows:
+        grouped.setdefault(notification.user_id, []).append(notification)
+
+    base_url = frontend_base_url()
+    sent = 0
+    failed = 0
+    skipped = 0
+    deferred = 0
+    promoted = 0
+
+    for user_id, notifications in grouped.items():
+        if sent >= CRON_MAX_ITEMS_PER_JOB:
+            deferred += 1
+            continue
+
+        user = User.query.get(user_id)
+        email = (user.email or '').strip() if user else ''
+        if not email:
+            # 발송할 곳이 없다. emailed_at 을 거짓으로 채우지 않는다 —
+            # 이 알림들은 MAX_AGE 를 넘기면 조회 대상에서 자연히 빠진다.
+            skipped += 1
+            continue
+
+        if not _take_cron_email_budget():
+            deferred += 1
+            continue
+
+        items = [{
+            'title': n.title,
+            'message': n.message,
+            # 상대 경로를 그대로 넣으면 메일 클라이언트에서 링크가 깨진다.
+            'link': f'{base_url}{n.link}' if (n.link or '').startswith('/') else (n.link or ''),
+        } for n in notifications[:UNREAD_DIGEST_MAX_ITEMS]]
+
+        try:
+            result = email_service.send_notification_digest(
+                to_email=email,
+                user_name=user.name,
+                items=items,
+                total_count=len(notifications),
+                dashboard_url=f'{base_url}/dashboard.html',
+            )
+        except Exception as e:
+            record_email_failure('unread_notification_digest', e)
+            failed += 1
+            continue
+
+        if not (result or {}).get('success'):
+            # send_email 은 SMTP 실패를 예외가 아니라 {'success': False} 로 돌려준다.
+            # 그대로 성공으로 세면 emailed_at 이 찍혀 알림이 영영 메일로 안 나간다.
+            record_email_failure(
+                'unread_notification_digest',
+                RuntimeError((result or {}).get('message', 'unknown')),
+            )
+            failed += 1
+            continue
+
+        # 발송에 성공한 것만 표기한다. 실패한 건은 emailed_at 이 비어 있어
+        # 다음 회차에 다시 잡힌다.
+        for notification in notifications:
+            notification.emailed_at = now
+        promoted += len(notifications)
+        sent += 1
+
+    db.session.commit()
+    return {
+        'candidates': len(rows),
+        'users': len(grouped),
+        'sent': sent,
+        'promoted': promoted,
+        'failed': failed,
+        'skipped': skipped,
+        'deferred': deferred,
+        'truncated': scan_truncated or deferred > 0,
+    }
+
+
+# ---------- 작업 5. 만료·보관기간 정리 ----------
 
 def _cron_job_expired_cleanup():
     """만료된 미사용 초대와 보관기간이 지난 에러 로그를 정리한다.
@@ -5215,11 +5629,16 @@ def _cron_job_expired_cleanup():
     }
 
 
-# 실행 순서 주의: 다이제스트가 에러 로그를 읽은 뒤에 정리 작업이 지운다.
+# 실행 순서 주의:
+#  - 다이제스트가 에러 로그를 읽은 뒤에 정리 작업이 지운다.
+#  - unread_digest 는 리마인더 뒤에 둔다. 리마인더가 방금 만든 알림은 이미
+#    emailed_at 이 찍혀 있어 어차피 제외되지만, "즉시 발송 경로가 먼저,
+#    남은 것을 승격이 쓸어 담는다" 는 순서가 코드에도 드러나는 편이 낫다.
 CRON_DAILY_JOBS = (
     'error_digest',
     'signature_reminder',
     'proposal_reminder',
+    'unread_digest',
     'expired_cleanup',
 )
 
@@ -5242,6 +5661,10 @@ def run_daily_cron_jobs():
     """
     results = {}
     failures = []
+
+    # 발송 예산은 실행 단위다. 리셋을 빠뜨리면 재사용된 서버리스 인스턴스에서
+    # 두 번째 실행부터 메일이 한 통도 안 나간다.
+    _reset_cron_email_budget()
 
     for name in CRON_DAILY_JOBS:
         try:

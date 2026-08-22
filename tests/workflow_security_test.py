@@ -2565,6 +2565,423 @@ class TestWorkflowSecurity(unittest.TestCase):
         joined = ' '.join(data['limitations'])
         self.assertIn('설문 완료', joined)   # 첫 단계가 '방문'이 아님을 명시
 
+    # ------------------------------------------------------------------
+    # L1-B 통지·리마인더 (미열람 알림 메일 승격 / 관리자 통지 / 초대 메일)
+    # ------------------------------------------------------------------
+    def _unread(self, user, title='알림 제목', message='알림 본문',
+                link='/dashboard.html', hours_ago=12, is_read=False,
+                emailed_at=None, ntype='test_event'):
+        """메일 승격 대상이 될 만한 인앱 알림 1건."""
+        notification = Notification(
+            user_id=user.id,
+            type=ntype,
+            title=title,
+            message=message,
+            link=link,
+            is_read=is_read,
+            emailed_at=emailed_at,
+            created_at=datetime.datetime.now(datetime.timezone.utc)
+            - datetime.timedelta(hours=hours_ago),
+        )
+        db.session.add(notification)
+        db.session.commit()
+        return notification
+
+    def test_unread_notifications_are_promoted_as_one_email_per_user(self):
+        """L1-B-a: 미열람 알림은 **사용자당 1통**으로 묶여 메일이 된다.
+
+        미열람이 5건일 때 메일 5통을 보내면 알림이 소음이 되어 정작 중요한
+        메일까지 무시된다. 묶는 것이 이 기능의 핵심이다.
+        """
+        from index import email_service
+
+        for i in range(3):
+            self._unread(self.company, title=f'기업 알림 {i}', link=f'/dashboard.html?project={i}')
+        self._unread(self.consultant_user, title='전문가 알림')
+
+        with patch.object(email_service, 'send_notification_digest', autospec=True,
+                          return_value={'success': True}) as mock_digest:
+            result = self._run_cron().get_json()['results']['unread_digest']
+
+        self.assertEqual(result['sent'], 2, '사용자 수만큼(2통)이 아니라 알림 수만큼 발송됨')
+        self.assertEqual(result['promoted'], 4)
+        self.assertEqual(mock_digest.call_count, 2)
+
+        by_email = {c.kwargs['to_email']: c.kwargs for c in mock_digest.call_args_list}
+        self.assertEqual(set(by_email), {self.company.email, self.consultant_user.email})
+        self.assertEqual(by_email[self.company.email]['total_count'], 3)
+        self.assertEqual(len(by_email[self.company.email]['items']), 3)
+        self.assertEqual(by_email[self.consultant_user.email]['total_count'], 1)
+
+        # 본문 링크는 절대 URL 이어야 한다 (메일 클라이언트에서 상대 경로는 깨진다)
+        for item in by_email[self.company.email]['items']:
+            self.assertTrue(item['link'].startswith('http'), item['link'])
+
+        # 발송에 성공한 알림에만 표식이 남는다
+        self.assertEqual(Notification.query.filter(Notification.emailed_at.is_(None)).count(), 0)
+
+    def test_unread_promotion_does_not_send_twice(self):
+        """L1-B-b: 연속 2회 실행하면 두 번째는 발송 0건.
+
+        cron 은 매일 도는데 "안 읽음" 조건은 계속 참이므로, emailed_at 표식이
+        없으면 사용자가 안 읽는 한 매일 같은 메일이 나간다.
+        """
+        from index import email_service
+
+        self._unread(self.company)
+        self._unread(self.company, title='두 번째')
+
+        with patch.object(email_service, 'send_notification_digest', autospec=True,
+                          return_value={'success': True}) as first_mock:
+            first = self._run_cron().get_json()['results']['unread_digest']
+        self.assertEqual(first['sent'], 1)
+        self.assertEqual(first_mock.call_count, 1)
+
+        with patch.object(email_service, 'send_notification_digest', autospec=True,
+                          return_value={'success': True}) as second_mock:
+            second = self._run_cron().get_json()['results']['unread_digest']
+
+        self.assertEqual(second['sent'], 0, '같은 알림으로 메일이 두 번 나감')
+        self.assertEqual(second['candidates'], 0)
+        second_mock.assert_not_called()
+
+    def test_unread_promotion_retries_when_the_mail_failed(self):
+        """발송 실패한 건에 emailed_at 을 찍으면 그 알림은 영영 메일로 못 나간다.
+
+        send_email 은 SMTP 실패를 예외가 아니라 {'success': False} 로 돌려주므로
+        반환값을 확인하지 않으면 실패를 성공으로 세게 된다.
+        """
+        from index import email_service
+
+        self._unread(self.company)
+
+        with patch.object(email_service, 'send_notification_digest', autospec=True,
+                          return_value={'success': False, 'message': 'smtp auth failed'}):
+            failed = self._run_cron().get_json()['results']['unread_digest']
+
+        self.assertEqual(failed['sent'], 0)
+        self.assertEqual(failed['failed'], 1)
+        self.assertEqual(Notification.query.filter(Notification.emailed_at.is_(None)).count(), 1)
+        # 실패가 조용히 묻히지 않는다 (부분 실패이므로 level='warning')
+        self.assertTrue(ErrorLog.query.filter_by(level='warning').count() >= 1)
+
+        with patch.object(email_service, 'send_notification_digest', autospec=True,
+                          return_value={'success': True}):
+            retried = self._run_cron().get_json()['results']['unread_digest']
+        self.assertEqual(retried['sent'], 1, '실패한 건이 다음 회차에 재시도되지 않음')
+
+    def test_read_and_recent_and_stale_notifications_are_not_promoted(self):
+        """L1-B-c: 이미 읽은 알림은 승격 대상이 아니다.
+
+        함께 검증하는 두 경계:
+          - 방금 생긴 알림: 인앱으로 먼저 볼 여지를 준다 (임계 시간 이전).
+          - 아주 오래된 알림: 배포 첫날 몇 달치가 한꺼번에 쏟아지는 것을 막는다.
+        """
+        from index import email_service
+
+        self._unread(self.company, title='이미 읽음', is_read=True)
+        self._unread(self.company, title='방금 생김', hours_ago=1)
+        self._unread(self.company, title='너무 오래됨', hours_ago=24 * 30)
+        self._unread(self.company, title='이미 메일 나감',
+                     emailed_at=datetime.datetime.now(datetime.timezone.utc))
+
+        with patch.object(email_service, 'send_notification_digest', autospec=True,
+                          return_value={'success': True}) as mock_digest:
+            result = self._run_cron().get_json()['results']['unread_digest']
+
+        self.assertEqual(result['candidates'], 0)
+        self.assertEqual(result['sent'], 0)
+        mock_digest.assert_not_called()
+
+        # 대조군: 같은 사용자에게 조건을 만족하는 알림 1건이 있으면 나간다
+        self._unread(self.company, title='승격 대상')
+        with patch.object(email_service, 'send_notification_digest', autospec=True,
+                          return_value={'success': True}) as mock_digest:
+            self._run_cron()
+        self.assertEqual(mock_digest.call_count, 1)
+        self.assertEqual(
+            [i['title'] for i in mock_digest.call_args.kwargs['items']], ['승격 대상'])
+
+    def test_reminders_are_emailed_at_creation_time(self):
+        """L1-B 작업 2: 리마인더는 승격을 기다리지 않고 그 자리에서 메일이 나간다.
+
+        "당신이 늦고 있다" 는 푸시라 하루를 더 기다리면 그만큼 더 늦어진다.
+        발송 시각을 emailed_at 에 남기므로 승격 배치가 중복 발송하지 않는다.
+        """
+        from index import email_service
+
+        self._make_awaiting_signature_project(days_ago=5)
+        db.session.add(Project(
+            company_id=self.company.id,
+            consultant_id=self.consultant.id,
+            title='무응답 견적 요청',
+            status='proposal_pending',
+            created_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=6),
+        ))
+        db.session.commit()
+
+        with patch.object(email_service, 'send_reminder_notice', autospec=True,
+                          return_value={'success': True}) as mock_reminder, \
+             patch.object(email_service, 'send_notification_digest', autospec=True,
+                          return_value={'success': True}) as mock_digest:
+            results = self._run_cron().get_json()['results']
+
+        self.assertEqual(results['signature_reminder']['emailed'], 1)
+        self.assertEqual(results['proposal_reminder']['emailed'], 1)
+        self.assertEqual(mock_reminder.call_count, 2)
+
+        # 같은 실행에서 승격 배치가 이 둘을 다시 보내지 않는다
+        mock_digest.assert_not_called()
+
+        reminders = Notification.query.filter(
+            Notification.type.in_(['contract_signature_reminder', 'proposal_reminder'])).all()
+        self.assertEqual(len(reminders), 2)
+        for reminder in reminders:
+            self.assertIsNotNone(reminder.emailed_at, '리마인더에 발송 표식이 없어 중복 발송된다')
+
+        # 메일 본문 링크는 절대 URL
+        for call in mock_reminder.call_args_list:
+            self.assertTrue(call.kwargs['action_url'].startswith('http'))
+
+    def test_reminder_without_email_still_creates_the_in_app_notification(self):
+        """메일이 실패해도 인앱 알림은 남아야 한다 (그래야 승격 배치가 다시 시도한다)."""
+        from index import email_service
+
+        self._make_awaiting_signature_project(days_ago=5)
+
+        with patch.object(email_service, 'send_reminder_notice', autospec=True,
+                          side_effect=RuntimeError('smtp down')):
+            result = self._run_cron().get_json()['results']['signature_reminder']
+
+        self.assertEqual(result['notified'], 1)
+        self.assertEqual(result['emailed'], 0)
+        reminder = Notification.query.filter_by(type='contract_signature_reminder').one()
+        self.assertIsNone(reminder.emailed_at)
+
+    def test_admin_notifications_go_to_admins_only(self):
+        """L1-B-e: 관리자 통지는 admin 계정에만 간다.
+
+        신규 전문가 등록은 '사람이 승인을 기다리는' 이벤트라 즉시 메일까지 보낸다.
+        """
+        from index import email_service
+
+        second_admin = User(email='admin2@example.com', password_hash='x',
+                            role='admin', name='Admin Two')
+        db.session.add(second_admin)
+        db.session.commit()
+
+        user = self._new_consultant_user('pending-review@example.com')
+        with patch.object(email_service, 'send_admin_alert', autospec=True,
+                          return_value={'success': True}) as mock_alert:
+            response = self.client.post(
+                '/api/consultants/register',
+                json=self._reg_payload('pending-review@example.com'),
+                headers=auth_headers(user))
+
+        self.assertEqual(response.status_code, 201)
+
+        notified = {n.user_id for n in
+                    Notification.query.filter_by(type='consultant_pending_review').all()}
+        self.assertEqual(notified, {self.admin_user.id, second_admin.id})
+        self.assertNotIn(self.company.id, notified)
+        self.assertNotIn(user.id, notified)
+
+        self.assertEqual(mock_alert.call_count, 2)
+        self.assertEqual(
+            {c.kwargs['to_email'] for c in mock_alert.call_args_list},
+            {self.admin_user.email, second_admin.email})
+        # 메일이 나간 알림에는 표식이 남아 승격 배치가 중복 발송하지 않는다
+        for notification in Notification.query.filter_by(type='consultant_pending_review').all():
+            self.assertIsNotNone(notification.emailed_at)
+
+    def test_admin_recipient_limit_caps_the_blast(self):
+        """admin 계정이 늘어도 이벤트 1건당 메일이 무한정 늘어나지 않는다."""
+        from index import email_service
+
+        for i in range(8):
+            db.session.add(User(email=f'admin-extra-{i}@example.com', password_hash='x',
+                                role='admin', name=f'Admin {i}'))
+        db.session.commit()
+
+        user = self._new_consultant_user('capped@example.com')
+        with patch.object(email_service, 'send_admin_alert', autospec=True,
+                          return_value={'success': True}) as mock_alert:
+            self.client.post('/api/consultants/register',
+                             json=self._reg_payload('capped@example.com'),
+                             headers=auth_headers(user))
+
+        from index import ADMIN_NOTIFY_RECIPIENT_LIMIT
+        self.assertEqual(mock_alert.call_count, ADMIN_NOTIFY_RECIPIENT_LIMIT)
+        self.assertEqual(
+            Notification.query.filter_by(type='consultant_pending_review').count(),
+            ADMIN_NOTIFY_RECIPIENT_LIMIT)
+
+    def test_match_request_notifies_admins_in_app_and_mails_once_a_day(self):
+        """L1-B 작업 3: 신규 매칭 요청은 **즉시 메일이 아니라 일일 다이제스트**다.
+
+        /api/match 는 무인증 공개 경로라 발송량이 사실상 호출자 통제 하에 있다.
+        건당 즉시 발송이면 관리자 메일함이 리드로 도배되고, 같은 메일함으로 오는
+        오류 다이제스트·전문가 심사 대기가 묻힌다. 인앱 알림은 즉시 남기되
+        메일은 미열람 승격이 하루 1통으로 묶는다(리드 전용 작업이 따로 없다).
+        """
+        from index import email_service
+
+        with patch.object(email_service, 'send_admin_alert', autospec=True) as mock_alert:
+            for i in range(3):
+                response = self.client.post('/api/match', json={
+                    'companyName': f'테스트기업{i}',
+                    'contactEmail': 'lead@example.com',
+                    'industry': '제조',
+                    'standards': ['ISO 9001'],
+                })
+                self.assertEqual(response.status_code, 200)
+
+        mock_alert.assert_not_called()   # 즉시 메일은 보내지 않는다
+
+        leads = Notification.query.filter_by(type='new_match_request').all()
+        self.assertEqual(len(leads), 3)
+        self.assertEqual({n.user_id for n in leads}, {self.admin_user.id})
+        for lead in leads:
+            self.assertIsNone(lead.emailed_at, '즉시 메일을 보내지 않았는데 발송 표식이 찍혔다')
+
+        # 하루 뒤 배치가 3건을 1통으로 묶는다
+        Notification.query.filter_by(type='new_match_request').update(
+            {'created_at': datetime.datetime.now(datetime.timezone.utc)
+             - datetime.timedelta(hours=12)},
+            synchronize_session=False)
+        db.session.commit()
+
+        with patch.object(email_service, 'send_notification_digest', autospec=True,
+                          return_value={'success': True}) as mock_digest:
+            result = self._run_cron().get_json()['results']['unread_digest']
+
+        self.assertEqual(result['sent'], 1, '리드 3건에 메일 3통이 나가면 안 된다')
+        self.assertEqual(mock_digest.call_args.kwargs['total_count'], 3)
+        self.assertEqual(mock_digest.call_args.kwargs['to_email'], self.admin_user.email)
+
+    def test_invite_creation_survives_a_failing_invite_email(self):
+        """L1-B-d: 초대 메일이 실패해도 초대 생성은 성공해야 한다.
+
+        관리자가 URL 을 복사해 직접 전달하는 기존 경로가 그대로 살아 있어야 하므로,
+        메일 실패는 응답에 담아 알리되 201 을 유지한다.
+        """
+        from index import email_service
+
+        # (a) 예외로 실패
+        with patch.object(email_service, 'send_consultant_invite', autospec=True,
+                          side_effect=RuntimeError('smtp down')):
+            response = self.client.post(
+                '/api/admin/consultant-invites',
+                json={'name': '초대 대상', 'email': 'Invitee@Example.com'},
+                headers=auth_headers(self.admin_user))
+
+        self.assertEqual(response.status_code, 201)
+        data = response.get_json()
+        self.assertFalse(data['email_sent'])
+        self.assertIn('invite_url', data)
+        self.assertEqual(ConsultantInvite.query.count(), 1, '메일 실패가 초대 생성을 되돌렸다')
+        self.assertTrue(ConsultantInvite.query.one().is_usable()[0])
+
+        # (b) SMTP 가 예외 대신 {'success': False} 로 실패를 알리는 경로
+        with patch.object(email_service, 'send_consultant_invite', autospec=True,
+                          return_value={'success': False, 'message': 'auth failed'}):
+            response = self.client.post(
+                '/api/admin/consultant-invites',
+                json={'name': '초대 대상2', 'email': 'invitee2@example.com'},
+                headers=auth_headers(self.admin_user))
+
+        self.assertEqual(response.status_code, 201)
+        self.assertFalse(response.get_json()['email_sent'])
+        self.assertEqual(ConsultantInvite.query.count(), 2)
+
+        # 두 실패 모두 조용히 묻히지 않는다
+        self.assertEqual(
+            ErrorLog.query.filter(ErrorLog.exc_message.like('%consultant_invite%')).count(), 2)
+
+    def test_invite_email_is_sent_with_expiry_and_url(self):
+        """발급 시 초대 URL 과 만료일이 메일로 나간다 (카톡 수동 전달이 필요 없어진다)."""
+        from index import email_service
+
+        with patch.object(email_service, 'send_consultant_invite', autospec=True,
+                          return_value={'success': True}) as mock_invite:
+            response = self.client.post(
+                '/api/admin/consultant-invites',
+                json={'name': '초대 대상', 'email': 'invitee@example.com', 'memo': '급함'},
+                headers=auth_headers(self.admin_user))
+
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.get_json()['email_sent'])
+
+        kwargs = mock_invite.call_args.kwargs
+        self.assertEqual(kwargs['to_email'], 'invitee@example.com')
+        self.assertIn('consultant_register.html?invite=', kwargs['invite_url'])
+        self.assertEqual(kwargs['ttl_days'], 14)
+        self.assertTrue(kwargs['expires_at_text'])
+
+        # 이메일을 입력하지 않았다면 발송을 시도하지 않는다(복사 전달 경로 그대로)
+        with patch.object(email_service, 'send_consultant_invite', autospec=True) as unused:
+            no_email = self.client.post(
+                '/api/admin/consultant-invites',
+                json={'name': '이메일 없음'},
+                headers=auth_headers(self.admin_user))
+        unused.assert_not_called()
+        self.assertEqual(no_email.get_json()['email_skipped'], 'no_email')
+
+    def test_notification_emails_are_transactional_and_escape_user_input(self):
+        """공통 제약: 광고성 문구 없이 거래적 성격을 명시하고, 사용자 입력은 이스케이프한다."""
+        from index import email_service
+
+        with patch.object(email_service, 'send_email', return_value={'success': True}) as mock_send:
+            email_service.send_notification_digest(
+                to_email='user@example.com',
+                user_name="<script>alert('x')</script>",
+                items=[{
+                    'title': '<img src=x onerror=alert(1)>',
+                    'message': '프로젝트 "<b>주입</b>" 진행',
+                    'link': 'https://example.com/dashboard.html?project=1',
+                }],
+                total_count=3,
+            )
+        body = mock_send.call_args[0][2]
+        self.assertNotIn('<script>', body)
+        self.assertNotIn('<img src=x', body)
+        self.assertIn('&lt;img src=x', body)
+        self.assertIn('외 2건', body)          # 3건 중 1건만 나열했음을 밝힌다
+        self.assertIn('광고성 정보가 아닙니다', body)
+
+        with patch.object(email_service, 'send_email', return_value={'success': True}) as mock_send:
+            email_service.send_consultant_invite(
+                to_email='invitee@example.com',
+                invite_name='<b>홍길동</b>',
+                invite_url='https://example.com/consultant_register.html?invite=tok',
+                expires_at_text='2026-09-05 00:00',
+                memo='<script>bad()</script>',
+            )
+        body = mock_send.call_args[0][2]
+        self.assertNotIn('<script>', body)
+        self.assertIn('14일간', body)          # 만료일을 본문에 명시
+        self.assertIn('2026-09-05 00:00', body)
+        self.assertIn('광고성 정보가 아닙니다', body)
+
+    def test_cron_email_budget_is_reset_between_runs(self):
+        """발송 예산은 실행 단위다. 리셋을 빠뜨리면 두 번째 실행부터 메일이 0통이 된다."""
+        from index import email_service
+
+        self._unread(self.company)
+        with patch('index.CRON_MAX_EMAILS_PER_RUN', 1), \
+             patch.object(email_service, 'send_notification_digest', autospec=True,
+                          return_value={'success': True}):
+            self._run_cron()
+
+        self._unread(self.consultant_user)
+        with patch('index.CRON_MAX_EMAILS_PER_RUN', 1), \
+             patch.object(email_service, 'send_notification_digest', autospec=True,
+                          return_value={'success': True}) as mock_digest:
+            second = self._run_cron().get_json()['results']['unread_digest']
+
+        self.assertEqual(second['sent'], 1, '이전 실행의 예산 잔량이 넘어왔다')
+        self.assertEqual(mock_digest.call_count, 1)
+
 
 if __name__ == '__main__':
     unittest.main()

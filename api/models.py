@@ -219,7 +219,17 @@ class Notification(db.Model):
     link = db.Column(db.String(500))  # 클릭 시 이동할 URL
     is_read = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=utc_now)
-    
+    # 이 알림이 메일로도 나갔는지(= 나간 시각). NULL 이면 아직 인앱 전용이다.
+    #
+    # 일일 배치의 '미열람 알림 메일 승격' 이 이 컬럼 하나로 재발송을 막는다.
+    # cron 은 매일 도는데 사용자가 계속 안 읽으면 조건이 계속 참이므로,
+    # 이 표식이 없으면 같은 알림이 매일 메일로 나가 소음이 된다.
+    #
+    # 생성 시점에 이미 메일을 보낸 경로(심사 결과·리마인더·오류 다이제스트)는
+    # 여기에 발송 시각을 채워둔다. 그러면 승격 배치가 같은 내용을 두 번 보내지
+    # 않는다 — 두 경로가 같은 컬럼 하나로 자연히 맞물린다.
+    emailed_at = db.Column(db.DateTime, nullable=True)
+
     def to_dict(self):
         return {
             'id': self.id,
