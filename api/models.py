@@ -551,6 +551,103 @@ class Inquiry(db.Model):
         }
 
 
+class Review(db.Model):
+    """완료된 프로젝트에 대한 기업의 컨설턴트 평가.
+
+    이 테이블이 생기기 전까지 `Consultant.rating` / `Consultant.reviews` 는
+    **공급원이 없는 컬럼**이었다. 매칭은 이 두 값을 17점(WEIGHT_RATING)으로
+    반영하는데 값을 채우는 코드가 0건이라, 전원이 중립값을 받았다.
+    즉 매칭 배점의 17%가 아무 정보도 나르지 않고 있었다.
+
+    ⚠️ 이 테이블이 평점의 **단일 진실**이다.
+       `Consultant.rating` / `Consultant.reviews` 는 조회 성능을 위한 캐시일
+       뿐이며, 등록·수정·숨김 때마다 이 테이블에서 **전부 다시 계산**한다
+       (index.py 의 recalculate_consultant_rating). 증분 갱신
+       (rating = (rating*n + new)/(n+1))을 쓰면 부동소수 오차가 누적되고,
+       숨김 처리를 되돌릴 때 원래 값으로 돌아오지 못한다.
+
+    ⚠️ `comment` 는 외부 입력이다. 렌더링하는 쪽은 반드시 escapeHtml 을 거칠 것.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+
+    # ── 프로젝트당 1건 (조작 방지의 핵심) ──
+    #
+    # unique 가 없으면 같은 거래 하나로 5점을 100번 등록해 평점을 만들 수 있다.
+    # 애플리케이션 검사(기존 행 조회)만으로는 부족하다. Vercel 서버리스는 같은
+    # 요청을 동시에 여러 인스턴스가 처리할 수 있어, 조회-삽입 사이의 경합에서
+    # 두 행이 함께 들어간다. DB 제약과 애플리케이션 검사를 **둘 다** 둔다.
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id'),
+                           nullable=False, unique=True)
+
+    consultant_id = db.Column(db.Integer, db.ForeignKey('consultant.id'),
+                              nullable=False, index=True)
+
+    # 작성자 = 그 프로젝트의 기업 사용자(user.id). project.company_id 와 같은 값이다.
+    # 굳이 중복 저장하는 이유: 프로젝트가 소프트 삭제되거나 소유가 바뀌어도
+    # "누가 썼는가" 는 리뷰 자체의 속성으로 남아야 하기 때문이다(수정 권한 판정에 쓴다).
+    company_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    # 1~5 정수. 애플리케이션에서 범위를 검증하고, DB 에도 CHECK 를 건다.
+    rating = db.Column(db.Integer, nullable=False)
+    comment = db.Column(db.Text)
+
+    created_at = db.Column(db.DateTime, default=utc_now, index=True)
+    updated_at = db.Column(db.DateTime, default=utc_now)
+
+    # ── 관리자 숨김 (삭제 대신) ──
+    #
+    # 사용자에게 삭제를 열지 않는다. 컨설턴트가 나쁜 평가를 지워달라고 압박하는
+    # 경로가 생기고, 기업이 협상 카드로 삭제를 쓰게 된다. 욕설·개인정보 노출 같은
+    # 건은 관리자가 '숨김' 으로 처리하고, 숨긴 행은 평균 계산에서 제외한다.
+    # 행 자체는 남으므로 분쟁 시 무엇을 왜 숨겼는지 되짚을 수 있다.
+    hidden_at = db.Column(db.DateTime, nullable=True, index=True)
+    hidden_reason = db.Column(db.String(300))
+    hidden_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+    __table_args__ = (
+        db.CheckConstraint('rating >= 1 AND rating <= 5', name='ck_review_rating_range'),
+    )
+
+    def is_visible(self):
+        return self.hidden_at is None
+
+    def to_dict(self, author_label=None, include_admin_fields=False):
+        """공개용 직렬화.
+
+        author_label 은 호출부가 마스킹해서 넘긴다 (index.py 의 _review_author_label).
+        기업명을 그대로 노출하면 "어느 기업이 어느 컨설턴트에게 무엇을 맡겼는가" 라는
+        거래 관계가 공개 페이지에서 드러난다.
+        """
+        data = {
+            'id': self.id,
+            'projectId': self.project_id,
+            'consultantId': self.consultant_id,
+            'rating': self.rating,
+            'comment': self.comment,
+            'authorLabel': author_label,
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
+            'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
+            # 수정된 리뷰는 그 사실이 보여야 한다. 조용히 바뀌면 읽는 쪽이
+            # 지금 보는 문장이 최초 평가인지 알 수 없다.
+            #
+            # ⚠️ 단순 비교(updated_at > created_at)를 쓰면 **한 번도 수정하지 않은
+            #    리뷰까지 '수정됨' 으로 표시된다.** default=utc_now 는 컬럼마다
+            #    따로 평가되므로 행을 만들 때 두 값에 마이크로초 차이가 생긴다.
+            #    (실제로 관측했다 — 신규 리뷰 3건 전부 '수정됨' 으로 나왔다.)
+            #    사람이 수정한 것과 구분되는 여유(1초)를 둔다.
+            'edited': bool(
+                self.created_at and self.updated_at
+                and (self.updated_at - self.created_at).total_seconds() > 1
+            ),
+        }
+        if include_admin_fields:
+            data['companyId'] = self.company_id
+            data['hiddenAt'] = self.hidden_at.isoformat() if self.hidden_at else None
+            data['hiddenReason'] = self.hidden_reason
+            data['hiddenBy'] = self.hidden_by
+        return data
+
+
 class ErrorLog(db.Model):
     """미처리 예외 기록 (관측성 확보).
 

@@ -291,10 +291,12 @@
                     <h3 class="profile-section-title">
                         <i data-lucide="message-circle" style="width: 20px; height: 20px;"></i>
                         고객 리뷰
+                        <span id="reviews-summary"
+                            style="margin-left: auto; font-size: 0.85rem; font-weight: 500; color: var(--text-muted);"></span>
                     </h3>
                     <div id="reviews-list">
                         <p style="color: var(--text-muted); text-align: center; padding: 40px;">
-                            아직 등록된 리뷰가 없습니다.
+                            리뷰를 불러오는 중...
                         </p>
                     </div>
                 </div>
@@ -461,8 +463,15 @@
             document.getElementById('profile-name').textContent = c.name;
             document.getElementById('profile-specialty').textContent = `${c.specialty || '종합'} 전문`;
             document.getElementById('profile-experience').textContent = `경력 ${c.experience || '정보없음'}`;
-            document.getElementById('profile-rating').textContent = `평점 ${c.rating || '-'}점`;
-            document.getElementById('profile-reviews').textContent = `리뷰 ${c.reviews || 0}개`;
+            // 리뷰 0건이면 숫자를 쓰지 않는다.
+            // rating 시드가 0.0 이라 "평점 0점" 으로 나가는데, 이는 '평가 없음'이
+            // 아니라 '최악' 으로 읽힌다. 둘은 완전히 다른 정보다
+            // (매칭도 리뷰 0건을 중립으로 처리한다 — matching_service._rating_block).
+            const reviewCount = c.reviews || 0;
+            document.getElementById('profile-rating').textContent =
+                reviewCount > 0 ? `평점 ${Number(c.rating).toFixed(1)}점` : '평가 없음';
+            document.getElementById('profile-reviews').textContent =
+                reviewCount > 0 ? `리뷰 ${reviewCount}개` : '리뷰 없음';
 
             // Verified Badge
             const badgeEl = document.getElementById('profile-badge');
@@ -537,8 +546,79 @@
                 `).join('');
             }
 
+            // Reviews (별도 엔드포인트 — 숨김 처리된 리뷰는 서버가 이미 걸러 보낸다)
+            loadReviews();
+
             // Re-initialize icons
             lucide.createIcons();
+        }
+
+        // ── 고객 리뷰 ──────────────────────────────────────────────
+        // ⚠️ comment / authorLabel 은 전부 외부 입력이다. innerHTML 로 넣기 전
+        //    반드시 escapeHtml 을 거친다.
+        async function loadReviews() {
+            const listEl = document.getElementById('reviews-list');
+            try {
+                const response = await fetch(`/api/consultants/${consultantId}/reviews`);
+                if (!response.ok) throw new Error('reviews fetch failed');
+                const data = await response.json();
+                renderReviews(data);
+            } catch (error) {
+                console.error('Error loading reviews:', error);
+                listEl.innerHTML = `
+                    <p style="color: var(--text-muted); text-align: center; padding: 40px;">
+                        리뷰를 불러오지 못했습니다.
+                    </p>`;
+            }
+        }
+
+        function renderReviews(data) {
+            const listEl = document.getElementById('reviews-list');
+            const items = data.items || [];
+            const summaryEl = document.getElementById('reviews-summary');
+
+            if (!items.length) {
+                summaryEl.textContent = '';
+                listEl.innerHTML = `
+                    <p style="color: var(--text-muted); text-align: center; padding: 40px;">
+                        아직 등록된 리뷰가 없습니다.<br>
+                        <small>완료된 프로젝트의 의뢰 기업만 리뷰를 남길 수 있습니다.</small>
+                    </p>`;
+                return;
+            }
+
+            summaryEl.textContent = `평균 ${Number(data.rating).toFixed(1)}점 · ${data.total}개`;
+
+            listEl.innerHTML = items.map(r => {
+                const stars = renderStars(r.rating);
+                const dateText = r.createdAt ? String(r.createdAt).slice(0, 10) : '';
+                return `
+                    <div class="review-card">
+                        <div class="review-header">
+                            <div class="review-rating">${stars}</div>
+                            <span style="font-size: 0.85rem; color: var(--text-muted);">
+                                ${escapeHtml(r.authorLabel || '기업 고객')}
+                            </span>
+                        </div>
+                        ${r.comment
+                        ? `<p class="review-content" style="white-space: pre-line;">${escapeHtml(r.comment)}</p>`
+                        : '<p class="review-content" style="opacity: 0.6;">코멘트 없이 평점만 남겼습니다.</p>'}
+                        <div class="review-meta">
+                            ${escapeHtml(dateText)}${r.edited ? ' · 수정됨' : ''}
+                        </div>
+                    </div>`;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        function renderStars(rating) {
+            const filled = Math.max(0, Math.min(5, Number(rating) || 0));
+            let html = '';
+            for (let i = 1; i <= 5; i++) {
+                html += `<i data-lucide="star" style="${i <= filled ? '' : 'opacity: 0.25;'}"></i>`;
+            }
+            return html;
         }
 
         function translateIndustry(industry) {

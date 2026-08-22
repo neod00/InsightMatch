@@ -1516,6 +1516,57 @@
         </div>
     </div>
 
+    <!-- 리뷰 작성 모달 (L1-C2) — 완료된 프로젝트의 기업만 진입한다 -->
+    <div id="review-modal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeReviewModal()"></div>
+        <div class="modal-content card"
+            style="max-width: 480px; padding: 24px; background: var(--bg-card); border-radius: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h3 style="margin: 0;" id="review-modal-title">프로젝트 평가</h3>
+                <button onclick="closeReviewModal()" class="btn btn-ghost" style="padding: 8px;">
+                    <i data-lucide="x" style="width: 20px; height: 20px;"></i>
+                </button>
+            </div>
+
+            <p id="review-modal-subtitle"
+                style="color: var(--text-muted); font-size: 0.9rem; margin: 0 0 20px; line-height: 1.5;"></p>
+
+            <!-- 별점 -->
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 0.9rem; margin-bottom: 10px;">
+                    만족도 <span style="color: var(--error);">*</span>
+                </label>
+                <div id="review-stars" style="display: flex; gap: 8px;"></div>
+                <div id="review-rating-label"
+                    style="margin-top: 8px; font-size: 0.85rem; color: var(--text-muted);">별을 선택해주세요.</div>
+            </div>
+
+            <!-- 코멘트 -->
+            <div style="margin-bottom: 8px;">
+                <label for="review-comment" style="display: block; font-size: 0.9rem; margin-bottom: 8px;">
+                    코멘트 <span style="color: var(--text-muted); font-weight: 400;">(선택)</span>
+                </label>
+                <textarea id="review-comment" maxlength="1000"
+                    placeholder="어떤 점이 좋았는지, 아쉬웠는지 적어주시면 다른 기업에 큰 도움이 됩니다."
+                    style="width: 100%; height: 110px; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; color: var(--text-primary); resize: none;"></textarea>
+            </div>
+
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 20px; line-height: 1.5;">
+                작성한 평가는 전문가 프로필에 공개됩니다. 기업명은
+                <strong>첫 글자만</strong> 노출되며, 작성 후 14일 이내에 수정할 수 있습니다.
+            </p>
+
+            <div id="review-modal-error"
+                style="display: none; margin-bottom: 12px; font-size: 0.85rem; color: var(--error);"></div>
+
+            <div style="display: flex; gap: 12px;">
+                <button class="btn btn-outline" style="flex: 1;" onclick="closeReviewModal()">닫기</button>
+                <button id="review-submit-btn" class="btn btn-primary" style="flex: 1;"
+                    onclick="submitReview()">평가 등록</button>
+            </div>
+        </div>
+    </div>
+
     <!-- D. 조건 협의 모달 -->
     <div id="negotiation-modal" class="modal hidden">
         <div class="modal-overlay" onclick="closeNegotiationModal()"></div>
@@ -1932,6 +1983,23 @@
             return parseInt(str.replace(/,/g, '')) || 0;
         }
 
+        // 평점 표시 — 리뷰가 0건이면 숫자를 쓰지 않는다.
+        // 이 자리에는 원래 '4.9' 가 하드코딩되어 있었다. 즉 모든 컨설턴트에게
+        // 같은 가짜 평점이 붙어 있었다. 리뷰 0건은 '평가 없음' 이지 '4.9' 도
+        // '0.0(최악)' 도 아니며, 매칭도 이를 중립으로 처리한다
+        // (services/matching_service.py 의 _rating_block).
+        function formatConsultantRating(rating, reviews) {
+            const count = Number(reviews) || 0;
+            const value = Number(rating);
+            if (count <= 0 || !Number.isFinite(value) || value <= 0) return '평가 없음';
+            return `${value.toFixed(1)} (${count})`;
+        }
+
+        // 마지막으로 불러온 프로젝트 목록.
+        // 알림 링크(/dashboard.html?review=<id>)로 들어왔을 때 해당 프로젝트를
+        // 찾아 리뷰 모달을 여는 데 쓴다.
+        let allProjects = [];
+
         async function fetchProjects() {
             try {
                 const apiUrl = `${API_BASE_URL}/api/projects?user_id=${user.id}`;
@@ -1942,6 +2010,7 @@
                 }
 
                 const projects = await response.json();
+                allProjects = Array.isArray(projects) ? projects : [];
 
                 if (!Array.isArray(projects) || projects.length === 0) {
                     document.getElementById('project-list').classList.add('hidden');
@@ -1959,6 +2028,8 @@
                     // 기업: 같은 title/session_id로 그룹화
                     const grouped = groupProjectsByTitle(projects);
                     renderGroupedProjects(grouped);
+                    // 리뷰 요청 알림 링크로 들어온 경우 곧바로 작성 모달을 연다.
+                    openReviewFromQueryParam();
                 }
 
             } catch (error) {
@@ -2476,6 +2547,10 @@
                     p.status === 'contracted' || p.status === 'in_progress'
                 );
 
+                // 리뷰 작성 진입점. 완료된 계약 건에만 붙이고, 이미 쓴 건이면
+                // '평가 수정' 으로 문구를 바꾼다 (has_review 는 /api/projects 가 준다).
+                const completedContract = visibleProjects.find(p => p.status === 'completed');
+
                 card.innerHTML = `
                     <!-- Header -->
                     <div class="quote-request-header">
@@ -2527,6 +2602,11 @@
                         <button class="btn btn-primary btn-sm" onclick="event.preventDefault(); event.stopPropagation(); completeProject(${activeContract.id}, '${escapeAttr(group.title || '').replace(/'/g, "\\'")}')">
                             <i data-lucide="check-check" style="width: 14px; height: 14px;"></i>
                             완료 확인
+                        </button>` : ''}
+                        ${overallStatus === 'completed' && completedContract ? `
+                        <button class="btn ${completedContract.has_review ? 'btn-secondary' : 'btn-primary'} btn-sm" onclick="event.preventDefault(); event.stopPropagation(); openReviewModal(${completedContract.id}, '${escapeAttr(group.title || '').replace(/'/g, "\\'")}', '${escapeAttr(completedContract.consultant_name || '').replace(/'/g, "\\'")}')">
+                            <i data-lucide="star" style="width: 14px; height: 14px;"></i>
+                            ${completedContract.has_review ? '평가 수정' : '전문가 평가하기'}
                         </button>` : ''}
                     </div>
                     ` : `
@@ -2616,15 +2696,15 @@
                                 <h4>${escapeHtml(project.consultant_name || '컨설턴트')}</h4>
                                 <i data-lucide="badge-check" class="verified-badge-small"></i>
                             </div>
-                            <div class="consultant-specialty">ISO 인증 전문가</div>
+                            <div class="consultant-specialty">${escapeHtml(project.consultant_specialty || 'ISO 인증 전문가')}</div>
                             <div class="consultant-stats">
                                 <span>
                                     <i data-lucide="star" style="width: 14px; height: 14px; color: #f59e0b;"></i>
-                                    4.9
+                                    ${escapeHtml(formatConsultantRating(project.consultant_rating, project.consultant_reviews))}
                                 </span>
                                 <span>
                                     <i data-lucide="briefcase" style="width: 14px; height: 14px;"></i>
-                                    15년 경력
+                                    ${escapeHtml(project.consultant_experience ? `${project.consultant_experience} 경력` : '경력 정보 없음')}
                                 </span>
                             </div>
                         </div>
@@ -4304,6 +4384,160 @@
             }
         };
 
+
+        // ========================================
+        // 리뷰 작성 (L1-C2) — 기업 전용
+        // ========================================
+        // 리뷰는 완료된 프로젝트에 **프로젝트당 1건**만 등록된다(서버가 DB unique
+        // 제약과 애플리케이션 검사로 이중 방어). 여기서는 이미 쓴 건이면 수정
+        // 모드로 열어, 사용자가 409 를 마주치지 않게 한다.
+        let currentReviewProjectId = null;
+        let currentReviewRating = 0;
+        let currentReviewIsEdit = false;
+
+        window.openReviewModal = async function (projectId, title, consultantName) {
+            currentReviewProjectId = projectId;
+            currentReviewRating = 0;
+            currentReviewIsEdit = false;
+
+            document.getElementById('review-modal-title').textContent = '프로젝트 평가';
+            document.getElementById('review-modal-subtitle').innerHTML =
+                `<strong>${escapeHtml(title || '')}</strong>` +
+                (consultantName ? ` · ${escapeHtml(consultantName)} 전문가` : '');
+            document.getElementById('review-comment').value = '';
+            document.getElementById('review-submit-btn').textContent = '평가 등록';
+            hideReviewError();
+            renderReviewStars();
+
+            document.getElementById('review-modal').classList.remove('hidden');
+            lucide.createIcons();
+
+            // 기존 리뷰가 있으면 불러와 수정 모드로 전환한다.
+            try {
+                const response = await authFetch(`${API_BASE_URL}/api/projects/${projectId}/review`);
+                if (!response.ok) return;
+                const data = await response.json();
+                if (!data.review) return;
+
+                currentReviewIsEdit = true;
+                currentReviewRating = Number(data.review.rating) || 0;
+                document.getElementById('review-comment').value = data.review.comment || '';
+                document.getElementById('review-modal-title').textContent = '평가 수정';
+                document.getElementById('review-submit-btn').textContent = '수정 저장';
+                renderReviewStars();
+
+                if (!data.review.editable) {
+                    // 수정 기간이 지났거나 관리자가 숨긴 리뷰 — 읽기 전용으로 둔다.
+                    document.getElementById('review-submit-btn').disabled = true;
+                    document.getElementById('review-comment').disabled = true;
+                    showReviewError('수정 가능 기간이 지나 이 평가는 더 이상 변경할 수 없습니다.');
+                }
+            } catch (e) {
+                // 조회 실패는 치명적이지 않다. 신규 작성 모드로 두면 서버가 409로 막는다.
+                console.error('review fetch failed', e);
+            }
+        };
+
+        window.closeReviewModal = function () {
+            document.getElementById('review-modal').classList.add('hidden');
+            document.getElementById('review-submit-btn').disabled = false;
+            document.getElementById('review-comment').disabled = false;
+            currentReviewProjectId = null;
+        };
+
+        const REVIEW_RATING_LABELS = {
+            1: '1점 · 매우 불만족',
+            2: '2점 · 불만족',
+            3: '3점 · 보통',
+            4: '4점 · 만족',
+            5: '5점 · 매우 만족'
+        };
+
+        function renderReviewStars() {
+            const container = document.getElementById('review-stars');
+            let html = '';
+            for (let i = 1; i <= 5; i++) {
+                const active = i <= currentReviewRating;
+                html += `
+                    <button type="button" onclick="setReviewRating(${i})" aria-label="${i}점"
+                        style="background: none; border: none; cursor: pointer; padding: 0; line-height: 0;">
+                        <i data-lucide="star"
+                            style="width: 30px; height: 30px; color: ${active ? '#f59e0b' : 'var(--border)'};"></i>
+                    </button>`;
+            }
+            container.innerHTML = html;
+            document.getElementById('review-rating-label').textContent =
+                REVIEW_RATING_LABELS[currentReviewRating] || '별을 선택해주세요.';
+            lucide.createIcons();
+        }
+
+        window.setReviewRating = function (value) {
+            currentReviewRating = value;
+            hideReviewError();
+            renderReviewStars();
+        };
+
+        function showReviewError(message) {
+            const el = document.getElementById('review-modal-error');
+            el.textContent = message;
+            el.style.display = 'block';
+        }
+
+        function hideReviewError() {
+            document.getElementById('review-modal-error').style.display = 'none';
+        }
+
+        window.submitReview = async function () {
+            if (!currentReviewProjectId) return;
+
+            // 서버도 1~5를 검증하지만, 별을 안 고른 채 누르는 것이 가장 흔한
+            // 실수라 여기서 먼저 막는다.
+            if (currentReviewRating < 1 || currentReviewRating > 5) {
+                showReviewError('별점을 선택해주세요.');
+                return;
+            }
+
+            const btn = document.getElementById('review-submit-btn');
+            btn.disabled = true;
+
+            try {
+                const response = await authFetch(
+                    `${API_BASE_URL}/api/projects/${currentReviewProjectId}/review`, {
+                    method: currentReviewIsEdit ? 'PUT' : 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        rating: currentReviewRating,
+                        comment: document.getElementById('review-comment').value
+                    })
+                });
+                const result = await response.json().catch(() => ({}));
+
+                if (response.ok) {
+                    closeReviewModal();
+                    showNotification(result.message || '평가가 등록되었습니다.', 'success');
+                    fetchProjects();
+                } else {
+                    btn.disabled = false;
+                    showReviewError(result.message || '평가 등록에 실패했습니다.');
+                }
+            } catch (e) {
+                btn.disabled = false;
+                showReviewError('서버 연결에 실패했습니다.');
+            }
+        };
+
+        // 알림(리뷰 요청·리마인더)의 링크가 /dashboard.html?review=<id> 다.
+        // 링크를 눌러 들어오면 곧바로 작성 모달이 열려야 한다 — 대시보드만
+        // 열리고 끝나면 "무엇을 하라는 것인지" 를 사용자가 다시 찾아야 한다.
+        function openReviewFromQueryParam() {
+            const requested = new URLSearchParams(window.location.search).get('review');
+            if (!requested) return;
+            const project = (allProjects || []).find(p => String(p.id) === String(requested));
+            if (!project || project.status !== 'completed') return;
+            openReviewModal(project.id, project.title, project.consultant_name);
+            // 새로고침할 때마다 모달이 다시 뜨지 않도록 쿼리를 지운다.
+            window.history.replaceState({}, '', window.location.pathname);
+        }
 
         // ========================================
         // ① 기업용 견적 비교 테이블 렌더링 (renderGroupedProjects 내부에서 호출)

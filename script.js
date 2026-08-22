@@ -29,6 +29,19 @@ function formatMatchScore(score) {
     return typeof score === 'number' && !Number.isNaN(score) ? `${score}%` : '-';
 }
 
+// 평점 표시 — 리뷰가 0건이면 숫자를 쓰지 않는다.
+// 신규 컨설턴트의 rating 시드는 0.0 이라 그대로 그리면 "평점 0.0" = 최악으로
+// 읽힌다. 하지만 리뷰 0건은 '나쁘다'가 아니라 '아직 모른다'이고, 매칭도 이를
+// 중립으로 처리한다(matching_service._rating_block). 화면과 점수 산정이
+// 같은 말을 해야 한다.
+function formatRating(rating, reviews) {
+    const count = Number(reviews) || 0;
+    if (count <= 0) return '평가 없음';
+    const value = Number(rating);
+    if (!Number.isFinite(value) || value <= 0) return '평가 없음';
+    return `★ ${value.toFixed(1)} (${count})`;
+}
+
 // ========== Privacy Protection: Name Masking ==========
 // Mask consultant names for non-logged-in users
 function maskName(name) {
@@ -1212,7 +1225,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 <div class="consultant-stats">
                     <span>경력 ${escapeHtml(c.experience || '정보없음')}</span>
-                    <span>후기 ${c.reviews || 0}개</span>
+                    <span>${escapeHtml(formatRating(c.rating, c.reviews))}</span>
                     <span class="match-score">적합도 ${formatMatchScore(c.matchScore)}</span>
                 </div>
                 
@@ -1520,8 +1533,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${consultants.map(c => `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--primary);">${formatMatchScore(c.matchScore)}</td>`).join('')}
                         </tr>
                         <tr>
-                            <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">리뷰 수</td>
-                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border);">${c.reviews || 0}개</td>`).join('')}
+                            <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">고객 평가</td>
+                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border);">${escapeHtml(formatRating(c.rating, c.reviews))}</td>`).join('')}
                         </tr>
                         <tr>
                             <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">ISO 규격</td>

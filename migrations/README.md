@@ -20,6 +20,102 @@
 
 ---
 
+## 2026-08-22 (4) — L1-C2 리뷰 루프: `review` 신규
+
+✅ **이번 배치는 기존 테이블을 건드리지 않는다.** 스키마 변경은 **`review`
+테이블 신설 하나뿐**이다. `consultant.rating` / `consultant.reviews` 는 이미
+존재하는 컬럼이고, 이번 작업은 그 컬럼에 **값을 채우는 경로**를 만든 것이다
+(지금까지 매칭은 이 두 값을 17점으로 반영했는데 값을 넣는 코드가 0건이었다).
+
+따라서 배포 전 `ALTER` 는 필요 없다. `create_all` 이 테이블을 만들지만
+**RLS 는 켜주지 않으므로** 아래 ③ 은 반드시 실행해야 한다.
+
+```sql
+-- ① 신규 테이블: 리뷰 (create_all 이 자동 생성하지만 미리 만들어도 무방하다)
+CREATE TABLE IF NOT EXISTS public.review (
+    id            SERIAL  NOT NULL,
+
+    -- ⚠️ 프로젝트당 1건. 이 UNIQUE 가 평점 조작 방어의 핵심이다.
+    --    없으면 같은 거래 하나로 5점을 반복 등록할 수 있다.
+    --    애플리케이션에도 같은 검사가 있지만, 서버리스는 같은 요청을 동시에
+    --    여러 인스턴스가 처리하므로 조회-삽입 경합은 DB 제약만이 막는다.
+    project_id    INTEGER NOT NULL UNIQUE REFERENCES public.project(id),
+
+    consultant_id INTEGER NOT NULL REFERENCES public.consultant(id),
+    company_id    INTEGER NOT NULL REFERENCES public."user"(id),   -- 작성자(기업)
+
+    rating        INTEGER NOT NULL,
+    comment       TEXT,
+
+    created_at    TIMESTAMP WITHOUT TIME ZONE,
+    updated_at    TIMESTAMP WITHOUT TIME ZONE,
+
+    -- 관리자 숨김 (사용자 삭제는 열지 않는다). 숨긴 행은 평균에서 제외된다.
+    hidden_at     TIMESTAMP NULL,
+    hidden_reason VARCHAR(300),
+    hidden_by     INTEGER NULL REFERENCES public."user"(id),
+
+    PRIMARY KEY (id),
+
+    -- 애플리케이션이 1~5를 검증하지만, DB 에도 건다. API 를 우회한 직접 INSERT
+    -- (관리 콘솔·스크립트)로 999점이 들어오면 평균이 통째로 망가진다.
+    CONSTRAINT ck_review_rating_range CHECK (rating >= 1 AND rating <= 5)
+);
+
+-- ② 조회 인덱스
+--    컨설턴트별 공개 목록: consultant_id 필터 + created_at 정렬
+CREATE INDEX IF NOT EXISTS ix_review_consultant_id ON public.review (consultant_id);
+CREATE INDEX IF NOT EXISTS ix_review_created_at    ON public.review (created_at);
+--    평균 재계산과 공개 목록은 모두 '숨기지 않은 행' 만 본다.
+CREATE INDEX IF NOT EXISTS ix_review_visible
+    ON public.review (consultant_id)
+    WHERE hidden_at IS NULL;
+
+-- ③ ⚠️ 필수: 신규 테이블의 RLS 활성화 (create_all 은 RLS 를 켜주지 않는다)
+ALTER TABLE IF EXISTS public.review ENABLE ROW LEVEL SECURITY;
+```
+
+적용 확인:
+
+```sql
+-- RLS 확인 (rowsecurity = true 여야 함)
+SELECT tablename, rowsecurity FROM pg_tables
+WHERE schemaname = 'public' AND tablename = 'review';
+
+-- 프로젝트당 1건 제약이 실제로 걸렸는지 (가장 중요)
+SELECT conname, contype FROM pg_constraint
+WHERE conrelid = 'public.review'::regclass;
+```
+
+### 운영 메모 — `consultant.rating` 은 **산술평균**, 매칭은 **수축값**
+
+`review` 에서 재계산해 `consultant.rating` 에 저장하는 값은 가공하지 않은
+산술평균이다. 매칭 점수에 쓰이는 신뢰도 가중 평점(베이지안 수축)은
+`api/services/matching_service.py` 가 **조회 시점에** 계산한다.
+
+이렇게 나눈 이유:
+- 프로필에는 실제 리뷰와 일치하는 숫자가 보여야 한다. 수축값(예: 4.64)을
+  저장하면 5.0 리뷰 1건뿐인 컨설턴트의 프로필에 4.17 이 뜨고, 아무도 그
+  숫자를 설명할 수 없다.
+- 사전가중치(`RATING_PRIOR_WEIGHT`)를 조정할 때 `consultant` 행을 전부 다시
+  쓰는 백필이 필요 없다. 상수 하나만 바꾸면 다음 매칭부터 반영된다.
+
+**따라서 이 배치에는 데이터 백필이 없다.** 배치 4(84dd46b)에서 시드 평점을
+0 으로 초기화했고 플랫폼 전체 리뷰가 0건이므로, `consultant.rating` 은 첫
+리뷰가 등록되는 순간부터 자연히 채워진다.
+
+### 운영 메모 — 탈퇴 회원이 남긴 리뷰
+
+`review` 행은 그대로 두고 **작성자 표기만** '탈퇴한 기업' 으로 바꾼다
+(`_review_author_label`). 평균에서도 빼지 않는다.
+
+L1-C1 의 원칙("탈퇴자 본인의 개인정보는 익명화로 지우고 행은 남긴다")과 같다.
+리뷰를 지우면 컨설턴트의 평점이 자기와 무관한 이유로 흔들리고, "리뷰를 남긴 뒤
+탈퇴하면 리뷰가 사라진다" 는 조작 경로가 생긴다. 탈퇴 시 `user.name` /
+`user.email` 은 이미 익명화되므로 추가 처리가 필요 없다.
+
+---
+
 ## 2026-08-22 (3) — L1-C1 문의 접수 + 회원 탈퇴: `inquiry` 신규 + `user.deleted_at` 추가
 
 ⚠️ **기존 테이블(`user`)에 컬럼을 추가한다.** `create_all()` 은 기존 테이블에

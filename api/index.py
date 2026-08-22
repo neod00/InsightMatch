@@ -21,9 +21,10 @@ from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import jwt
 from sqlalchemy import and_, case, func, text
+from sqlalchemy.exc import IntegrityError
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, CronRun, ErrorLog, Inquiry, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry
+from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, CronRun, ErrorLog, Inquiry, Review, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry
 from services import MatchingService, ProposalService, EmailService
 from services.iso_manual_service import generate_iso_manual_stream
 
@@ -2404,11 +2405,21 @@ def handle_projects():
                 Project.deleted_at.is_(None)
             ).all()
         
+        # 완료된 프로젝트에 이미 리뷰가 있는지 (대시보드의 '리뷰 작성' 진입점 판정).
+        # 프로젝트마다 개별 조회하면 목록 길이만큼 DB 왕복이 생기므로 한 번에 모은다.
+        reviewed_ids = set()
+        completed_ids = [p.id for p in projects if p.status == 'completed']
+        if completed_ids:
+            reviewed_ids = {
+                row[0] for row in db.session.query(Review.project_id)
+                .filter(Review.project_id.in_(completed_ids)).all()
+            }
+
         results = []
         for p in projects:
             consultant_info = Consultant.query.get(p.consultant_id)
             company_user = User.query.get(p.company_id)
-            
+
             results.append({
                 'id': p.id,
                 'title': p.title,
@@ -2417,6 +2428,13 @@ def handle_projects():
                 'consultant_id': p.consultant_id,
                 'consultant_name': consultant_info.name if consultant_info else 'Unknown',
                 'profile_image_url': consultant_info.profile_image_url if consultant_info else None,
+                # 대시보드 카드가 평점·경력을 '4.9 / 15년' 으로 하드코딩해 두고
+                # 있었다. 모든 컨설턴트에게 같은 가짜 숫자가 붙어 있었다는 뜻이다.
+                # 리뷰 기능을 켜면서 그 자리에 실제 값을 내려준다.
+                'consultant_rating': consultant_info.rating if consultant_info else None,
+                'consultant_reviews': consultant_info.reviews if consultant_info else None,
+                'consultant_specialty': consultant_info.specialty if consultant_info else None,
+                'consultant_experience': consultant_info.experience if consultant_info else None,
                 'company_id': p.company_id,
                 'company_name': company_user.name if company_user else 'Unknown Company',
                 'start_date': p.start_date.isoformat() if p.start_date else None,
@@ -2431,6 +2449,9 @@ def handle_projects():
                 'cancelled_at': p.cancelled_at.isoformat() if p.cancelled_at else None,
                 'cancelled_reason': p.cancelled_reason,
                 'completed_at': p.completed_at.isoformat() if p.completed_at else None,
+                # 완료된 프로젝트에만 의미가 있다. 미완료 건에 리뷰 버튼이
+                # 뜨는 것을 막기 위해 상태와 함께 판정한다.
+                'has_review': p.id in reviewed_ids,
                 'milestones': [m.to_dict() for m in p.milestones]
             })
         return jsonify(results)
@@ -3388,9 +3409,35 @@ def complete_project(project_id):
             link='/dashboard.html',
         ))
 
-    # TODO(L1): 여기서 양측에 리뷰 요청을 보낸다. 완료 시각(completed_at)이
-    #           리뷰 수집 기한의 기준이 되고, 정산 트리거도 이 지점에 붙는다.
-    #           이번 배치(L0)의 범위는 상태 전이까지다.
+    # ── 리뷰 요청 (L1-C2) ──
+    #
+    # 배치 3(30a2c7b)이 TODO 로 남긴 지점이다. 완료 시각(completed_at)이
+    # 리뷰 수집 기한의 기준이 되고, cron 리마인더도 이 값을 본다.
+    #
+    # 요청은 **기업에게만** 보낸다. 리뷰 작성 권한이 기업뿐이므로(위
+    # handle_project_review 참조) 컨설턴트에게 보내면 할 수 없는 일을 하라는
+    # 알림이 된다.
+    #
+    # ⚠️ 메일 코드를 여기에 붙이지 않는다. 인앱 알림만 만들면 L1-B(19f547f)의
+    #    미열람 승격 배치가 하루 뒤 알아서 메일로 올린다(emailed_at 을 비워
+    #    두는 것이 그 신호다). 이벤트마다 메일 코드를 붙이지 않는 것이 L1-B
+    #    설계의 요지다.
+    if company_user and project.consultant_id:
+        consultant_name = None
+        completed_consultant = Consultant.query.get(project.consultant_id)
+        if completed_consultant:
+            consultant_name = completed_consultant.name
+        db.session.add(Notification(
+            user_id=company_user.id,
+            type='review_request',
+            title='프로젝트는 어떠셨나요?',
+            message=(
+                f'"{project.title}" 프로젝트가 완료되었습니다. '
+                + (f'{consultant_name} 전문가에 대한 ' if consultant_name else '')
+                + '평가를 남겨주시면 다른 기업의 전문가 선택에 큰 도움이 됩니다.'
+            ),
+            link=_review_request_link(project.id),
+        ))
 
     if is_admin:
         # 관리자 대행 완료는 분쟁 처리의 근거가 되므로 감사 로그에 남긴다.
@@ -3455,6 +3502,418 @@ def update_milestone_status(project_id, milestone_id):
         'milestone': milestone.to_dict(),
         'project_status': project.status,
     })
+
+# ========================================
+# 리뷰 (L1-C2)
+# ========================================
+# Consultant.rating / reviews 컬럼은 처음부터 있었고 매칭이 이를 17점
+# (WEIGHT_RATING) 으로 반영하는데, **값을 채우는 경로가 코드에 0건**이었다.
+# 데이터 공급원이 없으니 전원이 중립값을 받았고, 배점의 17%가 아무 정보도
+# 나르지 않았다. 여기서 그 공급원을 만든다.
+#
+# 설계 요지 세 가지:
+#  1) 프로젝트당 1건 (DB unique + 애플리케이션 검사). 없으면 같은 거래로
+#     평점을 반복 등록해 조작할 수 있다.
+#  2) 작성 권한은 **그 프로젝트의 기업**, **completed 상태에서만**. 관리자도
+#     대신 쓰지 못한다 — 관리자가 쓸 수 있으면 평점이 운영자 재량이 된다.
+#  3) 삭제는 사용자에게 열지 않는다. 관리자 '숨김' 만 있고 숨긴 건은 평균에서
+#     빠진다 (models.Review 주석 참조).
+
+REVIEW_MIN_RATING = 1
+REVIEW_MAX_RATING = 5
+REVIEW_MAX_COMMENT = 1000
+
+# 작성자가 스스로 고칠 수 있는 기간.
+# 오타·오해로 남긴 평가를 영영 못 고치면 컨설턴트에게 부당하고, 반대로 무기한
+# 열어두면 "나중에 깎겠다" 는 협상 카드가 된다. 2주는 정산·마무리 대화가
+# 끝나는 시점과 대체로 겹친다.
+REVIEW_EDIT_WINDOW_DAYS = 14
+
+# 공개 리뷰 목록 1회 조회 상한
+REVIEW_LIST_LIMIT = 20
+REVIEW_LIST_MAX_LIMIT = 50
+
+
+def _review_request_link(project_id):
+    """리뷰 요청/리마인더 알림의 링크 (= cron 중복 발송 판정 키).
+
+    쿼리 파라미터로 프로젝트를 지정하면 대시보드가 리뷰 작성 모달을 바로 연다.
+    링크에 프로젝트 id 가 들어가야 _recently_notified_links 가 "같은 종류의
+    다른 프로젝트 알림" 까지 잘못 억제하지 않는다(배치 3의 리마인더와 동일 패턴).
+    """
+    return f'/dashboard.html?review={project_id}'
+
+
+def recalculate_consultant_rating(consultant_id):
+    """Consultant.rating / reviews 를 Review 행에서 **전부 다시** 계산한다.
+
+    증분 갱신(rating = (rating*n + new)/(n+1))을 쓰지 않는 이유:
+      · 부동소수 오차가 등록할 때마다 누적된다.
+      · 숨김/숨김 해제를 되돌릴 때 원래 값으로 돌아오지 못한다.
+      · 어떤 경로가 갱신을 빠뜨리면 두 값이 영구히 어긋나고, 어긋난 것을
+        알아챌 방법이 없다.
+    단일 진실은 Review 테이블이고 이 두 컬럼은 조회용 캐시다.
+
+    저장하는 값은 **가공하지 않은 산술평균**이다. 신뢰도 가중(베이지안 수축)은
+    매칭 정책이라 services/matching_service.py 에서 조회 시점에 건다.
+    여기에 미리 수축을 반영하면 프로필에 "4.64" 같은, 어떤 리뷰와도 일치하지
+    않는 숫자가 표시된다.
+    """
+    consultant = Consultant.query.get(consultant_id)
+    if not consultant:
+        return None
+
+    count, average = db.session.query(
+        func.count(Review.id), func.avg(Review.rating)
+    ).filter(
+        Review.consultant_id == consultant_id,
+        Review.hidden_at.is_(None),
+    ).one()
+
+    count = int(count or 0)
+    consultant.reviews = count
+    # 보이는 리뷰가 0건이면 신규 컨설턴트와 같은 상태로 되돌린다.
+    # (매칭의 평점 블록은 reviews == 0 이면 rating 값을 쓰지 않으므로
+    #  여기에 무엇을 넣든 점수는 같지만, 화면에는 "평가 없음" 으로 나가야 한다)
+    consultant.rating = round(float(average), 2) if count else NEW_CONSULTANT_RATING
+    return consultant
+
+
+def _mask_company_name(name):
+    """기업명 마스킹 — 첫 글자만 남긴다. '삼성전자' → '삼***'
+
+    공개 프로필에 작성자 기업명을 그대로 쓰면 "어느 기업이 어느 컨설턴트에게
+    무엇을 맡겼는가" 라는 거래 관계가 드러난다. 컨설팅 발주 사실 자체를
+    알리고 싶지 않은 기업이 많고(인증 준비 중이라는 신호가 된다), 리뷰를
+    쓰는 데 마찰이 된다.
+
+    ⚠️ 한계: 컨설턴트 풀이 작으면 마스킹해도 재식별이 가능하다(글자 수 + 규격 +
+       시기). 완전 익명이 필요해지면 여기만 '기업 고객' 고정으로 바꾸면 된다.
+    """
+    text = (name or '').strip()
+    if not text:
+        return ''
+    if len(text) == 1:
+        return text + '*'
+    return text[0] + '*' * (len(text) - 1)
+
+
+def _review_author_label(user):
+    """리뷰 작성자 표기.
+
+    탈퇴 회원은 '탈퇴한 기업' 으로 고정한다. L1-C1(d6c37a9)의 탈퇴 처리는
+    "탈퇴자 본인의 개인정보는 익명화로 지우고 행은 남긴다" 가 원칙이므로
+    리뷰도 같게 다룬다 — **리뷰 행과 평점은 남기고 작성자 식별정보만 지운다.**
+
+    리뷰를 지우지 않는 이유: 리뷰는 컨설턴트의 실적 기록이다. 작성자가
+    탈퇴했다고 지우면 컨설턴트의 평점이 자기와 무관한 이유로 흔들리고,
+    "리뷰를 남긴 뒤 탈퇴하면 리뷰가 사라진다" 는 조작 경로가 열린다.
+    """
+    if user is None:
+        return '기업 고객'
+    if getattr(user, 'deleted_at', None) is not None:
+        return '탈퇴한 기업'
+    masked = _mask_company_name(user.company_name) or _mask_company_name(user.name)
+    return masked or '기업 고객'
+
+
+def _review_author_labels(reviews):
+    """작성자 id -> 표기. 리뷰 수만큼 User 를 개별 조회하지 않도록 한 번에 모은다."""
+    ids = {r.company_id for r in reviews if r.company_id}
+    if not ids:
+        return {}
+    users = User.query.filter(User.id.in_(ids)).all()
+    return {u.id: _review_author_label(u) for u in users}
+
+
+def _validate_review_payload(data):
+    """(rating, comment, 에러응답) 을 반환한다."""
+    raw_rating = data.get('rating')
+    try:
+        # bool 은 int 의 서브클래스라 True 가 1점으로 통과한다. 명시적으로 막는다.
+        if isinstance(raw_rating, bool):
+            raise ValueError('bool')
+        rating = int(raw_rating)
+        # int(3.5) 는 예외 없이 3 을 돌려준다. 그대로 두면 사용자가 보낸 값이
+        # 조용히 내림되어 저장된다 — 별 4.7 을 눌렀는데 4점이 기록되는 식이다.
+        # 소수점이 붙은 평점은 잘라 쓰지 말고 거부한다.
+        if float(raw_rating) != rating:
+            raise ValueError('not an integer')
+    except (TypeError, ValueError):
+        return None, None, (jsonify({
+            'message': f'평점은 {REVIEW_MIN_RATING}~{REVIEW_MAX_RATING} 사이의 정수여야 합니다.'
+        }), 400)
+
+    if not (REVIEW_MIN_RATING <= rating <= REVIEW_MAX_RATING):
+        return None, None, (jsonify({
+            'message': f'평점은 {REVIEW_MIN_RATING}~{REVIEW_MAX_RATING} 사이의 정수여야 합니다.'
+        }), 400)
+
+    comment = str(data.get('comment') or '').strip()[:REVIEW_MAX_COMMENT] or None
+    return rating, comment, None
+
+
+def _review_editable_until(review):
+    created = _as_naive_utc(review.created_at) or _naive_utc_now()
+    return created + datetime.timedelta(days=REVIEW_EDIT_WINDOW_DAYS)
+
+
+def _review_owner_dict(review):
+    """작성자 본인에게 돌려주는 형태 (수정 가능 여부 포함)."""
+    data = review.to_dict(author_label='나')
+    data['editableUntil'] = _review_editable_until(review).isoformat()
+    data['editable'] = (
+        review.hidden_at is None and _naive_utc_now() <= _review_editable_until(review)
+    )
+    data['hidden'] = review.hidden_at is not None
+    return data
+
+
+@app.route('/api/projects/<int:project_id>/review', methods=['GET', 'POST', 'PUT'])
+@token_required
+def handle_project_review(project_id):
+    """프로젝트 리뷰 조회/작성/수정.
+
+    권한:
+      GET  — 프로젝트 당사자 양측 + 관리자 (컨설턴트도 자기가 받은 평가는 봐야 한다)
+      POST/PUT — **그 프로젝트의 기업만**. 컨설턴트·제3자·관리자 모두 불가.
+    """
+    project = get_active_project_or_404(project_id)
+    is_admin = getattr(g.current_user, 'role', None) == 'admin'
+
+    review = Review.query.filter_by(project_id=project.id).first()
+
+    if request.method == 'GET':
+        if not (is_admin or is_project_participant(project)):
+            return jsonify({'message': '해당 프로젝트에 접근할 권한이 없습니다.'}), 403
+        if not review:
+            return jsonify({'review': None})
+        if is_project_company(project):
+            return jsonify({'review': _review_owner_dict(review)})
+        # 컨설턴트/관리자에게는 공개 형태로 준다 (작성자 표기 마스킹).
+        if review.hidden_at is not None and not is_admin:
+            return jsonify({'review': None})
+        label = _review_author_label(User.query.get(review.company_id))
+        return jsonify({'review': review.to_dict(author_label=label,
+                                                 include_admin_fields=is_admin)})
+
+    # ── 작성·수정 공통 가드 ──
+    #
+    # 관리자도 여기서 막힌다. 완료 전이(complete_project)는 분쟁 처리를 위해
+    # 관리자 대행을 허용하지만, 리뷰는 다르다 — 관리자가 대신 쓸 수 있으면
+    # 평점이 실제 거래의 기록이 아니라 운영자 재량이 된다.
+    if not is_project_company(project):
+        if is_project_consultant(project):
+            return jsonify({'message': '리뷰는 용역을 의뢰한 기업만 작성할 수 있습니다.'}), 403
+        return jsonify({'message': '해당 프로젝트에 리뷰를 작성할 권한이 없습니다.'}), 403
+
+    if project.status != 'completed':
+        return jsonify({
+            'message': '완료된 프로젝트만 리뷰를 작성할 수 있습니다.'
+        }), 400
+
+    if not project.consultant_id:
+        # 컨설턴트가 배정되지 않은 프로젝트에는 평가 대상이 없다.
+        return jsonify({'message': '평가할 전문가가 지정되지 않은 프로젝트입니다.'}), 400
+
+    data = request.json or {}
+    rating, comment, error = _validate_review_payload(data)
+    if error:
+        return error
+
+    now = _naive_utc_now()
+
+    if request.method == 'POST':
+        # 애플리케이션 검사 (DB unique 제약과 이중으로 둔다 — 서버리스 동시 요청은
+        # 조회-삽입 사이에서 경합하므로 애플리케이션 검사만으로는 막히지 않는다)
+        if review:
+            return jsonify({
+                'message': '이미 이 프로젝트에 리뷰를 작성했습니다. 수정만 가능합니다.',
+                'code': 'REVIEW_ALREADY_EXISTS',
+            }), 409
+
+        review = Review(
+            project_id=project.id,
+            consultant_id=project.consultant_id,
+            company_id=g.current_user.id,
+            rating=rating,
+            comment=comment,
+            created_at=now,
+            updated_at=now,
+        )
+        db.session.add(review)
+        try:
+            db.session.flush()
+        except IntegrityError:
+            # unique 제약에 걸렸다 = 같은 순간 다른 인스턴스가 먼저 넣었다.
+            db.session.rollback()
+            return jsonify({
+                'message': '이미 이 프로젝트에 리뷰를 작성했습니다. 수정만 가능합니다.',
+                'code': 'REVIEW_ALREADY_EXISTS',
+            }), 409
+
+        recalculate_consultant_rating(project.consultant_id)
+
+        # 컨설턴트에게 인앱 알림. 메일은 L1-B 의 미열람 승격이 알아서 처리한다.
+        consultant_user_id = get_project_consultant_user_id(project)
+        if consultant_user_id:
+            db.session.add(Notification(
+                user_id=consultant_user_id,
+                type='review_received',
+                title='새 평가가 등록되었습니다',
+                message=f'"{project.title}" 프로젝트에 {rating}점 평가가 등록되었습니다.',
+                link='/dashboard.html',
+            ))
+
+        db.session.commit()
+        return jsonify({
+            'message': '리뷰가 등록되었습니다.',
+            'review': _review_owner_dict(review),
+        }), 201
+
+    # ── PUT: 수정 ──
+    if not review:
+        return jsonify({'message': '수정할 리뷰가 없습니다.'}), 404
+
+    if not _same_id(review.company_id, g.current_user.id):
+        return jsonify({'message': '본인이 작성한 리뷰만 수정할 수 있습니다.'}), 403
+
+    if review.hidden_at is not None:
+        # 숨겨진 리뷰를 수정해 되살리는 우회로를 막는다.
+        return jsonify({'message': '관리자가 숨긴 리뷰는 수정할 수 없습니다.'}), 403
+
+    if now > _review_editable_until(review):
+        return jsonify({
+            'message': f'리뷰는 작성 후 {REVIEW_EDIT_WINDOW_DAYS}일 이내에만 수정할 수 있습니다.'
+        }), 400
+
+    review.rating = rating
+    review.comment = comment
+    review.updated_at = now
+
+    # 평점이 바뀌었으므로 평균을 다시 계산한다 (Review 행 전체에서 재계산).
+    db.session.flush()
+    recalculate_consultant_rating(review.consultant_id)
+    db.session.commit()
+
+    return jsonify({
+        'message': '리뷰가 수정되었습니다.',
+        'review': _review_owner_dict(review),
+    })
+
+
+@app.route('/api/consultants/<int:consultant_id>/reviews', methods=['GET'])
+def get_consultant_reviews(consultant_id):
+    """컨설턴트 공개 리뷰 목록.
+
+    무인증 공개 경로다. 숨긴 리뷰는 절대 나가지 않고, 작성자는 마스킹된
+    표기로만 나간다. comment 는 외부 입력이므로 **렌더링하는 쪽이 반드시
+    escapeHtml 을 거쳐야 한다** (consultant_profile.html).
+    """
+    consultant = Consultant.query.get_or_404(consultant_id)
+
+    limit = parse_positive_int(request.args.get('limit')) or REVIEW_LIST_LIMIT
+    limit = min(limit, REVIEW_LIST_MAX_LIMIT)
+    offset = parse_positive_int(request.args.get('offset')) or 0
+
+    base = Review.query.filter(
+        Review.consultant_id == consultant_id,
+        Review.hidden_at.is_(None),
+    )
+    total = base.count()
+    rows = base.order_by(Review.created_at.desc(), Review.id.desc()) \
+               .offset(offset).limit(limit).all()
+
+    labels = _review_author_labels(rows)
+
+    return jsonify({
+        'consultantId': consultant.id,
+        # 저장된 산술평균 그대로. 매칭 점수에 쓰이는 신뢰도 가중 평점과는 다르다
+        # (수축은 순위 산정용이지 표시용이 아니다 — matching_service 주석 참조).
+        'rating': consultant.rating,
+        'reviews': consultant.reviews or 0,
+        'total': total,
+        'items': [
+            r.to_dict(author_label=labels.get(r.company_id, '기업 고객')) for r in rows
+        ],
+    })
+
+
+@app.route('/api/admin/reviews', methods=['GET'])
+@admin_required
+def get_admin_reviews():
+    """관리자 리뷰 목록 (숨김 처리 대상 탐색용)."""
+    limit = min(parse_positive_int(request.args.get('limit')) or 50, 200)
+    include_hidden = request.args.get('includeHidden') == '1'
+
+    query = Review.query
+    if not include_hidden:
+        query = query.filter(Review.hidden_at.is_(None))
+
+    rows = query.order_by(Review.created_at.desc(), Review.id.desc()).limit(limit).all()
+
+    consultant_ids = {r.consultant_id for r in rows}
+    names = {
+        c.id: c.name for c in Consultant.query.filter(Consultant.id.in_(consultant_ids)).all()
+    } if consultant_ids else {}
+    labels = _review_author_labels(rows)
+
+    items = []
+    for r in rows:
+        data = r.to_dict(author_label=labels.get(r.company_id, '기업 고객'),
+                         include_admin_fields=True)
+        data['consultantName'] = names.get(r.consultant_id)
+        items.append(data)
+
+    return jsonify({'reviews': items, 'count': len(items)})
+
+
+@app.route('/api/admin/reviews/<int:review_id>/hide', methods=['POST'])
+@admin_required
+def hide_review(review_id):
+    """리뷰 숨김/숨김 해제.
+
+    Body: {"hidden": true|false, "reason": "..."}
+
+    숨기면 공개 목록과 **평균 계산 양쪽에서 동시에** 빠진다. 한쪽만 빠지면
+    "화면에 없는 리뷰가 평점을 끌어내리는" 상태가 되어 아무도 설명하지 못한다.
+    """
+    review = Review.query.get_or_404(review_id)
+    data = request.json or {}
+    hidden = data.get('hidden', True)
+
+    if hidden:
+        # 숨김에는 사유를 반드시 남긴다. 사유 없는 숨김은 나중에 분쟁이 났을 때
+        # "왜 지웠느냐" 에 답할 근거가 없다 (컨설턴트 거절/취소와 같은 원칙).
+        reason, reason_error = get_required_reason(data)
+        if reason_error:
+            return jsonify({'message': reason_error}), 400
+        review.hidden_at = _naive_utc_now()
+        review.hidden_reason = reason
+        review.hidden_by = g.current_user.id
+        action = 'hide_review'
+    else:
+        review.hidden_at = None
+        review.hidden_reason = None
+        review.hidden_by = None
+        action = 'unhide_review'
+
+    db.session.flush()
+    consultant = recalculate_consultant_rating(review.consultant_id)
+    log_admin_action(action, 'review', str(review.id), {
+        'consultantId': review.consultant_id,
+        'rating': review.rating,
+        'reason': review.hidden_reason,
+    })
+    db.session.commit()
+
+    return jsonify({
+        'message': '리뷰를 숨겼습니다.' if hidden else '리뷰 숨김을 해제했습니다.',
+        'review': review.to_dict(author_label=None, include_admin_fields=True),
+        'consultantRating': consultant.rating if consultant else None,
+        'consultantReviews': consultant.reviews if consultant else None,
+    })
+
 
 # --- Cancel Consultant Request ---
 @app.route('/api/projects/<int:project_id>/cancel', methods=['POST'])
@@ -5510,6 +5969,18 @@ REMINDER_REPEAT_DAYS = 3        # 같은 건으로 이 기간 안에는 다시 �
 # 소음이 되어 정작 필요한 알림까지 무시된다.
 REMINDER_MAX_AGE_DAYS = 30
 
+# ---- 리뷰 미작성 리마인더 (L1-C2) ----
+# 완료 직후 인앱 알림이 한 번 나가고(complete_project), 그래도 안 썼으면
+# 이만큼 지난 뒤 **딱 한 번** 더 상기시킨다.
+REVIEW_REMINDER_DAYS = 7
+# 완료 후 이만큼 지나면 포기한다. 영원히 조르지 않는다 — 한 달이 지나도록
+# 안 쓴 사람은 앞으로도 안 쓰고, 계속 보내면 알림 전체가 소음이 되어 정작
+# 중요한 알림(서명·제안 요청)까지 함께 무시된다.
+#
+# ⚠️ '조르기' 만 멈추는 것이지 **작성 자체는 계속 열려 있다.** 늦게 오는
+#    리뷰도 컨설턴트에게는 똑같이 유효한 실적이라 마감을 걸 이유가 없다.
+REVIEW_REMINDER_GIVEUP_DAYS = 30
+
 INVITE_RETENTION_DAYS = 30      # 만료된 미사용 초대를 이만큼 더 보관한 뒤 정리
 ERROR_LOG_RETENTION_DAYS = 90   # 에러 로그 보관 기간 (migrations/README.md 의 수동 DELETE 를 대체)
 
@@ -5918,7 +6389,109 @@ def _cron_job_proposal_reminder():
     }
 
 
-# ---------- 작업 4. 미열람 알림 메일 승격 ----------
+# ---------- 작업 4. 리뷰 미작성 리마인더 ----------
+
+def _cron_job_review_reminder():
+    """완료 후 N일이 지나도록 리뷰를 쓰지 않은 기업에게 **1회** 상기시킨다.
+
+    배치 3의 리마인더 패턴을 그대로 따른다(_recently_notified_links 로 중복
+    방지, 생성 건수 기준 상한, 상한 초과 시 truncated).
+
+    '1회' 를 새 컬럼 없이 보장하는 방법:
+      후보는 `completed_at >= now - GIVEUP` 로 이미 한정되어 있다. 리마인더는
+      완료 이후에만 생성되므로, GIVEUP 기간만큼만 거슬러 알림 이력을 조회하면
+      "이 프로젝트로 리마인더를 보낸 적이 있는가" 를 빠짐없이 판정할 수 있다.
+      즉 조회 창과 포기 기한이 같아야 한다 — 둘 중 하나만 늘리면 중복이 샌다.
+
+    complete_project 가 만든 최초 요청 알림(type='review_request')과는 type 이
+    달라 서로를 억제하지 않는다. 의도한 것이다: 요청 1회 + 리마인더 1회 = 총 2회.
+    """
+    now = _naive_utc_now()
+    stale_before = now - datetime.timedelta(days=REVIEW_REMINDER_DAYS)
+    give_up_before = now - datetime.timedelta(days=REVIEW_REMINDER_GIVEUP_DAYS)
+
+    rows = (
+        Project.query.filter(
+            Project.status == 'completed',
+            Project.deleted_at.is_(None),
+            Project.consultant_id.isnot(None),
+            Project.completed_at <= stale_before,
+            Project.completed_at >= give_up_before,
+        )
+        .order_by(Project.id)
+        .limit(CRON_MAX_SCAN_PER_JOB + 1)
+        .all()
+    )
+    scan_truncated = len(rows) > CRON_MAX_SCAN_PER_JOB
+    rows = rows[:CRON_MAX_SCAN_PER_JOB]
+
+    already_notified = _recently_notified_links(
+        'review_reminder', REVIEW_REMINDER_GIVEUP_DAYS * 24)
+
+    # 이미 리뷰가 있는 프로젝트는 제외한다. 후보마다 EXISTS 를 날리면 후보 수만큼
+    # DB 왕복이 생기므로(배치 3의 _recently_notified_links 와 같은 이유) 한 번에 모은다.
+    reviewed_project_ids = set()
+    if rows:
+        reviewed_project_ids = {
+            row[0] for row in db.session.query(Review.project_id)
+            .filter(Review.project_id.in_([p.id for p in rows])).all()
+        }
+
+    notified = 0
+    emailed = 0
+    skipped = 0
+    deferred = 0
+
+    for project in rows:
+        if project.id in reviewed_project_ids:
+            skipped += 1
+            continue
+
+        target_user_id = project.company_id
+        if not target_user_id:
+            skipped += 1
+            continue
+
+        link = _review_request_link(project.id)
+        if link in already_notified:
+            skipped += 1
+            continue
+
+        if notified >= CRON_MAX_ITEMS_PER_JOB:
+            deferred += 1
+            continue
+
+        title = '완료된 프로젝트의 평가를 기다리고 있습니다'
+        message = (
+            f'"{project.title}" 프로젝트가 완료된 지 {REVIEW_REMINDER_DAYS}일이 지났습니다. '
+            '1분이면 되는 평가가 다음 기업의 전문가 선택을 좌우합니다.'
+        )
+        emailed_at = _send_cron_reminder_email(
+            target_user_id, title, message, link, 'review_reminder')
+        db.session.add(Notification(
+            user_id=target_user_id,
+            type='review_reminder',
+            title=title,
+            message=message,
+            link=link,
+            emailed_at=emailed_at,
+        ))
+        notified += 1
+        if emailed_at:
+            emailed += 1
+
+    db.session.commit()
+    return {
+        'scanned': len(rows),
+        'notified': notified,
+        'emailed': emailed,
+        'skipped': skipped,
+        'deferred': deferred,
+        'truncated': scan_truncated or deferred > 0,
+    }
+
+
+# ---------- 작업 5. 미열람 알림 메일 승격 ----------
 
 def _cron_job_unread_digest():
     """읽지 않은 채 방치된 인앱 알림을 사용자별 메일 1통으로 묶어 보낸다.
@@ -6040,7 +6613,7 @@ def _cron_job_unread_digest():
     }
 
 
-# ---------- 작업 5. 만료·보관기간 정리 ----------
+# ---------- 작업 6. 만료·보관기간 정리 ----------
 
 def _cron_job_expired_cleanup():
     """만료된 미사용 초대와 보관기간이 지난 에러 로그를 정리한다.
@@ -6107,6 +6680,7 @@ CRON_DAILY_JOBS = (
     'error_digest',
     'signature_reminder',
     'proposal_reminder',
+    'review_reminder',
     'unread_digest',
     'expired_cleanup',
 )
