@@ -189,12 +189,91 @@ class TestMatchingService(unittest.TestCase):
         """
         total = (
             matching_module.WEIGHT_ISO
-            + matching_module.WEIGHT_REGION
             + matching_module.WEIGHT_INDUSTRY
+            + matching_module.WEIGHT_REGION
+            + matching_module.WEIGHT_ORG_SIZE
             + matching_module.WEIGHT_RATING
         )
         self.assertEqual(total, matching_module.MAX_BASE_SCORE)
         self.assertEqual(total, 100)
+
+    # ------------------------------------------------------------------
+    # v4 — 지역 하향 + 기업 규모 신설 + ISO 미보유 제외 + 순위
+    # ------------------------------------------------------------------
+    def test_org_size_weight_is_actually_payable(self):
+        """규모 12pt 가 '죽은 예산 15pt' 를 반복하지 않는지 확인한다.
+
+        컬럼만 있고 데이터를 채우는 경로가 없으면 이 항목은 아무에게도
+        지급되지 않는다. 실제로 점수 차가 생기는지를 본다.
+        """
+        sized = make_consultant(
+            name='Sized', verified=True,
+            iso_experience=json.dumps({'9001': True}),
+            org_size_experience=json.dumps(['Medium']),
+        )
+        unsized = make_consultant(
+            name='Unsized', verified=True,
+            iso_experience=json.dumps({'9001': True}),
+            org_size_experience=json.dumps(['Large']),
+        )
+        db.session.add_all([sized, unsized])
+        db.session.commit()
+
+        results = self.svc.match_consultants({
+            'recommended_iso': [{'code': 'ISO 9001:2015'}],
+            'employees': '51-200',          # → Medium
+        })
+        by_name = {r['name']: r['matchScore'] for r in results}
+        self.assertEqual(
+            by_name['Sized'] - by_name['Unsized'],
+            matching_module.WEIGHT_ORG_SIZE,
+            '규모 경험이 점수에 반영되지 않았다 — 데이터 경로가 끊겼을 수 있다',
+        )
+
+    def test_consultant_without_requested_iso_is_excluded(self):
+        """요청한 규격을 하나도 못 다루면 후보에서 빠져야 한다.
+
+        v3 까지는 지역+업종+검증만으로 58점을 받아 상위에 올라왔다.
+        """
+        wrong = make_consultant(
+            name='Wrong ISO', verified=True,
+            iso_experience=json.dumps({'27001': True}),
+            industry_experience=json.dumps(['Manufacturing']),
+            regions='서울',
+        )
+        right = make_consultant(
+            name='Right ISO', verified=True,
+            iso_experience=json.dumps({'9001': True}),
+        )
+        db.session.add_all([wrong, right])
+        db.session.commit()
+
+        results = self.svc.match_consultants({
+            'recommended_iso': [{'code': 'ISO 9001:2015'}],
+            'industry': 'Manufacturing',
+            'region': '서울',
+        })
+        names = [r['name'] for r in results]
+        self.assertIn('Right ISO', names)
+        self.assertNotIn('Wrong ISO', names)
+
+    def test_rank_is_sequential_and_matches_order(self):
+        """matchRank 는 1부터 순서대로 붙어야 한다 (기업 화면이 쓰는 값)."""
+        results = self.svc.match_consultants({'industry': 'Manufacturing'})
+        self.assertGreater(len(results), 0)
+        self.assertEqual(
+            [r['matchRank'] for r in results],
+            list(range(1, len(results) + 1)),
+        )
+
+    def test_region_weight_lowered_below_industry(self):
+        """지역은 업종 경험보다 낮아야 한다.
+
+        '전국 가능' 한 번으로 만점을 받는 항목이 업종 실적과 동점이던 것을
+        되돌리는 것이 v4 의 목적이므로, 그 관계를 테스트로 고정한다.
+        """
+        self.assertLess(matching_module.WEIGHT_REGION, matching_module.WEIGHT_INDUSTRY)
+        self.assertLess(matching_module.WEIGHT_REGION, matching_module.WEIGHT_ISO)
 
     def test_rating_subweights_sum_to_one(self):
         """평점 블록 내부 배분(평점:리뷰)의 합은 1.0이어야 한다."""

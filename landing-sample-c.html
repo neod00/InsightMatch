@@ -13,10 +13,11 @@
 /* ══════════════════════════════════════════════════════════════
    DIRECTION C — DOCUMENT
    실제 matching_service.py 의 가중치를 그대로 이식했다.
-     ISO 35 / 지역 24 / 업종 24 / 평점 17 = 100
+     ISO 40 / 업종 24 / 지역 14 / 규모 12 / 평점 10 = 100
      +검증 10, +프로젝트유형 5, -긴급저평점 5
+     요청 규격 자격이 없으면 후보에서 제외
      평점은 베이지안 수축(사전 4.0, 가중치 5) 후 [3.0,5.0] 선형 환산
-   문서 문법을 '점수 산출 내역'에 쓴다 — 적합도가 왜 그 숫자인지 보여준다.
+   점수는 내부값이다 — 기업 화면에는 순위와 근거 문구만 노출한다.
    ══════════════════════════════════════════════════════════════ */
 
 :root{
@@ -212,27 +213,11 @@ p{margin:0}
 .rtag.neutral{color:var(--ink-2); border-color:var(--rule); background:var(--paper-2)}
 .rtag.gold{color:var(--gold); border-color:var(--gold); background:transparent}
 
-/* 점수 산출 내역 — 문서 문법을 로직에 적용한 부분 */
-.calc{border:1px solid var(--rule); border-radius:2px; background:var(--paper-2)}
-.calc summary{display:flex; align-items:center; justify-content:space-between; gap:10px; cursor:pointer; list-style:none; padding:9px 12px; font-family:var(--f-mono); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted)}
-.calc summary::-webkit-details-marker{display:none}
-.calc summary::after{content:"＋"; font-size:12px; color:var(--muted)}
-.calc[open] summary::after{content:"－"}
-.calc[open] summary{border-bottom:1px solid var(--rule)}
-.calc-bd{padding:11px 12px 12px}
-.crow{display:grid; grid-template-columns:64px minmax(0,1fr) 52px; gap:9px; align-items:center; font-family:var(--f-mono); font-size:10.5px; padding:3px 0; font-variant-numeric:tabular-nums}
-.crow span{color:var(--muted); letter-spacing:.04em}
-.crow .bar{height:4px; background:var(--track); border-radius:1px; overflow:hidden}
-.crow .bar u{display:block; height:100%; background:var(--seal); border-radius:1px; transition:width .6s cubic-bezier(.22,1,.36,1)}
-.crow .bar.dim u{background:var(--rule-strong)}
-.crow b{text-align:right; color:var(--ink); font-weight:500}
-.crow.zero b,.crow.zero span{opacity:.42}
-.crow.bonus b{color:var(--seal)}
-.crow.pen b{color:var(--gold)}
-.calc-sum{display:flex; justify-content:space-between; align-items:baseline; margin-top:9px; padding-top:9px; border-top:1px solid var(--rule); font-family:var(--f-mono); font-size:11px; font-variant-numeric:tabular-nums}
-.calc-sum span{color:var(--muted); letter-spacing:.08em; text-transform:uppercase; font-size:9.5px}
-.calc-sum b{font-size:14px; color:var(--seal); font-weight:500}
-.calc-note{font-family:var(--f-mono); font-size:9px; color:var(--muted); letter-spacing:.04em; margin-top:7px; line-height:1.6}
+/* 상위 후보 강조 + 보조 설명 */
+.ccard.top{border-color:var(--rule-strong)}
+.ccard.top .cfit b{color:var(--seal)}
+.ccard:not(.top) .cfit b{color:var(--muted)}
+.cnote{font-family:var(--f-mono); font-size:9.5px; color:var(--muted); letter-spacing:.04em; line-height:1.7; border-left:2px solid var(--rule-strong); padding-left:10px}
 
 .ccard-ft{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:auto; padding-top:12px; border-top:1px solid var(--rule)}
 .crate{font-family:var(--f-mono); font-size:12px; font-variant-numeric:tabular-nums; display:flex; align-items:center; gap:5px}
@@ -252,8 +237,6 @@ p{margin:0}
 .vseal::before{content:""; position:absolute; inset:4px; border:1px solid currentColor; border-radius:50%; opacity:.5}
 .ccard.stamped .vseal{opacity:1; transform:scale(1) rotate(-12deg)}
 
-.emptynote{grid-column:1/-1; color:var(--muted); font-weight:300; padding:36px 24px; text-align:center; border:1px dashed var(--rule-strong); border-radius:2px; font-size:14px}
-.emptynote b{display:block; font-family:var(--f-display); font-weight:700; color:var(--ink); font-size:17px; margin-bottom:6px}
 .fallback{margin-bottom:16px; border:1px solid var(--gold); background:color-mix(in srgb,var(--gold) 8%,transparent); border-radius:2px; padding:13px 16px; font-size:13px; color:var(--ink-2); font-weight:300}
 .fallback b{font-family:var(--f-mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--gold); display:block; margin-bottom:5px}
 .masknote{margin-top:18px; font-family:var(--f-mono); font-size:10.5px; color:var(--muted); letter-spacing:.05em; line-height:1.8}
@@ -382,7 +365,7 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
 </head>
 <body>
 
-<div class="samplebar">디자인 방향 <b>C · DOCUMENT</b> — 실제 <b>matching_service.py</b> 가중치(ISO 35 / 지역 24 / 업종 24 / 평점 17)를 그대로 이식했습니다 · 설문을 바꾸면 점수가 실시간으로 재계산됩니다</div>
+<div class="samplebar">디자인 방향 <b>C · DOCUMENT</b> — 실제 <b>matching_service.py v4</b> 로직을 이식했습니다 · 점수는 내부값이고 화면에는 <b>순위와 근거</b>만 나옵니다</div>
 
 <header class="hdr">
   <div class="wrap hdr-in">
@@ -412,7 +395,7 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
     <div class="hero-copy">
       <p class="docref">검증 컨설턴트 <b>37명</b><span class="sep"></span>ISO 18개 표준</p>
       <h1>무료 컨설턴트 소개.<br><em>설문 하나</em>면 됩니다</h1>
-      <p class="hero-lead">우리 회사에 맞는 ISO 인증과 검증된 파트너를 추천해 드립니다. 입력하실수록 후보 순위가 정확해지고, 각 후보의 <strong>점수 산출 내역</strong>을 그대로 공개합니다.</p>
+      <p class="hero-lead">우리 회사에 맞는 ISO 인증과 검증된 파트너를 추천해 드립니다. 입력하실수록 후보 순위가 정확해지고, <strong>왜 이 컨설턴트인지</strong>를 항목별 근거로 보여드립니다.</p>
 
       <div class="hero-meta">
         <div><b data-count="37">0</b><span>검증 컨설턴트</span></div>
@@ -452,8 +435,11 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
               <div>
                 <label class="flab" for="f-size">기업 규모 <em>*</em></label>
                 <select class="fsel" id="f-size">
-                  <option>10명 미만</option><option>10~49명</option>
-                  <option selected>50~99명</option><option>100~299명</option><option>300명 이상</option>
+                  <option value="1-10">소기업 (1~10명)</option>
+                  <option value="11-50">소기업 (11~50명)</option>
+                  <option value="51-200" selected>중소기업 (51~200명)</option>
+                  <option value="201-500">중견기업 (201~500명)</option>
+                  <option value="500+">대기업 (500명 이상)</option>
                 </select>
               </div>
               <div>
@@ -572,7 +558,7 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
         <h2 class="res-h">추천 컨설턴트</h2>
         <div class="crit-row" id="crit"></div>
       </div>
-      <p class="res-count"><b id="rcount">0</b>명 · 적합도순</p>
+      <p class="res-count"><b id="rcount">0</b>명 · 추천순</p>
     </div>
 
     <div id="fallbackbox"></div>
@@ -595,7 +581,7 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
       <div><b>확인 불가</b><h3>자격의 실효성</h3><p>심사원 자격증은 있지만 지금도 유효한지, 우리 업종 경험이 있는지 확인할 방법이 없습니다.</p></div>
       <div><b>전화 5통</b><h3>비교의 비용</h3><p>업체를 비교하려면 각각 연락해 미팅을 잡아야 합니다. 그 사이 인증 일정은 밀립니다.</p></div>
     </div>
-    <p class="inv-quote rv d2">그래서 <span>점수를 매기고, 그 근거를 전부 공개</span>합니다.</p>
+    <p class="inv-quote rv d2">그래서 <span>먼저 검증하고</span>, 조건에 맞는 순서로 추려 드립니다.</p>
   </div>
 </section>
 
@@ -605,7 +591,7 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
     <div class="sec-head rv">
       <p class="docref">§03<span class="sep"></span>Verification</p>
       <h2>'검증' 도장은 이 세 관문을 통과해야 찍힙니다</h2>
-      <p>검증을 통과하면 매칭 점수에 <strong>+10점</strong>이 붙습니다. 등록만 하면 노출되는 구조가 아닙니다.</p>
+      <p>검증을 통과한 컨설턴트가 <strong>추천 순위에서 우선</strong>합니다. 등록만 하면 노출되는 구조가 아닙니다.</p>
     </div>
     <div class="checklist rv d1">
       <div class="check"><u>01</u><div><h3>심사원 자격 유효성 확인</h3><p>KAB 및 국제 인정기구의 <strong>정식 심사원 자격이 현재도 유효한지</strong> 직접 대조합니다. 만료된 자격이나 갱신 누락은 이 단계에서 걸러집니다.</p></div><span class="stamp-ok">1차</span></div>
@@ -625,7 +611,7 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
     </div>
     <div class="flow rv d1" id="flow">
       <div class="step"><div class="no">01</div><h3>설문 작성</h3><p>업종·규모·지역과 관심 인증을 넣습니다. 경영 현황을 체크하면 필요한 인증을 추가로 제안합니다.</p><span class="t">3분</span></div>
-      <div class="step"><div class="no">02</div><h3>후보 비교</h3><p>적합도순 후보의 점수 산출 내역을 확인하고 원하는 컨설턴트를 복수 선택합니다.</p><span class="t">5분</span></div>
+      <div class="step"><div class="no">02</div><h3>후보 비교</h3><p>추천순으로 정렬된 후보의 검증 이력과 매칭 근거를 확인하고 복수 선택합니다.</p><span class="t">5분</span></div>
       <div class="step"><div class="no">03</div><h3>견적 일괄 요청</h3><p>선택한 전원에게 동시에 견적을 요청합니다. 같은 양식으로 오기 때문에 바로 비교됩니다.</p><span class="t">당일 발송</span></div>
       <div class="step"><div class="no">04</div><h3>비교 후 확정</h3><p>제안서와 확정 견적을 비교한 뒤 직접 선택하십시오. 마음에 안 들면 종료하셔도 됩니다.</p><span class="t">계약 의무 없음</span></div>
     </div>
@@ -694,8 +680,8 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
     </div>
     <div class="faq rv d1">
       <details open>
-        <summary><span class="q">Q1</span><span style="flex:1">적합도 점수는 어떻게 계산되나요?</span><span class="ic"></span></summary>
-        <div class="a">100점 만점을 네 기준에 배분합니다 — <code>ISO 자격 35</code> · <code>지역 24</code> · <code>업종 경험 24</code> · <code>평점·리뷰 17</code>. 여기에 검증 통과 <code>+10</code>, 프로젝트 유형 일치 <code>+5</code>가 가산되고, 긴급 요청에서 평가가 낮은 컨설턴트는 <code>-5</code>가 됩니다. 평점은 리뷰가 적을 때 과대·과소 평가되지 않도록 베이지안 수축을 적용합니다. 각 후보 카드의 '점수 산출 내역'을 열면 항목별 실제 점수가 그대로 보입니다.</div>
+        <summary><span class="q">Q1</span><span style="flex:1">추천 순위는 어떤 기준으로 정해지나요?</span><span class="ic"></span></summary>
+        <div class="a">가장 크게 보는 것은 <strong>선택하신 인증의 심사원 자격</strong>입니다. 요청하신 규격을 다룰 수 없는 컨설턴트는 아예 후보에서 빠집니다. 그다음이 같은 업종에서의 프로젝트 실적, 비슷한 규모의 기업 경험, 활동 지역, 기존 고객 평가 순입니다. 검증을 통과한 분이 우선하고, 급하게 진행하셔야 하는 경우에는 평가가 낮은 컨설턴트를 위로 올리지 않습니다. 어떤 항목이 맞았는지는 각 후보 카드에 그대로 표시됩니다.</div>
       </details>
       <details>
         <summary><span class="q">Q2</span><span style="flex:1">추천 컨설턴트가 마음에 안 들면 어떡하나요?</span><span class="ic"></span></summary>
@@ -770,7 +756,8 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
   /* ══════════════════════════════════════════════════════
      matching_service.py 이식 — 상수와 공식을 그대로 옮겼다
      ══════════════════════════════════════════════════════ */
-  var W_ISO=35, W_REGION=24, W_INDUSTRY=24, W_RATING=17;   // 합 = MAX_BASE_SCORE
+  var W_ISO=40, W_INDUSTRY=24, W_REGION=14, W_ORG_SIZE=12, W_RATING=10;  // 합 = MAX_BASE_SCORE
+  var REQUIRE_ISO_MATCH=true;   // 요청 규격 자격이 없으면 후보 제외
   var INDUSTRY_PARTIAL_RATIO=0.5;
   var BONUS_VERIFIED=10, BONUS_PROJECT_TYPE=5;
   var PENALTY_URGENT_LOW_RATING=5, URGENT_TIMELINES=["urgent","1month"], URGENT_RATING_FLOOR=4.5;
@@ -778,6 +765,8 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
   var RATING_SCALE_FLOOR=3.0, RATING_SCALE_CEILING=5.0;
   var RATING_SUB_SCORE=0.75, RATING_SUB_REVIEWS=0.25;
   var REGION_NATIONWIDE="전국";
+  var ORG_SIZE_MAP={"1-10":"Small","11-50":"Small","51-200":"Medium","201-500":"Medium","500+":"Large"};
+  var ORG_SIZE_LABELS={Small:"50인 미만", Medium:"50~500인", Large:"500인 이상"};
   var FALLBACK_SCORE_THRESHOLD=10, FALLBACK_RESULT_LIMIT=3, RESULT_LIMIT=20;
 
   function bayesianRating(rating, reviews){
@@ -811,18 +800,18 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
 
   /* ── 컨설턴트 풀 (Consultant 모델 필드 구조 그대로) ── */
   var PEOPLE = [
-    {i:"김",n:"김○○",specialty:"품질경영",exp:18,iso:{"9001":"선임심사원","14001":"심사원"},ind:["제조","자동차"],regions:["수도권"],proj:["신규","전환"],v:1,rating:4.9,reviews:23,trust:92},
-    {i:"이",n:"이○○",specialty:"환경·안전",exp:15,iso:{"14001":"선임심사원","45001":"선임심사원"},ind:["제조","건설"],regions:["수도권","충청권"],proj:["신규"],v:1,rating:4.8,reviews:17,trust:89},
-    {i:"박",n:"박○○",specialty:"정보보안",exp:12,iso:{"27001":"선임심사원","27701":"심사원","42001":"심사원"},ind:["IT"],regions:["수도권"],proj:["신규","전환"],v:1,rating:4.9,reviews:31,trust:94},
-    {i:"정",n:"정○○",specialty:"의료기기 품질",exp:20,iso:{"13485":"선임심사원","9001":"선임심사원"},ind:["의료"],regions:["충청권"],proj:["신규"],v:1,rating:5.0,reviews:9,trust:90},
-    {i:"최",n:"최○○",specialty:"자동차 품질",exp:16,iso:{"16949":"선임심사원","9001":"심사원"},ind:["자동차","제조"],regions:["영남권"],proj:["전환","확대"],v:1,rating:4.7,reviews:28,trust:88},
-    {i:"윤",n:"윤○○",specialty:"식품안전",exp:14,iso:{"22000":"선임심사원","9001":"심사원"},ind:["식품"],regions:["호남권"],proj:["신규"],v:1,rating:4.8,reviews:12,trust:85},
-    {i:"강",n:"강○○",specialty:"AI 거버넌스",exp:7,iso:{"42001":"심사원","27001":"심사원"},ind:["IT"],regions:["수도권"],proj:["신규"],v:1,rating:0,reviews:0,trust:78},
-    {i:"조",n:"조○○",specialty:"통합경영시스템",exp:22,iso:{"9001":"선임심사원","14001":"선임심사원","45001":"선임심사원","50001":"심사원"},ind:["제조","건설","자동차"],regions:[REGION_NATIONWIDE],proj:["신규","전환","확대"],v:1,rating:4.8,reviews:34,trust:96},
-    {i:"한",n:"한○○",specialty:"에너지·탄소",exp:9,iso:{"50001":"심사원","14001":"심사원"},ind:["제조"],regions:["충청권"],proj:["신규"],v:0,rating:4.6,reviews:5,trust:71},
-    {i:"서",n:"서○○",specialty:"품질·환경",exp:11,iso:{"9001":"심사원","14001":"심사원"},ind:["제조","식품"],regions:[REGION_NATIONWIDE],proj:["신규","전환"],v:1,rating:4.2,reviews:8,trust:80},
-    {i:"임",n:"임○○",specialty:"사업연속성·컴플라이언스",exp:13,iso:{"22301":"선임심사원","37301":"심사원"},ind:["IT","제조"],regions:["수도권"],proj:["신규","전환"],v:1,rating:4.5,reviews:11,trust:83},
-    {i:"오",n:"오○○",specialty:"건설 안전",exp:19,iso:{"45001":"선임심사원","9001":"심사원"},ind:["건설"],regions:["영남권","호남권"],proj:["신규","확대"],v:1,rating:4.4,reviews:16,trust:82}
+    {i:"김",n:"김○○",specialty:"품질경영",exp:18,iso:{"9001":"선임심사원","14001":"심사원"},ind:["제조","자동차"],regions:["수도권"],proj:["신규","전환"],sizes:["Small","Medium"],v:1,rating:4.9,reviews:23,trust:92},
+    {i:"이",n:"이○○",specialty:"환경·안전",exp:15,iso:{"14001":"선임심사원","45001":"선임심사원"},ind:["제조","건설"],regions:["수도권","충청권"],proj:["신규"],sizes:["Medium","Large"],v:1,rating:4.8,reviews:17,trust:89},
+    {i:"박",n:"박○○",specialty:"정보보안",exp:12,iso:{"27001":"선임심사원","27701":"심사원","42001":"심사원"},ind:["IT"],regions:["수도권"],proj:["신규","전환"],sizes:["Small","Medium"],v:1,rating:4.9,reviews:31,trust:94},
+    {i:"정",n:"정○○",specialty:"의료기기 품질",exp:20,iso:{"13485":"선임심사원","9001":"선임심사원"},ind:["의료"],regions:["충청권"],proj:["신규"],sizes:["Small","Medium"],v:1,rating:5.0,reviews:9,trust:90},
+    {i:"최",n:"최○○",specialty:"자동차 품질",exp:16,iso:{"16949":"선임심사원","9001":"심사원"},ind:["자동차","제조"],regions:["영남권"],proj:["전환","확대"],sizes:["Medium","Large"],v:1,rating:4.7,reviews:28,trust:88},
+    {i:"윤",n:"윤○○",specialty:"식품안전",exp:14,iso:{"22000":"선임심사원","9001":"심사원"},ind:["식품"],regions:["호남권"],proj:["신규"],sizes:["Small","Medium"],v:1,rating:4.8,reviews:12,trust:85},
+    {i:"강",n:"강○○",specialty:"AI 거버넌스",exp:7,iso:{"42001":"심사원","27001":"심사원"},ind:["IT"],regions:["수도권"],proj:["신규"],sizes:["Small"],v:1,rating:0,reviews:0,trust:78},
+    {i:"조",n:"조○○",specialty:"통합경영시스템",exp:22,iso:{"9001":"선임심사원","14001":"선임심사원","45001":"선임심사원","50001":"심사원"},ind:["제조","건설","자동차"],regions:[REGION_NATIONWIDE],proj:["신규","전환","확대"],sizes:["Medium","Large"],v:1,rating:4.8,reviews:34,trust:96},
+    {i:"한",n:"한○○",specialty:"에너지·탄소",exp:9,iso:{"50001":"심사원","14001":"심사원"},ind:["제조"],regions:["충청권"],proj:["신규"],sizes:["Medium"],v:0,rating:4.6,reviews:5,trust:71},
+    {i:"서",n:"서○○",specialty:"품질·환경",exp:11,iso:{"9001":"심사원","14001":"심사원"},ind:["제조","식품"],regions:[REGION_NATIONWIDE],proj:["신규","전환"],sizes:["Small","Medium"],v:1,rating:4.2,reviews:8,trust:80},
+    {i:"임",n:"임○○",specialty:"사업연속성·컴플라이언스",exp:13,iso:{"22301":"선임심사원","37301":"심사원"},ind:["IT","제조"],regions:["수도권"],proj:["신규","전환"],sizes:["Medium","Large"],v:1,rating:4.5,reviews:11,trust:83},
+    {i:"오",n:"오○○",specialty:"건설 안전",exp:19,iso:{"45001":"선임심사원","9001":"심사원"},ind:["건설"],regions:["영남권","호남권"],proj:["신규","확대"],sizes:["Medium","Large"],v:1,rating:4.4,reviews:16,trust:82}
   ];
 
   var ISO_LABEL = {"9001":"ISO 9001","14001":"ISO 14001","45001":"ISO 45001","50001":"ISO 50001",
@@ -830,11 +819,12 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
     "16949":"IATF 16949","22000":"ISO 22000","22301":"ISO 22301","37301":"ISO 37301"};
 
   /* ── 실제 점수 계산 (항목별 내역까지 반환) ── */
-  function scoreConsultant(c, targetIso, industry, region, projectType, timeline){
+  function scoreConsultant(c, targetIso, industry, region, orgSize, projectType, timeline){
     var details = [], parts = {};
 
-    // 1. ISO 자격
+    // 1. ISO 자격 — 요청 규격을 하나도 못 다루면 후보가 아니다
     var matched = targetIso.filter(function(code){ return !!c.iso[code]; });
+    if(REQUIRE_ISO_MATCH && targetIso.length && !matched.length) return null;
     parts.iso = targetIso.length ? (matched.length / targetIso.length) * W_ISO : 0;
     if(matched.length){
       details.push({t: matched.map(function(k){ return ISO_LABEL[k]; }).join(", ") + " 경험", k:"iso"});
@@ -858,7 +848,14 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
       parts.industry = W_INDUSTRY * INDUSTRY_PARTIAL_RATIO; details.push({t: industry + " 관련 경험", k:"ind"});
     }
 
-    // 4. 평점·리뷰 (베이지안 수축)
+    // 4. 기업 규모 경험
+    parts.orgSize = 0;
+    if(orgSize && c.sizes.indexOf(orgSize) !== -1){
+      parts.orgSize = W_ORG_SIZE;
+      details.push({t: ORG_SIZE_LABELS[orgSize] + " 규모 경험", k:"size"});
+    }
+
+    // 5. 평점·리뷰 (베이지안 수축)
     parts.rating = ratingBlock(c.rating, c.reviews);
 
     // 보너스 / 페널티
@@ -868,7 +865,7 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
     parts.penalty = (URGENT_TIMELINES.indexOf(timeline) !== -1 && c.reviews > 0 && c.rating < URGENT_RATING_FLOOR)
       ? PENALTY_URGENT_LOW_RATING : 0;
 
-    var raw = parts.iso + parts.region + parts.industry + parts.rating
+    var raw = parts.iso + parts.region + parts.industry + parts.orgSize + parts.rating
             + parts.verified + parts.project - parts.penalty;
 
     return {raw:raw, display:displayScore(raw), parts:parts, details:details, matched:matched};
@@ -959,47 +956,27 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
   var fbBox = document.getElementById("fallbackbox");
   var picked = new Set();
 
-  function bar(val, max, dim){
-    var pct = max ? Math.max(0, Math.min(100, (val/max)*100)) : 0;
-    return '<span class="bar' + (dim ? " dim" : "") + '"><u style="width:' + pct.toFixed(1) + '%"></u></span>';
-  }
-  function row(label, val, max, cls){
-    var zero = val <= 0.001;
-    return '<div class="crow' + (zero ? " zero" : "") + (cls ? " " + cls : "") + '">'
-      + '<span>' + label + '</span>' + bar(val, max, zero)
-      + '<b>' + (val >= 0 ? "" : "−") + Math.abs(val).toFixed(1) + '</b></div>';
-  }
-
-  function cardHTML(c, idx, r, isFallback){
+  function cardHTML(c, idx, r, rank, isFallback){
     var on = picked.has(idx);
     var tags = r.details.map(function(d){ return '<span class="rtag">' + d.t + '</span>'; }).join("");
     if(c.exp >= 15) tags += '<span class="rtag gold">' + c.exp + '년 베테랑</span>';
     if(!r.details.length) tags = '<span class="rtag neutral">' + c.specialty + ' 전문</span>' + tags;
 
-    var calc = isFallback
-      ? '<div class="calc-note">조건에 맞는 후보가 없어 신뢰도(trust score) 상위로 대체 제시된 결과입니다.</div>'
-      : '<details class="calc"><summary>점수 산출 내역</summary><div class="calc-bd">'
-        + row("ISO 자격", r.parts.iso, W_ISO)
-        + row("지역", r.parts.region, W_REGION)
-        + row("업종 경험", r.parts.industry, W_INDUSTRY)
-        + row("평점·리뷰", r.parts.rating, W_RATING)
-        + (r.parts.verified ? row("검증 보너스", r.parts.verified, BONUS_VERIFIED, "bonus") : "")
-        + (r.parts.project ? row("유형 일치", r.parts.project, BONUS_PROJECT_TYPE, "bonus") : "")
-        + (r.parts.penalty ? row("긴급 감점", -r.parts.penalty, PENALTY_URGENT_LOW_RATING, "pen") : "")
-        + '<div class="calc-sum"><span>합계 (100점 상한)</span><b>' + r.display + '</b></div>'
-        + (c.reviews === 0 ? '<div class="calc-note">리뷰 0건 → 평점 항목은 중립값이 적용됩니다(감점 아님).</div>' : '')
-        + '</div></details>';
+    // 점수는 내부값이다. 기업 화면에는 순위와 근거만 보여준다 (_format 주석 참조)
+    var note = isFallback
+      ? '<p class="cnote">조건에 맞는 후보가 없어 신뢰도 상위로 대체 제시된 결과입니다.</p>'
+      : (c.reviews === 0 ? '<p class="cnote">아직 리뷰가 없는 컨설턴트입니다. 리뷰 없음은 감점 요인이 아닙니다.</p>' : '');
 
-    return '<article class="ccard fresh' + (on ? " picked" : "") + '" data-i="' + idx + '">'
+    return '<article class="ccard fresh' + (on ? " picked" : "") + (rank <= 3 ? " top" : "") + '" data-i="' + idx + '">'
       + '<div class="ccard-top">'
         + '<div class="cav">' + c.i + '</div>'
         + '<div><div class="cname">' + c.n
           + (c.v ? '<span class="cbadge ok">검증</span>' : '<span class="cbadge wait">검토중</span>')
           + '</div><div class="cspec">' + c.specialty + ' · ' + c.exp + '년</div></div>'
-        + '<div class="cfit"><b>' + r.display + '</b><span>적합도</span></div>'
+        + '<div class="cfit"><b>' + rank + '</b><span>순위</span></div>'
       + '</div>'
       + '<div class="creason">' + tags + '</div>'
-      + calc
+      + note
       + (c.v ? '<div class="vseal" aria-hidden="true">검증<br>완료</div>' : '')
       + '<div class="ccard-ft">'
         + '<span class="crate"><u>★</u>' + (c.reviews ? c.rating.toFixed(1) : "—")
@@ -1025,9 +1002,11 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
       + '<span class="crit">' + (region || "전국") + '</span>'
       + '<span class="crit">' + proj + '</span>';
 
+    var orgSize = ORG_SIZE_MAP[sizeSel.value] || "";
     var scored = PEOPLE.map(function(c, idx){
-      return {c:c, idx:idx, r:scoreConsultant(c, isos, ind, region, proj, timeline)};
-    }).sort(function(a,b){ return b.r.raw - a.r.raw; });
+      return {c:c, idx:idx, r:scoreConsultant(c, isos, ind, region, orgSize, proj, timeline)};
+    }).filter(function(o){ return o.r !== null; })
+      .sort(function(a,b){ return b.r.raw - a.r.raw; });
 
     /* 폴백: 최고점이 임계값 미만이면 trust score 상위로 대체 */
     var isFallback = !scored.length || scored[0].r.raw < FALLBACK_SCORE_THRESHOLD;
@@ -1036,7 +1015,7 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
         .sort(function(a,b){ return (b.c.trust||0) - (a.c.trust||0); })
         .slice(0, FALLBACK_RESULT_LIMIT)
         .map(function(o){
-          return {c:o.c, idx:o.idx, r:{display: Math.min(Math.round((o.c.trust||0)*0.6 + 30), 80), parts:{}, details:[], raw:0}};
+          return {c:o.c, idx:o.idx, r:{parts:{}, details:[], raw:0}};
         });
       fbBox.innerHTML = '<div class="fallback"><b>대체 결과</b>선택하신 조건과 일치하는 항목이 거의 없어, 플랫폼 신뢰도 상위 컨설턴트를 대신 보여드립니다. 인증이나 지역을 조정하면 조건에 맞는 후보가 나옵니다.</div>';
     }else{
@@ -1044,7 +1023,7 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
       scored = scored.slice(0, RESULT_LIMIT);
     }
 
-    grid.innerHTML = scored.map(function(o){ return cardHTML(o.c, o.idx, o.r, isFallback); }).join("");
+    grid.innerHTML = scored.map(function(o,i){ return cardHTML(o.c, o.idx, o.r, i+1, isFallback); }).join("");
     rcount.textContent = scored.length;
 
     var cards = grid.querySelectorAll(".ccard");
@@ -1079,7 +1058,6 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
     syncBar();
   }
   grid.addEventListener("click", function(ev){
-    if(ev.target.closest(".calc")) return;           // 산출 내역 펼치기는 선택이 아니다
     var c = ev.target.closest(".ccard");
     if(c) toggle(+c.dataset.i);
   });

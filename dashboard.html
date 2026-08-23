@@ -3642,7 +3642,7 @@
                                 <div>
                                     <div style="display: flex; align-items: center; gap: 6px;">
                                         <div style="font-weight: 600;">${escapeHtml(c.name)}</div>
-                                        ${c.matchScore ? `<span style="background: rgba(16, 185, 129, 0.1); color: var(--primary); padding: 1px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">매칭 ${c.matchScore}%</span>` : ''}
+                                        ${c.matchRank ? `<span style="background: rgba(16, 185, 129, 0.1); color: var(--primary); padding: 1px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">${c.matchRank}순위</span>` : ''}
                                     </div>
                                     <div style="font-size: 0.85rem; color: var(--text-muted);">${escapeHtml(c.specialty || 'ISO 전문가')}</div>
                                     ${c.matchReason ? `<div style="font-size: 0.75rem; color: var(--primary); margin: 4px 0;">${escapeHtml(c.matchReason)}</div>` : ''}

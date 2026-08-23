@@ -572,6 +572,19 @@
                         <input type="number" name="experience" required placeholder="숫자만 입력 (예: 10)" min="0" max="50">
                     </div>
 
+                    <!-- 경험한 기업 규모 -->
+                    <div class="form-subsection" style="margin-top: 32px;">
+                        <div class="form-subsection-title">
+                            <i data-lucide="building-2" style="width: 18px; height: 18px;"></i>
+                            컨설팅 경험이 있는 기업 규모 *
+                        </div>
+                        <div class="checkbox-grid">
+                            <label><input type="checkbox" name="org_size_experience" value="Small"> 50인 미만 (소기업)</label>
+                            <label><input type="checkbox" name="org_size_experience" value="Medium"> 50~500인 (중소·중견)</label>
+                            <label><input type="checkbox" name="org_size_experience" value="Large"> 500인 이상 (대기업)</label>
+                        </div>
+                    </div>
+
                     <!-- 활동 가능 지역 -->
                     <div class="form-subsection" style="margin-top: 32px;">
                         <div class="form-subsection-title">
@@ -1373,6 +1386,7 @@
                 regions: getCheckedValues('regions').join(','),
                 iso_experience: isoExperience,
                 industry_experience: getCheckedValues('industry_experience'),
+                org_size_experience: getCheckedValues('org_size_experience'),
                 detailed_certifications: document.querySelector('textarea[name="detailed_certifications"]').value,
                 recent_projects: document.querySelector('textarea[name="major_projects"]').value,
                 match_reason: document.querySelector('input[name="match_reason"]').value,

@@ -118,18 +118,14 @@ def normalize_iso_code(code):
     return code
 
 
-# Scoring weights for matching algorithm - Phase 2 (Advanced Matching)
-MATCHING_WEIGHTS = {
-    'iso_match': 25,           # ISO 경험 (v1: 30)
-    'industry_match': 20,      # 업종/카테고리 매칭
-    'experience_years': 10,    # 🆕 경력 연차 (신규)
-    'org_size_match': 10,      # 🆕 기업 규모 매칭 (신규)
-    'project_type': 10,        # 프로젝트 유형 (v1: 15)
-    'trust_verified': 15,      # 신뢰도 + 검증 (v1: 20)
-    'role_match': 5,           # 🆕 역할 가중치 (신규)
-    'region_match': 3,         # 지역 매칭 (v1: 5) - 중요도 하향
-    'timeline_fit': 2,         # 긴급 대응 (v1: 5) - 중요도 하향
-}
+# 매칭 가중치는 services/matching_service.py 상단에 단일 정의로 존재한다.
+#
+# 여기 있던 MATCHING_WEIGHTS 딕셔너리를 제거했다. 어디에서도 import 되지
+# 않는 죽은 테이블이었는데(grep 결과 정의부가 유일한 등장), 실제 로직과
+# 숫자가 전혀 달라서(iso 25 vs 40, region 3 vs 14) 읽는 사람이 이쪽을
+# 실제 배분표로 오해하기 쉬웠다. 가중치를 조정할 때는
+# matching_service.py 의 WEIGHT_* 상수만 고치면 되고, 합이 100인지는
+# tests/test_matching.py 가 검증한다.
 
 # Industry Categories for B3 (Keyword Expansion)
 INDUSTRY_GROUPS = {

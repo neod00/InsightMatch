@@ -2147,6 +2147,7 @@ def direct_match():
         'industry': industry,
         'recommended_iso': [{'code': std} for std in all_standards],
         'region': region,
+        'employees': employees,      # WEIGHT_ORG_SIZE 가 이 값을 쓴다
         'budget': budget,
         'timeline': timeline
     }
@@ -4200,7 +4201,8 @@ def get_available_consultants(title):
             'industry': intake_data.get('industry', ''),
             'recommended_iso': [{'code': code} for code in intake_data.get('standards', [])] if isinstance(intake_data.get('standards'), list) else [],
             'project_type': intake_data.get('projectType', ''),
-            'region': intake_data.get('region', '')
+            'region': intake_data.get('region', ''),
+            'employees': intake_data.get('employees', '')   # WEIGHT_ORG_SIZE 가 이 값을 쓴다
         }
 
     # 3. 매칭 서비스 실행 (선별 로직)

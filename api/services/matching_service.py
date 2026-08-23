@@ -39,10 +39,31 @@ import re
 #   백필, (3) "요금을 기업에 공개할 것인가" 라는 정책 결정을 동반하므로
 #   코드만으로 끝나지 않는다. 결정이 나면 WEIGHT_BUDGET 을 새로 정의하고
 #   위 네 값을 다시 줄이면 된다.
-WEIGHT_ISO      = 35   # 요청 ISO 와 컨설턴트 보유 규격의 일치율
-WEIGHT_REGION   = 24   # 기업 소재지 - 컨설턴트 활동 지역
+# v4 배분: 지역을 낮추고 기업 규모를 신설한다.
+#   ISO   35 → 40   지역 24 → 14   산업 24   규모 0 → 12   평점 17 → 10
+#
+#   (a) 지역 24pt 는 과했다. ISO 컨설팅은 상당수가 원격·방문 혼합이라
+#       지역이 '업종 경험'과 동점일 근거가 약하다. 게다가 '전국 가능'을
+#       체크한 컨설턴트는 어떤 요청에서도 만점을 받으므로(아래 지역 블록),
+#       등록 시 전국만 체크하면 24pt 를 공짜로 얻는 구조였다. 가중치를
+#       내리면 그 우회 경로의 이득도 함께 줄어든다.
+#
+#   (b) 규모 경험을 신설한다. 50인 기업에 300인 전용 컨설턴트를 붙이면
+#       공수 산정과 견적이 어긋난다. 설문(index.html)이 employees 를 이미
+#       받고 있는데 매칭에서 한 번도 쓰지 않고 있었다.
+#       ⚠️ 이 항목은 "죽은 예산 15pt"(위 v3 주석) 와 같은 실수를 반복하기
+#          쉽다. 그래서 이번 변경에는 다음이 함께 들어간다:
+#            - consultant_register.html 에 규모 경험 입력 필드 추가
+#            - api/index.py 의 criteria 두 곳에 employees 전달
+#          셋 중 하나라도 빠지면 12pt 는 아무에게도 지급되지 않는다.
+#
+#   (c) 평점 17 → 10. 플랫폼 누적 리뷰가 아직 얇아서 이 신호의 신뢰도가
+#       낮다. 리뷰가 쌓이면 다시 올릴 수 있다.
+WEIGHT_ISO      = 40   # 요청 ISO 와 컨설턴트 보유 규격의 일치율
 WEIGHT_INDUSTRY = 24   # 업종 경험
-WEIGHT_RATING   = 17   # 평점·리뷰 (실적 신호)
+WEIGHT_REGION   = 14   # 기업 소재지 - 컨설턴트 활동 지역
+WEIGHT_ORG_SIZE = 12   # 기업 규모 경험
+WEIGHT_RATING   = 10   # 평점·리뷰 (실적 신호)
 
 MAX_BASE_SCORE = 100   # 위 가중치의 합. tests 가 이 항등식을 검증한다.
 
@@ -126,6 +147,30 @@ URGENT_RATING_FLOOR = 4.5
 
 # 컨설턴트가 "전국 가능"을 선택한 경우의 값 (consultant_register.html)
 REGION_NATIONWIDE = '전국'
+
+# ── 기업 규모 버킷 ──
+# 설문(index.html)의 employees 선택지를 컨설턴트 등록 폼의 규모 경험
+# 체크박스와 같은 정규형으로 접는다. ISO 표기 정규화와 같은 이유로,
+# 스키마를 바꾸지 않고 조회 시점에 양쪽을 맞춘다.
+ORG_SIZE_SMALL, ORG_SIZE_MEDIUM, ORG_SIZE_LARGE = 'Small', 'Medium', 'Large'
+_ORG_SIZE_MAP = {
+    '1-10':    ORG_SIZE_SMALL,
+    '11-50':   ORG_SIZE_SMALL,
+    '51-200':  ORG_SIZE_MEDIUM,
+    '201-500': ORG_SIZE_MEDIUM,
+    '500+':    ORG_SIZE_LARGE,
+}
+ORG_SIZE_LABELS = {
+    ORG_SIZE_SMALL:  '50인 미만',
+    ORG_SIZE_MEDIUM: '50~500인',
+    ORG_SIZE_LARGE:  '500인 이상',
+}
+
+# 요청한 규격의 자격이 하나도 없는 컨설턴트를 후보에서 제외할지 여부.
+# v3 까지는 남아 있었다. 지역 24 + 업종 24 + 검증 10 = 58점이면 요청한
+# 인증을 하나도 다룰 수 없는 사람이 상위에 올라왔고, 기업 입장에서는
+# 그 결과를 신뢰할 수 없다. (인증을 아예 고르지 않은 요청에는 적용되지 않는다)
+REQUIRE_ISO_MATCH = True
 
 # 폴백(최고점이 이 값 미만이면 trust_score 상위로 대체)
 FALLBACK_SCORE_THRESHOLD = 10
@@ -260,12 +305,14 @@ def _rating_block(rating, reviews):
 class MatchingService:
     def match_consultants(self, criteria):
         """
-        기업-컨설턴트 매칭 알고리즘 (v3 — 죽은 예산 항목 제거 + 가중치 상수화)
+        기업-컨설턴트 매칭 알고리즘 (v4 — 지역 하향 + 기업 규모 신설)
 
         기본 점수 (합 100점, 상단 상수로 정의):
           ISO 자격   WEIGHT_ISO      — 요청 ISO 와 컨설턴트 보유 규격 일치율
-          지역       WEIGHT_REGION   — 지역 일치 ('전국' 선택자는 어디든 일치)
+                                       (하나도 못 맞추면 후보에서 제외)
           산업 경험  WEIGHT_INDUSTRY — 업종 일치 (부분 일치는 절반)
+          지역       WEIGHT_REGION   — 지역 일치 ('전국' 선택자는 어디든 일치)
+          기업 규모  WEIGHT_ORG_SIZE — 요청 규모대 경험 보유
           평점/리뷰  WEIGHT_RATING   — 리뷰 0건이면 중립값
 
         보너스 (기본 점수 외 가산):
@@ -278,6 +325,9 @@ class MatchingService:
 
         정렬: 총점 내림차순, 상위 RESULT_LIMIT 건 반환
         폴백: 최고점 < FALLBACK_SCORE_THRESHOLD → trust_score 상위 3명
+
+        반환값의 matchScore 는 내부·관리자용이다. 기업 화면에는 matchRank 와
+        matchDetails 만 쓴다 (_format 의 주석 참조).
         """
         target_industry   = criteria.get('industry', '')
         target_iso        = {
@@ -289,6 +339,7 @@ class MatchingService:
         target_project    = criteria.get('project_type', '')
         target_region     = criteria.get('region', '')
         target_timeline   = criteria.get('timeline', 'flexible')
+        target_org_size   = _ORG_SIZE_MAP.get((criteria.get('employees') or '').strip(), '')
 
         # 전체 컨설턴트 대상 (verified 우선이지만 미검증도 포함 — 점수로 자연 분리)
         all_consultants = Consultant.query.filter(
@@ -314,6 +365,11 @@ class MatchingService:
             c_iso = {_normalize_iso(key): key for key in c_iso_raw}
 
             matched_iso = [target for target in target_iso if target in c_iso]
+
+            # 요청한 규격을 하나도 다룰 수 없으면 후보가 아니다(REQUIRE_ISO_MATCH 주석 참조).
+            # 전원이 걸러지면 아래 폴백이 trust_score 상위로 대체 제시한다.
+            if REQUIRE_ISO_MATCH and target_iso and not matched_iso:
+                continue
 
             if target_iso:
                 score += (len(matched_iso) / len(target_iso)) * WEIGHT_ISO
@@ -349,12 +405,22 @@ class MatchingService:
                 score += WEIGHT_INDUSTRY * INDUSTRY_PARTIAL_RATIO
                 match_details.append(f"{target_industry} 관련 경험")
 
-            # ── 4. 평점·리뷰 (WEIGHT_RATING) ───────────────────────────
+            # ── 4. 기업 규모 경험 (WEIGHT_ORG_SIZE) ────────────────────
+            try:
+                c_org_sizes = json.loads(c.org_size_experience) if c.org_size_experience else []
+            except (json.JSONDecodeError, TypeError):
+                c_org_sizes = []
+
+            if target_org_size and target_org_size in c_org_sizes:
+                score += WEIGHT_ORG_SIZE
+                match_details.append(f"{ORG_SIZE_LABELS[target_org_size]} 규모 경험")
+
+            # ── 5. 평점·리뷰 (WEIGHT_RATING) ───────────────────────────
             rating  = c.rating  or 0
             reviews = c.reviews or 0
             score += _rating_block(rating, reviews)
 
-            # ── 5. 예산 — 제거됨 ───────────────────────────────────────
+            # ── 예산 — 제거됨 ─────────────────────────────────────────
             # Consultant 에 요금 범위 컬럼이 없어 이 분기는 단 한 번도 점수를
             # 준 적이 없다. 상단 "재분배 이력" 주석 참조.
 
@@ -398,11 +464,15 @@ class MatchingService:
         # 폴백: 최고 점수가 너무 낮으면 trust_score 상위 3명
         if not scored or scored[0]['score'] < FALLBACK_SCORE_THRESHOLD:
             top = sorted(all_consultants, key=lambda x: x.trust_score or 0, reverse=True)[:FALLBACK_RESULT_LIMIT]
-            return [self._format(c, [], min(int((c.trust_score or 0) * 0.6 + 30), 80)) for c in top]
+            return [
+                self._format(c, [], min(int((c.trust_score or 0) * 0.6 + 30), 80), rank, is_fallback=True)
+                for rank, c in enumerate(top, start=1)
+            ]
 
         return [
-            self._format(item['consultant'], item['match_details'], self._display_score(item['score']))
-            for item in scored[:RESULT_LIMIT]
+            self._format(item['consultant'], item['match_details'],
+                         self._display_score(item['score']), rank)
+            for rank, item in enumerate(scored[:RESULT_LIMIT], start=1)
         ]
 
     def _display_score(self, raw_score):
@@ -414,7 +484,18 @@ class MatchingService:
         """
         return max(0, min(round(raw_score), MAX_BASE_SCORE))
 
-    def _format(self, c, match_details, score):
+    def _format(self, c, match_details, score, rank=None, is_fallback=False):
+        """API 응답 한 건.
+
+        matchScore 는 **내부·관리자용**이다. 기업 화면에는 matchRank(1,2,3…)와
+        matchDetails(근거 문구)만 보여준다. 이유:
+          - 점수를 공개하면 가중치가 역설계된다. 특히 '전국 가능' 한 번으로
+            지역 점수를 받는 구조가 알려지면 전원이 전국을 체크한다.
+          - 92점과 88점의 4점 차는 임의 가중치의 산물이라 방어할 수 없는
+            정밀도다. 기업은 그 차이를 실제 실력 차로 읽는다.
+          - 61점 같은 표시는 충분히 적합한 컨설턴트를 깎아내린다.
+        신뢰를 만드는 것은 숫자가 아니라 근거다 → matchDetails 를 노출한다.
+        """
         reason = match_details[0] if match_details else (c.match_reason or 'ISO 전문 컨설턴트')
         return {
             'id':              c.id,
@@ -425,7 +506,10 @@ class MatchingService:
             'rating':          c.rating,
             'reviews':         c.reviews,
             'matchReason':     reason,
-            'matchScore':      score,
+            'matchDetails':    match_details,
+            'matchRank':       rank,
+            'isFallback':      is_fallback,
+            'matchScore':      score,   # 내부·관리자용 — 기업 화면에 표시하지 않는다
             'verified':        c.verified,
             'trustScore':      c.trust_score,
             'profileImageUrl': c.profile_image_url,
