@@ -4,17 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>InsightMatch — 디자인 방향 C(Document) 샘플</title>
-<meta name="description" content="검증된 ISO 컨설턴트를 무료로 매칭해 드립니다. 자격·경력·실적을 교차 검증한 상위 1% 전문가만.">
+<meta name="description" content="필요한 ISO 인증과 기업 정보를 입력하면, 검증된 컨설턴트 후보를 매칭해 드립니다. 기업 이용료 0원.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@500;700;800&family=IBM+Plex+Sans+KR:wght@300;400;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 
 <style>
 /* ══════════════════════════════════════════════════════════════
-   DIRECTION C — DOCUMENT  (매칭 중심)
-   주인공은 '검증된 컨설턴트'다. 문서관리 문법(자격·검증 이력)은
-   컨설턴트의 신뢰를 표기하는 데 쓰고, 인감 도장은 '검증 완료' 배지로
-   쓴다. AI 매뉴얼은 유입 훅이므로 작은 섹션 하나로만 둔다.
+   DIRECTION C — DOCUMENT   (입력 → 매칭 순서)
+   기업은 필요한 인증을 이미 정하고 온다. 그래서 히어로의 주인공은
+   '매칭 요청 폼'이고, 그 결과로 컨설턴트 후보가 나온다.
+   문서관리 문법은 컨설턴트 검증 이력 표기에, 인감 도장은 '검증 완료'
+   배지에 쓴다. AI 매뉴얼은 유입 훅이므로 작은 섹션 하나로만 둔다.
+   ※ 리스크를 분석해 인증을 추천하는 '진단'은 넣지 않는다.
    ══════════════════════════════════════════════════════════════ */
 
 :root{
@@ -73,11 +75,7 @@ h1,h2,h3,h4{font-family:var(--f-display); margin:0; text-wrap:balance; letter-sp
 p{margin:0}
 .wrap{max-width:var(--page); margin:0 auto; padding-inline:var(--gut)}
 
-/* 문서 표제 라벨 — 시그니처 */
-.docref{
-  font-family:var(--f-mono); font-size:11px; letter-spacing:.11em; text-transform:uppercase;
-  color:var(--muted); display:inline-flex; align-items:center; gap:10px; flex-wrap:wrap;
-}
+.docref{font-family:var(--f-mono); font-size:11px; letter-spacing:.11em; text-transform:uppercase; color:var(--muted); display:inline-flex; align-items:center; gap:10px; flex-wrap:wrap}
 .docref b{color:var(--seal); font-weight:500}
 .docref .sep{width:1px; height:10px; background:var(--rule-strong)}
 
@@ -108,8 +106,7 @@ p{margin:0}
 .btn-ghost-inv{border:1px solid var(--inverse-rule); color:var(--inverse-ink)}
 .btn-ghost-inv:hover{border-color:var(--inverse-muted); transform:translateY(-2px)}
 .btn-sm{padding:9px 16px; font-size:13.5px}
-.btn .sub{display:block; font-family:var(--f-body); font-weight:300; font-size:11.5px; opacity:.72; margin-top:2px; letter-spacing:0}
-.btn-stack{flex-direction:column; align-items:flex-start; gap:0; text-align:left}
+.btn-lg{padding:16px 26px; font-size:15.5px; width:100%}
 
 /* ══ 섹션 ══ */
 .sec{padding-block:clamp(58px,7.5vw,104px); position:relative}
@@ -119,99 +116,89 @@ p{margin:0}
 .sec-head p{color:var(--muted); font-weight:300; font-size:clamp(15px,1.7vw,17.5px); max-width:58ch; line-height:1.8}
 .rv{opacity:0; transform:translateY(18px); transition:opacity .8s ease, transform .8s cubic-bezier(.22,1,.36,1)}
 .rv.seen{opacity:1; transform:none}
-.rv.d1{transition-delay:.08s} .rv.d2{transition-delay:.16s} .rv.d3{transition-delay:.24s}
+.rv.d1{transition-delay:.08s} .rv.d2{transition-delay:.16s}
 
-/* ══ 히어로 ══ */
-.hero{padding-block:clamp(40px,5.5vw,80px) clamp(52px,6.5vw,96px); position:relative; overflow:hidden}
+/* ══ 히어로 — 주인공은 매칭 요청 폼 ══ */
+.hero{padding-block:clamp(36px,5vw,68px) clamp(48px,6vw,84px); position:relative; overflow:hidden}
 .hero::before{
   content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
   background-image:linear-gradient(var(--rule) 1px,transparent 1px),linear-gradient(90deg,var(--rule) 1px,transparent 1px);
   background-size:64px 64px; opacity:.55;
-  -webkit-mask-image:radial-gradient(120% 85% at 74% 34%,#000 0%,transparent 68%);
-  mask-image:radial-gradient(120% 85% at 74% 34%,#000 0%,transparent 68%);
+  -webkit-mask-image:radial-gradient(120% 85% at 76% 36%,#000 0%,transparent 68%);
+  mask-image:radial-gradient(120% 85% at 76% 36%,#000 0%,transparent 68%);
 }
-.hero-in{position:relative; z-index:1; display:grid; grid-template-columns:minmax(0,1fr); gap:clamp(40px,4.5vw,64px); align-items:center}
-@media(min-width:1020px){ .hero-in{grid-template-columns:minmax(0,1fr) minmax(0,.92fr)} }
-.hero h1{font-size:clamp(30px,5.3vw,57px); font-weight:800; line-height:1.2; margin:18px 0 20px}
+.hero-in{position:relative; z-index:1; display:grid; grid-template-columns:minmax(0,1fr); gap:clamp(36px,4vw,58px); align-items:center}
+@media(min-width:1000px){ .hero-in{grid-template-columns:minmax(0,1fr) minmax(0,.94fr)} }
+.hero h1{font-size:clamp(29px,5vw,54px); font-weight:800; line-height:1.2; margin:18px 0 20px}
 .hero h1 em{font-style:normal; position:relative; white-space:nowrap}
 .hero h1 em::after{content:""; position:absolute; left:0; right:0; bottom:.06em; height:.16em; background:var(--seal); opacity:.22; z-index:-1; transform:scaleX(0); transform-origin:left; animation:sweep 1s cubic-bezier(.22,1,.36,1) .5s forwards}
 @keyframes sweep{to{transform:scaleX(1)}}
-.hero-lead{color:var(--ink-2); font-weight:300; font-size:clamp(15.5px,1.9vw,18.5px); line-height:1.85; max-width:42ch; margin-bottom:30px}
-.hero-cta{display:flex; flex-wrap:wrap; gap:11px; margin-bottom:32px}
+.hero-lead{color:var(--ink-2); font-weight:300; font-size:clamp(15.5px,1.9vw,18.5px); line-height:1.85; max-width:40ch; margin-bottom:28px}
 .hero-meta{display:flex; flex-wrap:wrap; gap:0 30px; padding-top:22px; border-top:1px solid var(--rule)}
 .hero-meta div{padding-block:4px}
-.hero-meta b{display:block; font-family:var(--f-mono); font-size:clamp(20px,2.5vw,27px); font-weight:500; font-variant-numeric:tabular-nums; letter-spacing:-.03em}
+.hero-meta b{display:block; font-family:var(--f-mono); font-size:clamp(19px,2.4vw,26px); font-weight:500; font-variant-numeric:tabular-nums; letter-spacing:-.03em}
 .hero-meta span{font-family:var(--f-mono); font-size:10px; letter-spacing:.11em; text-transform:uppercase; color:var(--muted)}
 
-/* ── 히어로 우측: 매칭된 컨설턴트 명부 ── */
-.roster{background:var(--paper); border:1px solid var(--rule); border-radius:2px; box-shadow:var(--shadow-lg); overflow:hidden}
-.roster-hd{display:flex; justify-content:space-between; align-items:center; gap:12px; padding:13px 18px; border-bottom:1px solid var(--rule); background:var(--paper-2); font-family:var(--f-mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted)}
-.roster-hd .live{display:flex; align-items:center; gap:6px; color:var(--seal)}
-.roster-hd .live i{width:5px; height:5px; border-radius:50%; background:currentColor; display:block; animation:blip 1.9s ease-in-out infinite}
-@keyframes blip{0%,100%{opacity:1}50%{opacity:.2}}
-.rrow{
-  display:grid; grid-template-columns:40px minmax(0,1fr) auto; gap:14px; align-items:center;
-  padding:15px 18px; border-bottom:1px solid var(--rule); position:relative;
-  opacity:0; transform:translateY(10px); transition:opacity .6s ease, transform .6s cubic-bezier(.22,1,.36,1);
-}
-.roster.go .rrow{opacity:1; transform:none}
-.roster.go .rrow:nth-child(3){transition-delay:.12s}
-.roster.go .rrow:nth-child(4){transition-delay:.26s}
-.rav{width:40px; height:40px; border-radius:50%; background:var(--paper-2); border:1px solid var(--rule); display:grid; place-content:center; font-family:var(--f-display); font-weight:800; font-size:15px; color:var(--ink-2)}
-.rname{font-family:var(--f-display); font-weight:700; font-size:15px; letter-spacing:-.025em; display:flex; align-items:center; gap:8px; flex-wrap:wrap}
-.rmeta{font-family:var(--f-mono); font-size:10.5px; color:var(--muted); letter-spacing:.04em; margin-top:2px}
-.rfit{font-family:var(--f-mono); font-size:15px; font-weight:500; color:var(--seal); font-variant-numeric:tabular-nums; letter-spacing:-.02em; text-align:right; transition:opacity .3s}
-.rfit span{display:block; font-size:8.5px; letter-spacing:.11em; color:var(--muted); text-transform:uppercase}
-.roster-ft{padding:13px 18px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; background:var(--paper-2)}
-
-/* 검증 도장 — 시그니처 모먼트 */
-.vseal{
-  width:46px; height:46px; border:2px solid var(--seal); border-radius:50%; color:var(--seal);
-  display:grid; place-content:center; text-align:center; background:var(--seal-wash);
-  font-family:var(--f-display); font-weight:800; font-size:11px; line-height:1.15; letter-spacing:-.03em;
-  position:absolute; right:16px; top:50%; margin-top:-23px; z-index:3; pointer-events:none;
-  opacity:0; transform:scale(2.4) rotate(-30deg);
-  transition:opacity .2s ease, transform .42s cubic-bezier(.34,1.7,.5,1);
-}
-.vseal::before{content:""; position:absolute; inset:3px; border:1px solid currentColor; border-radius:50%; opacity:.5}
-.rrow.stamped .vseal{opacity:1; transform:scale(1) rotate(-13deg)}
-.rrow.stamped .rfit{opacity:0}
-
-/* ══ 컨설턴트 디렉토리 (핵심) ══ */
-.dirbar{display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:16px 18px; background:var(--paper); border:1px solid var(--rule); border-radius:2px; box-shadow:var(--shadow-sm); margin-bottom:20px}
-.fgroup{display:flex; align-items:center; gap:8px}
-.fgroup>label{font-family:var(--f-mono); font-size:9.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--muted)}
-.fsel{font:inherit; font-size:13.5px; padding:8px 30px 8px 11px; border:1px solid var(--rule); border-radius:2px; background-color:var(--paper-2); color:var(--ink); appearance:none;
+/* ── 매칭 요청 폼 (히어로 우측) ── */
+.reqform{background:var(--paper); border:1px solid var(--rule); border-radius:2px; box-shadow:var(--shadow-lg); overflow:hidden}
+.reqform-hd{display:flex; justify-content:space-between; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid var(--rule); background:var(--paper-2)}
+.reqform-hd h2{font-family:var(--f-display); font-weight:800; font-size:15.5px; letter-spacing:-.03em; margin:0}
+.reqform-bd{padding:20px}
+.fset{margin-bottom:18px}
+.fset:last-of-type{margin-bottom:0}
+.fset>legend,.flab{display:block; font-family:var(--f-mono); font-size:9.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--muted); margin-bottom:9px; padding:0}
+.fset>legend em,.flab em{font-style:normal; color:var(--seal)}
+fieldset{border:0; margin:0; padding:0}
+.isogrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(132px,1fr)); gap:7px}
+.isopick{display:flex; align-items:center; gap:9px; border:1px solid var(--rule); border-radius:2px; padding:10px 12px; cursor:pointer; background:var(--paper-2); transition:.2s; user-select:none}
+.isopick:hover{border-color:var(--rule-strong)}
+.isopick.on{border-color:var(--seal); background:var(--seal-wash)}
+.isopick .bx{width:15px; height:15px; border:1px solid var(--rule-strong); border-radius:2px; flex:none; display:grid; place-content:center; transition:.2s}
+.isopick.on .bx{background:var(--seal); border-color:var(--seal)}
+.isopick .bx::after{content:""; width:4px; height:7px; border:solid transparent; border-width:0 1.5px 1.5px 0; transform:rotate(45deg) translateY(-1px); transition:border-color .2s}
+.isopick.on .bx::after{border-color:var(--seal-ink)}
+.isopick .lb{min-width:0}
+.isopick .lb u{display:block; text-decoration:none; font-family:var(--f-mono); font-size:11.5px; color:var(--ink); white-space:nowrap}
+.isopick .lb i{display:block; font-style:normal; font-size:11px; color:var(--muted); margin-top:1px}
+.frow{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px}
+.fsel{font:inherit; font-size:14px; padding:11px 32px 11px 12px; border:1px solid var(--rule); border-radius:2px; background-color:var(--paper-2); color:var(--ink); width:100%; appearance:none;
   background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
-  background-position:calc(100% - 16px) 17px,calc(100% - 11px) 17px; background-size:5px 5px,5px 5px; background-repeat:no-repeat; transition:border-color .2s}
+  background-position:calc(100% - 17px) 20px,calc(100% - 12px) 20px; background-size:5px 5px,5px 5px; background-repeat:no-repeat; transition:border-color .2s}
 .fsel:focus{outline:none; border-color:var(--seal)}
-.ftog{display:inline-flex; align-items:center; gap:9px; font-size:13.5px; padding:8px 12px; border:1px solid var(--rule); border-radius:2px; background:var(--paper-2); transition:.2s; user-select:none}
-.ftog:hover{border-color:var(--rule-strong)}
-.ftog.on{border-color:var(--seal); background:var(--seal-wash); color:var(--seal)}
-.ftog .bx{width:15px; height:15px; border:1px solid var(--rule-strong); border-radius:2px; display:grid; place-content:center; flex:none; transition:.2s}
-.ftog.on .bx{background:var(--seal); border-color:var(--seal)}
-.ftog .bx::after{content:""; width:4px; height:7px; border:solid transparent; border-width:0 1.5px 1.5px 0; transform:rotate(45deg) translateY(-1px); transition:border-color .2s}
-.ftog.on .bx::after{border-color:var(--seal-ink)}
-.dircount{margin-left:auto; font-family:var(--f-mono); font-size:11px; color:var(--muted); letter-spacing:.06em}
-.dircount b{color:var(--ink); font-weight:500}
+.reqform-ft{padding:16px 20px; border-top:1px solid var(--rule); background:var(--paper-2)}
+.formnote{font-family:var(--f-mono); font-size:10px; letter-spacing:.05em; color:var(--muted); margin-top:11px; text-align:center; line-height:1.7}
 
-.cgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(288px,1fr)); gap:clamp(12px,1.5vw,16px)}
+/* ══ 매칭 결과 ══ */
+.res-top{display:flex; flex-wrap:wrap; gap:12px 18px; align-items:flex-end; justify-content:space-between; margin-bottom:20px}
+.res-crit{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px}
+.crit{font-family:var(--f-mono); font-size:10.5px; letter-spacing:.05em; color:var(--ink-2); border:1px solid var(--rule-strong); border-radius:2px; padding:5px 9px; background:var(--paper); white-space:nowrap}
+.crit b{color:var(--seal); font-weight:500}
+.res-h{font-size:clamp(24px,3.4vw,38px); font-weight:800; margin:14px 0 0}
+.res-count{font-family:var(--f-mono); font-size:11.5px; color:var(--muted); letter-spacing:.06em; white-space:nowrap}
+.res-count b{color:var(--ink); font-weight:500}
+
+.cgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:clamp(12px,1.5vw,16px)}
 .ccard{
   background:var(--paper); border:1px solid var(--rule); border-radius:2px; box-shadow:var(--shadow-sm);
   padding:20px; position:relative; display:flex; flex-direction:column; gap:14px; cursor:pointer;
-  transition:transform .3s cubic-bezier(.22,1,.36,1), box-shadow .3s, border-color .25s;
+  transition:transform .3s cubic-bezier(.22,1,.36,1), box-shadow .3s, border-color .25s, opacity .45s ease;
 }
 .ccard:hover{transform:translateY(-3px); box-shadow:var(--shadow-md); border-color:var(--rule-strong)}
 .ccard.picked{border-color:var(--seal); box-shadow:0 0 0 1px var(--seal), var(--shadow-md)}
+.ccard.fresh{opacity:0; transform:translateY(14px)}
 .ccard-top{display:grid; grid-template-columns:44px minmax(0,1fr) auto; gap:12px; align-items:start}
 .cav{width:44px; height:44px; border-radius:50%; background:var(--paper-2); border:1px solid var(--rule); display:grid; place-content:center; font-family:var(--f-display); font-weight:800; font-size:16px; color:var(--ink-2)}
-.cname{font-family:var(--f-display); font-weight:700; font-size:16px; letter-spacing:-.025em; margin-bottom:3px}
+.cname{font-family:var(--f-display); font-weight:700; font-size:16px; letter-spacing:-.025em; margin-bottom:3px; display:flex; align-items:center; gap:7px; flex-wrap:wrap}
 .cspec{font-size:12.5px; color:var(--muted); font-weight:300}
-.cbadge{font-family:var(--f-mono); font-size:8.5px; letter-spacing:.1em; text-transform:uppercase; padding:4px 7px; border-radius:2px; white-space:nowrap; border:1.5px solid; display:inline-block}
+.cbadge{font-family:var(--f-mono); font-size:8.5px; letter-spacing:.1em; text-transform:uppercase; padding:3px 6px; border-radius:2px; white-space:nowrap; border:1.5px solid; display:inline-block}
 .cbadge.ok{color:var(--seal); border-color:var(--seal); background:var(--seal-wash)}
 .cbadge.wait{color:var(--muted); border-color:var(--rule-strong); background:var(--paper-2)}
+.cfit{text-align:right; font-family:var(--f-mono); font-variant-numeric:tabular-nums}
+.cfit b{display:block; font-size:21px; font-weight:500; color:var(--seal); letter-spacing:-.03em; line-height:1.1}
+.cfit span{display:block; font-size:8.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--muted); margin-top:2px}
 .ctags{display:flex; flex-wrap:wrap; gap:5px}
 .ctag{font-family:var(--f-mono); font-size:9.5px; letter-spacing:.05em; color:var(--ink-2); border:1px solid var(--rule); border-radius:2px; padding:3px 7px; white-space:nowrap; background:var(--paper-2)}
+.ctag.hit{color:var(--seal); border-color:var(--seal); background:var(--seal-wash)}
 .ctag.lead{color:var(--gold); border-color:var(--gold)}
 .creason{font-size:12.5px; color:var(--muted); font-weight:300; line-height:1.75; border-left:2px solid var(--seal); padding-left:11px}
 .ccard-ft{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:auto; padding-top:13px; border-top:1px solid var(--rule)}
@@ -224,7 +211,22 @@ p{margin:0}
 .ccard.picked .cpick .bx{background:var(--seal); border-color:var(--seal)}
 .cpick .bx::after{content:""; width:4px; height:7px; border:solid transparent; border-width:0 1.5px 1.5px 0; transform:rotate(45deg) translateY(-1px); transition:border-color .2s}
 .ccard.picked .cpick .bx::after{border-color:var(--seal-ink)}
-.emptynote{color:var(--muted); font-weight:300; padding:34px 0; grid-column:1/-1}
+
+/* 검증 도장 — 카드에 찍힌다 */
+.vseal{
+  position:absolute; right:14px; bottom:52px; width:62px; height:62px; pointer-events:none; z-index:2;
+  border:2px solid var(--seal); border-radius:50%; color:var(--seal); background:color-mix(in srgb,var(--paper) 78%,transparent);
+  display:grid; place-content:center; text-align:center;
+  font-family:var(--f-display); font-weight:800; font-size:12px; line-height:1.2; letter-spacing:-.03em;
+  opacity:0; transform:scale(2.2) rotate(-28deg);
+  transition:opacity .2s ease, transform .42s cubic-bezier(.34,1.7,.5,1);
+}
+.vseal::before{content:""; position:absolute; inset:4px; border:1px solid currentColor; border-radius:50%; opacity:.5}
+.vseal u{display:block; text-decoration:none; font-family:var(--f-mono); font-weight:400; font-size:7.5px; letter-spacing:.1em; margin-top:2px; opacity:.85}
+.ccard.stamped .vseal{opacity:1; transform:scale(1) rotate(-12deg)}
+
+.emptynote{grid-column:1/-1; color:var(--muted); font-weight:300; padding:40px 0; text-align:center; border:1px dashed var(--rule-strong); border-radius:2px}
+.emptynote b{display:block; font-family:var(--f-display); font-weight:700; color:var(--ink); font-size:17px; margin-bottom:6px}
 .masknote{margin-top:18px; font-family:var(--f-mono); font-size:10.5px; color:var(--muted); letter-spacing:.05em; line-height:1.8}
 .masknote a{color:var(--seal); border-bottom:1px solid currentColor}
 
@@ -239,6 +241,19 @@ p{margin:0}
 .qclear{font-family:var(--f-mono); font-size:11px; letter-spacing:.06em; color:var(--muted); padding:8px 12px; border:1px solid var(--rule); border-radius:2px; transition:.2s}
 .qclear:hover{border-color:var(--rule-strong); color:var(--ink)}
 
+/* ══ 반전 섹션 ══ */
+.inv{background:var(--inverse-bg); color:var(--inverse-ink)}
+.inv .sec-head p, .inv .docref{color:var(--inverse-muted)}
+.inv .sec-head strong{color:var(--inverse-ink); font-weight:600}
+.inv .docref .sep{background:var(--inverse-rule)}
+.painpoint{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:1px; background:var(--inverse-rule); border:1px solid var(--inverse-rule)}
+.painpoint>div{background:var(--inverse-bg); padding:26px 24px}
+.painpoint b{display:block; font-family:var(--f-mono); font-size:clamp(23px,3vw,34px); font-weight:400; color:var(--seal); letter-spacing:-.04em; margin-bottom:10px}
+.painpoint h3{font-size:15.5px; font-weight:700; margin-bottom:7px; color:var(--inverse-ink)}
+.painpoint p{font-size:13.5px; font-weight:300; color:var(--inverse-muted); line-height:1.8}
+.inv-quote{max-width:36ch; font-family:var(--f-display); font-weight:700; font-size:clamp(19px,2.6vw,27px); line-height:1.5; margin-top:clamp(32px,4vw,48px); letter-spacing:-.035em}
+.inv-quote span{color:var(--seal)}
+
 /* ══ 검증 절차 ══ */
 .checklist{background:var(--paper); border:1px solid var(--rule); border-radius:2px; box-shadow:var(--shadow-sm); overflow:hidden}
 .check{display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:clamp(14px,2vw,22px); align-items:center; padding:clamp(20px,2.6vw,28px) clamp(18px,2.6vw,30px); border-bottom:1px solid var(--rule); transition:background .3s}
@@ -249,19 +264,6 @@ p{margin:0}
 .check p{font-size:13.5px; color:var(--muted); font-weight:300; line-height:1.8; max-width:64ch}
 .check strong{color:var(--ink-2); font-weight:600}
 .stamp-ok{font-family:var(--f-mono); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--seal); border:1.5px solid var(--seal); border-radius:2px; padding:5px 9px; white-space:nowrap; background:var(--seal-wash)}
-
-/* ══ 반전 섹션 ══ */
-.inv{background:var(--inverse-bg); color:var(--inverse-ink)}
-.inv .sec-head p, .inv .docref{color:var(--inverse-muted)}
-.inv .sec-head strong{color:var(--inverse-ink); font-weight:600}
-.inv .docref .sep{background:var(--inverse-rule)}
-.painpoint{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:1px; background:var(--inverse-rule); border:1px solid var(--inverse-rule)}
-.painpoint>div{background:var(--inverse-bg); padding:26px 24px}
-.painpoint b{display:block; font-family:var(--f-mono); font-size:clamp(24px,3.2vw,36px); font-weight:400; color:var(--seal); letter-spacing:-.04em; font-variant-numeric:tabular-nums; margin-bottom:10px}
-.painpoint h3{font-size:15.5px; font-weight:700; margin-bottom:7px; color:var(--inverse-ink)}
-.painpoint p{font-size:13.5px; font-weight:300; color:var(--inverse-muted); line-height:1.8}
-.inv-quote{max-width:36ch; font-family:var(--f-display); font-weight:700; font-size:clamp(19px,2.6vw,27px); line-height:1.5; margin-top:clamp(32px,4vw,48px); letter-spacing:-.035em}
-.inv-quote span{color:var(--seal)}
 
 /* ══ 프로세스 ══ */
 .flow{position:relative; display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:clamp(18px,2.4vw,28px)}
@@ -276,7 +278,7 @@ p{margin:0}
 .step p{font-size:13.5px; color:var(--muted); font-weight:300; line-height:1.8}
 .step .t{display:block; font-family:var(--f-mono); font-size:9.5px; letter-spacing:.1em; color:var(--seal); margin-top:10px; text-transform:uppercase}
 
-/* ══ AI 매뉴얼 훅 (작게) ══ */
+/* ══ AI 매뉴얼 훅 ══ */
 .hook{background:var(--paper); border:1px solid var(--rule); border-left:3px solid var(--seal); border-radius:2px; box-shadow:var(--shadow-sm); padding:clamp(24px,3vw,36px); display:grid; grid-template-columns:minmax(0,1fr); gap:22px; align-items:center}
 @media(min-width:860px){ .hook{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)} }
 .hook h3{font-size:clamp(19px,2.4vw,26px); font-weight:800; margin:12px 0 10px}
@@ -329,7 +331,7 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
 .final h2{font-size:clamp(26px,4.4vw,48px); font-weight:800; margin-bottom:18px}
 .final h2 span{color:var(--seal)}
 .final-lead{color:var(--inverse-muted); font-weight:300; font-size:clamp(15px,1.8vw,17.5px); max-width:48ch; margin:0 auto 32px}
-.final .hero-cta{justify-content:center; margin-bottom:0}
+.final-cta{display:flex; flex-wrap:wrap; gap:11px; justify-content:center}
 .final .docref{margin-bottom:18px}
 
 /* ══ 푸터 ══ */
@@ -350,23 +352,23 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
   html{scroll-behavior:auto}
   *,*::before,*::after{animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important}
   .rv{opacity:1; transform:none}
-  .rrow{opacity:1; transform:none}
-  .vseal{opacity:1; transform:rotate(-13deg)}
+  .ccard.fresh{opacity:1; transform:none}
+  .vseal{opacity:1; transform:rotate(-12deg)}
   .hero h1 em::after{transform:scaleX(1)}
 }
 </style>
 </head>
 <body>
 
-<div class="samplebar">디자인 방향 <b>C · DOCUMENT</b> 샘플 — 컨설턴트를 골라보세요 · 우측 상단에서 다크모드 전환</div>
+<div class="samplebar">디자인 방향 <b>C · DOCUMENT</b> 샘플 — 인증과 기업 정보를 넣으면 후보가 매칭됩니다 · 우측 상단에서 다크모드 전환</div>
 
 <header class="hdr">
   <div class="wrap hdr-in">
     <a href="#top" class="brand">InsightMatch<u>.</u></a>
     <nav class="nav">
-      <a href="#directory">컨설턴트 찾기</a>
+      <a href="#match">컨설턴트 매칭</a>
       <a href="#verify">검증 절차</a>
-      <a href="#process">매칭 프로세스</a>
+      <a href="#process">진행 방식</a>
       <a href="#catalog">ISO 표준</a>
       <a href="#faq">FAQ</a>
     </nav>
@@ -375,25 +377,20 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
         <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M17.3 13.3A8 8 0 016.7 2.7a8 8 0 1010.6 10.6z"/></svg>
       </button>
       <a href="#" class="lnk-login">로그인</a>
-      <a href="#directory" class="btn btn-ink btn-sm">무료 매칭 요청</a>
+      <a href="#top" class="btn btn-ink btn-sm">무료 매칭 요청</a>
     </div>
   </div>
 </header>
 
 <main id="top">
 
-<!-- ═══ 히어로 : 주인공은 컨설턴트 ═══ -->
+<!-- ═══ 히어로 : 주인공은 매칭 요청 폼 ═══ -->
 <section class="hero">
   <div class="wrap hero-in">
     <div>
       <p class="docref">검증 컨설턴트 <b>37명</b><span class="sep"></span>ISO 18개 표준<span class="sep"></span>기업 이용료 0원</p>
-      <h1>우리 회사에 맞는 ISO 컨설턴트,<br><em>검증해서</em> 붙여드립니다</h1>
-      <p class="hero-lead">자격증 보유자 명단이 아닙니다. 심사원 자격 유효성과 과거 프로젝트 실적을 교차 검증한 상위 1%만 등록돼 있습니다. 여러 명에게 동시에 견적을 받아 비교하세요.</p>
-
-      <div class="hero-cta">
-        <a href="#directory" class="btn btn-seal btn-stack">컨설턴트 둘러보기<span class="sub">검증 이력·전문 분야 공개</span></a>
-        <a href="#directory" class="btn btn-out btn-stack">조건 맞춰 추천받기<span class="sub">업종·규모 선택 시 자동 매칭</span></a>
-      </div>
+      <h1>필요한 인증만 알려주세요.<br><em>맞는 컨설턴트</em>를 찾아드립니다</h1>
+      <p class="hero-lead">업종과 규모, 준비 중인 인증을 넣으면 그 조건에 맞는 검증 컨설턴트 후보가 나옵니다. 여러 명을 골라 한 번에 견적을 받아 비교하세요.</p>
 
       <div class="hero-meta">
         <div><b data-count="37">0</b><span>검증 컨설턴트</span></div>
@@ -403,47 +400,88 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
       </div>
     </div>
 
-    <div class="roster" id="roster" aria-label="매칭 결과 예시">
-      <div class="roster-hd">
-        <span>매칭 결과 · 제조(전자부품) · 50~99명</span>
-        <span class="live"><i></i>LIVE</span>
+    <!-- 매칭 요청 폼 -->
+    <form class="reqform" id="reqform" novalidate>
+      <div class="reqform-hd">
+        <h2>컨설턴트 매칭 요청</h2>
+        <p class="docref">약 30초</p>
       </div>
 
-      <div class="rrow">
-        <div class="rav">김</div>
-        <div>
-          <div class="rname">김○○ <span class="cbadge ok">검증</span></div>
-          <div class="rmeta">품질경영 · 18년 · ISO 9001 선임심사원</div>
+      <div class="reqform-bd">
+        <fieldset class="fset">
+          <legend>준비 중인 인증 <em>*</em> — 복수 선택</legend>
+          <div class="isogrid" id="isogrid">
+            <label class="isopick on" data-iso="9001"><span class="bx"></span><span class="lb"><u>ISO 9001</u><i>품질경영</i></span></label>
+            <label class="isopick" data-iso="14001"><span class="bx"></span><span class="lb"><u>ISO 14001</u><i>환경경영</i></span></label>
+            <label class="isopick" data-iso="45001"><span class="bx"></span><span class="lb"><u>ISO 45001</u><i>안전보건</i></span></label>
+            <label class="isopick" data-iso="27001"><span class="bx"></span><span class="lb"><u>ISO 27001</u><i>정보보안</i></span></label>
+            <label class="isopick" data-iso="13485"><span class="bx"></span><span class="lb"><u>ISO 13485</u><i>의료기기</i></span></label>
+            <label class="isopick" data-iso="16949"><span class="bx"></span><span class="lb"><u>IATF 16949</u><i>자동차</i></span></label>
+            <label class="isopick" data-iso="22000"><span class="bx"></span><span class="lb"><u>ISO 22000</u><i>식품안전</i></span></label>
+            <label class="isopick" data-iso="42001"><span class="bx"></span><span class="lb"><u>ISO 42001</u><i>AI 경영</i></span></label>
+          </div>
+        </fieldset>
+
+        <div class="fset">
+          <div class="frow">
+            <div>
+              <label class="flab" for="f-industry">업종 <em>*</em></label>
+              <select class="fsel" id="f-industry">
+                <option value="제조">제조 / 생산</option>
+                <option value="자동차">자동차 / 부품</option>
+                <option value="건설">건설 / 플랜트</option>
+                <option value="IT">IT / 소프트웨어</option>
+                <option value="의료">의료 / 바이오</option>
+                <option value="식품">식품 / 유통</option>
+              </select>
+            </div>
+            <div>
+              <label class="flab" for="f-size">임직원 수 <em>*</em></label>
+              <select class="fsel" id="f-size">
+                <option value="S">10명 미만</option>
+                <option value="S">10~49명</option>
+                <option value="M" selected>50~99명</option>
+                <option value="M">100~299명</option>
+                <option value="L">300명 이상</option>
+              </select>
+            </div>
+            <div>
+              <label class="flab" for="f-region">소재지</label>
+              <select class="fsel" id="f-region">
+                <option value="">전국</option>
+                <option value="수도권">수도권</option>
+                <option value="충청권">충청권</option>
+                <option value="영남권">영남권</option>
+                <option value="호남권">호남권</option>
+              </select>
+            </div>
+          </div>
         </div>
-        <div class="rfit">96<span>적합도</span></div>
-        <div class="vseal" aria-hidden="true">검증<br>완료</div>
       </div>
 
-      <div class="rrow">
-        <div class="rav">이</div>
-        <div>
-          <div class="rname">이○○ <span class="cbadge ok">검증</span></div>
-          <div class="rmeta">환경·안전 · 15년 · ISO 14001/45001</div>
-        </div>
-        <div class="rfit">91<span>적합도</span></div>
-        <div class="vseal" aria-hidden="true">검증<br>완료</div>
+      <div class="reqform-ft">
+        <button type="submit" class="btn btn-seal btn-lg">컨설턴트 후보 보기</button>
+        <p class="formnote">회원가입 없이 후보를 확인할 수 있습니다 · 기업 이용료 0원 · 계약 의무 없음</p>
       </div>
+    </form>
+  </div>
+</section>
 
-      <div class="rrow">
-        <div class="rav">최</div>
-        <div>
-          <div class="rname">최○○ <span class="cbadge ok">검증</span></div>
-          <div class="rmeta">자동차 품질 · 16년 · IATF 16949</div>
-        </div>
-        <div class="rfit">88<span>적합도</span></div>
-        <div class="vseal" aria-hidden="true">검증<br>완료</div>
+<!-- ═══ 매칭 결과 ═══ -->
+<section class="sec" id="match" style="padding-top:clamp(40px,5vw,72px)">
+  <div class="wrap">
+    <div class="res-top">
+      <div>
+        <p class="docref">§01<span class="sep"></span>Matching Result</p>
+        <h2 class="res-h">매칭된 컨설턴트 후보</h2>
+        <div class="res-crit" id="crit"></div>
       </div>
-
-      <div class="roster-ft">
-        <p class="docref">3명 모두 심사원 자격 유효 확인</p>
-        <a href="#directory" class="btn btn-seal btn-sm">견적 요청</a>
-      </div>
+      <p class="res-count"><b id="rcount">0</b>명 · 적합도순</p>
     </div>
+
+    <div class="cgrid" id="cgrid"></div>
+
+    <p class="masknote">※ 컨설턴트 실명과 연락처는 <a href="#">로그인</a> 후 공개됩니다 — 등록된 전문가에게 무단 영업 연락이 가는 것을 막기 위한 조치입니다.</p>
   </div>
 </section>
 
@@ -451,9 +489,9 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
 <section class="sec inv">
   <div class="wrap">
     <div class="sec-head rv">
-      <p class="docref">§01<span class="sep"></span>Problem</p>
-      <h2>컨설턴트 고르기가 어려운 이유</h2>
-      <p>인증이 어려운 게 아니라, <strong>누가 제대로 하는 사람인지 알 방법이 없는 것</strong>이 문제입니다.</p>
+      <p class="docref">§02<span class="sep"></span>Problem</p>
+      <h2>인증은 정했는데, 사람은 어떻게 고르나</h2>
+      <p>필요한 인증은 이미 알고 계실 겁니다. 문제는 <strong>누가 제대로 하는 사람인지 알 방법이 없다는 것</strong>입니다.</p>
     </div>
 
     <div class="painpoint rv d1">
@@ -462,53 +500,7 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
       <div><b>전화 5통</b><h3>비교의 비용</h3><p>업체를 비교하려면 각각 연락해 미팅을 잡아야 합니다. 그 사이 인증 일정은 밀립니다.</p></div>
     </div>
 
-    <p class="inv-quote rv d2">그래서 저희가 <span>먼저 검증하고</span>, 한자리에서 비교하게 만들었습니다.</p>
-  </div>
-</section>
-
-<!-- ═══ 컨설턴트 디렉토리 : 핵심 ═══ -->
-<section class="sec" id="directory">
-  <div class="wrap">
-    <div class="sec-head rv">
-      <p class="docref">§02<span class="sep"></span>Consultant Directory</p>
-      <h2>검증된 컨설턴트를 직접 비교하세요</h2>
-      <p>조건으로 좁힌 뒤 여러 명을 선택하면 한 번에 견적을 요청할 수 있습니다. 제안서를 나란히 비교하고, 마음에 드는 분이 없으면 계약 의무 없이 종료하시면 됩니다.</p>
-    </div>
-
-    <div class="dirbar rv d1">
-      <button class="ftog on" id="tog-verified" aria-pressed="true"><span class="bx"></span>검증된 컨설턴트만</button>
-      <div class="fgroup">
-        <label for="f-iso">ISO 규격</label>
-        <select class="fsel" id="f-iso">
-          <option value="">전체</option>
-          <option value="9001">ISO 9001 (품질)</option>
-          <option value="14001">ISO 14001 (환경)</option>
-          <option value="45001">ISO 45001 (안전보건)</option>
-          <option value="27001">ISO 27001 (정보보안)</option>
-          <option value="13485">ISO 13485 (의료기기)</option>
-          <option value="16949">IATF 16949 (자동차)</option>
-          <option value="22000">ISO 22000 (식품)</option>
-          <option value="42001">ISO 42001 (AI)</option>
-        </select>
-      </div>
-      <div class="fgroup">
-        <label for="f-industry">산업</label>
-        <select class="fsel" id="f-industry">
-          <option value="">전체</option>
-          <option value="제조">제조/생산</option>
-          <option value="건설">건설/플랜트</option>
-          <option value="IT">IT/소프트웨어</option>
-          <option value="자동차">자동차/부품</option>
-          <option value="의료">의료/바이오</option>
-          <option value="식품">식품/유통</option>
-        </select>
-      </div>
-      <p class="dircount"><b id="dcount">0</b>명 표시 중</p>
-    </div>
-
-    <div class="cgrid rv d2" id="cgrid"></div>
-
-    <p class="masknote">※ 컨설턴트 실명과 연락처는 <a href="#">로그인</a> 후 공개됩니다 — 등록된 전문가에게 무단 영업 연락이 가는 것을 막기 위한 조치입니다.</p>
+    <p class="inv-quote rv d2">그래서 저희가 <span>먼저 검증하고</span>, 조건에 맞는 사람만 추려 드립니다.</p>
   </div>
 </section>
 
@@ -550,25 +542,25 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
   </div>
 </section>
 
-<!-- ═══ 매칭 프로세스 ═══ -->
+<!-- ═══ 진행 방식 ═══ -->
 <section class="sec" id="process">
   <div class="wrap">
     <div class="sec-head rv">
       <p class="docref">§04<span class="sep"></span>Process</p>
       <h2>연락은 한 번, 비교는 나란히</h2>
-      <p>업체마다 전화 돌릴 필요가 없습니다. 조건을 한 번 선택하면 후보가 모이고, 견적이 같은 형식으로 도착합니다.</p>
+      <p>업체마다 전화 돌릴 필요가 없습니다. 조건을 한 번 넣으면 후보가 모이고, 견적이 같은 형식으로 도착합니다.</p>
     </div>
 
     <div class="flow rv d1" id="flow">
-      <div class="step"><div class="no">01</div><h3>조건 선택</h3><p>업종, 규모, 희망 인증, 지역을 고릅니다. 회원가입 없이도 후보를 볼 수 있습니다.</p><span class="t">1분</span></div>
-      <div class="step"><div class="no">02</div><h3>후보 비교</h3><p>검증 이력과 산업 레퍼런스, 평점을 나란히 놓고 원하는 컨설턴트를 복수 선택합니다.</p><span class="t">5분</span></div>
+      <div class="step"><div class="no">01</div><h3>조건 입력</h3><p>준비 중인 인증과 업종·규모·소재지를 넣습니다. 회원가입 없이도 후보를 볼 수 있습니다.</p><span class="t">30초</span></div>
+      <div class="step"><div class="no">02</div><h3>후보 비교</h3><p>적합도순으로 정렬된 후보의 검증 이력과 산업 레퍼런스를 나란히 놓고 복수 선택합니다.</p><span class="t">5분</span></div>
       <div class="step"><div class="no">03</div><h3>견적 일괄 요청</h3><p>선택한 전원에게 동시에 견적을 요청합니다. 같은 양식으로 오기 때문에 바로 비교됩니다.</p><span class="t">당일 발송</span></div>
       <div class="step"><div class="no">04</div><h3>비교 후 확정</h3><p>제안서와 확정 견적을 비교한 뒤 직접 선택하십시오. 마음에 안 들면 종료하셔도 됩니다.</p><span class="t">계약 의무 없음</span></div>
     </div>
   </div>
 </section>
 
-<!-- ═══ AI 매뉴얼 : 유입 훅 (작게) ═══ -->
+<!-- ═══ AI 매뉴얼 훅 (작게) ═══ -->
 <section class="sec" style="padding-block:clamp(20px,3vw,44px)">
   <div class="wrap">
     <div class="hook rv">
@@ -600,8 +592,8 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
   <div class="wrap">
     <div class="sec-head rv">
       <p class="docref">§05<span class="sep"></span>Standards Register</p>
-      <h2>어떤 인증이 필요한지 모르시겠다면</h2>
-      <p>총 18개 표준을 지원합니다. 표준을 고르면 해당 인증 경험이 있는 컨설턴트만 추려 보여드립니다.</p>
+      <h2>인증을 아직 확정하지 못하셨다면</h2>
+      <p>총 18개 표준을 지원합니다. 표준별로 어떤 기업에 필요한지와 매칭 가능한 컨설턴트 수를 함께 표시했습니다.</p>
     </div>
 
     <div class="filters rv d1" id="filters">
@@ -645,8 +637,8 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
         <div class="a">아닙니다. 자격, 경력, 과거 프로젝트 실적을 정량적으로 분석합니다. 엄격한 사전 검증을 통과한 상위 1% 컨설턴트에게만 '검증' 표기를 부여하며, 검증 진행 중인 분은 '검토중'으로 따로 구분해 보여드립니다.</div>
       </details>
       <details>
-        <summary><span class="q">Q4</span><span style="flex:1">왜 컨설턴트 실명이 가려져 있나요?</span><span class="ic"></span></summary>
-        <div class="a">등록된 전문가에게 무단 영업 연락이 가는 것을 막기 위해서입니다. 로그인하시면 실명과 상세 이력, 연락처가 공개됩니다.</div>
+        <summary><span class="q">Q4</span><span style="flex:1">적합도 점수는 어떻게 계산되나요?</span><span class="ic"></span></summary>
+        <div class="a">선택하신 인증에 대한 심사원 자격 보유 여부, 같은 업종에서의 프로젝트 실적, 비슷한 규모의 기업 경험, 검증 통과 여부, 기존 고객 평점을 종합해 산출합니다. 어떤 항목이 일치했는지는 각 후보 카드에 표시됩니다.</div>
       </details>
       <details>
         <summary><span class="q">Q5</span><span style="flex:1">입력한 기업 정보는 안전한가요?</span><span class="ic"></span></summary>
@@ -660,11 +652,11 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
 <section class="sec final">
   <div class="wrap">
     <p class="docref">기업 이용료 0원<span class="sep"></span>계약 의무 없음</p>
-    <h2>검증된 컨설턴트에게<br><span>한 번에 견적</span>을 받아보세요</h2>
-    <p class="final-lead">전화 돌릴 필요 없습니다. 조건만 고르면 후보가 모이고, 같은 양식으로 견적이 도착합니다.</p>
-    <div class="hero-cta">
-      <a href="#directory" class="btn btn-seal">컨설턴트 둘러보기</a>
-      <a href="#directory" class="btn btn-ghost-inv">조건 맞춰 추천받기</a>
+    <h2>인증만 정하셨다면,<br><span>사람은 저희가</span> 찾아드립니다</h2>
+    <p class="final-lead">30초면 후보가 나옵니다. 전화 돌릴 필요 없이, 같은 양식의 견적을 나란히 비교하세요.</p>
+    <div class="final-cta">
+      <a href="#top" class="btn btn-seal">컨설턴트 매칭 요청</a>
+      <a href="#catalog" class="btn btn-ghost-inv">ISO 표준 먼저 보기</a>
     </div>
   </div>
 </section>
@@ -677,7 +669,7 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
         <span class="brand">InsightMatch<u>.</u></span>
         <p>기업 맞춤형 ISO 컨설턴트 소개 플랫폼. 복잡한 인증 준비를 쉽고 빠르게.</p>
       </div>
-      <div class="ft-col"><h4>서비스</h4><a href="#directory">컨설턴트 찾기</a><a href="#process">매칭 프로세스</a><a href="#">컨설턴트 등록</a></div>
+      <div class="ft-col"><h4>서비스</h4><a href="#top">컨설턴트 매칭</a><a href="#process">진행 방식</a><a href="#">컨설턴트 등록</a></div>
       <div class="ft-col"><h4>지원</h4><a href="#faq">자주 묻는 질문</a><a href="#">전문가 FAQ</a><a href="#">블로그</a><a href="#">문의하기</a></div>
       <div class="ft-col"><h4>법적 고지</h4><a href="#">이용약관</a><a href="#">개인정보처리방침</a><a href="#">컨설턴트 협력계약</a></div>
     </div>
@@ -696,7 +688,7 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
     </div>
     <div class="qbar-act">
       <button class="qclear" id="qclear">선택 해제</button>
-      <a href="#directory" class="btn btn-seal btn-sm">견적 요청하기</a>
+      <a href="#match" class="btn btn-seal btn-sm">견적 요청하기</a>
     </div>
   </div>
 </div>
@@ -728,69 +720,88 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
   },{threshold:.2, rootMargin:"0px 0px -40px 0px"});
   document.querySelectorAll(".rv, #flow").forEach(function(el){ io.observe(el); });
 
-  /* ── 숫자 카운트업 ── */
+  /* ── 히어로 숫자 ── */
   document.querySelectorAll(".hero-meta [data-count]").forEach(function(el){
     var end = parseInt(el.dataset.count,10), sfx = el.dataset.suffix || "";
-    if(reduce){ el.textContent = end.toLocaleString("ko-KR") + sfx; return; }
+    if(reduce){ el.textContent = end + sfx; return; }
     var t0 = null;
     requestAnimationFrame(function step(ts){
       if(t0 === null) t0 = ts;
       var p = Math.min((ts-t0)/1400, 1), e = 1 - Math.pow(1-p, 3);
-      el.textContent = Math.round(end*e).toLocaleString("ko-KR") + (p === 1 ? sfx : "");
+      el.textContent = Math.round(end*e) + (p === 1 ? sfx : "");
       if(p < 1) requestAnimationFrame(step);
     });
   });
 
-  /* ── 히어로: 명부 등장 → 검증 도장 ── */
-  var roster = document.getElementById("roster");
-  var rrows  = roster.querySelectorAll(".rrow");
-  if(reduce){
-    roster.classList.add("go");
-    rrows.forEach(function(r){ r.classList.add("stamped"); });
-  }else{
-    requestAnimationFrame(function(){ roster.classList.add("go"); });
-    rrows.forEach(function(r,i){
-      setTimeout(function(){ r.classList.add("stamped"); }, 1250 + i*260);
-    });
-  }
-
-  /* ── 컨설턴트 데이터 ── */
+  /* ── 컨설턴트 데이터 ──
+     iso: 보유 심사원 자격 / ind: 산업 실적 / size: 경험 기업 규모 */
   var PEOPLE = [
-    {i:"김",n:"김○○",s:"품질경영",y:18,iso:["9001","14001"],ind:["제조","자동차"],v:1,r:4.9,c:23,
-     tags:["15년+ 베테랑","선임심사원"],why:"전자부품 제조 ISO 9001 신규 취득 12건. 50~99인 규모 경험 다수."},
-    {i:"이",n:"이○○",s:"환경·안전",y:15,iso:["14001","45001"],ind:["제조","건설"],v:1,r:4.8,c:17,
-     tags:["15년+ 베테랑","심사원 자격보유"],why:"중대재해처벌법 대응 ISO 45001 구축 전문. 건설·플랜트 레퍼런스 보유."},
-    {i:"박",n:"박○○",s:"정보보안",y:12,iso:["27001"],ind:["IT"],v:1,r:4.9,c:31,
-     tags:["10년+ 상급전문가","선임심사원"],why:"핀테크·SaaS ISO 27001 인증 27건. 개인정보 규제 대응 병행."},
-    {i:"정",n:"정○○",s:"의료기기 품질",y:20,iso:["13485","9001"],ind:["의료"],v:1,r:5.0,c:9,
-     tags:["15년+ 베테랑","선임심사원"],why:"의료기기 GMP와 ISO 13485 동시 대응. 식약처 인허가 연계 경험."},
-    {i:"최",n:"최○○",s:"자동차 품질",y:16,iso:["16949","9001"],ind:["자동차","제조"],v:1,r:4.7,c:28,
-     tags:["15년+ 베테랑","심사원 자격보유"],why:"완성차 1차 협력사 IATF 16949 전환 다수. APQP·PPAP 실무 지원."},
-    {i:"윤",n:"윤○○",s:"식품안전",y:14,iso:["22000"],ind:["식품"],v:1,r:4.8,c:12,
-     tags:["10년+ 상급전문가","심사원 자격보유"],why:"HACCP 보유 사업장의 ISO 22000 통합 운영 설계 전문."},
-    {i:"강",n:"강○○",s:"AI 거버넌스",y:7,iso:["42001","27001"],ind:["IT"],v:1,r:4.9,c:6,
-     tags:["신규 표준 대응"],why:"ISO 42001 국내 초기 도입 사례 보유. EU AI Act 대응 병행."},
-    {i:"한",n:"한○○",s:"ESG·탄소",y:9,iso:["14001"],ind:["제조"],v:0,r:4.6,c:5,
-     tags:["ESG 전문"],why:"온실가스 배출량 산정 및 ESG 공시 대응. 현재 검증 절차 진행 중."}
+    {i:"김",n:"김○○",s:"품질경영",y:18,iso:["9001","14001"],ind:["제조","자동차"],size:["S","M"],v:1,r:4.9,c:23,
+     reg:"수도권",why:"전자부품 제조 ISO 9001 신규 취득 12건. 50~99인 규모 경험 다수."},
+    {i:"이",n:"이○○",s:"환경·안전",y:15,iso:["14001","45001"],ind:["제조","건설"],size:["M","L"],v:1,r:4.8,c:17,
+     reg:"수도권",why:"중대재해처벌법 대응 ISO 45001 구축 전문. 건설·플랜트 레퍼런스 보유."},
+    {i:"박",n:"박○○",s:"정보보안",y:12,iso:["27001","42001"],ind:["IT"],size:["S","M"],v:1,r:4.9,c:31,
+     reg:"수도권",why:"핀테크·SaaS ISO 27001 인증 27건. 개인정보 규제 대응 병행."},
+    {i:"정",n:"정○○",s:"의료기기 품질",y:20,iso:["13485","9001"],ind:["의료"],size:["S","M"],v:1,r:5.0,c:9,
+     reg:"충청권",why:"의료기기 GMP와 ISO 13485 동시 대응. 식약처 인허가 연계 경험."},
+    {i:"최",n:"최○○",s:"자동차 품질",y:16,iso:["16949","9001"],ind:["자동차","제조"],size:["M","L"],v:1,r:4.7,c:28,
+     reg:"영남권",why:"완성차 1차 협력사 IATF 16949 전환 다수. APQP·PPAP 실무 지원."},
+    {i:"윤",n:"윤○○",s:"식품안전",y:14,iso:["22000","9001"],ind:["식품"],size:["S","M"],v:1,r:4.8,c:12,
+     reg:"호남권",why:"HACCP 보유 사업장의 ISO 22000 통합 운영 설계 전문."},
+    {i:"강",n:"강○○",s:"AI 거버넌스",y:7,iso:["42001","27001"],ind:["IT"],size:["S"],v:1,r:4.9,c:6,
+     reg:"수도권",why:"ISO 42001 국내 초기 도입 사례 보유. EU AI Act 대응 병행."},
+    {i:"조",n:"조○○",s:"통합경영시스템",y:22,iso:["9001","14001","45001"],ind:["제조","건설","자동차"],size:["M","L"],v:1,r:4.8,c:34,
+     reg:"수도권",why:"9001·14001·45001 통합 인증 구축 다수. 대규모 사업장 경험."},
+    {i:"한",n:"한○○",s:"ESG·탄소",y:9,iso:["14001"],ind:["제조"],size:["M"],v:0,r:4.6,c:5,
+     reg:"충청권",why:"온실가스 배출량 산정 및 ESG 공시 대응. 현재 검증 절차 진행 중."},
+    {i:"서",n:"서○○",s:"품질·환경",y:11,iso:["9001","14001"],ind:["제조","식품"],size:["S","M"],v:1,r:4.7,c:14,
+     reg:"영남권",why:"중소 제조사 대상 ISO 9001·14001 동시 취득 지원 경험 다수."}
   ];
 
+  var ISO_LABEL = {"9001":"ISO 9001","14001":"ISO 14001","45001":"ISO 45001","27001":"ISO 27001",
+                   "13485":"ISO 13485","16949":"IATF 16949","22000":"ISO 22000","42001":"ISO 42001"};
+  var SIZE_LABEL = {S:"소규모", M:"중견", L:"대규모"};
+
   var grid   = document.getElementById("cgrid");
-  var dcount = document.getElementById("dcount");
+  var critEl = document.getElementById("crit");
+  var rcount = document.getElementById("rcount");
   var picked = new Set();
 
-  function cardHTML(p, idx){
-    var isPicked = picked.has(idx);
-    return '<article class="ccard' + (isPicked ? ' picked' : '') + '" data-i="' + idx + '" tabindex="0" role="button" aria-pressed="' + isPicked + '">'
+  function selectedIso(){
+    return Array.from(document.querySelectorAll(".isopick.on")).map(function(el){ return el.dataset.iso; });
+  }
+
+  /* 적합도: 자격 일치 + 업종 실적 + 규모 경험 + 검증 + 평점 */
+  function score(p, isos, ind, size, reg){
+    var hit = isos.filter(function(s){ return p.iso.indexOf(s) !== -1; });
+    if(!hit.length) return null;                       // 자격 없으면 후보에서 제외
+    var sc = 46 + (hit.length / Math.max(isos.length,1)) * 26;  // 자격 커버리지
+    if(p.ind.indexOf(ind) !== -1) sc += 13;            // 업종 실적
+    if(p.size.indexOf(size) !== -1) sc += 8;           // 규모 경험
+    if(reg && p.reg === reg) sc += 4;                  // 소재지
+    if(p.v) sc += 4;                                   // 검증 통과
+    sc += (p.r - 4.5) * 6;                             // 평점
+    return Math.max(60, Math.min(99, Math.round(sc)));
+  }
+
+  function cardHTML(p, idx, fit, hit, indHit, sizeHit){
+    var on = picked.has(idx);
+    return '<article class="ccard fresh' + (on ? ' picked' : '') + '" data-i="' + idx + '" tabindex="0" role="button" aria-pressed="' + on + '">'
       + '<div class="ccard-top">'
         + '<div class="cav">' + p.i + '</div>'
-        + '<div><div class="cname">' + p.n + '</div><div class="cspec">' + p.s + ' 전문 · ' + p.y + '년</div></div>'
-        + (p.v ? '<span class="cbadge ok">검증</span>' : '<span class="cbadge wait">검토중</span>')
+        + '<div><div class="cname">' + p.n
+          + (p.v ? '<span class="cbadge ok">검증</span>' : '<span class="cbadge wait">검토중</span>')
+          + '</div><div class="cspec">' + p.s + ' 전문 · ' + p.y + '년</div></div>'
+        + '<div class="cfit"><b>' + fit + '</b><span>적합도</span></div>'
       + '</div>'
       + '<div class="ctags">'
-        + p.tags.map(function(t,i){ return '<span class="ctag' + (i === 0 && p.y >= 15 ? ' lead' : '') + '">' + t + '</span>'; }).join("")
-        + p.iso.map(function(s){ return '<span class="ctag">' + (s === "16949" ? "IATF " : "ISO ") + s + '</span>'; }).join("")
+        + hit.map(function(s){ return '<span class="ctag hit">' + ISO_LABEL[s] + ' 심사원</span>'; }).join("")
+        + (indHit ? '<span class="ctag hit">' + indHit + ' 실적</span>' : '')
+        + (sizeHit ? '<span class="ctag">' + sizeHit + ' 경험</span>' : '')
+        + (p.y >= 15 ? '<span class="ctag lead">15년+ 베테랑</span>' : '')
       + '</div>'
       + '<p class="creason">' + p.why + '</p>'
+      + (p.v ? '<div class="vseal" aria-hidden="true">검증<br>완료<u>KAB</u></div>' : '')
       + '<div class="ccard-ft">'
         + '<span class="crate"><u>★</u>' + p.r.toFixed(1) + ' <span>리뷰 ' + p.c + '</span></span>'
         + '<span class="cpick"><span class="bx"></span>견적 요청 선택</span>'
@@ -798,24 +809,80 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
     + '</article>';
   }
 
-  function draw(){
-    var onlyV = document.getElementById("tog-verified").classList.contains("on");
-    var iso   = document.getElementById("f-iso").value;
-    var ind   = document.getElementById("f-industry").value;
-    var html = "", shown = 0;
+  function match(animate){
+    var isos = selectedIso();
+    var ind  = document.getElementById("f-industry").value;
+    var sizeSel = document.getElementById("f-size");
+    var size = sizeSel.value;
+    var sizeText = sizeSel.options[sizeSel.selectedIndex].textContent;
+    var reg  = document.getElementById("f-region").value;
 
+    /* 조건 칩 */
+    critEl.innerHTML =
+      (isos.length ? isos.map(function(s){ return '<span class="crit"><b>' + ISO_LABEL[s] + '</b></span>'; }).join("") : '')
+      + '<span class="crit">' + ind + '</span>'
+      + '<span class="crit">' + sizeText + '</span>'
+      + (reg ? '<span class="crit">' + reg + '</span>' : '<span class="crit">전국</span>');
+
+    if(!isos.length){
+      grid.innerHTML = '<p class="emptynote"><b>준비 중인 인증을 하나 이상 선택해 주세요</b>선택하신 인증의 심사원 자격을 보유한 컨설턴트만 후보로 제시합니다.</p>';
+      rcount.textContent = "0";
+      return;
+    }
+
+    var rows = [];
     PEOPLE.forEach(function(p, idx){
-      if(onlyV && !p.v) return;
-      if(iso && p.iso.indexOf(iso) === -1) return;
-      if(ind && p.ind.indexOf(ind) === -1) return;
-      html += cardHTML(p, idx); shown++;
+      var fit = score(p, isos, ind, size, reg);
+      if(fit === null) return;
+      rows.push({
+        p:p, idx:idx, fit:fit,
+        hit: isos.filter(function(s){ return p.iso.indexOf(s) !== -1; }),
+        indHit: p.ind.indexOf(ind) !== -1 ? ind : null,
+        sizeHit: p.size.indexOf(size) !== -1 ? SIZE_LABEL[size] : null
+      });
     });
+    rows.sort(function(a,b){ return b.fit - a.fit; });
 
-    grid.innerHTML = html || '<p class="emptynote">조건에 맞는 컨설턴트가 없습니다. 필터를 넓혀보세요.</p>';
-    dcount.textContent = shown;
+    if(!rows.length){
+      grid.innerHTML = '<p class="emptynote"><b>이 조건에 맞는 컨설턴트가 아직 없습니다</b>인증을 하나만 남기거나 소재지를 전국으로 넓혀보세요.</p>';
+      rcount.textContent = "0";
+      return;
+    }
+
+    grid.innerHTML = rows.map(function(r){
+      return cardHTML(r.p, r.idx, r.fit, r.hit, r.indHit, r.sizeHit);
+    }).join("");
+    rcount.textContent = rows.length;
+
+    /* 카드 등장 → 검증 도장 */
+    var cards = grid.querySelectorAll(".ccard");
+    if(reduce){
+      cards.forEach(function(c){ c.classList.remove("fresh"); c.classList.add("stamped"); });
+      return;
+    }
+    cards.forEach(function(c,i){
+      setTimeout(function(){ c.classList.remove("fresh"); }, animate ? 60 + i*70 : i*45);
+      if(c.querySelector(".vseal")){
+        setTimeout(function(){ c.classList.add("stamped"); }, (animate ? 520 : 380) + i*130);
+      }
+    });
   }
 
-  /* ── 견적 요청 바 ── */
+  /* ── 폼 조작 ── */
+  document.getElementById("isogrid").addEventListener("click", function(ev){
+    var el = ev.target.closest(".isopick");
+    if(!el) return;
+    ev.preventDefault();
+    el.classList.toggle("on");
+  });
+  document.getElementById("reqform").addEventListener("submit", function(ev){
+    ev.preventDefault();
+    picked.clear(); syncBar();
+    match(true);
+    document.getElementById("match").scrollIntoView({behavior: reduce ? "auto" : "smooth", block:"start"});
+  });
+
+  /* ── 선택 / 견적 요청 바 ── */
   var qbar = document.getElementById("qbar");
   function syncBar(){
     document.getElementById("qn").textContent = picked.size;
@@ -844,21 +911,16 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
     if(c){ ev.preventDefault(); toggle(+c.dataset.i); }
   });
   document.getElementById("qclear").addEventListener("click", function(){
-    picked.clear(); draw(); syncBar();
+    picked.clear();
+    grid.querySelectorAll(".ccard.picked").forEach(function(c){
+      c.classList.remove("picked"); c.setAttribute("aria-pressed","false");
+    });
+    syncBar();
   });
 
-  var togV = document.getElementById("tog-verified");
-  togV.addEventListener("click", function(){
-    var on = !this.classList.contains("on");
-    this.classList.toggle("on", on);
-    this.setAttribute("aria-pressed", String(on));
-    draw();
-  });
-  document.getElementById("f-iso").addEventListener("change", draw);
-  document.getElementById("f-industry").addEventListener("change", draw);
-  draw();
+  match(false);   /* 기본 조건(ISO 9001 · 제조 · 50~99명)으로 첫 화면 채움 */
 
-  /* ── 프로세스 단계 점등 ── */
+  /* ── 프로세스 ── */
   function lightSteps(){
     var steps = document.querySelectorAll("#flow .step");
     if(reduce){ steps.forEach(function(s){ s.classList.add("on"); }); return; }
@@ -886,18 +948,15 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
     {c:"hr",n:"ISO 37001:2016",t:"부패방지경영시스템",d:"공공 거래 · ESG 거버넌스",k:4},
     {c:"hr",n:"ISO 30414:2018",t:"인적자본 보고",d:"상장기업 · ESG 사회",k:2}
   ];
-
   var ledger = document.getElementById("ledger");
   function renderLedger(cat){
     var rs = (cat === "all") ? STD : STD.filter(function(s){ return s.c === cat; });
     ledger.innerHTML = rs.map(function(s){
       return '<tr><td class="no">' + s.n + '</td><td class="nm">' + s.t + '</td>'
-           + '<td class="ap">' + s.d + '</td>'
-           + '<td class="cnt"><b>' + s.k + '</b>명</td></tr>';
+           + '<td class="ap">' + s.d + '</td><td class="cnt"><b>' + s.k + '</b>명</td></tr>';
     }).join("");
   }
   renderLedger("all");
-
   document.getElementById("filters").addEventListener("click", function(ev){
     var b = ev.target.closest(".fbtn");
     if(!b) return;
@@ -906,7 +965,7 @@ table.ledger{border-collapse:collapse; width:100%; min-width:700px}
     renderLedger(b.dataset.cat);
   });
 
-  /* ── 헤더 경계선 ── */
+  /* ── 헤더 ── */
   var hdr = document.querySelector(".hdr");
   addEventListener("scroll", function(){
     hdr.style.borderBottomColor = scrollY > 10 ? "var(--rule-strong)" : "var(--rule)";
