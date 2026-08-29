@@ -324,6 +324,163 @@ class TestMatchingService(unittest.TestCase):
         self.assertLessEqual(top['matchScore'], 100)
         self.assertGreaterEqual(top['matchScore'], 0)
 
+    # ------------------------------------------------------------------
+    # 14. 매칭 결과가 화면이 실제로 읽는 필드를 담고 있어야 한다
+    #     (BUG-E2E-002 전문성 태그 실종 / BUG-E2E-003 필터 결과 0명)
+    # ------------------------------------------------------------------
+    # script.js 가 읽는 키와 기대 형태:
+    #   c.isoExperience      → 객체 (Object.keys(...).some(...)) — ISO 필터
+    #   c.regions            → 문자열 ((c.regions||'').toLowerCase()) — 지역 필터
+    #   c.industryExperience → 배열 (.some(...), [0] 로 태그 표시)
+    #   c.roles              → 배열 (.includes('Lead Auditor')) — 심사원 태그
+    FRONTEND_REQUIRED_FIELDS = {
+        'isoExperience': dict,
+        'industryExperience': list,
+        'projectTypes': list,
+        'roles': list,
+        'regions': str,
+    }
+
+    def test_match_result_exposes_fields_the_result_page_reads(self):
+        """매칭 결과 항목이 script.js 가 읽는 필드를 올바른 형태로 담아야 한다.
+
+        이 필드들이 빠져 있으면 화면이 예외 없이 '조용히' 잘못 동작한다 —
+        ISO/지역 필터는 전원을 탈락시켜 결과가 항상 0명이 되고(BUG-E2E-003),
+        전문성 태그는 통째로 사라진다(BUG-E2E-002).
+        """
+        self.c_a.roles = json.dumps(['Lead Auditor', 'Trainer'])
+        db.session.commit()
+
+        results = self.svc.match_consultants({
+            'industry': 'Manufacturing',
+            'recommended_iso': [{'code': '9001'}],
+            'region': '서울',
+            'timeline': 'flexible',
+        })
+        top = next(r for r in results if r['name'] == 'Expert A')
+
+        for field, expected_type in self.FRONTEND_REQUIRED_FIELDS.items():
+            self.assertIn(field, top, f'{field} 가 매칭 결과에서 빠졌다')
+            self.assertIsInstance(top[field], expected_type, f'{field} 형태가 다르다')
+
+        # 값도 실제로 채워져야 한다 (빈 껍데기면 필터가 여전히 전원 탈락시킨다)
+        self.assertIn('9001', top['isoExperience'])
+        self.assertIn('Manufacturing', top['industryExperience'])
+        self.assertIn('Lead Auditor', top['roles'])
+        self.assertEqual(top['regions'], '서울,경기')
+
+    def test_iso_and_region_filters_keep_matching_consultants(self):
+        """script.js 의 ISO·지역 필터 로직을 그대로 재현해도 후보가 남아야 한다.
+
+        필터 자체가 프론트에 있으므로, 서버 응답만으로 필터가 통과되는지를
+        같은 규칙으로 흉내 내어 검증한다.
+        """
+        results = self.svc.match_consultants({
+            'industry': 'Manufacturing',
+            'recommended_iso': [{'code': '9001'}],
+            'timeline': 'flexible',
+        })
+
+        # ISO 필터: Object.keys(c.isoExperience).some(k => k.includes('9001'))
+        iso_survivors = [
+            c for c in results
+            if any('9001' in key for key in (c.get('isoExperience') or {}))
+        ]
+        self.assertTrue(iso_survivors, 'ISO 필터를 걸면 결과가 0명이 된다')
+
+        # 지역 필터: (c.regions || '').toLowerCase().includes('서울')
+        region_survivors = [
+            c for c in results if '서울' in (c.get('regions') or '').lower()
+        ]
+        self.assertTrue(region_survivors, '지역 필터를 걸면 결과가 0명이 된다')
+
+    def test_fallback_results_also_expose_frontend_fields(self):
+        """폴백 경로(점수 미달 시 trust_score 상위)의 결과에도 같은 필드가 있어야 한다.
+
+        폴백은 _format 을 따로 호출하므로, 여기만 빠뜨리면 '검색은 되는데
+        필터만 걸면 0명' 이 특정 상황에서만 재현되는 형태로 남는다.
+        """
+        results = self.svc.match_consultants({'timeline': 'flexible'})
+        self.assertTrue(results)
+        for item in results:
+            for field, expected_type in self.FRONTEND_REQUIRED_FIELDS.items():
+                self.assertIn(field, item)
+                self.assertIsInstance(item[field], expected_type)
+
+    def test_broken_json_in_profile_does_not_kill_matching(self):
+        """JSON 이 깨진 행이 있어도 매칭 전체가 죽으면 안 된다."""
+        broken = make_consultant(name='Broken', iso_experience='{not json',
+                                 industry_experience='oops', regions='서울')
+        db.session.add(broken)
+        db.session.commit()
+
+        results = self.svc.match_consultants({
+            'recommended_iso': [{'code': '9001'}], 'timeline': 'flexible'})
+        item = next(r for r in results if r['name'] == 'Broken')
+        self.assertEqual(item['isoExperience'], {})
+        self.assertEqual(item['industryExperience'], [])
+
+    # ------------------------------------------------------------------
+    # 15. 매칭 사유 표기 (OBS-E2E-004)
+    # ------------------------------------------------------------------
+    def test_match_reason_shows_iso_prefix_instead_of_bare_code(self):
+        """매칭 사유에 '27001 경험' 같은 내부 코드값이 그대로 나오면 안 된다."""
+        results = self.svc.match_consultants({
+            'recommended_iso': [{'code': '27001'}], 'timeline': 'flexible'})
+        reason = next(r['matchReason'] for r in results if r['name'] == 'Expert B')
+        self.assertEqual(reason, 'ISO 27001 경험')
+
+    def test_match_reason_does_not_double_prefix_named_standards(self):
+        """이미 'ISO 9001' / 'IATF 16949' 로 등록한 표기에 접두어가 또 붙으면 안 된다."""
+        named = make_consultant(
+            name='Named', iso_experience=json.dumps({'ISO 9001': True}), regions='서울')
+        iatf = make_consultant(
+            name='Iatf', iso_experience=json.dumps({'IATF 16949': True}), regions='서울')
+        db.session.add_all([named, iatf])
+        db.session.commit()
+
+        results = self.svc.match_consultants({
+            'recommended_iso': [{'code': '9001'}, {'code': 'IATF16949'}],
+            'timeline': 'flexible'})
+        by_name = {r['name']: r['matchReason'] for r in results}
+        self.assertEqual(by_name['Named'], 'ISO 9001 경험')
+        self.assertEqual(by_name['Iatf'], 'IATF 16949 경험')
+
+    # ------------------------------------------------------------------
+    # 16. 프로젝트 유형 보너스는 '살아 있는 채로' 남겨 둔다 (OBS-E2E-006)
+    # ------------------------------------------------------------------
+    def test_project_type_bonus_still_works_when_criteria_supplies_it(self):
+        """criteria 에 project_type 이 실리면 보너스가 실제로 지급돼야 한다.
+
+        메인 퍼널은 이 값을 채우지 않아 현재 점수 영향이 0 이지만, 채점 로직
+        자체는 정상이라 지우지 않았다(설문에 질문 하나만 추가하면 되살아난다).
+        여기서 죽어 버리면 '되살릴 수 있다'는 전제가 조용히 무너진다.
+        """
+        base = self.svc.match_consultants({
+            'recommended_iso': [{'code': '9001'}], 'timeline': 'flexible'})
+        with_type = self.svc.match_consultants({
+            'recommended_iso': [{'code': '9001'}], 'project_type': 'New',
+            'timeline': 'flexible'})
+
+        score_base = next(r['matchScore'] for r in base if r['name'] == 'Expert A')
+        score_bonus = next(r['matchScore'] for r in with_type if r['name'] == 'Expert A')
+        self.assertEqual(score_bonus - score_base, matching_module.BONUS_PROJECT_TYPE)
+
+    def test_project_type_bonus_is_outside_the_base_hundred(self):
+        """보너스는 기본 100점 배분 밖에 있어야 한다.
+
+        이 보너스를 WEIGHT_* 로 '재분배' 하면 기본 합이 105 가 되어
+        test_weights_sum_to_max_base_score 항등식이 깨진다.
+        """
+        base_total = (
+            matching_module.WEIGHT_ISO
+            + matching_module.WEIGHT_REGION
+            + matching_module.WEIGHT_INDUSTRY
+            + matching_module.WEIGHT_RATING
+        )
+        self.assertEqual(base_total, matching_module.MAX_BASE_SCORE)
+        self.assertNotIn(matching_module.BONUS_PROJECT_TYPE, [0])
+
 
 if __name__ == '__main__':
     unittest.main()

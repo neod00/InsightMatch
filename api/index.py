@@ -24,7 +24,7 @@ from sqlalchemy import and_, case, func, text
 from sqlalchemy.exc import IntegrityError
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, CronRun, ErrorLog, Inquiry, Review, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry
+from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, CronRun, ErrorLog, Inquiry, Review, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry, parse_text_or_json_list
 from services import MatchingService, ProposalService, EmailService
 from services.iso_manual_service import generate_iso_manual_stream
 
@@ -974,46 +974,6 @@ def is_consultant_owner_or_admin(consultant, user=None):
     user = user or getattr(g, 'current_user', None)
     return bool(user and (user.role == 'admin' or _same_id(user.id, consultant.user_id)))
 
-def parse_text_or_json_list(raw):
-    """평문 텍스트 또는 JSON 문자열을 프론트가 기대하는 '리스트'로 변환한다.
-
-    detailed_certifications / recent_projects 에는 두 형식이 실제로 공존한다:
-    * 등록 폼(consultant_register.html)은 여러 줄 <textarea> 를 평문 그대로 보내고,
-      저장 로직도 평문 그대로 넣는다 — 실사용 데이터는 거의 전부 이쪽이다.
-    * API 로 리스트/딕셔너리를 보내면 register_consultant_validated() 가
-      json.dumps 해서 JSON 문자열로 넣는다.
-
-    예전에는 읽는 쪽에서 무조건 json.loads 를 걸어, 평문으로 저장된
-    (= 등록 폼으로 정상 등록한) 전문가의 프로필 상세가 항상 500 이었다
-    (BUG-E2E-007, JSONDecodeError). 참고로 /api/admin/seed 는 이 두 필드를
-    아예 채우지 않아 시드 데이터에서는 재현되지 않았다.
-
-    소비자(consultant_profile.html)는 배열을 기대하므로 항상 리스트를 돌려준다.
-    평문은 줄 단위로 쪼갠다 — 등록 폼 placeholder 가 한 줄에 한 항목을 적도록
-    안내하고, 화면도 항목별 카드로 렌더링하기 때문이다.
-    """
-    if not raw:
-        return []
-    if isinstance(raw, list):
-        return raw
-    if isinstance(raw, dict):
-        return [raw]
-
-    try:
-        value = json.loads(raw)
-    except (ValueError, TypeError):
-        value = None
-
-    if isinstance(value, list):
-        return value
-    if isinstance(value, dict):
-        return [value]
-
-    # JSON 이 아니거나 스칼라(숫자·true·"문자열")면 평문으로 취급한다.
-    # 스칼라를 파싱값으로 쓰면 '10' 같은 평문 한 줄이 숫자 10 이 되어버린다.
-    return [line.strip() for line in str(raw).splitlines() if line.strip()]
-
-
 def consultant_public_dict(consultant):
     return {
         'id': consultant.id,
@@ -1262,7 +1222,10 @@ def register_consultant_validated():
         name=name,
         avatar=((data.get('avatar') or name[0]) if name else 'N')[:10],
         specialty=specialty,
-        experience=f'{experience_years} years',
+        # 한국어 UI 이므로 '10년' 표기로 통일한다. signup() 은 '0년' 으로 넣는데
+        # 여기만 '10 years' 라, 가입 경로에 따라 같은 목록에 두 언어가 섞여 보였다.
+        # (script.js 는 parseInt(c.experience) 로 숫자만 뽑으므로 두 표기 모두 안전)
+        experience=f'{experience_years}년',
         rating=NEW_CONSULTANT_RATING,
         reviews=0,
         match_reason=match_reason,
@@ -2383,93 +2346,6 @@ def get_consultants():
 def register_consultant():
     try:
         return register_consultant_validated()
-
-        # ⚠️ 아래는 전부 도달 불가능한 죽은 코드다(위 return 이 항상 먼저 실행됨).
-        #    실제 등록 로직은 register_consultant_validated() 하나뿐이다.
-        #    여기 남아 있는 중복 체크는 껍데기 프로필을 구분하지 못하는 옛 버전이므로
-        #    이 return 을 지워 되살리면 BUG-E2E-001(가입한 컨설턴트가 영구히 409)이
-        #    그대로 재발한다. 살리지 말고 통째로 지울 것.
-
-        # JWT 토큰에서 user_id 추출
-        user_id = None
-        auth_header = request.headers.get('Authorization', '')
-        if auth_header.startswith('Bearer '):
-            token = auth_header.split(' ')[1]
-            try:
-                payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-                user_id = payload.get('user_id')
-            except jwt.ExpiredSignatureError:
-                return jsonify({'message': '세션이 만료되었습니다. 다시 로그인해주세요.'}), 401
-            except jwt.InvalidTokenError:
-                return jsonify({'message': '유효하지 않은 인증 정보입니다.'}), 401
-        
-        if not user_id:
-            return jsonify({'message': '로그인이 필요합니다.'}), 401
-        
-        # 중복 등록 체크
-        existing = Consultant.query.filter_by(user_id=user_id).first()
-        if existing:
-            return jsonify({'message': '이미 컨설턴트 프로필이 존재합니다.', 'consultant_id': existing.id}), 409
-        
-        data = request.json
-        
-        # detailed_certifications 처리: 문자열이면 그대로, 리스트/딕셔너리면 JSON 직렬화
-        detailed_certs = data.get('detailed_certifications', '')
-        if isinstance(detailed_certs, (list, dict)):
-            detailed_certs = json.dumps(detailed_certs)
-        
-        # iso_experience 처리
-        iso_exp = data.get('iso_experience', {})
-        if isinstance(iso_exp, dict):
-            iso_exp = json.dumps(iso_exp)
-        
-        # industry_experience 처리
-        industry_exp = data.get('industry_experience', [])
-        if isinstance(industry_exp, list):
-            industry_exp = json.dumps(industry_exp)
-        
-        new_consultant = Consultant(
-            user_id=user_id,
-            name=data.get('name'),
-            avatar=data.get('avatar', data.get('name', 'N')[0] if data.get('name') else 'N'),
-            specialty=data.get('specialty'),
-            experience=f"{data.get('experience')}년",
-            rating=NEW_CONSULTANT_RATING,
-            reviews=0,
-            match_reason=data.get('match_reason'),
-            regions=data.get('regions', ''),
-            phone=data.get('phone', ''),
-            email=data.get('email', ''),
-            company_name=data.get('company_name', ''),
-            certifications=data.get('certifications'),
-            iso_experience=iso_exp,
-            industry_experience=industry_exp,
-            project_types=json.dumps(data.get('project_types', [])),
-            org_size_experience=json.dumps(data.get('org_size_experience', [])),
-            roles=json.dumps(data.get('roles', [])),
-            detailed_certifications=detailed_certs,
-            recent_projects=data.get('recent_projects', ''),
-            profile_image_url=data.get('profile_image_url', ''),
-            verified=False,
-            trust_score=50.0,
-            status='pending'
-        )
-        db.session.add(new_consultant)
-        db.session.commit()
-        
-        # User 테이블에서도 consultant 프로필 연결 정보 업데이트
-        user = User.query.get(user_id)
-        if user and not user.company_name and data.get('company_name'):
-            user.company_name = data.get('company_name')
-        if user and not user.phone and data.get('phone'):
-            user.phone = data.get('phone')
-        db.session.commit()
-        
-        return jsonify({
-            'message': '전문가 등록 신청이 완료되었습니다! 관리자 검토 후 승인됩니다.',
-            'consultant_id': new_consultant.id
-        }), 201
-        
     except Exception as e:
         db.session.rollback()
         import traceback

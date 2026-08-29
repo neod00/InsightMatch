@@ -10,6 +10,37 @@ from models import Consultant
 import json
 import re
 
+def _display_iso_label(label):
+    """매칭 사유에 노출할 ISO 규격 표기를 다듬는다.
+
+    컨설턴트가 등록한 원본 표기를 그대로 쓰면 '27001 경험', '9001, 14001 경험'
+    처럼 내부 코드값이 그대로 화면에 나온다. 숫자로 시작하는 표기에만
+    'ISO ' 접두어를 붙이고, 이미 'ISO 9001' / 'IATF 16949' 처럼 규격명이 붙은
+    표기는 건드리지 않는다(접두어가 두 번 붙는 것을 막는다).
+    """
+    text = (label or '').strip()
+    if text and text[0].isdigit():
+        return f'ISO {text}'
+    return text
+
+
+def _load_json(raw, default):
+    """DB 의 JSON 문자열 컬럼을 안전하게 파싱한다.
+
+    저장 형식이 깨진 행 하나 때문에 매칭 결과 전체가 500 으로 죽으면 안 된다.
+    기대한 타입(dict/list)이 아니면 기본값으로 되돌린다.
+    """
+    if not raw:
+        return default
+    if isinstance(raw, type(default)):
+        return raw
+    try:
+        value = json.loads(raw)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return default
+    return value if isinstance(value, type(default)) else default
+
+
 # ============================================================
 # 매칭 가중치 (합 = MAX_BASE_SCORE = 100)
 # ============================================================
@@ -117,7 +148,31 @@ NO_REVIEW_NEUTRAL_RATIO = None  # 아래 _rating_ratio 정의 후 계산한다
 
 # ── 보너스 (기본 100점과 별개로 가산) ──
 BONUS_VERIFIED     = 10   # 플랫폼이 신원·자격을 확인한 컨설턴트
-BONUS_PROJECT_TYPE = 5    # 신규/전환 등 프로젝트 유형 경험 일치
+
+# ⚠️ BONUS_PROJECT_TYPE 은 메인 매칭 퍼널에서 한 번도 지급된 적이 없다.
+#    criteria['project_type'] 을 채워 주는 프론트엔드가 **하나도 없기 때문**이다:
+#      · direct_match() (/api/match, 공개 설문의 본선 경로) 는 criteria 에
+#        project_type 을 아예 넣지 않는다.
+#      · /api/consultants 는 ?project_type= 쿼리를 읽지만 어떤 화면도 보내지 않는다.
+#      · /api/consultants/recommend 는 intake_data['projectType'] 을 읽지만
+#        공개 설문(index.html)이 프로젝트 유형을 묻지 않아 항상 빈 문자열이다.
+#    (admin.html 의 projectTypes 사용은 컨설턴트가 등록한 값을 '표시'하는 것이지
+#     매칭 입력이 아니다.)
+#
+#    죽은 '예산 15pt' 와 다른 점이 둘 있어서 같은 처방을 쓰지 않았다:
+#      1) 예산은 기본 100점 **안에** 있던 가중치라, 빼면 실질 만점이 85점이 되는
+#         구멍이 생겨 반드시 재분배해야 했다. 이 5점은 100점 **밖의 보너스**라
+#         구멍이 생기지 않는다. 오히려 기본 가중치에 5점을 얹으면 합이 105가 되어
+#         test_weights_sum_to_max_base_score 항등식이 깨진다.
+#      2) 예산은 존재하지 않는 컬럼(fee_range)을 보는 되살릴 수 없는 코드였다.
+#         이쪽은 컨설턴트 등록 폼이 project_types 를 이미 수집하고 채점 로직도
+#         정상이라, 설문에 질문 하나만 추가하면 그대로 살아난다.
+#    그래서 지우지 않고 남겨 둔다. 지금 상태의 점수 영향은 정확히 0 이다.
+#
+#    TODO(제품 결정 필요): 이 5점을 실제로 쓰려면 공개 설문(index.html)에
+#      '신규 인증 / 전환 / 갱신' 질문을 추가하고 direct_match() 의 criteria 에
+#      project_type 을 실어야 한다. UI 변경이라 별도 범위로 둔다.
+BONUS_PROJECT_TYPE = 5    # 신규/전환 등 프로젝트 유형 경험 일치 (위 주석 참조)
 
 # 긴급 요청에 '검증된 저평점' 컨설턴트를 올리지 않기 위한 페널티
 PENALTY_URGENT_LOW_RATING = 5
@@ -305,10 +360,7 @@ class MatchingService:
             match_details = []
 
             # ── 1. ISO 자격 (WEIGHT_ISO) ───────────────────────────────
-            try:
-                c_iso_raw = json.loads(c.iso_experience) if c.iso_experience else {}
-            except (json.JSONDecodeError, TypeError):
-                c_iso_raw = {}
+            c_iso_raw = _load_json(c.iso_experience, {})
 
             # 저장된 표기가 무엇이든 정규형으로 접어서 비교한다(위 _normalize_iso 주석).
             c_iso = {_normalize_iso(key): key for key in c_iso_raw}
@@ -320,7 +372,7 @@ class MatchingService:
                 if matched_iso:
                     # 화면에는 컨설턴트가 실제로 등록한 원래 표기를 보여준다
                     # (정규화는 비교용이지 표시용이 아니다).
-                    labels = [c_iso[code] for code in matched_iso]
+                    labels = [_display_iso_label(c_iso[code]) for code in matched_iso]
                     match_details.append(f"{', '.join(labels)} 경험")
 
             # ── 2. 지역 (WEIGHT_REGION) ────────────────────────────────
@@ -337,10 +389,7 @@ class MatchingService:
                     match_details.append("전국 활동 가능")
 
             # ── 3. 산업 경험 (WEIGHT_INDUSTRY) ─────────────────────────
-            try:
-                c_industries = json.loads(c.industry_experience) if c.industry_experience else []
-            except (json.JSONDecodeError, TypeError):
-                c_industries = []
+            c_industries = _load_json(c.industry_experience, [])
 
             if self._industry_match(c_industries, target_industry):
                 score += WEIGHT_INDUSTRY
@@ -363,10 +412,7 @@ class MatchingService:
                 score += BONUS_VERIFIED
 
             # ── 보너스: 프로젝트 유형 ──────────────────────────────────
-            try:
-                c_projects = json.loads(c.project_types) if c.project_types else []
-            except (json.JSONDecodeError, TypeError):
-                c_projects = []
+            c_projects = _load_json(c.project_types, [])
 
             if target_project and target_project in c_projects:
                 score += BONUS_PROJECT_TYPE
@@ -431,6 +477,21 @@ class MatchingService:
             'profileImageUrl': c.profile_image_url,
             'bio':             c.bio,
             'companyName':     c.company_name,
+            # ── 매칭 결과 화면이 직접 읽는 필드 ──────────────────────────
+            # 이 다섯 개가 빠져 있으면 화면이 '조용히' 잘못 동작한다:
+            #   · script.js 의 ISO/지역 필터는 c.isoExperience / c.regions 가
+            #     없으면 모든 후보를 탈락시켜, 필터를 걸기만 하면 결과가 항상
+            #     0명이 됐다 (BUG-E2E-003).
+            #   · 전문성 태그(심사원 자격·산업 전문)는 c.roles /
+            #     c.industryExperience 를 읽으므로 통째로 사라졌다 (BUG-E2E-002).
+            # 키 이름과 형태는 consultant_public_dict() / GET /api/consultants/<id>
+            # 와 일치시킨다 — isoExperience 는 객체(Object.keys 로 순회),
+            # 나머지는 리스트, regions 는 콤마로 이어 붙인 문자열이다.
+            'isoExperience':      _load_json(c.iso_experience, {}),
+            'industryExperience': _load_json(c.industry_experience, []),
+            'projectTypes':       _load_json(c.project_types, []),
+            'roles':              _load_json(c.roles, []),
+            'regions':            c.regions or '',
         }
 
     def _industry_match(self, consultant_industries, target):

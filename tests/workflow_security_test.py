@@ -1003,6 +1003,72 @@ class TestWorkflowSecurity(unittest.TestCase):
         # 숫자로 파싱해 버리면 프론트의 escapeHtml() 이 문자열이 아닌 값을 받는다
         self.assertEqual(body['recentProjects'], ['2024'])
 
+    # ------------------------------------------------------------------
+    # OBS-E2E-005: 경력 표기 언어가 가입 경로에 따라 갈리면 안 된다
+    # ------------------------------------------------------------------
+    def test_experience_label_is_korean_on_every_creation_path(self):
+        """회원가입('0년')과 등록 폼이 같은 언어로 경력을 저장해야 한다.
+
+        한쪽이 '10 years' 라 한국어 UI 목록에 '경력 0년' 과 '경력 10 years' 가
+        나란히 섞여 보였다.
+        """
+        signup = self.client.post('/api/auth/signup', json={
+            'email': 'exp-label-signup@example.com',
+            'password': 'Str0ngPassw0rd!',
+            'name': 'Exp Signup',
+            'role': 'consultant',
+        })
+        self.assertEqual(signup.status_code, 201)
+        via_signup = Consultant.query.join(User, Consultant.user_id == User.id).filter(
+            User.email == 'exp-label-signup@example.com').first()
+
+        user = self._new_consultant_user('exp-label-register@example.com')
+        resp = self.client.post(
+            '/api/consultants/register',
+            json=self._reg_payload('exp-label-register@example.com', experience=12),
+            headers=auth_headers(user))
+        self.assertEqual(resp.status_code, 201)
+        via_register = Consultant.query.filter_by(user_id=user.id).first()
+
+        self.assertEqual(via_register.experience, '12년')
+        self.assertTrue(via_signup.experience.endswith('년'))
+        self.assertNotIn('years', via_register.experience)
+        # script.js 는 parseInt() 로 숫자를 뽑는다 — 표기를 바꿔도 깨지면 안 된다
+        self.assertEqual(int(via_register.experience.rstrip('년')), 12)
+
+    # ------------------------------------------------------------------
+    # to_dict() 에 자격·프로젝트 이력이 실려야 한다 (본인 대시보드)
+    # ------------------------------------------------------------------
+    def test_profile_endpoint_returns_certifications_and_projects(self):
+        """컨설턴트 본인 대시보드가 읽는 필드가 to_dict() 에 있어야 한다.
+
+        dashboard.html 은 GET /api/consultants/<id>/profile (= to_dict()) 에서
+        detailedCertifications / recentProjects 를 읽는데 두 필드가 아예 없어,
+        데이터가 있어도 항상 '등록된 정보가 없습니다' 로 보였다.
+        """
+        email = 'profile-fields@example.com'
+        user = self._new_consultant_user(email)
+        certs = '• ISO 9001 선임심사원 (KAR-12345)\n• 품질관리기술사'
+        projects = '• 현대자동차 ISO 9001 (2023)\n• LG화학 ISO 45001 (2024)'
+        resp = self.client.post(
+            '/api/consultants/register',
+            json=self._reg_payload(email, detailed_certifications=certs,
+                                   recent_projects=projects),
+            headers=auth_headers(user))
+        self.assertEqual(resp.status_code, 201)
+
+        consultant = Consultant.query.filter_by(user_id=user.id).first()
+        body = self.client.get(f'/api/consultants/{consultant.id}/profile',
+                               headers=auth_headers(user)).get_json()
+
+        self.assertEqual(body['detailedCertifications'],
+                         ['• ISO 9001 선임심사원 (KAR-12345)', '• 품질관리기술사'])
+        self.assertEqual(body['recentProjects'],
+                         ['• 현대자동차 ISO 9001 (2023)', '• LG화학 ISO 45001 (2024)'])
+        # dashboard.html 은 .length 와 .join('\n') 을 쓰므로 리스트여야 한다
+        self.assertIsInstance(body['detailedCertifications'], list)
+        self.assertIsInstance(body['recentProjects'], list)
+
     def test_consultant_invite_lifecycle(self):
         """초대 링크: 관리자만 발급 / 공개 검증 / 1회용 소비 / 재사용 차단."""
         # 관리자 아닌 사용자는 발급 불가
@@ -2627,12 +2693,35 @@ class TestWorkflowSecurity(unittest.TestCase):
         """어떤 경로도 rating 을 5.0 으로 직접 박아 두면 안 된다.
 
         경로가 하나 더 늘어날 때 5.0 이 다시 새어 들어오는 것을 막는다.
+
+        기대 개수가 3 → 2 로 줄어든 이유: register_consultant() 안에 있던
+        '도달 불가능한' 중복 등록 블록(위 return 이 항상 먼저 실행되어 한 번도
+        실행된 적이 없다)을 삭제했다. 그 블록은 껍데기 프로필을 구분하지 못하는
+        옛 로직이라, 누가 위 return 을 지우면 BUG-E2E-001 이 그대로 되살아나는
+        함정이었다. 남은 두 곳은 signup() 과 register_consultant_validated() 다.
         """
         index_path = os.path.join(os.path.dirname(__file__), '..', 'api', 'index.py')
         with open(index_path, encoding='utf-8') as fh:
             source = fh.read()
         self.assertNotIn('rating=5.0', source)
-        self.assertEqual(source.count('rating=NEW_CONSULTANT_RATING'), 3)
+        self.assertEqual(source.count('rating=NEW_CONSULTANT_RATING'), 2)
+
+    def test_register_endpoint_has_no_unreachable_duplicate_logic(self):
+        """/api/consultants/register 는 검증 함수에 위임만 해야 한다.
+
+        예전에는 위임 return 아래에 옛 등록 로직이 통째로 남아 있었다. 실행되지
+        않으니 테스트도 리뷰도 걸러내지 못하는데, 읽는 사람에게는 '이게 진짜
+        등록 로직' 으로 보여 BUG-E2E-001 을 추적할 때 실제로 혼선을 일으켰다.
+        """
+        index_path = os.path.join(os.path.dirname(__file__), '..', 'api', 'index.py')
+        with open(index_path, encoding='utf-8') as fh:
+            source = fh.read()
+        start = source.index('def register_consultant():')
+        body = source[start:source.index('\n@app.route', start)]
+        self.assertIn('return register_consultant_validated()', body)
+        # 위임 이후에 또 Consultant 를 만들거나 중복 체크를 하면 안 된다
+        self.assertNotIn('Consultant(', body)
+        self.assertNotIn('이미 컨설턴트 프로필이 존재합니다', body)
 
     # ------------------------------------------------------------------
     # L0-d: 퍼널 계측 (파생 집계 — 새 테이블 없음)

@@ -8,6 +8,50 @@ def utc_now():
     """Timezone-aware UTC now (BUG-003 Fix)"""
     return datetime.now(timezone.utc)
 
+
+def parse_text_or_json_list(raw):
+    """평문 텍스트 또는 JSON 문자열을 프론트가 기대하는 '리스트'로 변환한다.
+
+    detailed_certifications / recent_projects 에는 두 형식이 실제로 공존한다:
+    * 등록 폼(consultant_register.html)은 여러 줄 <textarea> 를 평문 그대로 보내고,
+      저장 로직도 평문 그대로 넣는다 — 실사용 데이터는 거의 전부 이쪽이다.
+    * API 로 리스트/딕셔너리를 보내면 register_consultant_validated() 가
+      json.dumps 해서 JSON 문자열로 넣는다.
+
+    예전에는 읽는 쪽에서 무조건 json.loads 를 걸어, 평문으로 저장된
+    (= 등록 폼으로 정상 등록한) 전문가의 프로필 상세가 항상 500 이었다
+    (BUG-E2E-007, JSONDecodeError). 참고로 /api/admin/seed 는 이 두 필드를
+    아예 채우지 않아 시드 데이터에서는 재현되지 않았다.
+
+    소비자(consultant_profile.html, dashboard.html)는 배열을 기대하므로 항상
+    리스트를 돌려준다. 평문은 줄 단위로 쪼갠다 — 등록 폼 placeholder 가 한 줄에
+    한 항목을 적도록 안내하고, 화면도 항목별로 렌더링하기 때문이다.
+
+    index.py 가 아니라 여기 있는 이유: Consultant.to_dict() 와
+    get_consultant_detail() 이 같은 규칙을 써야 하는데, models 는 index 를
+    임포트할 수 없다(반대 방향 의존). 정의를 한 곳에 두려면 models 쪽이어야 한다.
+    """
+    if not raw:
+        return []
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, dict):
+        return [raw]
+
+    try:
+        value = json.loads(raw)
+    except (ValueError, TypeError):
+        value = None
+
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict):
+        return [value]
+
+    # JSON 이 아니거나 스칼라(숫자·true·"문자열")면 평문으로 취급한다.
+    # 스칼라를 파싱값으로 쓰면 '10' 같은 평문 한 줄이 숫자 10 이 되어버린다.
+    return [line.strip() for line in str(raw).splitlines() if line.strip()]
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
@@ -133,6 +177,12 @@ class Consultant(db.Model):
             'projectTypes': json.loads(self.project_types) if self.project_types else [],
             'orgSizeExperience': json.loads(self.org_size_experience) if self.org_size_experience else [],
             'roles': json.loads(self.roles) if self.roles else [],
+            # 자격·프로젝트 이력 (평문/JSON 혼재 — parse_text_or_json_list 참조).
+            # 이 두 필드가 to_dict() 에 없어서, 컨설턴트 본인 대시보드
+            # (dashboard.html 이 GET /api/consultants/<id>/profile 로 읽는다)가
+            # 데이터가 있어도 항상 '등록된 정보가 없습니다' 를 보여줬다.
+            'detailedCertifications': parse_text_or_json_list(self.detailed_certifications),
+            'recentProjects': parse_text_or_json_list(self.recent_projects),
             # Profile fields
             'profileImageUrl': self.profile_image_url,
             'bio': self.bio,
