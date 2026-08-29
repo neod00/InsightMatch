@@ -767,6 +767,153 @@ class TestWorkflowSecurity(unittest.TestCase):
         created = Consultant.query.filter_by(user_id=user.id).first()
         self.assertEqual(created.business_type, 'individual')
 
+    # ------------------------------------------------------------------
+    # BUG-E2E-001: 회원가입 껍데기 프로필이 정식 등록을 막으면 안 된다
+    # ------------------------------------------------------------------
+    def test_signup_placeholder_does_not_block_profile_registration(self):
+        """가입 → 로그인 → 프로필 등록이 끝까지 통과해야 한다.
+
+        signup(role='consultant') 이 만들어 두는 껍데기 Consultant 행
+        (specialty='General', match_reason='New Joiner') 을 중복 등록으로
+        오인해, 정상 가입한 컨설턴트가 정식 프로필을 단 한 번도 등록할 수
+        없었다(항상 409). 컨설턴트 온보딩 퍼널 전체가 막혔던 버그다.
+        """
+        email = 'onboarding-funnel@example.com'
+        signup = self.client.post('/api/auth/signup', json={
+            'email': email,
+            'password': 'Str0ngPassw0rd!',
+            'name': 'Funnel Consultant',
+            'role': 'consultant',
+        })
+        self.assertEqual(signup.status_code, 201)
+
+        # 가입 직후에는 껍데기 행만 있다 (ISO·지역·이력 전부 비어 있음)
+        user = User.query.filter_by(email=email).first()
+        placeholder = Consultant.query.filter_by(user_id=user.id).first()
+        self.assertIsNotNone(placeholder)
+        self.assertEqual(placeholder.match_reason, 'New Joiner')
+        self.assertFalse(placeholder.iso_experience)
+        placeholder_id = placeholder.id
+
+        login = self.client.post('/api/auth/login', json={
+            'email': email,
+            'password': 'Str0ngPassw0rd!',
+        })
+        self.assertEqual(login.status_code, 200)
+        token = login.get_json()['token']
+
+        registered = self.client.post(
+            '/api/consultants/register',
+            json=self._reg_payload(email),
+            headers={'Authorization': f'Bearer {token}'},
+        )
+        self.assertEqual(registered.status_code, 201, registered.get_json())
+
+        # 껍데기가 새 행으로 늘어나지 않고, 제출값으로 채워져야 한다.
+        # (user_id 당 Consultant 가 둘이면 프로젝트 목록·탈퇴 처리가 어느 쪽을
+        #  집을지 알 수 없어진다)
+        rows = Consultant.query.filter_by(user_id=user.id).all()
+        self.assertEqual(len(rows), 1)
+        profile = rows[0]
+        self.assertEqual(profile.id, placeholder_id)
+        self.assertEqual(registered.get_json()['consultant_id'], placeholder_id)
+        self.assertEqual(json.loads(profile.iso_experience), {'9001': True})
+        self.assertEqual(json.loads(profile.industry_experience), ['Manufacturing'])
+        self.assertEqual(profile.regions, 'Seoul')
+        self.assertTrue(profile.recent_projects)
+        self.assertNotEqual(profile.specialty, 'General')
+        self.assertNotEqual(profile.match_reason, 'New Joiner')
+        # 심사 대기 상태로 들어가고 정산 정보·계약 동의가 저장된다
+        self.assertEqual(profile.status, 'pending')
+        self.assertFalse(profile.verified)
+        self.assertIsNotNone(profile.partner_agreed_at)
+        self.assertEqual(profile.bank_name, '신한은행')
+
+    def test_completed_profile_still_rejects_duplicate_registration(self):
+        """이미 제출을 마친 프로필이 있으면 재등록은 여전히 409 여야 한다.
+
+        껍데기 판별이 느슨해져 완성된 프로필까지 덮어쓰면, 심사를 통과한
+        내용이 조용히 교체될 수 있다.
+        """
+        user = self._new_consultant_user('dup-register@example.com')
+
+        first = self.client.post(
+            '/api/consultants/register',
+            json=self._reg_payload('dup-register@example.com'),
+            headers=auth_headers(user))
+        self.assertEqual(first.status_code, 201)
+
+        second = self.client.post(
+            '/api/consultants/register',
+            json=self._reg_payload('dup-register@example.com', regions='Busan'),
+            headers=auth_headers(user))
+        self.assertEqual(second.status_code, 409)
+        self.assertEqual(
+            second.get_json()['message'], 'Consultant profile already exists.')
+
+        # 기존 내용이 덮어써지지 않았는지 확인
+        self.assertEqual(Consultant.query.filter_by(user_id=user.id).count(), 1)
+        self.assertEqual(
+            Consultant.query.filter_by(user_id=user.id).first().regions, 'Seoul')
+
+    # ------------------------------------------------------------------
+    # 로그인 응답의 has_consultant_profile (등록 페이지 리다이렉트 분기)
+    # ------------------------------------------------------------------
+    def _signup_and_login(self, email, role='consultant', **extra):
+        password = 'Str0ngPassw0rd!'
+        body = {'email': email, 'password': password, 'name': 'Redirect Test', 'role': role}
+        body.update(extra)
+        signup = self.client.post('/api/auth/signup', json=body)
+        self.assertEqual(signup.status_code, 201, signup.get_json())
+        login = self.client.post('/api/auth/login',
+                                 json={'email': email, 'password': password})
+        self.assertEqual(login.status_code, 200, login.get_json())
+        return login.get_json()
+
+    def test_login_reports_no_consultant_profile_before_registration(self):
+        """프로필 미제출(회원가입 껍데기) 상태면 has_consultant_profile 은 false.
+
+        login.html 은 이 값이 거짓일 때만 등록 페이지로 보낸다.
+        """
+        body = self._signup_and_login('needs-profile@example.com')
+        self.assertEqual(body['user']['role'], 'consultant')
+        self.assertIs(body['user']['has_consultant_profile'], False)
+
+    def test_login_reports_consultant_profile_once_submitted_even_if_unapproved(self):
+        """제출을 마쳤으면 승인 전(status='pending')이라도 true 여야 한다.
+
+        이 필드가 응답에서 빠져 있어 프론트에서 undefined 가 되는 바람에,
+        프로필을 이미 등록한 컨설턴트도 로그인할 때마다 등록 페이지로 튕기고
+        거기서 (정상 동작인) 409 를 만나 막다른 길에 갇혔다.
+        """
+        email = 'has-profile@example.com'
+        password = 'Str0ngPassw0rd!'
+        self._signup_and_login(email)
+
+        user = User.query.filter_by(email=email).first()
+        registered = self.client.post(
+            '/api/consultants/register',
+            json=self._reg_payload(email),
+            headers=auth_headers(user))
+        self.assertEqual(registered.status_code, 201, registered.get_json())
+
+        # 아직 관리자 승인 전이다
+        profile = Consultant.query.filter_by(user_id=user.id).first()
+        self.assertEqual(profile.status, 'pending')
+        self.assertFalse(profile.verified)
+
+        login = self.client.post('/api/auth/login',
+                                 json={'email': email, 'password': password})
+        self.assertEqual(login.status_code, 200)
+        self.assertIs(login.get_json()['user']['has_consultant_profile'], True)
+
+    def test_login_always_includes_has_consultant_profile_for_non_consultants(self):
+        """컨설턴트가 아닌 계정도 이 필드를 false 로 받아야 한다(undefined 금지)."""
+        body = self._signup_and_login(
+            'company-flag@example.com', role='company', company_name='Flag Co')
+        self.assertIn('has_consultant_profile', body['user'])
+        self.assertIs(body['user']['has_consultant_profile'], False)
+
     def test_consultant_invite_lifecycle(self):
         """초대 링크: 관리자만 발급 / 공개 검증 / 1회용 소비 / 재사용 차단."""
         # 관리자 아닌 사용자는 발급 불가

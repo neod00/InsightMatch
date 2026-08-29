@@ -1107,13 +1107,35 @@ def validate_settlement_fields(data):
     return values, None
 
 
+def is_placeholder_consultant_profile(consultant):
+    """회원가입이 미리 만들어 둔 '빈 껍데기' 프로필인지 판별한다.
+
+    POST /api/auth/signup 은 role='consultant' 이면 Consultant 행을 즉시 만든다
+    (specialty='General', match_reason='New Joiner'). 이 행은 "아직 아무것도
+    제출하지 않은 상태"를 뜻하므로 중복 등록이 아니다. 이 둘을 구분하지 못해
+    정식 프로필 등록이 항상 409 로 막혀 있었다(BUG-E2E-001).
+
+    실제 제출은 iso_experience / regions / recent_projects 를 반드시 채운다
+    (아래 필수값 검증 참조). 따라서 셋 다 비어 있으면 제출 전 껍데기로 본다.
+    """
+    def _blank(value):
+        text = (value or '').strip()
+        return text in ('', '{}', '[]', 'null')
+
+    return (
+        _blank(consultant.iso_experience)
+        and _blank(consultant.regions)
+        and _blank(consultant.recent_projects)
+    )
+
+
 def register_consultant_validated():
     if g.current_user.role != 'consultant':
         return jsonify({'message': 'Only consultant accounts can register a consultant profile.'}), 403
 
     user_id = g.current_user.id
     existing = Consultant.query.filter_by(user_id=user_id).first()
-    if existing:
+    if existing and not is_placeholder_consultant_profile(existing):
         return jsonify({'message': 'Consultant profile already exists.', 'consultant_id': existing.id}), 409
 
     data = request.json or {}
@@ -1196,8 +1218,7 @@ def register_consultant_validated():
         if not usable:
             return jsonify({'message': reason}), 400
 
-    new_consultant = Consultant(
-        user_id=user_id,
+    profile_values = dict(
         name=name,
         avatar=((data.get('avatar') or name[0]) if name else 'N')[:10],
         specialty=specialty,
@@ -1231,7 +1252,20 @@ def register_consultant_validated():
         partner_agreed_at=datetime.datetime.now(datetime.timezone.utc),
         partner_agreement_version=PARTNER_AGREEMENT_VERSION,
     )
-    db.session.add(new_consultant)
+
+    if existing is not None:
+        # 회원가입이 만들어 둔 껍데기 행을 실제 제출값으로 채운다.
+        # 새 행을 추가하면 user_id 하나에 Consultant 가 둘이 되어
+        # Consultant.query.filter_by(user_id=...).first() 가 어느 쪽을 집을지
+        # 알 수 없게 된다(프로젝트 목록·탈퇴 처리가 전부 이 조회에 의존).
+        # 껍데기가 실수로 승인된 상태였더라도 verified/status 를 함께 덮어써
+        # 실제 제출 내용은 반드시 다시 심사를 거치게 한다.
+        new_consultant = existing
+        for field, value in profile_values.items():
+            setattr(new_consultant, field, value)
+    else:
+        new_consultant = Consultant(user_id=user_id, **profile_values)
+        db.session.add(new_consultant)
 
     # 초대 링크 소비 (1회용)
     if invite:
@@ -1390,7 +1424,21 @@ def login():
     
     # Company 정보 조회
     company = Company.query.filter_by(user_id=user.id).first()
-    
+
+    # 컨설턴트 프로필 '제출' 완료 여부.
+    # login.html 은 이 값이 거짓이면 consultant_register.html 로 보낸다.
+    # 지금까지 이 필드를 응답에 아예 넣지 않아 프론트에서 항상 undefined 였고,
+    # 그 결과 프로필을 이미 제출한 컨설턴트도 로그인할 때마다 등록 페이지로
+    # 튕겨나갔다. 기준은 '승인 완료'가 아니라 '제출 완료'다 — 심사 대기 중이라고
+    # 다시 등록시키면 등록 API 가 (정상적으로) 409 를 돌려줘 막다른 길이 된다.
+    # 회원가입이 만들어 둔 껍데기 행은 아직 제출 전이므로 False 로 본다.
+    has_consultant_profile = False
+    if user.role == 'consultant':
+        profile = Consultant.query.filter_by(user_id=user.id).first()
+        has_consultant_profile = (
+            profile is not None and not is_placeholder_consultant_profile(profile)
+        )
+
     return jsonify({
         'token': token,
         'user': {
@@ -1400,7 +1448,9 @@ def login():
             'role': user.role,
             'company_name': user.company_name or '',
             'industry': company.industry if company else '',
-            'employees': company.employees if company else ''
+            'employees': company.employees if company else '',
+            # 컨설턴트가 아니면 항상 False (undefined 로 새어나가지 않게 한다)
+            'has_consultant_profile': has_consultant_profile,
         }
     })
 
@@ -2293,6 +2343,13 @@ def get_consultants():
 def register_consultant():
     try:
         return register_consultant_validated()
+
+        # ⚠️ 아래는 전부 도달 불가능한 죽은 코드다(위 return 이 항상 먼저 실행됨).
+        #    실제 등록 로직은 register_consultant_validated() 하나뿐이다.
+        #    여기 남아 있는 중복 체크는 껍데기 프로필을 구분하지 못하는 옛 버전이므로
+        #    이 return 을 지워 되살리면 BUG-E2E-001(가입한 컨설턴트가 영구히 409)이
+        #    그대로 재발한다. 살리지 말고 통째로 지울 것.
+
         # JWT 토큰에서 user_id 추출
         user_id = None
         auth_header = request.headers.get('Authorization', '')
