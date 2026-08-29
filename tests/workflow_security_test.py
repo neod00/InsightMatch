@@ -914,6 +914,95 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertIn('has_consultant_profile', body['user'])
         self.assertIs(body['user']['has_consultant_profile'], False)
 
+    # ------------------------------------------------------------------
+    # BUG-E2E-007: 프로필 상세가 평문 저장 필드에 json.loads 를 걸어 500
+    # ------------------------------------------------------------------
+    def _approve(self, consultant):
+        """관리자 승인 (상세 조회는 verified 인 전문가에게만 열린다)."""
+        consultant.verified = True
+        consultant.status = 'verified'
+        db.session.commit()
+
+    def test_consultant_detail_survives_plaintext_profile_fields(self):
+        """등록 폼과 같은 '평문 여러 줄'로 등록해도 상세 조회가 200 이어야 한다.
+
+        consultant_register.html 은 detailed_certifications / recent_projects 를
+        <textarea> 평문으로 보내고 저장 로직도 평문 그대로 넣는다. 그런데 읽는
+        쪽이 무조건 json.loads 를 걸어, 정상 등록한 전문가의 프로필 상세가
+        사실상 항상 500(JSONDecodeError) 이었다.
+        """
+        email = 'plaintext-profile@example.com'
+        user = self._new_consultant_user(email)
+        certs = '• ISO 9001 선임심사원 (KAR-12345) - 10년\n• 품질관리기술사 제123호'
+        projects = '• 현대자동차 ISO 9001 통합 인증 (2023)\n• LG화학 ISO 45001 구축 (2024)'
+        resp = self.client.post(
+            '/api/consultants/register',
+            json=self._reg_payload(email,
+                                   detailed_certifications=certs,
+                                   recent_projects=projects),
+            headers=auth_headers(user))
+        self.assertEqual(resp.status_code, 201, resp.get_json())
+
+        consultant = Consultant.query.filter_by(user_id=user.id).first()
+        # 평문 그대로 저장됐는지 (= 이 테스트가 실제 폼 경로를 재현하는지) 확인
+        self.assertEqual(consultant.recent_projects, projects)
+        self._approve(consultant)
+
+        detail = self.client.get(f'/api/consultants/{consultant.id}')
+        self.assertEqual(detail.status_code, 200, detail.get_json())
+        body = detail.get_json()
+        # 프론트(consultant_profile.html)는 .map() 을 돌리므로 배열이어야 한다
+        self.assertEqual(body['detailedCertifications'],
+                         ['• ISO 9001 선임심사원 (KAR-12345) - 10년', '• 품질관리기술사 제123호'])
+        self.assertEqual(body['recentProjects'],
+                         ['• 현대자동차 ISO 9001 통합 인증 (2023)', '• LG화학 ISO 45001 구축 (2024)'])
+
+    def test_consultant_detail_still_reads_json_style_profile_fields(self):
+        """JSON(리스트)으로 저장된 값도 그대로 리스트로 나와야 한다.
+
+        API 로 리스트를 보내면 등록 로직이 json.dumps 해서 넣으므로 두 형식이
+        공존한다. 평문을 살리려다 JSON 쪽을 깨뜨리면 안 된다.
+        """
+        email = 'jsonstyle-profile@example.com'
+        user = self._new_consultant_user(email)
+        resp = self.client.post(
+            '/api/consultants/register',
+            json=self._reg_payload(email,
+                                   detailed_certifications=['ISO 9001 Lead Auditor',
+                                                            'ISO 14001 Auditor']),
+            headers=auth_headers(user))
+        self.assertEqual(resp.status_code, 201, resp.get_json())
+
+        consultant = Consultant.query.filter_by(user_id=user.id).first()
+        self.assertEqual(json.loads(consultant.detailed_certifications),
+                         ['ISO 9001 Lead Auditor', 'ISO 14001 Auditor'])
+        self._approve(consultant)
+
+        detail = self.client.get(f'/api/consultants/{consultant.id}')
+        self.assertEqual(detail.status_code, 200, detail.get_json())
+        self.assertEqual(detail.get_json()['detailedCertifications'],
+                         ['ISO 9001 Lead Auditor', 'ISO 14001 Auditor'])
+
+    def test_consultant_detail_handles_empty_and_scalar_profile_fields(self):
+        """빈 값은 [] 로, 숫자처럼 보이는 평문 한 줄은 문자열 그대로 유지한다."""
+        email = 'edge-profile@example.com'
+        user = self._new_consultant_user(email)
+        resp = self.client.post(
+            '/api/consultants/register',
+            json=self._reg_payload(email,
+                                   detailed_certifications='',
+                                   recent_projects='2024'),
+            headers=auth_headers(user))
+        self.assertEqual(resp.status_code, 201, resp.get_json())
+
+        consultant = Consultant.query.filter_by(user_id=user.id).first()
+        self._approve(consultant)
+
+        body = self.client.get(f'/api/consultants/{consultant.id}').get_json()
+        self.assertEqual(body['detailedCertifications'], [])
+        # 숫자로 파싱해 버리면 프론트의 escapeHtml() 이 문자열이 아닌 값을 받는다
+        self.assertEqual(body['recentProjects'], ['2024'])
+
     def test_consultant_invite_lifecycle(self):
         """초대 링크: 관리자만 발급 / 공개 검증 / 1회용 소비 / 재사용 차단."""
         # 관리자 아닌 사용자는 발급 불가
