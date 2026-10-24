@@ -1,0 +1,4898 @@
+<!DOCTYPE html>
+<!--
+  프리뷰 시안 — 운영 반영 전, 수치·인물은 예시
+  InsightMatch · Forest Signal (A안)
+  - 출발점: mockups/forest-teal/index.html (토큰·컴포넌트·카피 재사용)
+  - 히어로: 미니 진단 입력 폼 + 매칭 결과 카드 목업(예시 화면, 가명·가상 점수)
+  - 단일 자기완결 파일: CSS/JS 인라인, 외부 리소스는 Pretendard(jsDelivr)·Google Fonts만 사용
+  - 대비 규칙: #00A889(signal)는 면·아이콘·버튼 배경 전용, 밝은 배경 위 텍스트는 #007A68
+-->
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>InsightMatch · Forest Signal 프리뷰</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" />
+  <!-- JS가 있을 때만 모션 대기 상태(숨김·미점등)를 적용한다. JS가 없으면 모든 콘텐츠가 최종 상태로 보인다. -->
+  <script>document.documentElement.classList.add('js');</script>
+  <style>
+    /* =========================================================
+       1. TOKENS — Forest Signal
+       ========================================================= */
+    :root {
+      color-scheme: light;
+
+      /* raw palette */
+      --paper: #f3f0e9;
+      --paper-soft: #faf7f0;
+      --paper-dim: #eae5da;
+      --ink: #102421;
+      --ink-2: #183a34;
+      --ink-3: #36524b;
+      --signal-raw: #00a889;
+      --signal-dark: #007a68;
+      --signal-on-dark: #78e6d2;
+
+      /* semantic (light) */
+      --bg: var(--paper);
+      --surface: var(--paper-soft);
+      --surface-2: var(--paper-dim);
+      --text: var(--ink);
+      --text-2: var(--ink-2);
+      --text-3: var(--ink-3);
+      --muted: #55655e;                  /* 5.3:1 on paper (forest-teal #65756e는 4.3:1로 미달) */
+      --border: var(--ink);
+      --line: #c9d3cb;
+      --signal: var(--signal-raw);       /* 면·아이콘·버튼 배경 전용 */
+      --accent-text: var(--signal-dark); /* 밝은 배경 위 강조 텍스트 (4.6:1) */
+      --signal-soft: #e3f6f1;
+      --on-signal: var(--ink);           /* signal 면 위 텍스트 (5.4:1) */
+      --inverse: var(--ink);
+      --on-inverse: var(--paper);
+      --band-bg: var(--ink);
+      --band-text: var(--paper);
+      --band-muted: rgba(243, 240, 233, 0.76);
+      --band-line: rgba(243, 240, 233, 0.22);
+      --band-accent: var(--signal-on-dark);
+      --shadow-c: var(--ink);
+      --focus: var(--signal-dark);
+      --header-bg: rgba(243, 240, 233, 0.92);
+
+      --max: 1200px;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+      /* 한글은 고정폭 대체 글꼴 대신 Pretendard로 (라틴 글리프는 IBM Plex Mono 그대로) */
+      --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, "Pretendard Variable", Pretendard, ui-monospace, monospace;
+      --font-num: "Space Grotesk", var(--font-sans);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --bg: #0d1e1b;
+        --surface: #142b27;
+        --surface-2: #1b3631;
+        --text: #f3f0e9;
+        --text-2: #dde5df;
+        --text-3: #b8c6bf;
+        --muted: #9fb1a9;
+        --border: #6f8b83;
+        --line: #2d4b44;
+        --signal: #78e6d2;
+        --accent-text: #78e6d2;
+        --signal-soft: #173d36;
+        --on-signal: #102421;
+        --inverse: #f3f0e9;
+        --on-inverse: #102421;
+        --band-bg: #07120f;
+        --band-text: #f3f0e9;
+        --band-muted: rgba(243, 240, 233, 0.76);
+        --band-line: rgba(243, 240, 233, 0.18);
+        --band-accent: #78e6d2;
+        --shadow-c: #000000;
+        --focus: #78e6d2;
+        --header-bg: rgba(13, 30, 27, 0.92);
+      }
+    }
+
+    /* =========================================================
+       2. BASE
+       ========================================================= */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        linear-gradient(90deg, color-mix(in srgb, var(--text) 3.5%, transparent) 1px, transparent 1px) 0 0 / 44px 44px,
+        linear-gradient(0deg, color-mix(in srgb, var(--text) 3%, transparent) 1px, transparent 1px) 0 0 / 44px 44px,
+        var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 16px;
+      line-height: 1.6;
+      word-break: keep-all;
+      overflow-wrap: break-word;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+      color: inherit;
+    }
+
+    h1,
+    h2,
+    h3 {
+      letter-spacing: -0.01em;
+    }
+
+    :focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 3px;
+    }
+
+    .band {
+      --focus: var(--band-accent);
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .skip-link {
+      position: absolute;
+      left: 16px;
+      top: -60px;
+      z-index: 100;
+      padding: 10px 14px;
+      background: var(--inverse);
+      color: var(--on-inverse);
+      font-weight: 800;
+    }
+
+    .skip-link:focus {
+      top: 12px;
+    }
+
+    .wrap {
+      width: min(var(--max), calc(100% - 48px));
+      margin: 0 auto;
+    }
+
+    .mono {
+      font-family: var(--font-mono);
+    }
+
+    section[id] {
+      scroll-margin-top: 84px;
+    }
+
+    /* =========================================================
+       3. SHARED COMPONENTS
+       ========================================================= */
+    .section {
+      padding: 104px 0;
+      border-top: 1.5px solid var(--line);
+    }
+
+    .section-alt {
+      background: color-mix(in srgb, var(--surface) 82%, transparent);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin: 0;
+      color: var(--text-3);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 18px;
+      height: 7px;
+      background: var(--signal);
+      box-shadow: 4px 4px 0 var(--shadow-c);
+    }
+
+    .band .eyebrow {
+      color: var(--band-muted);
+    }
+
+    .band .eyebrow::before {
+      background: var(--band-accent);
+      box-shadow: 4px 4px 0 color-mix(in srgb, var(--band-text) 70%, transparent);
+    }
+
+    .section-title {
+      margin: 20px 0 0;
+      max-width: 820px;
+      font-size: 44px;
+      line-height: 1.16;
+    }
+
+    .section-lead {
+      max-width: 640px;
+      margin: 18px 0 0;
+      color: var(--text-2);
+      font-size: 18px;
+      line-height: 1.75;
+    }
+
+    .band .section-lead {
+      color: var(--band-muted);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 48px;
+      padding: 14px 22px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-weight: 800;
+      line-height: 1.1;
+      cursor: pointer;
+      transition: transform 180ms var(--ease), background-color 180ms var(--ease), box-shadow 180ms var(--ease);
+    }
+
+    .btn:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 3px 3px 0 var(--shadow-c);
+    }
+
+    .btn:active {
+      transform: translate(0, 0);
+      box-shadow: none;
+    }
+
+    /* signal 면 + ink 텍스트 = 5.4:1 (paper 텍스트는 2.6:1로 미달이라 사용하지 않음) */
+    .btn-primary {
+      border-color: var(--ink);
+      background: var(--signal);
+      color: var(--on-signal);
+    }
+
+    .btn-dark {
+      border-color: var(--inverse);
+      background: var(--inverse);
+      color: var(--on-inverse);
+    }
+
+    .btn-lg {
+      min-height: 56px;
+      padding: 16px 26px;
+      font-size: 17px;
+    }
+
+    .btn-sm {
+      min-height: 40px;
+      padding: 10px 15px;
+      font-size: 14px;
+    }
+
+    .band .btn-primary {
+      box-shadow: 4px 4px 0 color-mix(in srgb, var(--band-text) 80%, transparent);
+    }
+
+    .band .btn-primary:hover {
+      box-shadow: 6px 6px 0 color-mix(in srgb, var(--band-text) 80%, transparent);
+    }
+
+    .text-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text);
+      font-weight: 800;
+      text-decoration: underline;
+      text-decoration-color: var(--signal);
+      text-decoration-thickness: 2px;
+      text-underline-offset: 6px;
+      transition: color 160ms var(--ease);
+    }
+
+    .text-link:hover {
+      color: var(--accent-text);
+    }
+
+    .text-link .arr {
+      display: inline-block;
+      transition: transform 160ms var(--ease);
+    }
+
+    .text-link:hover .arr {
+      transform: translateX(3px);
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      padding: 5px 8px;
+      color: var(--text-3);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    .tag-accent {
+      border-color: color-mix(in srgb, var(--accent-text) 45%, transparent);
+      background: var(--signal-soft);
+      color: var(--accent-text);
+      font-weight: 700;
+    }
+
+    .avatar {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      flex: none;
+      border: 1.5px solid var(--ink);
+      background: var(--signal);
+      color: var(--on-signal);
+      font-family: var(--font-num);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    /* =========================================================
+       4. HEADER
+       ========================================================= */
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: var(--header-bg);
+      border-bottom: 1.5px solid var(--border);
+      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: center;
+      min-height: 72px;
+      gap: 28px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      flex: none;
+      font-size: 21px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      border: 1.5px solid var(--ink);
+      background: var(--signal);
+      color: var(--on-signal);
+      box-shadow: 3px 3px 0 var(--shadow-c);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .brand-dot {
+      color: var(--accent-text);
+    }
+
+    .band .brand-dot {
+      color: var(--band-accent);
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .nav a {
+      padding: 6px 0;
+      color: var(--text-2);
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+      transition: color 160ms var(--ease);
+    }
+
+    .nav a:hover {
+      color: var(--accent-text);
+    }
+
+    .header-cta {
+      flex: none;
+      white-space: nowrap;
+    }
+
+    /* =========================================================
+       5. HERO — 진단 입력 + 결과 카드
+       ========================================================= */
+    .hero {
+      position: relative;
+      overflow: hidden;
+      overflow: clip; /* 배경 도식이 가로 스크롤을 만들지 않도록 */
+      border-bottom: 1.5px solid var(--border);
+      background: linear-gradient(90deg, transparent 0 56%, color-mix(in srgb, var(--signal) 9%, transparent) 56% 100%);
+    }
+
+    /* 하단 눈금자: 측정 기기 느낌의 1px 틱 (장식) */
+    .hero::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 10px;
+      background:
+        repeating-linear-gradient(90deg, color-mix(in srgb, var(--text) 30%, transparent) 0 1px, transparent 1px 44px) left bottom / 100% 10px no-repeat,
+        repeating-linear-gradient(90deg, color-mix(in srgb, var(--text) 18%, transparent) 0 1px, transparent 1px 11px) left bottom / 100% 5px no-repeat;
+      pointer-events: none;
+    }
+
+    .hero-grid {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 56px;
+      align-items: center;
+      padding: 64px 0 76px;
+    }
+
+    .hero-copy {
+      max-width: 600px;
+    }
+
+    .hero h1 {
+      margin: 22px 0 0;
+      font-size: clamp(34px, 4.4vw, 56px);
+      line-height: 1.14;
+      letter-spacing: -0.02em;
+    }
+
+    /* 텍스트 색은 ink 유지, signal은 형광펜 면으로만 사용 */
+    .hl {
+      background: linear-gradient(transparent 64%, color-mix(in srgb, var(--signal) 55%, transparent) 64% 92%, transparent 92%);
+      padding: 0 0.04em;
+    }
+
+    .hero-sub {
+      max-width: 540px;
+      margin: 18px 0 0;
+      color: var(--text-2);
+      font-size: 18px;
+      line-height: 1.7;
+    }
+
+    .diag-form {
+      display: grid;
+      gap: 20px;
+      margin-top: 30px;
+      padding: 24px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      box-shadow: 6px 6px 0 var(--shadow-c);
+    }
+
+    .field {
+      min-width: 0;
+      margin: 0;
+      padding: 0;
+      border: 0;
+    }
+
+    .field-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 10px;
+      padding: 0;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .field-no {
+      display: inline-grid;
+      width: 20px;
+      height: 20px;
+      place-items: center;
+      background: var(--inverse);
+      color: var(--on-inverse);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .chip-group {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .chip {
+      position: relative;
+      min-width: 0;
+    }
+
+    .chip input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .chip label {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      min-height: 60px;
+      padding: 10px 12px;
+      border: 1.5px solid var(--line);
+      background: var(--bg);
+      color: var(--text-2);
+      cursor: pointer;
+      transition: border-color 160ms var(--ease), background-color 160ms var(--ease), color 160ms var(--ease);
+    }
+
+    .chip label b {
+      font-family: var(--font-num);
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    .chip label small {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .chip label:hover {
+      border-color: var(--border);
+    }
+
+    .chip input:checked + label {
+      border-color: var(--inverse);
+      background: var(--inverse);
+      color: var(--on-inverse);
+      box-shadow: inset 0 -4px 0 var(--signal);
+    }
+
+    .chip input:checked + label small {
+      color: color-mix(in srgb, var(--on-inverse) 78%, transparent);
+    }
+
+    .chip input:focus-visible + label {
+      outline: 3px solid var(--focus);
+      outline-offset: 3px;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .select {
+      position: relative;
+    }
+
+    .select select {
+      width: 100%;
+      min-height: 50px;
+      padding: 12px 42px 12px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    .select::after {
+      content: "";
+      position: absolute;
+      right: 17px;
+      top: 50%;
+      width: 8px;
+      height: 8px;
+      border-right: 2px solid var(--text);
+      border-bottom: 2px solid var(--text);
+      transform: translateY(-70%) rotate(45deg);
+      pointer-events: none;
+    }
+
+    .form-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 14px 24px;
+      padding-top: 2px;
+    }
+
+    .form-note {
+      margin: -6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    /* --- result panel (예시 화면) --- */
+    .result-panel {
+      position: relative;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      box-shadow: 10px 10px 0 var(--shadow-c);
+    }
+
+    .rp-top {
+      --focus: var(--band-accent);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 18px;
+      background: var(--band-bg);
+      color: var(--band-text);
+    }
+
+    .rp-title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 4px 10px;
+      margin: 0;
+      font-size: 17px;
+      font-weight: 800;
+      line-height: 1.3;
+    }
+
+    .rp-title .mono {
+      color: var(--band-accent);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    .sample-badge {
+      flex: none;
+      padding: 6px 10px;
+      border: 1.5px solid var(--band-accent);
+      background: var(--band-accent);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .rp-caption {
+      margin: 0;
+      padding: 10px 18px;
+      border-bottom: 1.5px solid var(--border);
+      background: var(--signal-soft);
+      color: var(--text-2);
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.5;
+    }
+
+    .rp-cond {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      padding: 14px 18px 4px;
+    }
+
+    .rp-cond-label {
+      margin-right: 4px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    .cond-chip {
+      padding: 4px 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.3;
+    }
+
+    .match-list {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 12px 18px 18px;
+      list-style: none;
+    }
+
+    .match-card {
+      padding: 14px;
+      border: 1.5px solid var(--line);
+      background: var(--bg);
+    }
+
+    .match-card:first-child {
+      border-color: var(--border);
+      box-shadow: 4px 4px 0 var(--shadow-c);
+    }
+
+    .mc-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .mc-id {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .mc-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      font-size: 16px;
+      font-weight: 800;
+      line-height: 1.3;
+    }
+
+    .mc-rank {
+      padding: 2px 6px;
+      background: var(--inverse);
+      color: var(--on-inverse);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .mc-meta {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .mc-score {
+      display: grid;
+      justify-items: end;
+      flex: none;
+      margin: 0;
+      line-height: 1;
+    }
+
+    .mc-score-num {
+      color: var(--accent-text);
+      font-family: var(--font-num);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .mc-score-num .num {
+      display: inline-block;
+      min-width: 2ch;
+      font-size: 30px;
+      letter-spacing: -0.02em;
+      text-align: right;
+      font-variant-numeric: tabular-nums; /* 카운트업 중 폭 흔들림 방지 */
+    }
+
+    .mc-score-num .pct {
+      font-size: 16px;
+      margin-left: 1px;
+    }
+
+    .mc-score-label {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .mc-bar {
+      height: 8px;
+      margin: 12px 0 0;
+      background: var(--line);
+      overflow: hidden;
+    }
+
+    .mc-bar span {
+      display: block;
+      height: 100%;
+      background: var(--signal);
+      transition: width 800ms var(--ease);
+    }
+
+    .mc-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px 12px;
+      margin-top: 12px;
+    }
+
+    .mc-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .mc-facts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 14px;
+      margin: 0;
+      font-size: 13px;
+    }
+
+    .mc-facts div {
+      display: flex;
+      gap: 6px;
+    }
+
+    .mc-facts dt {
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .mc-facts dd {
+      margin: 0;
+      color: var(--text);
+      font-weight: 800;
+    }
+
+    .mc-reason {
+      display: flex;
+      gap: 8px;
+      margin: 10px 0 0;
+      padding-top: 10px;
+      border-top: 1px dashed var(--line);
+      color: var(--text-2);
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.5;
+    }
+
+    .mc-reason-label {
+      flex: none;
+      color: var(--accent-text);
+      font-weight: 800;
+    }
+
+    /* 인터랙션 애니메이션 */
+    @keyframes numFlash {
+      0% { opacity: 0.25; transform: translateY(4px); }
+      100% { opacity: 1; transform: none; }
+    }
+
+    /* 숫자는 카운트업으로 갱신하므로 근거 문구만 플래시 */
+    .match-card.is-updating [data-role="reason"] {
+      display: inline-block;
+      animation: numFlash 380ms var(--ease);
+    }
+
+    @keyframes panelPulse {
+      0% { box-shadow: 10px 10px 0 var(--shadow-c), 0 0 0 0 color-mix(in srgb, var(--signal) 70%, transparent); }
+      35% { box-shadow: 10px 10px 0 var(--shadow-c), 0 0 0 10px color-mix(in srgb, var(--signal) 38%, transparent); }
+      100% { box-shadow: 10px 10px 0 var(--shadow-c), 0 0 0 20px color-mix(in srgb, var(--signal) 0%, transparent); }
+    }
+
+    @keyframes cardRise {
+      0% { opacity: 0; transform: translateY(12px); background-color: var(--signal-soft); }
+      100% { opacity: 1; transform: none; }
+    }
+
+    .result-panel.is-highlight {
+      animation: panelPulse 900ms var(--ease);
+    }
+
+    .result-panel.is-highlight .match-card {
+      animation: cardRise 560ms var(--ease) both;
+    }
+
+    .result-panel.is-highlight .match-card:nth-child(2) {
+      animation-delay: 90ms;
+    }
+
+    .result-panel.is-highlight .match-card:nth-child(3) {
+      animation-delay: 180ms;
+    }
+
+    /* =========================================================
+       6. TRUST STRIP — 검증 가능한 사실 문구
+       ========================================================= */
+    .trust-strip {
+      border-bottom: 1.5px solid var(--border);
+      background: var(--surface);
+    }
+
+    .trust-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin: 0 auto;
+      padding: 0;
+      list-style: none;
+    }
+
+    .trust-item {
+      display: grid;
+      align-content: start;
+      gap: 10px;
+      min-height: 112px;
+      padding: 24px 22px;
+      border-right: 1.5px solid var(--line);
+    }
+
+    .trust-item:first-child {
+      padding-left: 0;
+    }
+
+    .trust-item:last-child {
+      border-right: 0;
+    }
+
+    .trust-item .code {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--accent-text);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .trust-item .code::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      background: var(--signal);
+      border: 1.5px solid var(--ink);
+    }
+
+    .trust-item strong {
+      font-size: 18px;
+      line-height: 1.4;
+    }
+
+    /* =========================================================
+       7. PROBLEM
+       ========================================================= */
+    .problem-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 48px;
+    }
+
+    .problem-card {
+      display: flex;
+      flex-direction: column;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      box-shadow: 4px 4px 0 var(--shadow-c);
+    }
+
+    .problem-body {
+      flex: 1;
+      padding: 26px 24px 22px;
+    }
+
+    .q-no {
+      display: inline-block;
+      padding: 4px 8px;
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .problem-card h3 {
+      margin: 20px 0 10px;
+      font-size: 22px;
+      line-height: 1.35;
+    }
+
+    .problem-card p {
+      margin: 0;
+      color: var(--text-2);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .problem-card .answer {
+      display: grid;
+      gap: 6px;
+      padding: 18px 24px;
+      border-top: 1.5px solid var(--border);
+      background: var(--signal-soft);
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .answer-label {
+      color: var(--accent-text);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    /* =========================================================
+       8. PROCESS 01·02·03
+       ========================================================= */
+    .process-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin: 50px 0 0;
+      padding: 0;
+      list-style: none;
+      border-top: 1.5px solid var(--border);
+      border-left: 1.5px solid var(--border);
+    }
+
+    .step {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      min-height: 300px;
+      padding: 28px;
+      border-right: 1.5px solid var(--border);
+      border-bottom: 1.5px solid var(--border);
+      background: var(--bg);
+    }
+
+    .step:nth-child(2) {
+      background: var(--surface);
+    }
+
+    .step-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .step-n {
+      color: var(--text);
+      font-family: var(--font-num);
+      font-size: 56px;
+      font-weight: 700;
+      line-height: 0.9;
+      letter-spacing: -0.03em;
+    }
+
+    .step-k {
+      color: var(--accent-text);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .step h3 {
+      margin: 34px 0 10px;
+      font-size: 23px;
+      line-height: 1.3;
+    }
+
+    .step p {
+      margin: 0;
+      color: var(--text-2);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .step .step-out {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-top: auto;
+      padding-top: 22px;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .step-out .mono {
+      padding: 3px 6px;
+      background: var(--inverse);
+      color: var(--on-inverse);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      right: -11px;
+      top: 44px;
+      z-index: 1;
+      width: 20px;
+      height: 20px;
+      border: 1.5px solid var(--ink);
+      background: var(--signal);
+      transform: rotate(45deg);
+      transition: background-color 200ms var(--ease) 275ms;
+    }
+
+    .step:nth-child(2)::after {
+      transition-delay: 825ms;
+    }
+
+    /* =========================================================
+       9. SERVICES 2분할
+       ========================================================= */
+    .service-split {
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+      gap: 20px;
+      margin-top: 50px;
+      align-items: stretch;
+    }
+
+    .service {
+      display: flex;
+      flex-direction: column;
+      padding: 30px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+    }
+
+    .service-main {
+      box-shadow: 8px 8px 0 var(--shadow-c);
+    }
+
+    .service-sub {
+      background: var(--bg);
+      border-style: dashed;
+    }
+
+    .service-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .svc-badge {
+      padding: 4px 8px;
+      border: 1.5px solid var(--ink);
+      background: var(--signal);
+      color: var(--on-signal);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .svc-badge-sub {
+      border-color: var(--border);
+      background: transparent;
+      color: var(--text-3);
+    }
+
+    .svc-code {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    .service h3 {
+      margin: 20px 0 10px;
+      font-size: 34px;
+      line-height: 1.2;
+    }
+
+    .service-sub h3 {
+      font-size: 26px;
+    }
+
+    .service > p,
+    .service-main-copy > p {
+      margin: 0;
+      color: var(--text-2);
+      font-size: 16px;
+      line-height: 1.72;
+    }
+
+    .service-main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 26px;
+      flex: 1;
+    }
+
+    .service-main-copy {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .svc-list {
+      display: grid;
+      gap: 12px;
+      margin: 22px 0 26px;
+      padding: 0;
+      list-style: none;
+    }
+
+    .svc-list li {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      gap: 10px;
+      color: var(--text-2);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .svc-list li::before {
+      content: "";
+      width: 11px;
+      height: 11px;
+      margin-top: 5px;
+      border: 1.5px solid var(--ink);
+      background: var(--signal);
+    }
+
+    .svc-list b {
+      color: var(--text);
+    }
+
+    .service .text-link {
+      margin-top: auto;
+      align-self: flex-start;
+    }
+
+    .dossier {
+      align-self: start;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+    }
+
+    .doc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1.5px solid var(--border);
+      background: var(--band-bg);
+      color: var(--band-text);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+
+    .doc-header .stamp {
+      padding: 2px 6px;
+      background: var(--band-accent);
+      color: var(--ink);
+    }
+
+    .dossier dl {
+      margin: 0;
+    }
+
+    .d-row {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .d-row:last-child {
+      border-bottom: 0;
+    }
+
+    .d-row dt,
+    .d-row dd {
+      margin: 0;
+      padding: 11px 14px;
+    }
+
+    .d-row dt {
+      border-right: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .d-row dd {
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .manual-docs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 24px 0 26px;
+    }
+
+    .manual-doc {
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+    }
+
+    .manual-doc .doc-cap {
+      padding: 9px 10px;
+      border-bottom: 1.5px solid var(--border);
+      color: var(--text-3);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .manual-doc .doc-content {
+      padding: 12px 10px 4px;
+    }
+
+    .manual-doc .line {
+      height: 7px;
+      margin-bottom: 10px;
+      background: var(--line);
+    }
+
+    .manual-doc .line.signal-line {
+      width: 66%;
+      background: var(--signal);
+    }
+
+    .manual-doc .line.short {
+      width: 48%;
+    }
+
+    /* =========================================================
+       10. VERIFICATION (ink band)
+       ========================================================= */
+    .verification {
+      border-top: 1.5px solid var(--border);
+      background: var(--band-bg);
+      color: var(--band-text);
+    }
+
+    .verification-board {
+      display: grid;
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+      gap: 34px;
+      margin-top: 52px;
+      align-items: stretch;
+    }
+
+    .audit-stamp {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 28px;
+      min-height: 380px;
+      padding: 28px;
+      border: 1.5px solid var(--ink);
+      background: var(--band-accent);
+      color: var(--ink);
+      box-shadow: 8px 8px 0 color-mix(in srgb, var(--band-text) 82%, transparent);
+    }
+
+    .audit-stamp .mono {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .stamp-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    /* 원형 인장(장식): 체크리스트가 끝난 뒤 "찍히는" 효과 — scale 1.15→1, 회전 -8°→-4°, 220ms */
+    .seal {
+      flex: none;
+      width: 112px;
+      height: 112px;
+      margin: -10px -10px 0 0;
+      color: var(--ink);
+      transform: rotate(-4deg);
+      transition:
+        transform 220ms cubic-bezier(0.3, 1.35, 0.5, 1) 1400ms,
+        opacity 90ms linear 1400ms;
+    }
+
+    .seal text {
+      fill: currentColor;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 2.2px;
+    }
+
+    .audit-stamp strong {
+      display: block;
+      max-width: 340px;
+      font-size: 36px;
+      line-height: 1.2;
+    }
+
+    .audit-stamp p {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.7;
+    }
+
+    .check-ledger {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      border: 1.5px solid var(--band-line);
+    }
+
+    .check-row {
+      display: grid;
+      grid-template-columns: 22px minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: start;
+      padding: 20px 22px;
+      border-bottom: 1px solid var(--band-line);
+    }
+
+    .check-row:last-child {
+      border-bottom: 0;
+    }
+
+    /* 체크마크는 인라인 SVG — 섹션 진입 시 위에서부터 stroke 드로잉 (--n = 행 순번) */
+    .check-box {
+      position: relative;
+      display: grid;
+      width: 20px;
+      height: 20px;
+      margin-top: 3px;
+      place-items: center;
+      border: 1.5px solid var(--band-accent);
+      background: var(--band-accent);
+      transition: background-color 180ms var(--ease) calc(var(--n, 0) * 200ms);
+    }
+
+    .check-box svg {
+      display: block;
+      width: 14px;
+      height: 14px;
+      overflow: visible;
+    }
+
+    .check-box path {
+      fill: none;
+      stroke: var(--ink);
+      stroke-width: 2.6;
+      stroke-linecap: square;
+      stroke-dasharray: 10;
+      stroke-dashoffset: 0;
+      transition: stroke-dashoffset 260ms var(--ease) calc(var(--n, 0) * 200ms + 140ms);
+    }
+
+    .check-row b {
+      display: block;
+      font-size: 18px;
+      line-height: 1.4;
+    }
+
+    .check-row .desc {
+      display: block;
+      margin-top: 4px;
+      color: var(--band-muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .check-tag {
+      padding: 4px 8px;
+      border: 1px solid var(--band-line);
+      color: var(--band-muted);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    /* =========================================================
+       11. ISO CATALOG
+       ========================================================= */
+    .iso-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 48px;
+    }
+
+    .iso-card {
+      display: flex;
+      flex-direction: column;
+      padding: 26px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      box-shadow: 4px 4px 0 var(--shadow-c);
+      transition: transform 180ms var(--ease), box-shadow 180ms var(--ease);
+    }
+
+    .iso-card:hover {
+      transform: translate(-3px, -3px);
+      box-shadow: 8px 8px 0 var(--shadow-c);
+    }
+
+    .iso-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 16px;
+      border-bottom: 1.5px solid var(--border);
+    }
+
+    .iso-code {
+      color: var(--text);
+      font-family: var(--font-num);
+      font-size: 26px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -0.01em;
+    }
+
+    .iso-ed {
+      margin-left: 2px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0;
+    }
+
+    .iso-kind {
+      color: var(--accent-text);
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .iso-card h3 {
+      margin: 20px 0 10px;
+      font-size: 20px;
+      line-height: 1.4;
+    }
+
+    .iso-card > p {
+      margin: 0;
+      color: var(--text-2);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .iso-meta {
+      display: grid;
+      margin: 20px 0 0;
+      border: 1px solid var(--line);
+    }
+
+    .iso-meta div {
+      display: grid;
+      grid-template-columns: 96px 1fr;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .iso-meta div:last-child {
+      border-bottom: 0;
+    }
+
+    .iso-meta dt,
+    .iso-meta dd {
+      margin: 0;
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+
+    .iso-meta dt {
+      border-right: 1px solid var(--line);
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .iso-meta dd {
+      color: var(--text);
+      font-weight: 800;
+    }
+
+    .iso-meta .num-val {
+      font-family: var(--font-num);
+    }
+
+    .iso-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 18px 0 22px;
+    }
+
+    .iso-card .text-link {
+      margin-top: auto;
+      align-self: flex-start;
+      font-size: 15px;
+    }
+
+    .catalog-foot {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px 24px;
+      margin-top: 18px;
+      padding: 16px 20px;
+      border: 1.5px dashed var(--border);
+      background: color-mix(in srgb, var(--surface) 70%, transparent);
+    }
+
+    .catalog-foot p {
+      margin: 0;
+      color: var(--text-2);
+      font-size: 15px;
+    }
+
+    .soon {
+      display: inline-block;
+      margin-right: 8px;
+      padding: 3px 7px;
+      background: var(--inverse);
+      color: var(--on-inverse);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .catalog-foot small {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    /* =========================================================
+       12. FAQ
+       ========================================================= */
+    .faq-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+      gap: 48px;
+      align-items: start;
+    }
+
+    .faq-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    details {
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      box-shadow: 3px 3px 0 var(--shadow-c);
+    }
+
+    summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      min-height: 64px;
+      padding: 18px 22px;
+      font-size: 17px;
+      font-weight: 800;
+      line-height: 1.45;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    summary::-webkit-details-marker {
+      display: none;
+    }
+
+    summary::after {
+      content: "+";
+      flex: none;
+      display: grid;
+      width: 28px;
+      height: 28px;
+      place-items: center;
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    details[open] summary::after {
+      content: "\2212";
+      background: var(--signal);
+      border-color: var(--ink);
+      color: var(--on-signal);
+    }
+
+    details > p {
+      margin: 0;
+      padding: 0 22px 22px;
+      color: var(--text-2);
+      font-size: 16px;
+      line-height: 1.75;
+    }
+
+    /* =========================================================
+       13. FINAL CTA + FOOTER (ink band)
+       ========================================================= */
+    .final-cta {
+      padding: 96px 0;
+      border-top: 1.5px solid var(--border);
+      background: var(--band-bg);
+      color: var(--band-text);
+    }
+
+    .final-box {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 40px;
+      align-items: end;
+    }
+
+    .final-box h2 {
+      max-width: 780px;
+      margin: 20px 0 0;
+      font-size: 48px;
+      line-height: 1.15;
+    }
+
+    .final-sub {
+      margin: 16px 0 0;
+      color: var(--band-muted);
+      font-size: 17px;
+    }
+
+    .site-footer {
+      border-top: 1.5px solid var(--band-line);
+      background: var(--band-bg);
+      color: var(--band-text);
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 32px;
+      padding: 36px 0 24px;
+    }
+
+    .site-footer .brand-mark {
+      box-shadow: 3px 3px 0 color-mix(in srgb, var(--band-text) 60%, transparent);
+    }
+
+    .footer-grid p {
+      max-width: 540px;
+      margin: 14px 0 0;
+      color: var(--band-muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      align-content: start;
+      gap: 10px 22px;
+      justify-content: flex-end;
+    }
+
+    .footer-links a {
+      color: var(--band-muted);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .footer-links a:hover {
+      color: var(--band-text);
+      text-decoration: underline;
+      text-decoration-color: var(--band-accent);
+      text-underline-offset: 5px;
+    }
+
+    .footer-note {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      align-items: center;
+      padding: 18px 0 30px;
+      border-top: 1px solid var(--band-line);
+      color: var(--band-muted);
+      font-size: 13px;
+    }
+
+    .footer-note .mono {
+      padding: 2px 6px;
+      border: 1px solid var(--band-accent);
+      color: var(--band-accent);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    /* =========================================================
+       14. TOAST
+       ========================================================= */
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      z-index: 80;
+      width: max-content;
+      max-width: calc(100% - 32px);
+      padding: 14px 18px;
+      border: 1.5px solid var(--inverse);
+      background: var(--inverse);
+      color: var(--on-inverse);
+      box-shadow: 5px 5px 0 var(--signal);
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.45;
+      opacity: 0;
+      transform: translate(-50%, 16px);
+      pointer-events: none;
+      transition: opacity 220ms var(--ease), transform 220ms var(--ease);
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    .toast:empty {
+      display: none;
+    }
+
+    /* =========================================================
+       15. SPEC DETAILS — 문서 메타 · 정렬 표식 · 조항 각주
+       ========================================================= */
+    .sec-kicker {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px 24px;
+    }
+
+    /* 기술 문서식 메타 라인: 섹션 헤더에만 사용 */
+    .doc-meta {
+      margin: 0;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.3;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .band .doc-meta {
+      color: var(--band-muted);
+    }
+
+    /* 조항 번호 모노 각주 */
+    .clause {
+      color: var(--accent-text);
+      font-family: var(--font-mono);
+      font-size: 0.88em;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    /* 정렬선(registration mark): 사양서 모서리 + 표식 — 장식 */
+    .reg {
+      position: absolute;
+      width: 13px;
+      height: 13px;
+      color: var(--text-3);
+      opacity: 0.55;
+      pointer-events: none;
+    }
+
+    .reg::before,
+    .reg::after {
+      content: "";
+      position: absolute;
+      background: currentColor;
+    }
+
+    .reg::before {
+      left: 6px;
+      top: 0;
+      width: 1px;
+      height: 13px;
+    }
+
+    .reg::after {
+      left: 0;
+      top: 6px;
+      width: 13px;
+      height: 1px;
+    }
+
+    .hero-grid > .reg-tl { top: 18px; left: -6px; }
+    .hero-grid > .reg-tr { top: 18px; right: -6px; }
+    .hero-grid > .reg-bl { bottom: 20px; left: -6px; }
+    .hero-grid > .reg-br { bottom: 20px; right: -6px; }
+
+    .journey > .reg-tl { top: -7px; left: -7px; }
+    .journey > .reg-tr { top: -7px; right: -7px; }
+    .journey > .reg-bl { bottom: -7px; left: -7px; }
+    .journey > .reg-br { bottom: -7px; right: -7px; }
+
+    /* =========================================================
+       16. HERO SCHEMATIC — Management System Schematic (배경 장식)
+       PDCA 링 + HLS 조항(4~10) 노드 회로. 텍스트 뒤(왼쪽)는 마스크로 더 옅게.
+       ========================================================= */
+    .hero-schematic {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      z-index: 0;
+      width: 1440px;
+      height: 760px;
+      margin: -380px 0 0 -720px;
+      color: var(--text);
+      pointer-events: none;
+      -webkit-mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.32) 0%, rgba(0, 0, 0, 0.45) 40%, #000 62%);
+      mask-image: linear-gradient(90deg, rgba(0, 0, 0, 0.32) 0%, rgba(0, 0, 0, 0.45) 40%, #000 62%);
+    }
+
+    .sch-base,
+    .sch-dial {
+      position: absolute;
+      display: block;
+      overflow: visible;
+    }
+
+    .sch-base {
+      left: 0;
+      top: 0;
+      width: 1440px;
+      height: 760px;
+    }
+
+    /* 링 중심 (800, 380) 기준으로 배치된 회전 눈금 다이얼 */
+    .sch-dial {
+      left: 500px;
+      top: 80px;
+      width: 600px;
+      height: 600px;
+      animation: dialSpin 140s linear infinite;
+      will-change: transform;
+    }
+
+    .sch-ink {
+      opacity: 0.14;
+    }
+
+    .sch-ticks {
+      opacity: 0.12;
+    }
+
+    .sch-index {
+      fill: var(--signal);
+      opacity: 0.5;
+    }
+
+    .sch-base text {
+      fill: currentColor;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+    }
+
+    .sch-base .sch-pdca {
+      font-size: 14px;
+      letter-spacing: 0.24em;
+    }
+
+    /* 신호 펄스: 외곽 링을 따라 도는 짧은 signal 선분 (PDCA 순환) */
+    .sch-pulse {
+      fill: none;
+      stroke: var(--signal);
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-dasharray: 1.6 98.4;
+      animation: schPulse 18s linear 2s infinite;
+    }
+
+    .sch-pulse-wrap {
+      opacity: 0.6;
+    }
+
+    @keyframes dialSpin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes schPulse {
+      from { stroke-dashoffset: 0; }
+      to { stroke-dashoffset: -100; }
+    }
+
+    @keyframes schDraw {
+      to { stroke-dashoffset: 0; }
+    }
+
+    @keyframes schFade {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* =========================================================
+       17. RESULT PANEL — 진단 스캔 상태줄 · 스캔 라인 · 근거 조항
+       ========================================================= */
+    .rp-status {
+      --focus: var(--band-accent);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 34px;
+      padding: 8px 18px;
+      border-top: 1px solid var(--band-line);
+      background: var(--band-bg);
+      color: var(--band-muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.3;
+      letter-spacing: 0.04em;
+    }
+
+    .rp-led {
+      flex: none;
+      width: 8px;
+      height: 8px;
+      background: var(--band-accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--band-accent) 22%, transparent);
+    }
+
+    .rp-status-text {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      color: var(--band-text);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .rp-status-step {
+      flex: none;
+    }
+
+    .result-panel[data-phase="scan"] .rp-led {
+      animation: ledBlink 300ms linear infinite alternate;
+    }
+
+    @keyframes ledBlink {
+      from { opacity: 1; }
+      to { opacity: 0.25; }
+    }
+
+    /* 스캔 라인: 패널 높이만큼의 레이어를 translateY로 위→아래 이동 (transform만 사용) */
+    .rp-scan {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .rp-scan::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 100%;
+      background: linear-gradient(180deg,
+        transparent calc(100% - 72px),
+        color-mix(in srgb, var(--signal) 16%, transparent) calc(100% - 2px),
+        var(--signal) calc(100% - 2px));
+      transform: translateY(-100%);
+    }
+
+    .result-panel.is-scanning .rp-scan {
+      opacity: 1;
+    }
+
+    .result-panel.is-scanning .rp-scan::before {
+      animation: scanSweep 900ms cubic-bezier(0.45, 0, 0.25, 1) forwards;
+    }
+
+    @keyframes scanSweep {
+      0% { transform: translateY(-100%); opacity: 1; }
+      90% { transform: translateY(0); opacity: 1; }
+      100% { transform: translateY(0); opacity: 0; }
+    }
+
+    .result-panel.is-scanning .match-card,
+    .result-panel.is-scanning .rp-basis {
+      opacity: 0.2;
+      transition: opacity 160ms linear;
+    }
+
+    .rp-basis {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 4px 10px;
+      margin: 0;
+      padding: 0 18px 16px;
+      color: var(--text-2);
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.5;
+    }
+
+    .rp-basis-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .rp-basis-ed {
+      padding: 2px 6px;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    /* =========================================================
+       18. CLAUSE TICKER — 규격·조항 키워드 (hover/버튼으로 일시정지)
+       ========================================================= */
+    .ticker {
+      border-top: 1px solid var(--line);
+      background: var(--bg);
+    }
+
+    .ticker-inner {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-height: 46px;
+    }
+
+    .ticker-label {
+      flex: none;
+      padding-right: 14px;
+      border-right: 1px solid var(--line);
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+    }
+
+    .ticker-window {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent);
+      mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent);
+    }
+
+    .ticker-track {
+      display: flex;
+      width: max-content;
+      animation: tickerMove 90s linear infinite;
+    }
+
+    .ticker-window:hover .ticker-track,
+    .ticker.is-user-paused .ticker-track {
+      animation-play-state: paused;
+    }
+
+    .ticker-seq {
+      display: flex;
+      flex: none;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .ticker-seq li {
+      color: var(--text-2);
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+
+    .ticker-seq li::after {
+      content: "\00B7";
+      margin: 0 14px;
+      color: var(--muted);
+    }
+
+    .ticker-seq b {
+      color: var(--accent-text);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .ticker-seq .t-std {
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    @keyframes tickerMove {
+      to { transform: translateX(-50%); }
+    }
+
+    .ticker-toggle {
+      display: grid;
+      flex: none;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      place-items: center;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .ticker-toggle:hover {
+      border-color: var(--border);
+    }
+
+    .tt-icon {
+      width: 10px;
+      height: 10px;
+      border-left: 3px solid currentColor;
+      border-right: 3px solid currentColor;
+    }
+
+    .ticker-toggle[aria-pressed="true"] .tt-icon {
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 5px 0 5px 9px;
+      border-color: transparent transparent transparent currentColor;
+    }
+
+    /* =========================================================
+       19. PROCESS RAIL — 01→02→03 연결선
+       ========================================================= */
+    .process-flow {
+      margin-top: 44px;
+    }
+
+    .process-flow .process-grid {
+      margin-top: 0;
+    }
+
+    .process-rail {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin-bottom: 16px;
+    }
+
+    .rail-line {
+      position: absolute;
+      left: 34px;
+      right: calc(33.333% - 34px);
+      bottom: 5px;
+      height: 2px;
+      background: var(--line);
+    }
+
+    .rail-fill {
+      position: absolute;
+      inset: 0;
+      background: var(--signal);
+      transform-origin: left center;
+      transition: transform 1100ms linear;
+    }
+
+    .rail-node {
+      position: relative;
+      display: grid;
+      justify-items: start;
+      gap: 8px;
+      padding-left: 28px;
+      color: var(--text-3);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    .rail-node i {
+      width: 12px;
+      height: 12px;
+      border: 1.5px solid var(--border);
+      background: var(--signal);
+      transition: background-color 200ms var(--ease) calc(var(--n, 0) * 550ms);
+    }
+
+    /* =========================================================
+       20. CERTIFICATION PATH (#journey)
+       ========================================================= */
+    .journey {
+      position: relative;
+      margin-top: 48px;
+      padding: 24px 24px 22px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+    }
+
+    .j-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px 24px;
+      margin-bottom: 20px;
+    }
+
+    .j-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 22px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      color: var(--text-2);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .j-legend li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .j-key {
+      flex: none;
+      width: 22px;
+      height: 12px;
+      border: 1.5px solid var(--border);
+    }
+
+    .j-key-help {
+      border-color: var(--accent-text);
+      background: var(--signal-soft);
+      box-shadow: inset 0 -3px 0 var(--signal);
+    }
+
+    .j-key-cb {
+      border-style: dashed;
+      background: transparent;
+    }
+
+    .j-fig {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    .j-track {
+      display: grid;
+      grid-template-columns: repeat(10, minmax(0, 1fr));
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .j-node {
+      position: relative;
+      min-width: 0;
+      padding: 18px 10px 18px 12px;
+    }
+
+    /* InsightMatch가 돕는 구간(갭 분석~경영검토): signal 하이라이트 밴드 */
+    .j-node.is-help {
+      background: var(--signal-soft);
+      box-shadow: inset 0 3px 0 var(--signal);
+    }
+
+    .j-node:nth-child(6) {
+      border-left: 1.5px dashed var(--border);
+    }
+
+    .j-dot {
+      position: relative;
+      z-index: 2;
+      display: block;
+      width: 12px;
+      height: 12px;
+      border: 1.5px solid var(--border);
+      background: var(--signal);
+      transition: background-color 160ms var(--ease) calc(var(--n, 0) * 150ms);
+    }
+
+    .j-node.is-cb .j-dot {
+      background: var(--inverse);
+    }
+
+    /* 진행선: 노드마다 다음 노드까지 이어지는 선분 (::before 바탕선, ::after 채움) */
+    .j-node::before,
+    .j-node::after {
+      content: "";
+      position: absolute;
+      z-index: 1;
+      left: 18px;
+      top: 23px;
+      width: 100%;
+      height: 2px;
+    }
+
+    .j-node::before {
+      background: var(--line);
+    }
+
+    .j-node::after {
+      background: var(--accent-text);
+      transform-origin: left center;
+      transition: transform 150ms linear calc(var(--n, 0) * 150ms + 60ms);
+    }
+
+    .j-node:last-child::before,
+    .j-node:last-child::after {
+      display: none;
+    }
+
+    .j-no {
+      display: block;
+      margin-top: 14px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .j-name {
+      display: block;
+      margin-top: 4px;
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1.35;
+    }
+
+    .j-ref {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 2px 5px;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      color: var(--accent-text);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 600;
+      line-height: 1.3;
+      white-space: nowrap;
+    }
+
+    .j-node.is-cb .j-ref {
+      color: var(--text-3);
+    }
+
+    .j-desc {
+      display: block;
+      margin-top: 8px;
+      color: var(--text-2);
+      font-size: 12.5px;
+      font-weight: 600;
+      line-height: 1.5;
+    }
+
+    .j-note {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 6px 12px;
+      margin: 18px 0 0;
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.6;
+    }
+
+    .j-note .mono {
+      padding: 2px 6px;
+      background: var(--inverse);
+      color: var(--on-inverse);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .j-foot {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.6;
+    }
+
+    /* =========================================================
+       21. HLS(Annex SL) 공통 구조 도식 (#catalog 상단)
+       ========================================================= */
+    .hls {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+      gap: 32px;
+      align-items: center;
+      margin-top: 44px;
+      padding: 26px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+    }
+
+    .hls-k {
+      margin: 0;
+      color: var(--accent-text);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+
+    .hls h3 {
+      margin: 10px 0 8px;
+      font-size: 22px;
+      line-height: 1.35;
+    }
+
+    .hls-copy > p:not(.hls-k):not(.hls-note) {
+      margin: 0;
+      color: var(--text-2);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .hls-eds {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 16px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .hls-note {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.6;
+    }
+
+    .hls-fig {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+    }
+
+    .hls-input,
+    .hls-core {
+      padding: 10px 12px;
+      border: 1.5px solid var(--border);
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .hls-input {
+      border-style: dashed;
+      background: var(--bg);
+    }
+
+    .hls-core {
+      background: var(--inverse);
+      color: var(--on-inverse);
+    }
+
+    .hls-input b,
+    .hls-core b,
+    .hls-cl b {
+      margin-right: 4px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .hls-input b,
+    .hls-cl b {
+      color: var(--accent-text);
+    }
+
+    .hls-cols {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .hls-col {
+      display: grid;
+      align-content: start;
+      gap: 6px;
+      padding: 10px;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+    }
+
+    .hls-pdca {
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--line);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    .hls-cl {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .hls-loop {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    .hls-loop::before {
+      content: "";
+      flex: 1;
+      border-top: 1px solid var(--line);
+    }
+
+    .hls-fig figcaption {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    /* =========================================================
+       22. MOTION STATES
+       대기 상태(숨김·미점등·미드로잉)는 ① .js가 있고 ② 모션 허용일 때만 적용.
+       reduced-motion이거나 JS가 없으면 최종 상태가 그대로 보인다.
+       ========================================================= */
+    @media (prefers-reduced-motion: no-preference) {
+      /* 히어로 도식: 선 드로잉 → 노드·라벨 페이드 → 다이얼 등장 */
+      .js .sch-draw {
+        stroke-dasharray: 100;
+        stroke-dashoffset: 100;
+        animation: schDraw 1700ms var(--ease) var(--d, 0ms) forwards;
+      }
+
+      .js .sch-fade {
+        opacity: 0;
+        animation: schFade 700ms linear 1300ms forwards;
+      }
+
+      .js .sch-dial {
+        opacity: 0;
+        animation: schFade 900ms linear 1500ms forwards, dialSpin 140s linear 1500ms infinite;
+      }
+
+      .js .sch-pulse {
+        opacity: 0;
+        animation: schFade 600ms linear 2000ms forwards, schPulse 18s linear 2000ms infinite;
+      }
+
+      /* 스크롤 리빌 */
+      .js [data-reveal] {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+
+      .js [data-reveal].is-in {
+        opacity: 1;
+        transform: none;
+        transition: opacity 600ms var(--ease), transform 600ms var(--ease);
+        transition-delay: calc(var(--i, 0) * 70ms);
+      }
+
+      /* 작동 방식 연결선 */
+      .js .process-flow:not(.is-on) .rail-fill {
+        transform: scaleX(0);
+      }
+
+      .js .process-flow:not(.is-on) .rail-node i,
+      .js .process-flow:not(.is-on) .step:not(:last-child)::after {
+        background: var(--surface);
+      }
+
+      /* 인증 여정 진행선 */
+      .js .journey:not(.is-on) .j-node::after {
+        transform: scaleX(0);
+      }
+
+      .js .journey:not(.is-on) .j-dot {
+        background: var(--surface);
+      }
+
+      /* 검증 기준: 체크 → 인장 */
+      .js .verification-board:not(.is-on) .check-box {
+        background: transparent;
+      }
+
+      .js .verification-board:not(.is-on) .check-box path {
+        stroke-dashoffset: 10;
+      }
+
+      .js .verification-board:not(.is-on) .seal {
+        opacity: 0;
+        transform: scale(1.15) rotate(-8deg);
+      }
+    }
+
+    /* 무한 애니메이션: 화면 밖(.is-paused)이거나 탭이 숨겨지면(.doc-hidden) 정지 */
+    [data-loop].is-paused,
+    [data-loop].is-paused *,
+    .doc-hidden [data-loop],
+    .doc-hidden [data-loop] * {
+      animation-play-state: paused !important;
+    }
+
+    /* =========================================================
+       23. RESPONSIVE
+       ========================================================= */
+    @media (max-width: 1079px) {
+      .header-inner {
+        flex-wrap: wrap;
+        gap: 10px 20px;
+        padding: 12px 0;
+      }
+
+      .header-cta {
+        margin-left: auto;
+      }
+
+      .nav {
+        order: 3;
+        flex-basis: 100%;
+        flex-wrap: wrap;
+        gap: 2px 20px;
+      }
+
+      .section-title {
+        font-size: 38px;
+      }
+
+      .service-main-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .final-box h2 {
+        font-size: 40px;
+      }
+    }
+
+    /* 태블릿 이하: 1단 (폼 → 결과 카드 순서) */
+    @media (max-width: 899px) {
+      section[id] {
+        scroll-margin-top: 16px;
+      }
+
+      .site-header {
+        position: static;
+      }
+
+      .hero {
+        background: none;
+      }
+
+      .hero-grid {
+        grid-template-columns: 1fr;
+        gap: 40px;
+        padding: 48px 0 56px;
+      }
+
+      .hero-copy {
+        max-width: none;
+      }
+
+      .problem-grid,
+      .iso-grid,
+      .service-split,
+      .verification-board,
+      .faq-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .faq-layout {
+        gap: 32px;
+      }
+
+      .trust-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .trust-item {
+        padding: 20px 18px;
+        border-bottom: 1.5px solid var(--line);
+      }
+
+      .trust-item:first-child {
+        padding-left: 18px;
+      }
+
+      .trust-item:nth-child(2n) {
+        border-right: 0;
+      }
+
+      .trust-item:nth-child(n + 3) {
+        border-bottom: 0;
+      }
+
+      .audit-stamp {
+        min-height: auto;
+      }
+
+      .final-box {
+        grid-template-columns: 1fr;
+        align-items: start;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .wrap {
+        width: calc(100% - 32px); /* 좌우 16px */
+      }
+
+      /* 모바일: 내비를 한 줄 가로 스크롤로 유지해 헤더 높이를 줄인다 */
+      .nav {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+      }
+
+      .nav::-webkit-scrollbar {
+        display: none;
+      }
+
+      .section {
+        padding: 64px 0;
+      }
+
+      .brand {
+        font-size: 18px;
+      }
+
+      .brand-mark {
+        width: 34px;
+        height: 34px;
+      }
+
+      .hero-sub,
+      .section-lead {
+        font-size: 16px;
+      }
+
+      .section-title {
+        font-size: 30px;
+      }
+
+      .diag-form {
+        padding: 18px 16px;
+        box-shadow: 4px 4px 0 var(--shadow-c);
+      }
+
+      .field-row {
+        grid-template-columns: 1fr;
+      }
+
+      .form-actions .btn {
+        width: 100%;
+      }
+
+      .result-panel {
+        box-shadow: 6px 6px 0 var(--shadow-c);
+      }
+
+      .rp-top,
+      .rp-caption,
+      .rp-cond {
+        padding-left: 14px;
+        padding-right: 14px;
+      }
+
+      .match-list {
+        padding: 12px 14px 14px;
+      }
+
+      .process-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .step {
+        min-height: auto;
+      }
+
+      .step:not(:last-child)::after {
+        right: auto;
+        left: 40px;
+        top: auto;
+        bottom: -11px;
+      }
+
+      .service {
+        padding: 22px 18px;
+      }
+
+      .service h3 {
+        font-size: 28px;
+      }
+
+      .service-sub h3 {
+        font-size: 24px;
+      }
+
+      .service-main {
+        box-shadow: 5px 5px 0 var(--shadow-c);
+      }
+
+      .check-row {
+        grid-template-columns: 22px minmax(0, 1fr);
+        padding: 18px 16px;
+      }
+
+      .check-tag {
+        grid-column: 2;
+        justify-self: start;
+      }
+
+      .audit-stamp strong {
+        font-size: 30px;
+      }
+
+      .final-cta {
+        padding: 72px 0;
+      }
+
+      .final-box h2 {
+        font-size: 32px;
+      }
+
+      .final-box .btn {
+        width: 100%;
+      }
+
+      .footer-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-links {
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 479px) {
+      .trust-row {
+        grid-template-columns: 1fr;
+      }
+
+      .trust-item,
+      .trust-item:nth-child(n + 3) {
+        border-right: 0;
+        border-bottom: 1.5px solid var(--line);
+      }
+
+      .trust-item:last-child {
+        border-bottom: 0;
+      }
+
+      .chip-group {
+        gap: 6px;
+      }
+
+      .chip label {
+        padding: 9px 8px;
+      }
+
+      .chip label b {
+        font-size: 14px;
+      }
+
+      .header-cta {
+        padding: 9px 12px;
+        font-size: 13px;
+      }
+
+      .mc-score-num .num {
+        font-size: 26px;
+      }
+
+      .d-row {
+        grid-template-columns: 76px 1fr;
+      }
+
+      .iso-meta div {
+        grid-template-columns: 1fr;
+      }
+
+      .iso-meta dt {
+        border-right: 0;
+        padding-bottom: 2px;
+      }
+
+      .iso-meta dd {
+        padding-top: 2px;
+      }
+    }
+
+    /* --- 새 컴포넌트 반응형 --- */
+    @media (max-width: 1079px) {
+      /* 인증 여정: 5열 × 2행 (1행 = 준비, 2행 = 심사) */
+      .j-track {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+
+      .j-node:nth-child(5)::before,
+      .j-node:nth-child(5)::after {
+        display: none;
+      }
+
+      .j-node:nth-child(6) {
+        border-left: 0;
+        border-top: 1.5px dashed var(--border);
+      }
+    }
+
+    @media (max-width: 899px) {
+      .hls {
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .hero-schematic {
+        opacity: 0.75;
+      }
+
+      .rp-status,
+      .rp-basis {
+        padding-left: 14px;
+        padding-right: 14px;
+      }
+
+      .doc-meta {
+        font-size: 10px;
+        white-space: normal;
+      }
+
+      .seal {
+        width: 92px;
+        height: 92px;
+      }
+
+      /* 인증 여정: 세로 타임라인 */
+      .journey {
+        padding: 18px 14px 16px;
+      }
+
+      .j-track {
+        grid-template-columns: 1fr;
+      }
+
+      .j-node {
+        padding: 14px 12px 16px 44px;
+      }
+
+      .j-node:nth-child(5)::before,
+      .j-node:nth-child(5)::after {
+        display: block;
+      }
+
+      .j-node.is-help {
+        box-shadow: inset 3px 0 0 var(--signal);
+      }
+
+      .j-dot {
+        position: absolute;
+        left: 14px;
+        top: 18px;
+      }
+
+      .j-node::before,
+      .j-node::after {
+        left: 19px;
+        top: 24px;
+        width: 2px;
+        height: 100%;
+      }
+
+      .j-node::after {
+        transform-origin: center top;
+      }
+
+      .j-no {
+        margin-top: 0;
+      }
+
+      .hls {
+        padding: 18px 16px;
+      }
+    }
+
+    @media (prefers-reduced-motion: no-preference) and (max-width: 767px) {
+      .js .journey:not(.is-on) .j-node::after {
+        transform: scaleY(0);
+      }
+    }
+
+    @media (max-width: 599px) {
+      .ticker-label {
+        display: none;
+      }
+
+      .hls-cols {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    /* ── ISO 2026 개정 안내 ── */
+    .rev-notice {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      max-width: 100%;
+      margin: 12px 0 20px;
+      padding: 7px 12px 7px 7px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.4;
+      text-decoration: none;
+      transition: border-color 160ms var(--ease), background-color 160ms var(--ease);
+    }
+    .rev-notice:hover { border-color: var(--accent-text); background: var(--signal-soft); }
+    .rev-notice:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 3px; }
+    .rev-notice .arr { color: var(--accent-text); transition: transform 160ms var(--ease); }
+    .rev-notice:hover .arr { transform: translateX(3px); }
+    .rev-badge {
+      position: relative;
+      flex: none;
+      padding: 3px 7px;
+      background: var(--ink);
+      color: var(--paper);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+    .rev-text strong { font-weight: 700; }
+    .rev-detail { color: var(--text-3); }
+    .rev-callout {
+      margin: 16px 0 0;
+      padding: 12px 14px;
+      border-left: 3px solid var(--accent-text);
+      background: var(--signal-soft);
+      font-size: 13.5px;
+      line-height: 1.55;
+    }
+    .rev-callout-quiet { border-left-color: var(--line); background: var(--surface-2); }
+    .rev-callout-head {
+      margin: 0 0 6px;
+      color: var(--accent-text);
+      font-weight: 700;
+    }
+    .rev-callout-quiet .rev-callout-head { color: var(--text-3); }
+    .rev-callout-head .mono { margin-right: 6px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; }
+    .rev-callout ul { margin: 0; padding: 0; list-style: none; }
+    .rev-callout li { position: relative; padding-left: 12px; color: var(--text); }
+    .rev-callout li::before { content: ""; position: absolute; left: 0; top: 0.7em; width: 5px; height: 1px; background: currentColor; }
+    @media (prefers-color-scheme: dark) {
+      .rev-badge { background: var(--accent-text); color: var(--ink); }
+    }
+    @media (max-width: 767px) {
+      .rev-notice { font-size: 13px; align-items: flex-start; }
+      .rev-sep { display: none; }
+      .rev-detail { display: block; }
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .rev-badge::after {
+        content: "";
+        position: absolute;
+        inset: -3px;
+        border: 1px solid var(--accent-text);
+        opacity: 0;
+        animation: revPing 2.6s var(--ease) 1.2s 3;
+      }
+      @keyframes revPing {
+        0% { opacity: 0.9; transform: scale(1); }
+        70%, 100% { opacity: 0; transform: scale(1.35); }
+      }
+    }
+
+    /* ── 규격 범위 확장: 그 외 규격 선택 + 전체 매칭 규격 ── */
+    .chip-group { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .std-more { margin-top: 10px; }
+    .std-more[hidden] { display: none; }
+    .cat-k {
+      margin: 0 0 12px;
+      color: var(--text-3);
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .cat-k .mono, .std-all-head .mono, .std-group-k .mono {
+      margin-right: 8px;
+      color: var(--accent-text);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+    }
+    .std-all {
+      margin-top: 28px;
+      padding: 26px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+    }
+    .std-all-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px 24px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .std-all-head h3 { margin: 0; font-size: 20px; }
+    .std-all-head h3 .mono { margin: 0 0 0 10px; color: var(--muted); }
+    .std-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+    .std-legend li { display: inline-flex; align-items: center; gap: 6px; }
+    .std-groups {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 22px 28px;
+      margin-top: 20px;
+    }
+    .std-group-k {
+      margin: 0 0 8px;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .std-group ul { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+    .std-group li { border-bottom: 1px solid var(--line); }
+    .std-group a {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      padding: 9px 4px;
+      color: var(--text);
+      text-decoration: none;
+      transition: background-color 160ms var(--ease), padding-left 160ms var(--ease);
+    }
+    .std-group a b {
+      flex: none;
+      min-width: 112px;
+      font-family: var(--font-num);
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .std-group a span { color: var(--text-3); font-size: 13.5px; }
+    .std-group a:hover { background: var(--signal-soft); padding-left: 10px; }
+    .std-group a:hover b { color: var(--accent-text); }
+    .std-group a:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+    .std-badge {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 6px;
+      border: 1px solid var(--line);
+      color: var(--text-3);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-style: normal;
+      font-weight: 700;
+      line-height: 1.5;
+      vertical-align: 1px;
+      white-space: nowrap;
+    }
+    .std-legend .std-badge { margin-left: 0; }
+    .b-verify { border-color: color-mix(in srgb, var(--accent-text) 45%, transparent); color: var(--accent-text); }
+    .b-guide { border-style: dashed; }
+    .b-ext { background: var(--surface-2); }
+
+
+    @media (max-width: 1079px) {
+      .std-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 767px) {
+      .chip-group { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .std-all { padding: 20px 16px; }
+      .std-groups { grid-template-columns: 1fr; }
+      .std-group a b { min-width: 104px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.001ms !important;
+        animation-delay: 0ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        transition-delay: 0ms !important;
+      }
+
+      /* 최종 상태 고정: 신호 펄스 숨김, 티커는 정지 후 줄바꿈 목록으로 */
+      .sch-pulse {
+        display: none;
+      }
+
+      .ticker-track {
+        width: auto;
+        animation: none;
+      }
+
+      .ticker-window {
+        -webkit-mask-image: none;
+        mask-image: none;
+      }
+
+      .ticker-seq {
+        flex-wrap: wrap;
+        row-gap: 4px;
+        padding: 10px 0;
+      }
+
+      .ticker-seq[aria-hidden="true"],
+      .ticker-toggle {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body id="top">
+  <a class="skip-link" href="#main">본문으로 건너뛰기</a>
+
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="#top" aria-label="InsightMatch 홈">
+        <span class="brand-mark" aria-hidden="true">iM</span>
+        <span>Insight<span class="brand-dot">.</span>Match</span>
+      </a>
+      <nav class="nav" aria-label="주요 메뉴">
+        <a href="#diagnosis">ISO 진단</a>
+        <a href="#process">작동 방식</a>
+        <a href="#services">서비스</a>
+        <a href="#verification">검증 기준</a>
+        <a href="#catalog">ISO 카탈로그</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <a class="btn btn-dark btn-sm header-cta" href="#diagnosis" data-focus-diagnosis>무료 매칭 시작</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- 1. HERO: 진단 입력 + 매칭 결과 카드(예시) -->
+    <section class="hero" id="diagnosis" aria-labelledby="hero-title">
+      <!-- 배경 도식(장식): PDCA 링 + HLS 조항 4~10 회로. 로드 시 선이 그려지고 다이얼이 느리게 회전 -->
+      <div class="hero-schematic" data-loop aria-hidden="true">
+        <svg class="sch-base" viewBox="0 0 1440 760" width="1440" height="760" focusable="false">
+          <g class="sch-ink" fill="none" stroke="currentColor" stroke-width="1">
+            <path class="sch-draw" pathLength="100" d="M540 380a260 260 0 1 0 520 0a260 260 0 1 0-520 0" />
+            <path class="sch-draw" style="--d:200ms" pathLength="100" d="M604 380a196 196 0 1 0 392 0a196 196 0 1 0-392 0" />
+            <path class="sch-draw" style="--d:400ms" pathLength="100" d="M800 100V184M800 576V660M520 380H604M996 380H1080M788 380H812M800 368V392" />
+            <path class="sch-draw" style="--d:700ms" pathLength="100" d="M616 196H300V92" />
+            <path class="sch-draw" style="--d:760ms" pathLength="100" d="M800 120V40" />
+            <path class="sch-draw" style="--d:820ms" pathLength="100" d="M984 196H1120V92" />
+            <path class="sch-draw" style="--d:880ms" pathLength="100" d="M1060 380H1200V250H1340" />
+            <path class="sch-draw" style="--d:940ms" pathLength="100" d="M984 564H1340" />
+            <path class="sch-draw" style="--d:1000ms" pathLength="100" d="M800 640V690H1100" />
+            <path class="sch-draw" style="--d:1060ms" pathLength="100" d="M616 564H420V690" />
+            <g class="sch-fade" fill="currentColor" stroke="none">
+              <rect x="295" y="87" width="10" height="10" />
+              <rect x="795" y="35" width="10" height="10" />
+              <rect x="1115" y="87" width="10" height="10" />
+              <rect x="1335" y="245" width="10" height="10" />
+              <rect x="1335" y="559" width="10" height="10" />
+              <rect x="1095" y="685" width="10" height="10" />
+              <rect x="415" y="685" width="10" height="10" />
+              <text x="314" y="96">§4 CONTEXT</text>
+              <text x="814" y="44">§5 LEADERSHIP</text>
+              <text x="1134" y="96">§6 PLANNING</text>
+              <text x="1328" y="236" text-anchor="end">§7 SUPPORT</text>
+              <text x="1328" y="550" text-anchor="end">§8 OPERATION</text>
+              <text x="1114" y="694">§9 EVALUATION</text>
+              <text x="434" y="694">§10 IMPROVEMENT</text>
+              <text class="sch-pdca" x="661" y="246" text-anchor="middle">PLAN</text>
+              <text class="sch-pdca" x="939" y="246" text-anchor="middle">DO</text>
+              <text class="sch-pdca" x="939" y="524" text-anchor="middle">CHECK</text>
+              <text class="sch-pdca" x="661" y="524" text-anchor="middle">ACT</text>
+            </g>
+          </g>
+          <g class="sch-pulse-wrap">
+            <path class="sch-pulse" pathLength="100" d="M540 380a260 260 0 1 1 520 0a260 260 0 1 1-520 0" />
+          </g>
+        </svg>
+        <svg class="sch-dial" viewBox="0 0 600 600" width="600" height="600" focusable="false">
+          <g class="sch-ticks" fill="none" stroke="currentColor">
+            <circle cx="300" cy="300" r="272" stroke-width="8" stroke-dasharray="1 13.242" />
+            <circle cx="300" cy="300" r="272" stroke-width="16" stroke-dasharray="1.5 140.92" />
+          </g>
+          <path class="sch-index" d="M293 6h14l-7 12z" />
+        </svg>
+      </div>
+
+      <div class="wrap hero-grid">
+        <span class="reg reg-tl" aria-hidden="true"></span>
+        <span class="reg reg-tr" aria-hidden="true"></span>
+        <span class="reg reg-bl" aria-hidden="true"></span>
+        <span class="reg reg-br" aria-hidden="true"></span>
+        <div class="hero-copy">
+          <div class="sec-kicker">
+            <p class="eyebrow">01 / DIAGNOSE</p>
+            <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 01/09</p>
+          </div>
+          <a class="rev-notice" href="#faq-iso9001-2026">
+            <span class="rev-badge">NEW</span>
+            <span class="rev-text"><strong>ISO 9001:2026 발행</strong><span class="rev-sep" aria-hidden="true"> · </span><span class="rev-detail">2015판 인증 기업은 2029년 9월 30일까지 전환이 필요합니다</span></span>
+            <span class="arr" aria-hidden="true">→</span>
+          </a>
+          <h1 id="hero-title">컨설턴트 한 명 찾는 데<br /><span class="hl">몇 주씩</span> 걸리셨나요?</h1>
+          <p class="hero-sub" id="hero-sub">인증 규격·업종·지역만 고르면, 검증된 컨설턴트를 추천 근거와 함께 한 화면에서 비교할 수 있습니다. 찾는 시간도, 잘못 고를 위험도 함께 줄이세요.</p>
+
+          <form class="diag-form" id="diag-form" aria-label="미니 ISO 진단" novalidate>
+            <fieldset class="field">
+              <legend class="field-label"><span class="field-no" aria-hidden="true">A</span>인증 규격</legend>
+              <div class="chip-group">
+                <span class="chip">
+                  <input type="radio" id="std-9001" name="std" value="9001" checked />
+                  <label for="std-9001"><b>ISO 9001</b><small>품질경영</small></label>
+                </span>
+                <span class="chip">
+                  <input type="radio" id="std-14001" name="std" value="14001" />
+                  <label for="std-14001"><b>ISO 14001</b><small>환경경영</small></label>
+                </span>
+                <span class="chip">
+                  <input type="radio" id="std-45001" name="std" value="45001" />
+                  <label for="std-45001"><b>ISO 45001</b><small>안전보건</small></label>
+                </span>
+                <span class="chip">
+                  <input type="radio" id="std-other" name="std" value="other" aria-controls="std-more-wrap" />
+                  <label for="std-other"><b>그 외 규격</b><small>22종</small></label>
+                </span>
+              </div>
+              <div class="select std-more" id="std-more-wrap" hidden>
+                <label class="sr-only" for="std-more">그 외 규격 선택</label>
+                <select id="std-more" name="stdMore">
+                    <optgroup label="경영·운영 시스템">
+                      <option value="50001">ISO 50001 · 에너지경영</option>
+                    </optgroup>
+                    <optgroup label="ESG·지속가능성·기후변화">
+                      <option value="14064">ISO 14064-1 · 온실가스 산정</option>
+                      <option value="14067">ISO 14067 · 제품 탄소발자국</option>
+                      <option value="14068">ISO 14068-1 · 탄소중립</option>
+                      <option value="26000">ISO 26000 · 사회적 책임</option>
+                      <option value="20400">ISO 20400 · 지속가능한 조달</option>
+                    </optgroup>
+                    <optgroup label="정보보안·디지털·AI">
+                      <option value="27001" selected>ISO/IEC 27001 · 정보보안</option>
+                      <option value="27701">ISO/IEC 27701 · 개인정보보호</option>
+                      <option value="27017">ISO/IEC 27017 · 클라우드 보안</option>
+                      <option value="42001">ISO/IEC 42001 · AI 경영시스템</option>
+                    </optgroup>
+                    <optgroup label="공급망·리스크·연속성">
+                      <option value="22301">ISO 22301 · 비즈니스 연속성</option>
+                      <option value="31000">ISO 31000 · 리스크관리</option>
+                      <option value="28000">ISO 28000 · 공급망 보안</option>
+                      <option value="37301">ISO 37301 · 컴플라이언스</option>
+                    </optgroup>
+                    <optgroup label="산업·특수 목적">
+                      <option value="13485">ISO 13485 · 의료기기 품질</option>
+                      <option value="22000">ISO 22000 · 식품안전</option>
+                      <option value="IATF16949">IATF 16949 · 자동차 품질</option>
+                      <option value="19443">ISO 19443 · 원자력 공급망</option>
+                    </optgroup>
+                    <optgroup label="인사·조직·윤리">
+                      <option value="30401">ISO 30401 · 지식경영</option>
+                      <option value="30414">ISO 30414 · 인적자본 공시</option>
+                      <option value="37001">ISO 37001 · 부패방지</option>
+                      <option value="45003">ISO 45003 · 심리사회적 위험</option>
+                    </optgroup>
+                </select>
+              </div>
+            </fieldset>
+
+            <div class="field-row">
+              <div class="field">
+                <label class="field-label" for="industry"><span class="field-no" aria-hidden="true">B</span>업종</label>
+                <div class="select">
+                  <select id="industry" name="industry">
+                    <option value="제조" selected>제조</option>
+                    <option value="건설">건설</option>
+                    <option value="IT·소프트웨어">IT·소프트웨어</option>
+                    <option value="서비스">서비스</option>
+                    <option value="유통·물류">유통·물류</option>
+                    <option value="화학·소재">화학·소재</option>
+                    <option value="식품">식품</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field">
+                <label class="field-label" for="region"><span class="field-no" aria-hidden="true">C</span>지역</label>
+                <div class="select">
+                  <select id="region" name="region">
+                    <option value="서울" selected>서울</option>
+                    <option value="경기·인천">경기·인천</option>
+                    <option value="충청">충청</option>
+                    <option value="영남">영남</option>
+                    <option value="호남">호남</option>
+                    <option value="강원·제주">강원·제주</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="button" class="btn btn-primary btn-lg" id="show-result" aria-controls="result-panel">
+                매칭 결과 보기 <span aria-hidden="true">→</span>
+              </button>
+              <a class="text-link" href="#manual">AI 매뉴얼 먼저 보기</a>
+            </div>
+            <p class="form-note">가입 없이 확인 · 진단과 추천 확인은 무료입니다</p>
+          </form>
+        </div>
+
+        <aside class="result-panel" id="result-panel" aria-labelledby="result-title">
+          <div class="rp-top">
+            <h2 class="rp-title" id="result-title"><span class="mono">MATCH RESULT</span>추천 전문가 3명</h2>
+            <span class="sample-badge">예시 화면</span>
+          </div>
+          <div class="rp-status" aria-hidden="true">
+            <span class="rp-led"></span>
+            <span class="rp-status-text" data-status>MATCHED · 적합 후보 3명 (예시)</span>
+            <span class="rp-status-step" data-status-step>04/04</span>
+          </div>
+          <p class="rp-caption">가명과 가상 점수로 만든 <strong>예시 화면</strong>입니다. 실제 전문가 정보가 아니며, 왼쪽 선택을 바꾸면 즉시 반영됩니다.</p>
+          <div class="rp-cond">
+            <span class="rp-cond-label">FILTER</span>
+            <span class="cond-chip" data-cond="std">ISO 9001</span>
+            <span class="cond-chip" data-cond="industry">제조</span>
+            <span class="cond-chip" data-cond="region">서울</span>
+          </div>
+
+          <ol class="match-list">
+            <li class="match-card">
+              <div class="mc-head">
+                <span class="avatar" aria-hidden="true">KJ</span>
+                <div class="mc-id">
+                  <h3 class="mc-name">컨설턴트 K.J. <span class="mc-rank">#1</span></h3>
+                  <p class="mc-meta">가명 · 경력 14년</p>
+                </div>
+                <p class="mc-score">
+                  <span class="mc-score-num"><span class="num" data-role="score">95</span><span class="pct">%</span></span>
+                  <span class="mc-score-label">적합도</span>
+                </p>
+              </div>
+              <div class="mc-bar" aria-hidden="true"><span data-role="bar" style="width: 95%"></span></div>
+              <div class="mc-row">
+                <ul class="mc-tags" aria-label="전문 규격">
+                  <li class="tag tag-accent" data-role="std">ISO 9001</li>
+                  <li class="tag" data-role="alt">ISO 14001</li>
+                </ul>
+                <dl class="mc-facts">
+                  <div><dt>업종 경험</dt><dd data-role="industry">제조</dd></div>
+                  <div><dt>지역</dt><dd data-role="region">서울</dd></div>
+                </dl>
+              </div>
+              <p class="mc-reason"><span class="mc-reason-label">추천 근거</span><span data-role="reason">제조 업종 품질 문서 체계 정비 경험 · 서울 현장 방문 가능</span></p>
+            </li>
+
+            <li class="match-card">
+              <div class="mc-head">
+                <span class="avatar" aria-hidden="true">PS</span>
+                <div class="mc-id">
+                  <h3 class="mc-name">컨설턴트 P.S. <span class="mc-rank">#2</span></h3>
+                  <p class="mc-meta">가명 · 경력 11년</p>
+                </div>
+                <p class="mc-score">
+                  <span class="mc-score-num"><span class="num" data-role="score">91</span><span class="pct">%</span></span>
+                  <span class="mc-score-label">적합도</span>
+                </p>
+              </div>
+              <div class="mc-bar" aria-hidden="true"><span data-role="bar" style="width: 91%"></span></div>
+              <div class="mc-row">
+                <ul class="mc-tags" aria-label="전문 규격">
+                  <li class="tag tag-accent" data-role="std">ISO 9001</li>
+                  <li class="tag" data-role="alt">ISO 45001</li>
+                </ul>
+                <dl class="mc-facts">
+                  <div><dt>업종 경험</dt><dd data-role="industry">제조</dd></div>
+                  <div><dt>지역</dt><dd data-role="region">서울</dd></div>
+                </dl>
+              </div>
+              <p class="mc-reason"><span class="mc-reason-label">추천 근거</span><span data-role="reason">내부심사·경영검토 준비를 패키지로 진행 · 서울 정기 방문 협의 가능</span></p>
+            </li>
+
+            <li class="match-card">
+              <div class="mc-head">
+                <span class="avatar" aria-hidden="true">LH</span>
+                <div class="mc-id">
+                  <h3 class="mc-name">컨설턴트 L.H. <span class="mc-rank">#3</span></h3>
+                  <p class="mc-meta">가명 · 경력 9년</p>
+                </div>
+                <p class="mc-score">
+                  <span class="mc-score-num"><span class="num" data-role="score">88</span><span class="pct">%</span></span>
+                  <span class="mc-score-label">적합도</span>
+                </p>
+              </div>
+              <div class="mc-bar" aria-hidden="true"><span data-role="bar" style="width: 88%"></span></div>
+              <div class="mc-row">
+                <ul class="mc-tags" aria-label="전문 규격">
+                  <li class="tag tag-accent" data-role="std">ISO 9001</li>
+                  <li class="tag" data-role="alt">통합 인증(IMS)</li>
+                </ul>
+                <dl class="mc-facts">
+                  <div><dt>업종 경험</dt><dd data-role="industry">제조</dd></div>
+                  <div><dt>지역</dt><dd data-role="region">서울</dd></div>
+                </dl>
+              </div>
+              <p class="mc-reason"><span class="mc-reason-label">추천 근거</span><span data-role="reason">갱신 심사 일정에 맞춘 단기 착수 이력 · 서울 원격·방문 병행 가능</span></p>
+            </li>
+          </ol>
+          <p class="rp-basis">
+            <span class="rp-basis-label">근거 조항</span>
+            <span class="rp-basis-ed" data-basis-ed>ISO 9001:2026</span>
+            <span data-basis data-std="9001"><span class="clause">§7.5</span> 문서화된 정보 · <span class="clause">§9.2</span> 내부심사</span>
+          </p>
+          <p class="sr-only" id="result-live" aria-live="polite"></p>
+          <span class="rp-scan" aria-hidden="true"></span>
+        </aside>
+      </div>
+    </section>
+
+    <!-- 2. 신뢰 지표 띠: 수치 대신 검증 가능한 사실 문구 -->
+    <section class="trust-strip" aria-label="InsightMatch 운영 원칙">
+      <ul class="wrap trust-row">
+        <li class="trust-item">
+          <span class="code">SCOPE</span>
+          <strong>6개 분야 25개 규격 매칭</strong>
+        </li>
+        <li class="trust-item">
+          <span class="code">VERIFIED</span>
+          <strong>컨설턴트 경력·자격 검증 후 노출</strong>
+        </li>
+        <li class="trust-item">
+          <span class="code">FREE</span>
+          <strong>견적 비교 무료</strong>
+        </li>
+        <li class="trust-item">
+          <span class="code">REVIEWS</span>
+          <strong>완료 프로젝트 리뷰 공개</strong>
+        </li>
+      </ul>
+      <!-- 규격·조항 티커: hover 또는 버튼으로 일시정지, reduced-motion에서는 정지된 줄바꿈 목록 -->
+      <div class="ticker" data-loop>
+        <div class="wrap ticker-inner">
+          <span class="ticker-label" aria-hidden="true">CLAUSE INDEX</span>
+          <div class="ticker-window">
+            <div class="ticker-track">
+              <ul class="ticker-seq" aria-label="주요 규격과 조항">
+                <li class="t-std">ISO 9001:2026</li>
+                <li><b>§4</b> 조직의 상황</li>
+                <li><b>§6.1</b> 리스크와 기회</li>
+                <li><b>§7.5</b> 문서화된 정보</li>
+                <li><b>§9.2</b> 내부심사</li>
+                <li><b>§9.3</b> 경영검토</li>
+                <li><b>§10.2</b> 부적합 및 시정조치</li>
+                <li class="t-std">ISO 14001:2026</li>
+                <li><b>§6.1.2</b> 환경측면</li>
+                <li><b>§6.1.3</b> 준수의무</li>
+                <li class="t-std">ISO 45001:2018</li>
+                <li><b>§5.4</b> 근로자 협의·참여</li>
+                <li><b>§6.1.2</b> 위험요인 파악</li>
+              </ul>
+              <ul class="ticker-seq" aria-hidden="true">
+                <li class="t-std">ISO 9001:2026</li>
+                <li><b>§4</b> 조직의 상황</li>
+                <li><b>§6.1</b> 리스크와 기회</li>
+                <li><b>§7.5</b> 문서화된 정보</li>
+                <li><b>§9.2</b> 내부심사</li>
+                <li><b>§9.3</b> 경영검토</li>
+                <li><b>§10.2</b> 부적합 및 시정조치</li>
+                <li class="t-std">ISO 14001:2026</li>
+                <li><b>§6.1.2</b> 환경측면</li>
+                <li><b>§6.1.3</b> 준수의무</li>
+                <li class="t-std">ISO 45001:2018</li>
+                <li><b>§5.4</b> 근로자 협의·참여</li>
+                <li><b>§6.1.2</b> 위험요인 파악</li>
+              </ul>
+            </div>
+          </div>
+          <button type="button" class="ticker-toggle" aria-pressed="false" aria-label="조항 키워드 흐름 일시정지"><span class="tt-icon" aria-hidden="true"></span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. 문제 정의 -->
+    <section class="section" id="problem" aria-labelledby="problem-title">
+      <div class="wrap">
+        <div class="sec-kicker">
+          <p class="eyebrow">02 / PROBLEM</p>
+          <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 02/09</p>
+        </div>
+        <h2 class="section-title" id="problem-title">인증을 맡은 담당자는 보통 세 가지에서 막힙니다.</h2>
+        <p class="section-lead">InsightMatch는 이 세 가지 걱정에서 출발해 진단과 매칭 흐름을 설계했습니다.</p>
+        <div class="problem-grid">
+          <article class="problem-card">
+            <div class="problem-body">
+              <span class="q-no">Q1</span>
+              <h3>누구에게 맡겨야 할지 모르겠어요</h3>
+              <p>컨설턴트 정보는 흩어져 있고, 우리 업종을 실제로 해 본 사람인지 확인할 방법이 마땅치 않습니다.</p>
+            </div>
+            <p class="answer"><span class="answer-label">INSIGHTMATCH</span>규격·업종 수행 이력으로 후보를 좁히고, 추천 근거를 함께 보여드립니다.</p>
+          </article>
+          <article class="problem-card">
+            <div class="problem-body">
+              <span class="q-no">Q2</span>
+              <h3>제시받은 비용이 적정한지 모르겠어요</h3>
+              <p>한 곳에서만 견적을 받으면 범위와 금액을 비교할 기준이 없어, 결정을 미루게 됩니다.</p>
+            </div>
+            <p class="answer"><span class="answer-label">INSIGHTMATCH</span>여러 제안의 범위·일정·견적을 같은 양식으로 나란히 비교합니다.</p>
+          </article>
+          <article class="problem-card">
+            <div class="problem-body">
+              <span class="q-no">Q3</span>
+              <h3>심사 일정을 맞출 수 있을지 걱정돼요</h3>
+              <p>인증기관 심사 날짜는 정해졌는데, 남은 준비 기간이 충분한지 판단하기 어렵습니다.</p>
+            </div>
+            <p class="answer"><span class="answer-label">INSIGHTMATCH</span>희망 일정 안에 착수할 수 있는 전문가인지 먼저 확인합니다.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. 작동 방식 01·02·03 -->
+    <section class="section section-alt" id="process" aria-labelledby="process-title">
+      <div class="wrap">
+        <div class="sec-kicker">
+          <p class="eyebrow">03 / HOW IT WORKS</p>
+          <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 03/09</p>
+        </div>
+        <h2 class="section-title" id="process-title">진단 입력에서 계약까지, 세 단계로 이어집니다.</h2>
+        <div class="process-flow" data-trigger>
+        <div class="process-rail" aria-hidden="true">
+          <span class="rail-line"><span class="rail-fill"></span></span>
+          <span class="rail-node" style="--n:0">01 INPUT<i></i></span>
+          <span class="rail-node" style="--n:1">02 MATCH<i></i></span>
+          <span class="rail-node" style="--n:2">03 COMPARE<i></i></span>
+        </div>
+        <ol class="process-grid">
+          <li class="step">
+            <div class="step-head">
+              <span class="step-n">01</span>
+              <span class="step-k">INPUT</span>
+            </div>
+            <h3>진단 입력</h3>
+            <p>규격·업종·지역과 희망 일정, 현재 준비 상태를 고릅니다. 가입 없이 바로 시작합니다.</p>
+            <p class="step-out"><span class="mono">OUTPUT</span>진단 요약</p>
+          </li>
+          <li class="step">
+            <div class="step-head">
+              <span class="step-n">02</span>
+              <span class="step-k">MATCH</span>
+            </div>
+            <h3>근거 있는 매칭</h3>
+            <p>수행 이력·인증 범위·지역·착수 가능 일정으로 후보를 좁히고, 적합도와 추천 근거를 함께 공개합니다.</p>
+            <p class="step-out"><span class="mono">OUTPUT</span>추천 전문가와 근거</p>
+          </li>
+          <li class="step">
+            <div class="step-head">
+              <span class="step-n">03</span>
+              <span class="step-k">COMPARE</span>
+            </div>
+            <h3>견적 비교·계약</h3>
+            <p>추천 전문가의 제안 범위·일정·견적을 같은 양식으로 비교하고, 담당자가 직접 선택해 계약합니다.</p>
+            <p class="step-out"><span class="mono">OUTPUT</span>제안·견적 비교표</p>
+          </li>
+        </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. 인증 여정: 준비(InsightMatch 지원) → 심사(인증기관 수행) -->
+    <section class="section" id="journey" aria-labelledby="journey-title">
+      <div class="wrap">
+        <div class="sec-kicker">
+          <p class="eyebrow">04 / CERTIFICATION PATH</p>
+          <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 04/09</p>
+        </div>
+        <h2 class="section-title" id="journey-title">인증은 한 번의 심사가 아니라, 3년 주기로 운영하는 경영시스템입니다.</h2>
+        <p class="section-lead">갭 분석부터 갱신 심사까지의 일반적인 흐름입니다. 준비 단계에서는 문서화된 정보(규격이 요구하는 문서와 기록)를 갖추고, 내부심사·경영검토로 스스로 점검한 뒤 인증기관 심사를 받습니다.</p>
+
+        <div class="journey" data-trigger>
+          <span class="reg reg-tl" aria-hidden="true"></span>
+          <span class="reg reg-tr" aria-hidden="true"></span>
+          <span class="reg reg-bl" aria-hidden="true"></span>
+          <span class="reg reg-br" aria-hidden="true"></span>
+          <div class="j-head">
+            <ul class="j-legend">
+              <li><span class="j-key j-key-help" aria-hidden="true"></span>InsightMatch가 돕는 구간 · 준비</li>
+              <li><span class="j-key j-key-cb" aria-hidden="true"></span>인증기관이 수행 · 심사·인증</li>
+            </ul>
+            <p class="j-fig" aria-hidden="true"><span class="mono">FIG. 04</span> · 경영시스템 인증 주기</p>
+          </div>
+          <ol class="j-track">
+            <li class="j-node is-help" style="--n:0">
+              <span class="j-dot" aria-hidden="true"></span>
+              <span class="j-no">01</span>
+              <b class="j-name">갭 분석</b>
+              <span class="j-ref">§4–§10</span>
+              <span class="j-desc">규격 요구사항과 현재 체계의 차이 점검</span>
+              <span class="sr-only">(InsightMatch 지원 구간)</span>
+            </li>
+            <li class="j-node is-help" style="--n:1">
+              <span class="j-dot" aria-hidden="true"></span>
+              <span class="j-no">02</span>
+              <b class="j-name">문서화 (매뉴얼·절차서)</b>
+              <span class="j-ref">§7.5</span>
+              <span class="j-desc">문서화된 정보 작성·관리 기준 수립</span>
+              <span class="sr-only">(InsightMatch 지원 구간)</span>
+            </li>
+            <li class="j-node is-help" style="--n:2">
+              <span class="j-dot" aria-hidden="true"></span>
+              <span class="j-no">03</span>
+              <b class="j-name">운영·기록 축적</b>
+              <span class="j-ref">§8</span>
+              <span class="j-desc">절차대로 운영하고 증거가 되는 기록 남기기</span>
+              <span class="sr-only">(InsightMatch 지원 구간)</span>
+            </li>
+            <li class="j-node is-help" style="--n:3">
+              <span class="j-dot" aria-hidden="true"></span>
+              <span class="j-no">04</span>
+              <b class="j-name">내부심사</b>
+              <span class="j-ref">§9.2</span>
+              <span class="j-desc">자체 점검으로 부적합(요구사항 미충족) 찾기</span>
+              <span class="sr-only">(InsightMatch 지원 구간)</span>
+            </li>
+            <li class="j-node is-help" style="--n:4">
+              <span class="j-dot" aria-hidden="true"></span>
+              <span class="j-no">05</span>
+              <b class="j-name">경영검토</b>
+              <span class="j-ref">§9.3</span>
+              <span class="j-desc">최고경영자가 성과와 개선 과제를 검토</span>
+              <span class="sr-only">(InsightMatch 지원 구간)</span>
+            </li>
+            <li class="j-node is-cb" style="--n:5">
+              <span class="j-dot" aria-hidden="true"></span>
+              <span class="j-no">06</span>
+              <b class="j-name">1단계 심사 (문서)</b>
+              <span class="j-ref">STAGE 1</span>
+              <span class="j-desc">문서와 준비 상태 확인</span>
+              <span class="sr-only">(인증기관 수행)</span>
+            </li>
+            <li class="j-node is-cb" style="--n:6">
+              <span class="j-dot" aria-hidden="true"></span>
+              <span class="j-no">07</span>
+              <b class="j-name">2단계 심사 (현장)</b>
+              <span class="j-ref">STAGE 2</span>
+              <span class="j-desc">현장 운영과 기록이 요구사항에 맞는지 확인</span>
+              <span class="sr-only">(인증기관 수행)</span>
+            </li>
+            <li class="j-node is-cb" style="--n:7">
+              <span class="j-dot" aria-hidden="true"></span>
+              <span class="j-no">08</span>
+              <b class="j-name">인증 취득</b>
+              <span class="j-ref">CERT · 3Y</span>
+              <span class="j-desc">인증서 발급, 유효기간 3년</span>
+              <span class="sr-only">(인증기관 수행)</span>
+            </li>
+            <li class="j-node is-cb" style="--n:8">
+              <span class="j-dot" aria-hidden="true"></span>
+              <span class="j-no">09</span>
+              <b class="j-name">사후관리 심사 (연 1회)</b>
+              <span class="j-ref">SURVEILLANCE</span>
+              <span class="j-desc">체계가 계속 유지되는지 확인</span>
+              <span class="sr-only">(인증기관 수행)</span>
+            </li>
+            <li class="j-node is-cb" style="--n:9">
+              <span class="j-dot" aria-hidden="true"></span>
+              <span class="j-no">10</span>
+              <b class="j-name">갱신 심사 (3년)</b>
+              <span class="j-ref">RECERT</span>
+              <span class="j-desc">유효기간 만료 전 재인증</span>
+              <span class="sr-only">(인증기관 수행)</span>
+            </li>
+          </ol>
+          <p class="j-note"><span class="mono">NOTE</span>심사는 인정받은 인증기관이 수행합니다. InsightMatch는 준비 과정을 돕는 전문가를 연결합니다.</p>
+          <p class="j-foot">심사 단계 명칭은 ISO/IEC 17021-1(인증기관 요구사항)의 일반적인 구분을 따르며, 세부 일정은 인증기관과 조직 상황에 따라 달라집니다.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. 서비스 2분할: 전문가 매칭(주력) / AI ISO 매뉴얼(보조) -->
+    <section class="section section-alt" id="services" aria-labelledby="services-title">
+      <div class="wrap">
+        <div class="sec-kicker">
+          <p class="eyebrow">05 / SERVICES</p>
+          <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 05/09</p>
+        </div>
+        <h2 class="section-title" id="services-title">매칭이 중심이고, AI 매뉴얼은 준비를 돕는 도구입니다.</h2>
+        <div class="service-split">
+          <article class="service service-main" aria-labelledby="svc-match-title">
+            <div class="service-main-grid">
+              <div class="service-main-copy">
+                <div class="service-head">
+                  <span class="svc-badge">CORE</span>
+                  <span class="mono svc-code">EXPERT MATCHING</span>
+                </div>
+                <h3 id="svc-match-title">전문가 매칭</h3>
+                <p>진단 결과를 바탕으로 검증된 컨설턴트를 추천하고, 제안·견적 비교와 계약까지 한 흐름으로 연결합니다.</p>
+                <ul class="svc-list">
+                  <li><span><b>진단 요약</b> — 업종·규모·규격·일정을 한 장으로 정리</span></li>
+                  <li><span><b>추천 전문가와 근거</b> — 적합도와 추천 이유를 함께 공개</span></li>
+                  <li><span><b>제안·견적 비교</b> — 범위·일정·견적을 같은 양식으로 비교</span></li>
+                </ul>
+                <a class="text-link" href="#diagnosis" data-focus-diagnosis>무료 매칭 시작하기 <span class="arr" aria-hidden="true">→</span></a>
+              </div>
+              <div class="dossier" role="group" aria-label="진단 요약 예시">
+                <div class="doc-header">
+                  <span>DIAGNOSIS SUMMARY</span>
+                  <span class="stamp">SAMPLE</span>
+                </div>
+                <dl>
+                  <div class="d-row"><dt>업종</dt><dd>제조 (자동차 부품)</dd></div>
+                  <div class="d-row"><dt>규모</dt><dd>51~200명</dd></div>
+                  <div class="d-row"><dt>프로젝트</dt><dd>ISO 9001 갱신</dd></div>
+                  <div class="d-row"><dt>희망 일정</dt><dd>3개월 이내</dd></div>
+                  <div class="d-row"><dt>주요 과제</dt><dd>문서 경량화, 내부심사 준비</dd></div>
+                </dl>
+              </div>
+            </div>
+          </article>
+
+          <article class="service service-sub" id="manual" aria-labelledby="svc-manual-title">
+            <div class="service-head">
+              <span class="svc-badge svc-badge-sub">TOOL</span>
+              <span class="mono svc-code">AI ISO MANUAL</span>
+            </div>
+            <h3 id="svc-manual-title">AI ISO 매뉴얼</h3>
+            <p>매뉴얼과 절차서를 분리해 ISO 4~10절 구조로 초안을 만듭니다. 최종본은 컨설턴트 검토로 완성합니다.</p>
+            <div class="manual-docs" aria-hidden="true">
+              <div class="manual-doc">
+                <div class="doc-cap">MANUAL / 4-10</div>
+                <div class="doc-content">
+                  <div class="line signal-line"></div>
+                  <div class="line"></div>
+                  <div class="line short"></div>
+                  <div class="line"></div>
+                </div>
+              </div>
+              <div class="manual-doc">
+                <div class="doc-cap">PROCEDURES</div>
+                <div class="doc-content">
+                  <div class="line signal-line"></div>
+                  <div class="line short"></div>
+                  <div class="line"></div>
+                  <div class="line"></div>
+                </div>
+              </div>
+            </div>
+            <a class="text-link" href="#faq-manual">AI 매뉴얼 자세히 보기 <span class="arr" aria-hidden="true">→</span></a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. 컨설턴트 검증 기준 -->
+    <section class="section band verification" id="verification" aria-labelledby="verification-title">
+      <div class="wrap">
+        <div class="sec-kicker">
+          <p class="eyebrow">06 / VERIFICATION</p>
+          <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 06/09</p>
+        </div>
+        <h2 class="section-title" id="verification-title">'상위 몇 %' 대신, 검증 기준을 그대로 공개합니다.</h2>
+        <p class="section-lead">컨설턴트는 아래 기준을 통과한 뒤에만 추천 목록에 노출됩니다. 이해상충(같은 기업의 컨설팅과 심사에 함께 관여하는 상황) 여부도 확인합니다.</p>
+        <div class="verification-board" data-trigger>
+          <div class="audit-stamp">
+            <div class="stamp-head">
+              <span class="mono">INSIGHTMATCH / VERIFIED EXPERT</span>
+              <svg class="seal" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+                <defs>
+                  <path id="seal-ring" d="M13 60a47 47 0 1 1 94 0a47 47 0 1 1-94 0" />
+                </defs>
+                <circle cx="60" cy="60" r="57" fill="none" stroke="currentColor" stroke-width="2" />
+                <circle cx="60" cy="60" r="37" fill="none" stroke="currentColor" stroke-width="1.5" />
+                <text><textPath href="#seal-ring">INSIGHTMATCH · VERIFIED CONSULTANT · </textPath></text>
+                <path d="M45 61l10 10 21-24" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="square" />
+              </svg>
+            </div>
+            <strong>공개 기준을 통과한 전문가만 추천합니다</strong>
+            <p>프로필·실적·리뷰가 바뀌면 기준을 다시 확인하고, 미달 시 노출을 중단합니다.</p>
+          </div>
+          <ul class="check-ledger">
+            <li class="check-row" style="--n:0">
+              <span class="check-box" aria-hidden="true"><svg viewBox="0 0 14 14" focusable="false"><path pathLength="10" d="M2.5 7.5l3 3 6-7" /></svg></span>
+              <div>
+                <b>자격·경력 확인</b>
+                <span class="desc">심사원·컨설턴트 자격과 경력 연차를 증빙 자료로 확인합니다.</span>
+              </div>
+              <span class="check-tag">REQUIRED</span>
+            </li>
+            <li class="check-row" style="--n:1">
+              <span class="check-box" aria-hidden="true"><svg viewBox="0 0 14 14" focusable="false"><path pathLength="10" d="M2.5 7.5l3 3 6-7" /></svg></span>
+              <div>
+                <b>수행 이력 확인</b>
+                <span class="desc">규격·업종별 최근 프로젝트와 그 안에서 맡은 역할을 확인합니다.</span>
+              </div>
+              <span class="check-tag">REQUIRED</span>
+            </li>
+            <li class="check-row" style="--n:2">
+              <span class="check-box" aria-hidden="true"><svg viewBox="0 0 14 14" focusable="false"><path pathLength="10" d="M2.5 7.5l3 3 6-7" /></svg></span>
+              <div>
+                <b>리뷰 신뢰도 가중 평점</b>
+                <span class="desc">완료된 프로젝트의 리뷰만 받고, 신뢰도를 가중해 평점에 반영합니다.</span>
+              </div>
+              <span class="check-tag">PUBLIC</span>
+            </li>
+            <li class="check-row" style="--n:3">
+              <span class="check-box" aria-hidden="true"><svg viewBox="0 0 14 14" focusable="false"><path pathLength="10" d="M2.5 7.5l3 3 6-7" /></svg></span>
+              <div>
+                <b>이해상충 고지</b>
+                <span class="desc">인증기관 소속이나 해당 기업 심사 관여 여부를 확인하고 고지합니다.</span>
+              </div>
+              <span class="check-tag">DISCLOSE</span>
+            </li>
+            <li class="check-row" style="--n:4">
+              <span class="check-box" aria-hidden="true"><svg viewBox="0 0 14 14" focusable="false"><path pathLength="10" d="M2.5 7.5l3 3 6-7" /></svg></span>
+              <div>
+                <b>정기 재검토</b>
+                <span class="desc">프로필과 실적 변동 시 노출 기준 충족 여부를 다시 검토합니다.</span>
+              </div>
+              <span class="check-tag">REVIEW</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. ISO 카탈로그 -->
+    <section class="section" id="catalog" aria-labelledby="catalog-title">
+      <div class="wrap">
+        <div class="sec-kicker">
+          <p class="eyebrow">07 / CATALOG</p>
+          <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 07/09</p>
+        </div>
+        <h2 class="section-title" id="catalog-title">대표 경영시스템부터 ESG·정보보안·산업 특화 규격까지 매칭합니다.</h2>
+        <p class="section-lead">6개 분야 25개 규격의 전문가를 찾을 수 있습니다. 규격마다 다루는 대상은 다르지만, 주요 경영시스템 규격은 §6.1 리스크와 기회(미리 따져 계획에 반영할 위험과 기회)부터 §10 개선까지 같은 조항 구조를 따릅니다.</p>
+
+        <div class="hls" role="group" aria-labelledby="hls-title">
+          <div class="hls-copy">
+            <p class="hls-k">ANNEX SL · HLS</p>
+            <h3 id="hls-title">공통 상위 구조: 조항 4~10</h3>
+            <p>ISO 9001·14001·45001을 비롯해 27001·50001·22301 같은 경영시스템 규격은 같은 상위 구조(HLS)를 공유해 통합 인증(IMS, 여러 경영시스템을 하나로 운영)이 가능합니다. 조항 번호와 순서가 같아 매뉴얼·내부심사·경영검토를 함께 설계할 수 있습니다.</p>
+            <ul class="hls-eds" aria-label="대표 규격과 개정판">
+              <li class="tag tag-accent">ISO 9001:2026</li>
+              <li class="tag tag-accent">ISO 14001:2026</li>
+              <li class="tag tag-accent">ISO 45001:2018</li>
+            </ul>
+            <p class="hls-note">* 2021년 이후 ISO 지침에서는 ‘조화 구조(Harmonized Structure)’라고 부릅니다. PDCA 대응은 ISO 9001 서문의 PDCA 그림을 바탕으로 한 일반적인 해석입니다.</p>
+          </div>
+          <figure class="hls-fig">
+            <div class="hls-input"><b>§4</b> 조직의 상황 — 이해관계자 요구·적용 범위 (INPUT)</div>
+            <div class="hls-cols">
+              <div class="hls-col">
+                <span class="hls-pdca">PLAN</span>
+                <span class="hls-cl"><b>§6</b> 기획</span>
+              </div>
+              <div class="hls-col">
+                <span class="hls-pdca">DO</span>
+                <span class="hls-cl"><b>§7</b> 지원</span>
+                <span class="hls-cl"><b>§8</b> 운용</span>
+              </div>
+              <div class="hls-col">
+                <span class="hls-pdca">CHECK</span>
+                <span class="hls-cl"><b>§9</b> 성과 평가</span>
+              </div>
+              <div class="hls-col">
+                <span class="hls-pdca">ACT</span>
+                <span class="hls-cl"><b>§10</b> 개선</span>
+              </div>
+            </div>
+            <div class="hls-core"><b>§5</b> 리더십 — 모든 단계의 중심</div>
+            <div class="hls-loop" aria-hidden="true">ACT → PLAN · 지속적 개선</div>
+            <figcaption><span class="mono">FIG. 07</span> · HLS 조항과 PDCA 대응</figcaption>
+          </figure>
+        </div>
+
+        <p class="cat-k"><span class="mono">CORE 3</span> 대표 경영시스템 규격</p>
+        <div class="iso-grid">
+          <article class="iso-card">
+            <div class="iso-top">
+              <span class="iso-code">ISO 9001<span class="iso-ed">:2026</span></span>
+              <span class="iso-kind">품질경영</span>
+            </div>
+            <h3>고객 요구를 일관되게 충족하는 품질 체계</h3>
+            <p>업무 절차·책임·기록을 표준화해 품질 편차를 줄이고, 거래처의 입찰·납품 요건에 대응합니다.</p>
+            <div class="rev-callout" role="note" aria-label="ISO 9001 2026 개정 전환 안내">
+              <p class="rev-callout-head"><span class="mono">REVISION</span> 2026.09.16 발행 · 6판</p>
+              <ul>
+                <li>2015판 인증 기업은 <strong>2029.09.30</strong>까지 전환 완료</li>
+                <li><strong>2028.03.31</strong>부터 신규 인증은 2026판으로만 발급</li>
+              </ul>
+            </div>
+            <dl class="iso-meta">
+              <div><dt>준비 기간</dt><dd><span class="num-val">3~6</span>개월 (참고)</dd></div>
+              <div><dt>주요 대상</dt><dd>제조 · 서비스 · 유통 · IT</dd></div>
+            </dl>
+            <div class="iso-tags">
+              <span class="tag tag-accent">2026판 전환</span>
+              <span class="tag">신규 인증</span>
+              <span class="tag">갱신 심사</span>
+            </div>
+            <a class="text-link" href="#diagnosis" data-pick-std="9001">ISO 9001로 매칭 보기 <span class="arr" aria-hidden="true">→</span></a>
+          </article>
+          <article class="iso-card">
+            <div class="iso-top">
+              <span class="iso-code">ISO 14001<span class="iso-ed">:2026</span></span>
+              <span class="iso-kind">환경경영</span>
+            </div>
+            <h3>환경 영향과 법규 리스크를 관리하는 체계</h3>
+            <p>사업장의 환경측면을 파악하고 법규 준수 상태를 관리해, ESG 평가와 공급망 요구에 대응합니다.</p>
+            <div class="rev-callout rev-callout-quiet" role="note" aria-label="ISO 14001 2026 개정 안내">
+              <p class="rev-callout-head"><span class="mono">REVISION</span> 2026.04 발행 · 4판</p>
+              <ul>
+                <li>2015판 인증 기업의 전환 일정은 인증기관 안내를 따릅니다</li>
+              </ul>
+            </div>
+            <dl class="iso-meta">
+              <div><dt>준비 기간</dt><dd><span class="num-val">4~6</span>개월 (참고)</dd></div>
+              <div><dt>주요 대상</dt><dd>제조 · 건설 · 화학·소재 · 물류</dd></div>
+            </dl>
+            <div class="iso-tags">
+              <span class="tag">ESG 대응</span>
+              <span class="tag">법규 검토</span>
+              <span class="tag">9001 통합</span>
+            </div>
+            <a class="text-link" href="#diagnosis" data-pick-std="14001">ISO 14001로 매칭 보기 <span class="arr" aria-hidden="true">→</span></a>
+          </article>
+          <article class="iso-card">
+            <div class="iso-top">
+              <span class="iso-code">ISO 45001<span class="iso-ed">:2018</span></span>
+              <span class="iso-kind">안전보건</span>
+            </div>
+            <h3>현장 위험을 줄이는 안전보건 관리 체계</h3>
+            <p>위험성 평가와 안전보건 목표·교육 체계를 갖춰 사고를 예방하고 중대재해 대응 체계를 정비합니다.</p>
+            <dl class="iso-meta">
+              <div><dt>준비 기간</dt><dd><span class="num-val">4~6</span>개월 (참고)</dd></div>
+              <div><dt>주요 대상</dt><dd>건설 · 제조 · 물류 · 시설관리</dd></div>
+            </dl>
+            <div class="iso-tags">
+              <span class="tag">위험성 평가</span>
+              <span class="tag">중대재해 대응</span>
+              <span class="tag">현장 교육</span>
+            </div>
+            <a class="text-link" href="#diagnosis" data-pick-std="45001">ISO 45001로 매칭 보기 <span class="arr" aria-hidden="true">→</span></a>
+          </article>
+        </div>
+        <div class="std-all" aria-labelledby="std-all-title">
+          <div class="std-all-head">
+            <h3 id="std-all-title">전체 매칭 규격 <span class="mono">6 FIELDS · 25 STANDARDS</span></h3>
+            <ul class="std-legend" aria-label="표시 안내">
+              <li><em class="std-badge b-verify">검증</em>인증 대신 제3자 검증을 받는 규격</li>
+              <li><em class="std-badge b-guide">가이드라인</em>인증 대상이 아닌 지침, 도입 컨설팅</li>
+              <li><em class="std-badge b-ext">27001 연계</em>27001과 함께 심사받는 확장 규격</li>
+            </ul>
+          </div>
+          <div class="std-groups">
+            <div class="std-group" role="group" aria-labelledby="stdg-management">
+              <p class="std-group-k" id="stdg-management"><span class="mono">01</span>경영·운영 시스템</p>
+              <ul>
+                <li><a href="#diagnosis" data-pick-std="9001"><b>ISO 9001</b><span>품질경영</span></a></li>
+                <li><a href="#diagnosis" data-pick-std="14001"><b>ISO 14001</b><span>환경경영</span></a></li>
+                <li><a href="#diagnosis" data-pick-std="45001"><b>ISO 45001</b><span>안전보건</span></a></li>
+                <li><a href="#diagnosis" data-pick-std="50001"><b>ISO 50001</b><span>에너지경영</span></a></li>
+              </ul>
+            </div>
+            <div class="std-group" role="group" aria-labelledby="stdg-esg">
+              <p class="std-group-k" id="stdg-esg"><span class="mono">02</span>ESG·지속가능성·기후변화</p>
+              <ul>
+                <li><a href="#diagnosis" data-pick-std="14064"><b>ISO 14064-1</b><span>온실가스 산정 <em class="std-badge b-verify">검증</em></span></a></li>
+                <li><a href="#diagnosis" data-pick-std="14067"><b>ISO 14067</b><span>제품 탄소발자국 <em class="std-badge b-verify">검증</em></span></a></li>
+                <li><a href="#diagnosis" data-pick-std="14068"><b>ISO 14068-1</b><span>탄소중립 <em class="std-badge b-verify">검증</em></span></a></li>
+                <li><a href="#diagnosis" data-pick-std="26000"><b>ISO 26000</b><span>사회적 책임 <em class="std-badge b-guide">가이드라인</em></span></a></li>
+                <li><a href="#diagnosis" data-pick-std="20400"><b>ISO 20400</b><span>지속가능한 조달 <em class="std-badge b-guide">가이드라인</em></span></a></li>
+              </ul>
+            </div>
+            <div class="std-group" role="group" aria-labelledby="stdg-security">
+              <p class="std-group-k" id="stdg-security"><span class="mono">03</span>정보보안·디지털·AI</p>
+              <ul>
+                <li><a href="#diagnosis" data-pick-std="27001"><b>ISO/IEC 27001</b><span>정보보안</span></a></li>
+                <li><a href="#diagnosis" data-pick-std="27701"><b>ISO/IEC 27701</b><span>개인정보보호</span></a></li>
+                <li><a href="#diagnosis" data-pick-std="27017"><b>ISO/IEC 27017</b><span>클라우드 보안 <em class="std-badge b-ext">27001 연계</em></span></a></li>
+                <li><a href="#diagnosis" data-pick-std="42001"><b>ISO/IEC 42001</b><span>AI 경영시스템</span></a></li>
+              </ul>
+            </div>
+            <div class="std-group" role="group" aria-labelledby="stdg-supply">
+              <p class="std-group-k" id="stdg-supply"><span class="mono">04</span>공급망·리스크·연속성</p>
+              <ul>
+                <li><a href="#diagnosis" data-pick-std="22301"><b>ISO 22301</b><span>비즈니스 연속성</span></a></li>
+                <li><a href="#diagnosis" data-pick-std="31000"><b>ISO 31000</b><span>리스크관리 <em class="std-badge b-guide">가이드라인</em></span></a></li>
+                <li><a href="#diagnosis" data-pick-std="28000"><b>ISO 28000</b><span>공급망 보안</span></a></li>
+                <li><a href="#diagnosis" data-pick-std="37301"><b>ISO 37301</b><span>컴플라이언스</span></a></li>
+              </ul>
+            </div>
+            <div class="std-group" role="group" aria-labelledby="stdg-industry">
+              <p class="std-group-k" id="stdg-industry"><span class="mono">05</span>산업·특수 목적</p>
+              <ul>
+                <li><a href="#diagnosis" data-pick-std="13485"><b>ISO 13485</b><span>의료기기 품질</span></a></li>
+                <li><a href="#diagnosis" data-pick-std="22000"><b>ISO 22000</b><span>식품안전</span></a></li>
+                <li><a href="#diagnosis" data-pick-std="IATF16949"><b>IATF 16949</b><span>자동차 품질</span></a></li>
+                <li><a href="#diagnosis" data-pick-std="19443"><b>ISO 19443</b><span>원자력 공급망</span></a></li>
+              </ul>
+            </div>
+            <div class="std-group" role="group" aria-labelledby="stdg-hr">
+              <p class="std-group-k" id="stdg-hr"><span class="mono">06</span>인사·조직·윤리</p>
+              <ul>
+                <li><a href="#diagnosis" data-pick-std="30401"><b>ISO 30401</b><span>지식경영</span></a></li>
+                <li><a href="#diagnosis" data-pick-std="30414"><b>ISO 30414</b><span>인적자본 공시</span></a></li>
+                <li><a href="#diagnosis" data-pick-std="37001"><b>ISO 37001</b><span>부패방지</span></a></li>
+                <li><a href="#diagnosis" data-pick-std="45003"><b>ISO 45003</b><span>심리사회적 위험 <em class="std-badge b-guide">가이드라인</em></span></a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="catalog-foot">
+          <p><span class="soon">안내</span>규격별로 등록된 전문가 수가 달라, 추천 인원과 적합도 분포는 규격마다 다를 수 있습니다.</p>
+          <small>준비 기간은 조직 규모와 현재 체계 수준에 따라 달라지는 일반적인 참고 범위입니다.</small>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. FAQ -->
+    <section class="section section-alt" id="faq" aria-labelledby="faq-title">
+      <div class="wrap faq-layout">
+        <div>
+          <div class="sec-kicker">
+            <p class="eyebrow">08 / FAQ</p>
+            <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 08/09</p>
+          </div>
+          <h2 class="section-title" id="faq-title">기업 담당자가 가장 먼저 묻는 질문</h2>
+          <p class="section-lead">더 궁금한 점은 진단 후 문의하기로 남겨 주세요.</p>
+        </div>
+        <div class="faq-list">
+          <details open>
+            <summary>정말 무료로 추천받을 수 있나요?</summary>
+            <p>기업 담당자의 진단, 추천 확인, 견적 비교는 무료입니다. 실제 컨설팅 비용은 선택한 컨설턴트의 제안서와 견적서를 기준으로 정해집니다.</p>
+          </details>
+          <details id="faq-iso9001-2026">
+            <summary>ISO 9001:2026 개정, 우리 회사는 언제까지 전환해야 하나요?</summary>
+            <p>ISO 9001:2026(6판)은 2026년 9월 16일 발행됐습니다. ISO 기술위원회(TC 176)가 안내한 일정에 따르면 <strong>2028년 3월 31일</strong>부터 신규 인증은 2026판으로만 발급되고, 2015판으로 인증받은 조직은 <strong>2029년 9월 30일</strong>까지 전환을 마쳐야 합니다. 이번 개정은 리더십·품질문화·윤리적 행동을 더 강조하고, 리스크와 기회를 고려하는 방식을 명확히 했으며, 요구사항의 의도를 설명하는 부분이 새로 추가됐습니다. 보통 개정 사항을 현재 체계와 대조하는 갭 분석부터 시작하며, 실제 전환 심사 시기는 인증기관과 협의해 정합니다.</p>
+          </details>
+          <details>
+            <summary>추천 컨설턴트는 어떻게 검증하나요?</summary>
+            <p>자격·경력 증빙, 유사 프로젝트 수행 이력, 이해상충 여부를 확인한 뒤에만 노출합니다. 완료 프로젝트 리뷰는 신뢰도를 가중해 평점에 반영합니다.</p>
+          </details>
+          <details>
+            <summary>적합도 점수는 어떻게 계산되나요?</summary>
+            <p>규격·업종 수행 이력, 활동 지역, 착수 가능 일정, 검증된 리뷰를 가중치로 반영해 산정하며, 점수와 함께 추천 근거를 공개합니다. 이 페이지에 보이는 점수는 예시입니다.</p>
+          </details>
+          <details>
+            <summary>심사에서 부적합이 나오면 어떻게 되나요?</summary>
+            <p>부적합(요구사항 미충족)이 확인되면 원인을 분석하고, 시정조치(원인을 없애 재발을 막는 조치)를 계획·이행한 증빙을 인증기관에 제출합니다. 인증 여부는 인증기관이 결정하며, 컨설턴트는 원인 분석과 시정조치 준비를 돕습니다.</p>
+          </details>
+          <details>
+            <summary>견적 비교는 어떻게 진행되나요?</summary>
+            <p>추천받은 컨설턴트에게 제안을 요청하면 범위·일정·견적을 같은 양식으로 나란히 비교할 수 있습니다. 계약 여부는 담당자가 직접 결정합니다.</p>
+          </details>
+          <details id="faq-manual">
+            <summary>AI 매뉴얼만으로 인증 심사를 받을 수 있나요?</summary>
+            <p>AI 매뉴얼은 매뉴얼·절차서 초안을 빠르게 만드는 도구입니다. 회사의 실제 프로세스와 기록 기준을 반영하려면 전문 컨설턴트의 검토가 필요합니다.</p>
+          </details>
+          <details>
+            <summary>ISO 9001·14001·45001 외 규격도 매칭되나요?</summary>
+            <p>네. 경영·운영, ESG·기후변화, 정보보안·AI, 공급망·리스크, 산업 특화, 인사·조직·윤리의 6개 분야 25개 규격 전문가를 매칭합니다. ISO 14064-1·14067처럼 인증 대신 제3자 검증을 받는 규격이나, ISO 26000처럼 인증 대상이 아닌 가이드라인도 도입을 도울 전문가를 찾을 수 있습니다. 다만 AI 매뉴얼 자동 생성은 현재 ISO 9001·14001·45001만 지원합니다.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10. 마무리 CTA -->
+    <section class="final-cta band" aria-labelledby="final-title">
+      <div class="wrap final-box">
+        <div>
+          <div class="sec-kicker">
+            <p class="eyebrow">09 / START</p>
+            <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 09/09</p>
+          </div>
+          <h2 id="final-title">인증 준비 상태를 먼저 읽고, 맞는 전문가부터 찾으세요.</h2>
+          <p class="final-sub">규격·업종·지역만 고르면 됩니다. 가입 없이 먼저 확인할 수 있습니다.</p>
+        </div>
+        <a class="btn btn-primary btn-lg" href="#diagnosis" data-focus-diagnosis>무료 매칭 시작하기 <span aria-hidden="true">→</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer band">
+    <div class="wrap footer-grid">
+      <div>
+        <a class="brand" href="#top" aria-label="InsightMatch 맨 위로">
+          <span class="brand-mark" aria-hidden="true">iM</span>
+          <span>Insight<span class="brand-dot">.</span>Match</span>
+        </a>
+        <p>InsightMatch는 한국 기업의 ISO 인증 준비 상태를 진단하고, 검증된 컨설턴트와 제안·견적 비교까지 연결하는 B2B 매칭 플랫폼입니다.</p>
+      </div>
+      <nav class="footer-links" aria-label="하단 메뉴">
+        <a href="#diagnosis">ISO 진단</a>
+        <a href="#process">작동 방식</a>
+        <a href="#verification">검증 기준</a>
+        <a href="#catalog">ISO 카탈로그</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+    </div>
+    <div class="wrap footer-note">
+      <span class="mono">PREVIEW</span>
+      <span>프리뷰 시안입니다. 화면 속 인물·점수·기간은 예시이며 운영 데이터가 아닙니다.</span>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      var form = document.getElementById('diag-form');
+      var panel = document.getElementById('result-panel');
+      if (!form || !panel) return;
+
+      var live = document.getElementById('result-live');
+      var moreWrap = document.getElementById('std-more-wrap');
+      var moreSel = document.getElementById('std-more');
+      var otherRadio = document.getElementById('std-other');
+
+      function syncMore() {
+        if (!moreWrap) return;
+        moreWrap.hidden = !(otherRadio && otherRadio.checked);
+      }
+      var toast = document.getElementById('toast');
+      var cta = document.getElementById('show-result');
+      var cards = Array.prototype.slice.call(panel.querySelectorAll('.match-card'));
+      var reduceMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+      var narrowMQ = window.matchMedia('(max-width: 899px)');
+
+      function reduced() { return reduceMQ.matches; }
+
+      // 전체 매칭 규격 (consultant_register.html 의 6개 분야 목록과 동일)
+      var STD = {"9001": {"label": "ISO 9001", "name": "품질경영", "type": "core"}, "14001": {"label": "ISO 14001", "name": "환경경영", "type": "core"}, "45001": {"label": "ISO 45001", "name": "안전보건", "type": "core"}, "50001": {"label": "ISO 50001", "name": "에너지경영", "type": "cert"}, "14064": {"label": "ISO 14064-1", "name": "온실가스 산정", "type": "verify"}, "14067": {"label": "ISO 14067", "name": "제품 탄소발자국", "type": "verify"}, "14068": {"label": "ISO 14068-1", "name": "탄소중립", "type": "verify"}, "26000": {"label": "ISO 26000", "name": "사회적 책임", "type": "guide"}, "20400": {"label": "ISO 20400", "name": "지속가능한 조달", "type": "guide"}, "27001": {"label": "ISO/IEC 27001", "name": "정보보안", "type": "cert"}, "27701": {"label": "ISO/IEC 27701", "name": "개인정보보호", "type": "cert"}, "27017": {"label": "ISO/IEC 27017", "name": "클라우드 보안", "type": "ext"}, "42001": {"label": "ISO/IEC 42001", "name": "AI 경영시스템", "type": "cert"}, "22301": {"label": "ISO 22301", "name": "비즈니스 연속성", "type": "cert"}, "31000": {"label": "ISO 31000", "name": "리스크관리", "type": "guide"}, "28000": {"label": "ISO 28000", "name": "공급망 보안", "type": "cert"}, "37301": {"label": "ISO 37301", "name": "컴플라이언스", "type": "cert"}, "13485": {"label": "ISO 13485", "name": "의료기기 품질", "type": "cert"}, "22000": {"label": "ISO 22000", "name": "식품안전", "type": "cert"}, "IATF16949": {"label": "IATF 16949", "name": "자동차 품질", "type": "cert"}, "19443": {"label": "ISO 19443", "name": "원자력 공급망", "type": "cert"}, "30401": {"label": "ISO 30401", "name": "지식경영", "type": "cert"}, "30414": {"label": "ISO 30414", "name": "인적자본 공시", "type": "other"}, "37001": {"label": "ISO 37001", "name": "부패방지", "type": "cert"}, "45003": {"label": "ISO 45003", "name": "심리사회적 위험", "type": "guide"}};
+      var STANDARDS = {};
+      Object.keys(STD).forEach(function (k) { STANDARDS[k] = STD[k].label; });
+      var ORDER = ['9001', '14001', '45001'];
+
+      // 카드별 추천 근거 템플릿 ({ind} = 업종)
+      var REASONS = {
+        '9001': [
+          '{ind} 업종 품질 문서 체계 정비 경험',
+          '내부심사·경영검토 준비를 패키지로 진행',
+          '갱신 심사 일정에 맞춘 단기 착수 이력'
+        ],
+        '14001': [
+          '{ind} 사업장 환경측면·법규 검토 경험',
+          '환경 목표·운영관리 문서 구축 경험',
+          '품질·환경 통합 인증 병행 경험'
+        ],
+        '45001': [
+          '{ind} 현장 위험성 평가 수행 경험',
+          '중대재해 대응 체계와 연계한 구축 경험',
+          '현장 교육·비상대응 훈련 운영 경험'
+        ]
+      };
+      var VISIT = ['현장 방문 가능', '정기 방문 협의 가능', '원격·방문 병행 가능'];
+
+      // 대표 3종 외 규격: 유형별 일반 템플릿
+      var TYPE_REASON = {
+        cert: '{label} 요구사항 갭 분석·문서화 경험',
+        ext: 'ISO/IEC 27001 체계에 추가 통제 적용 경험',
+        verify: '산정 범위 설정·제3자 검증 대응 경험',
+        guide: '가이드라인 기반 진단·체계 설계 경험',
+        other: '{label} 요구사항 검토·체계 설계 경험'
+      };
+      function reasonsFor(code) {
+        if (REASONS[code]) return REASONS[code];
+        var st = STD[code];
+        return [
+          '{ind} 업종 ' + st.name + ' 도입 경험',
+          TYPE_REASON[st.type].replace('{label}', st.label),
+          '기존 ISO 9001 등 경영시스템과 통합 운영 경험'
+        ];
+      }
+
+      // 규격별 근거 조항 (개정판 + 추천 근거와 연결되는 조항 2개)
+      var BASIS = {
+        '9001': { ed: 'ISO 9001:2026', items: [['§7.5', '문서화된 정보'], ['§9.2', '내부심사']] },
+        '14001': { ed: 'ISO 14001:2026', items: [['§6.1.2', '환경측면'], ['§6.1.3', '준수의무']] },
+        '45001': { ed: 'ISO 45001:2018', items: [['§6.1.2', '위험요인 파악'], ['§8.2', '비상시 대비·대응']] }
+      };
+      var TYPE_BASIS = {
+        cert: [['GAP', '요구사항 대비 현황 점검'], ['AUDIT', '내부심사·인증 심사 대응']],
+        ext: [['GAP', '27001 대비 추가 통제 점검'], ['AUDIT', '27001 연계 심사 대응']],
+        verify: [['SCOPE', '산정 범위·활동 데이터 정리'], ['VERIFY', '제3자 검증 대응']],
+        guide: [['GUIDE', '인증 대상이 아닌 가이드라인'], ['DIAG', '도입 진단·체계 설계']],
+        other: [['GAP', '요구사항 대비 현황 점검'], ['DESIGN', '도입·운영 체계 설계']]
+      };
+      function basisFor(code) {
+        if (BASIS[code]) return BASIS[code];
+        return { ed: STD[code].label, items: TYPE_BASIS[STD[code].type] };
+      }
+      var basisEd = panel.querySelector('[data-basis-ed]');
+      var basisList = panel.querySelector('[data-basis]');
+
+      // 진단 스캔 상태 문구 (규격 요건 → 업종 이력 → 지역 가용성 → MATCHED)
+      var SCAN_STEPS = ['규격 요건 대조', '업종 이력 검토', '지역 가용성 확인'];
+      var statusText = panel.querySelector('[data-status]');
+      var statusStep = panel.querySelector('[data-status-step]');
+      var scanTimers = [];
+
+      // FNV-1a 32bit — 같은 선택값이면 항상 같은 점수(결정론적 가짜 점수)
+      function hash(str) {
+        var h = 2166136261;
+        for (var i = 0; i < str.length; i++) {
+          h ^= str.charCodeAt(i);
+          h = Math.imul(h, 16777619);
+        }
+        return h >>> 0;
+      }
+
+      // 1순위 90~97, 이후 1~4점씩 감소 → 전체 82~97 범위, 항상 내림차순
+      function computeScores(s) {
+        var key = s.std + '|' + s.industry + '|' + s.region;
+        var top = 90 + (hash(key + '#a') % 8);
+        var second = top - 1 - (hash(key + '#b') % 4);
+        var third = second - 1 - (hash(key + '#c') % 4);
+        return [top, second, third];
+      }
+
+      function readState() {
+        var checked = form.querySelector('input[name="std"]:checked');
+        var std = checked ? checked.value : '9001';
+        if (std === 'other') std = moreSel.value;
+        return {
+          std: std,
+          industry: form.elements.industry.value,
+          region: form.elements.region.value
+        };
+      }
+
+      function setText(el, value) {
+        if (el && el.textContent !== value) el.textContent = value;
+      }
+
+      function retrigger(el, cls) {
+        el.classList.remove(cls);
+        void el.offsetWidth; // reflow로 애니메이션 재시작
+        el.classList.add(cls);
+      }
+
+      // 숫자 카운트업 (easeOutCubic). reduced-motion이면 즉시 최종값.
+      function stopCount(el) {
+        if (el._raf) { window.cancelAnimationFrame(el._raf); el._raf = 0; }
+        if (el._cdt) { clearTimeout(el._cdt); el._cdt = 0; }
+      }
+
+      function countTo(el, to, dur, delay) {
+        stopCount(el);
+        var from = parseInt(el.textContent, 10);
+        if (isNaN(from)) from = 0;
+        if (reduced() || from === to) { setText(el, String(to)); return; }
+        function begin() {
+          var t0 = null;
+          el._cdt = 0;
+          function step(now) {
+            if (t0 === null) t0 = now;
+            var p = Math.min(1, (now - t0) / dur);
+            var eased = 1 - Math.pow(1 - p, 3);
+            el.textContent = String(Math.round(from + (to - from) * eased));
+            el._raf = p < 1 ? window.requestAnimationFrame(step) : 0;
+          }
+          el._raf = window.requestAnimationFrame(step);
+        }
+        if (delay > 0) el._cdt = setTimeout(begin, delay); else begin();
+      }
+
+      function render(s, opts) {
+        opts = opts || {};
+        var scores = computeScores(s);
+        var others = ORDER.filter(function (k) { return k !== s.std; }).slice(0, 2);
+        var alts = [STANDARDS[others[0]], STANDARDS[others[1]], '통합 인증(IMS)'];
+
+        cards.forEach(function (card, i) {
+          function q(role) { return card.querySelector('[data-role="' + role + '"]'); }
+          var numEl = q('score');
+          var bar = q('bar');
+          if (opts.count && !reduced()) {
+            countTo(numEl, scores[i], 600, 0);
+          } else {
+            stopCount(numEl);
+            setText(numEl, String(scores[i]));
+          }
+          bar.style.transition = '';
+          bar.style.width = scores[i] + '%';
+          setText(q('std'), STANDARDS[s.std]);
+          setText(q('alt'), alts[i]);
+          setText(q('industry'), s.industry);
+          setText(q('region'), s.region);
+          setText(q('reason'), reasonsFor(s.std)[i].replace('{ind}', s.industry) + ' · ' + s.region + ' ' + VISIT[i]);
+          if (opts.flash && !reduced()) retrigger(card, 'is-updating');
+        });
+
+        setText(panel.querySelector('[data-cond="std"]'), STANDARDS[s.std]);
+        setText(panel.querySelector('[data-cond="industry"]'), s.industry);
+        setText(panel.querySelector('[data-cond="region"]'), s.region);
+
+        var basis = basisFor(s.std);
+        setText(basisEd, basis.ed);
+        if (basisList && basisList.getAttribute('data-std') !== s.std) {
+          basisList.innerHTML = basis.items.map(function (it) {
+            return '<span class="clause">' + it[0] + '</span> ' + it[1];
+          }).join(' · ');
+          basisList.setAttribute('data-std', s.std);
+        }
+
+        if (opts.announce && live) {
+          live.textContent = STANDARDS[s.std] + ', ' + s.industry + ', ' + s.region +
+            ' 기준으로 예시 결과를 갱신했습니다. 1순위 적합도 ' + scores[0] + '%.';
+        }
+      }
+
+      var toastTimer = null;
+      function showToast(message) {
+        if (!toast) return;
+        clearTimeout(toastTimer);
+        toast.classList.remove('show');
+        toast.textContent = '';
+        window.requestAnimationFrame(function () {
+          toast.textContent = message;
+          window.requestAnimationFrame(function () { toast.classList.add('show'); });
+        });
+        toastTimer = setTimeout(function () {
+          toast.classList.remove('show');
+        }, 3400);
+      }
+
+      // ---- 진단 스캔 연출 ----
+      function setStatus(i) {
+        var done = i >= SCAN_STEPS.length;
+        setText(statusText, done ? 'MATCHED · 적합 후보 3명 (예시)' : 'ANALYZING · ' + SCAN_STEPS[i]);
+        setText(statusStep, '0' + Math.min(i + 1, SCAN_STEPS.length + 1) + '/0' + (SCAN_STEPS.length + 1));
+        panel.setAttribute('data-phase', done ? 'done' : 'scan');
+      }
+
+      function later(fn, ms) { scanTimers.push(setTimeout(fn, ms)); }
+
+      function stopScan() {
+        scanTimers.forEach(clearTimeout);
+        scanTimers = [];
+        panel.classList.remove('is-scanning');
+        setStatus(SCAN_STEPS.length);
+      }
+
+      // 스캔 라인이 위→아래로 훑는 동안(900ms) 상태 문구가 바뀌고,
+      // 끝나면 카드가 순차 등장하며 적합도 0→목표값 카운트업(800ms) + 막대 채움
+      function runScan() {
+        var s = readState();
+        stopScan();
+        render(s);
+        if (reduced()) return;
+
+        var scores = computeScores(s);
+        cards.forEach(function (card) {
+          var numEl = card.querySelector('[data-role="score"]');
+          var bar = card.querySelector('[data-role="bar"]');
+          stopCount(numEl);
+          numEl.textContent = '0';
+          bar.style.transition = 'none';
+          bar.style.width = '0%';
+        });
+        panel.classList.remove('is-highlight');
+        retrigger(panel, 'is-scanning');
+        setStatus(0);
+        later(function () { setStatus(1); }, 300);
+        later(function () { setStatus(2); }, 600);
+        later(function () {
+          panel.classList.remove('is-scanning');
+          setStatus(SCAN_STEPS.length);
+          retrigger(panel, 'is-highlight');
+          cards.forEach(function (card, i) {
+            var numEl = card.querySelector('[data-role="score"]');
+            var bar = card.querySelector('[data-role="bar"]');
+            var delay = i * 90; // cardRise 스태거와 동일
+            bar.style.transition = '';
+            later(function () { bar.style.width = scores[i] + '%'; }, delay);
+            countTo(numEl, scores[i], 800, delay);
+          });
+        }, 900);
+      }
+
+      // 선택값 변경 → 스캔 없이 가볍게 갱신 (숫자 카운트업 + 근거 문구 플래시)
+      form.addEventListener('change', function (e) {
+        if (e.target === moreSel && otherRadio) otherRadio.checked = true;
+        syncMore();
+        stopScan();
+        render(readState(), { announce: true, flash: true, count: true });
+      });
+
+      // 실제 제출 없음
+      form.addEventListener('submit', function (e) { e.preventDefault(); });
+
+      // "매칭 결과 보기" → 진단 스캔 + 토스트 (실제 제출 없음)
+      cta.addEventListener('click', function () {
+        runScan();
+        if (narrowMQ.matches) {
+          panel.scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'start' });
+        }
+        showToast('프리뷰입니다. 실제 진단은 출시 후 연결됩니다');
+      });
+
+      panel.addEventListener('animationend', function (e) {
+        if (e.target === panel) panel.classList.remove('is-highlight');
+      });
+      cards.forEach(function (card) {
+        card.addEventListener('animationend', function (e) {
+          if (e.animationName === 'numFlash') card.classList.remove('is-updating');
+        });
+      });
+
+      function focusDiagnosis() {
+        var target = form.querySelector('input[name="std"]:checked');
+        if (!target) return;
+        setTimeout(function () {
+          try { target.focus({ preventScroll: true }); } catch (err) { target.focus(); }
+        }, reduced() ? 0 : 450);
+      }
+
+      // 카탈로그 "ISO xxxx로 매칭 보기" → 규격 선택 후 진단으로 이동
+      Array.prototype.forEach.call(document.querySelectorAll('[data-pick-std]'), function (link) {
+        link.addEventListener('click', function () {
+          var code = link.getAttribute('data-pick-std');
+          var radio = document.getElementById('std-' + code);
+          var before = readState().std;
+          if (radio) {
+            radio.checked = true;
+          } else if (STD[code] && otherRadio && moreSel) {
+            otherRadio.checked = true;
+            moreSel.value = code;
+          }
+          syncMore();
+          if (readState().std !== before) render(readState(), { announce: true, flash: true });
+          focusDiagnosis();
+        });
+      });
+
+      // "무료 매칭 시작" 류 CTA → 진단 첫 입력에 포커스
+      Array.prototype.forEach.call(document.querySelectorAll('[data-focus-diagnosis]'), function (link) {
+        link.addEventListener('click', focusDiagnosis);
+      });
+
+      // FAQ 앵커로 이동 시 해당 아코디언 열기
+      document.addEventListener('click', function (e) {
+        var a = e.target.closest ? e.target.closest('a[href^="#"]') : null;
+        if (!a) return;
+        var id = a.getAttribute('href').slice(1);
+        var el = id ? document.getElementById(id) : null;
+        if (el && el.tagName === 'DETAILS') el.open = true;
+      });
+
+      syncMore();
+      render(readState());
+      setStatus(SCAN_STEPS.length);
+
+      // 페이지 로드 직후: 결과 패널이 처음 화면에 들어올 때 한 번 스캔
+      if (!reduced() && 'IntersectionObserver' in window) {
+        var panelIO = new IntersectionObserver(function (entries) {
+          if (entries.some(function (en) { return en.isIntersecting; })) {
+            panelIO.disconnect();
+            runScan();
+          }
+        }, { threshold: 0.35 });
+        panelIO.observe(panel);
+      }
+    })();
+
+    // =========================================================
+    // 모션 시스템: 스크롤 리빌 · 1회 트리거 · 무한 루프 정지 · 티커 토글
+    // =========================================================
+    (function () {
+      'use strict';
+
+      var root = document.documentElement;
+      var reduceMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+      var hasIO = 'IntersectionObserver' in window;
+      var main = document.getElementById('main');
+      function each(list, fn) { Array.prototype.forEach.call(list, fn); }
+      function reduced() { return reduceMQ.matches; }
+
+      // 1) 1회 트리거: 작동 방식 연결선 · 인증 여정 진행선 · 검증 체크/인장
+      var triggers = document.querySelectorAll('[data-trigger]');
+      function fireAll() { each(triggers, function (el) { el.classList.add('is-on'); }); }
+      try {
+        if (!hasIO || reduced()) {
+          fireAll();
+        } else {
+          var triggerIO = new IntersectionObserver(function (entries) {
+            entries.forEach(function (en) {
+              if (!en.isIntersecting) return;
+              en.target.classList.add('is-on');
+              triggerIO.unobserve(en.target);
+            });
+          }, { threshold: 0.2 });
+          each(triggers, function (el) { triggerIO.observe(el); });
+        }
+      } catch (err) {
+        fireAll(); // 어떤 오류든 최종 상태로
+      }
+
+      // 2) 스크롤 리빌: 아래에서 14px 올라오며 페이드인, 형제 간 70ms 스태거
+      var REVEAL = '.sec-kicker, .section-title, .section-lead, .trust-item, .problem-card, ' +
+        '.process-flow, .service, .hls, .iso-card, .std-group, .catalog-foot, .faq-list > details';
+      if (hasIO && !reduced() && main) {
+        try {
+          var targets = Array.prototype.filter.call(main.querySelectorAll(REVEAL), function (el) {
+            return !el.closest('.hero');
+          });
+          targets.forEach(function (el) {
+            var parent = el.parentNode;
+            parent._rv = parent._rv || 0;
+            el.style.setProperty('--i', String(Math.min(parent._rv, 6)));
+            parent._rv += 1;
+            el.setAttribute('data-reveal', '');
+          });
+          var revealIO = new IntersectionObserver(function (entries) {
+            entries.forEach(function (en) {
+              if (!en.isIntersecting) return;
+              var el = en.target;
+              revealIO.unobserve(el);
+              el.classList.add('is-in');
+              var i = parseFloat(el.style.getPropertyValue('--i')) || 0;
+              // 전환이 끝나면 리빌 속성을 걷어내 원래 hover 전환을 되돌린다
+              setTimeout(function () {
+                el.removeAttribute('data-reveal');
+                el.classList.remove('is-in');
+                el.style.removeProperty('--i');
+              }, 700 + i * 70);
+            });
+          }, { rootMargin: '0px 0px -8% 0px', threshold: 0 });
+          targets.forEach(function (el) { revealIO.observe(el); });
+        } catch (err) {
+          each(document.querySelectorAll('[data-reveal]'), function (el) { el.removeAttribute('data-reveal'); });
+        }
+      }
+
+      // 3) 무한 애니메이션(PDCA 다이얼·신호 펄스·티커): 화면 밖이거나 탭이 숨겨지면 정지
+      var loops = document.querySelectorAll('[data-loop]');
+      if (hasIO) {
+        var loopIO = new IntersectionObserver(function (entries) {
+          entries.forEach(function (en) { en.target.classList.toggle('is-paused', !en.isIntersecting); });
+        });
+        each(loops, function (el) { loopIO.observe(el); });
+      }
+      function syncHidden() { root.classList.toggle('doc-hidden', document.hidden); }
+      document.addEventListener('visibilitychange', syncHidden);
+      syncHidden();
+
+      // 4) 티커 일시정지 버튼 (hover 정지는 CSS, 키보드 사용자는 버튼)
+      var ticker = document.querySelector('.ticker');
+      var tickerBtn = ticker ? ticker.querySelector('.ticker-toggle') : null;
+      if (tickerBtn) {
+        tickerBtn.addEventListener('click', function () {
+          var paused = !ticker.classList.contains('is-user-paused');
+          ticker.classList.toggle('is-user-paused', paused);
+          tickerBtn.setAttribute('aria-pressed', paused ? 'true' : 'false');
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
