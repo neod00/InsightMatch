@@ -234,6 +234,15 @@ class TestMatchingService(unittest.TestCase):
         self.assertNotEqual(normalize('ISO 27001:2022'), normalize('ISO 27017:2015'))
         self.assertNotEqual(normalize('ISO 9001:2015'), normalize('ISO 14001:2015'))
 
+    def test_iso_edition_change_keeps_existing_data_matching(self):
+        """설문이 2026판 표기로 바뀌어도 2015판·번호로 저장된 기존 데이터와 일치해야 한다."""
+        normalize = matching_module._normalize_iso
+        self.assertEqual(normalize('ISO 9001:2026'), normalize('ISO 9001:2015'))
+        self.assertEqual(normalize('ISO 9001:2026'), normalize('9001'))
+        self.assertEqual(normalize('ISO 14001:2026'), normalize('ISO 14001:2015'))
+        self.assertEqual(normalize('ISO 14001:2026'), normalize('14001'))
+        self.assertNotEqual(normalize('ISO 9001:2026'), normalize('ISO 14001:2026'))
+
     def test_full_iso_code_from_survey_matches_bare_code_from_register_form(self):
         """설문이 'ISO 9001:2015'를 보내도 '9001'로 등록한 컨설턴트가 ISO 점수를 받아야 한다.
 

@@ -142,6 +142,12 @@
             gap: 8px;
         }
         .form-group { margin-bottom: 20px; }
+        .form-note {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: var(--text-muted);
+        }
         .form-group label {
             display: block;
             font-size: 0.85rem;
@@ -526,6 +532,7 @@
                             <option value="ISO 14001:2015">ISO 14001:2015 (환경경영)</option>
                             <option value="ISO 45001:2018">ISO 45001:2018 (안전보건)</option>
                         </select>
+                        <p class="form-note">ISO 9001·14001은 2026판이 발행되었으나, AI 매뉴얼은 현재 2015판 요구사항을 기준으로 생성됩니다. 2015판 신규 인증은 2028년 3월 31일까지 가능하며, 2026판 대응 매뉴얼은 준비 중입니다.</p>
                     </div>
                     <div class="form-group">
                         <label>인증 취득 목적 (복수 선택)</label>
@@ -1239,10 +1246,12 @@
                 }
             }
             if (params.get('target_iso')) {
+                // 판 연도는 무시하고 규격 번호로 고른다 ('ISO 14001:2026' → 'ISO 14001:2015' 옵션)
+                const isoNumber = v => (String(v).split(':')[0].match(/\d{4,5}/) || [])[0];
                 const sel = document.getElementById('inp-target-iso');
-                const val = params.get('target_iso');
+                const num = isoNumber(params.get('target_iso'));
                 for (let opt of sel.options) {
-                    if (opt.value === val || opt.value.includes(val)) {
+                    if (num && isoNumber(opt.value) === num) {
                         sel.value = opt.value;
                         break;
                     }
