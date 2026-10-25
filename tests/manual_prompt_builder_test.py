@@ -303,9 +303,43 @@ class DocumentHierarchyTest(unittest.TestCase):
                     self.assertNotRegex(m.group(2), r'[\\`“”—]')
                 m = re.match(r'^\s+(\S+) -\.(\S+)\.-> (\S+)$', line)
                 if m:
-                    self.assertRegex(m.group(2), r'^[a-z]+$')    # 엣지 라벨: 점·따옴표·괄호 금지
-            self.assertEqual(len(outline(*codes).procedures), len(ids), codes)
+                    self.assertRegex(m.group(2), r'^[A-Za-z]+$')    # 엣지 라벨: 점·따옴표·괄호 금지
+            procs = outline(*codes).procedures
+            if any(c.startswith('ISO 9001') for c in codes):
+                # 9001: 핵심 절차서 중 고객가치사슬 대응(QP01·02·04·05)은 7개 흐름 노드로 대체된다
+                chain = {'proc.sales', 'proc.design', 'proc.production', 'proc.inspection'}
+                expected = len([p for p in procs if not (p.process_category == 'CORE' and p.merge_key in chain)]) + 7
+            else:
+                expected = len(procs)
+            self.assertEqual(expected, len(ids), codes)
             self.assertTrue(lines[-2].strip().startswith('class '))
+
+    def test_process_map_value_chain_when_9001(self):
+        """9001 포함 조합: 고객가치사슬 흐름 + 부적합/클레임 -> 개선 엣지. 9001 없으면 범주 순서 방식."""
+        for codes in ALL_COMBOS:
+            tpl = mpb.build_process_map_template(outline(*codes))
+            has_9001 = any(c.startswith('ISO 9001') for c in codes)
+            if not has_9001:
+                self.assertNotIn('고객요구접수', tpl, codes)
+                self.assertNotIn('-.NC.->', tpl, codes)
+                self.assertNotIn('-.claims.->', tpl, codes)
+                continue
+            core = tpl.split('subgraph CORE', 1)[1].split('    end', 1)[0]
+            names = re.findall(r'\["([^"<]*)', core)
+            self.assertEqual(['고객요구접수', '설계', '프로젝트계획', '개발/운영', '검사시험', '인도납품', '피드백클레임'],
+                             names[1:8], codes)
+            for doc in ('SMS-QP01', 'SMS-QP02', 'SMS-QP04', 'SMS-QP05'):
+                self.assertIn(doc, core, codes)
+            first = re.findall(r'^\s+([A-Z]{1,2})\["(?:고객요구접수|설계|프로젝트계획|개발/운영|검사시험|인도납품|피드백클레임)', core, re.M)
+            for a, b in zip(first, first[1:]):
+                self.assertIn('        %s --> %s' % (a, b), core, codes)
+            ids = dict(re.findall(r'^\s+([A-Z]{1,2})\["([^"<]*)', tpl, re.M))
+            nc = re.search(r'^\s+([A-Z]{1,2}) -\.NC\.-> ([A-Z]{1,2})$', tpl, re.M)
+            cl = re.search(r'^\s+([A-Z]{1,2}) -\.claims\.-> ([A-Z]{1,2})$', tpl, re.M)
+            self.assertEqual('검사시험', ids[nc.group(1)], codes)
+            self.assertTrue(ids[nc.group(2)].startswith('부적합'), codes)
+            self.assertEqual('피드백클레임', ids[cl.group(1)], codes)
+            self.assertEqual('시정조치', ids[cl.group(2)], codes)
 
     def test_risk_tables_follow_artifacts(self):
         """FR-16: 9001 은 PESTEL·리스크 매트릭스, 14001 은 환경측면 중대성, 45001 은 위험성평가 기준."""
@@ -448,13 +482,13 @@ class GoldenPromptTest(unittest.TestCase):
 # 서비스(generate_iso_manual_stream) — OpenAI mock
 # ─────────────────────────────────────────────────────────────
 
-def _fake_response(tokens, status=200, usage_tokens=1234):
+def _fake_response(tokens, status=200, usage_tokens=1234, last_finish='stop'):
     resp = MagicMock()
     resp.status_code = status
     resp.text = 'error body'
     lines = []
     for i, t in enumerate(tokens):
-        finish = 'stop' if i == len(tokens) - 1 else None
+        finish = last_finish if i == len(tokens) - 1 else None
         lines.append('data: ' + json.dumps({'choices': [{'delta': {'content': t}, 'finish_reason': finish}]}))
     lines.append('data: ' + json.dumps({'choices': [], 'usage': {'completion_tokens': usage_tokens}}))
     lines.append('data: [DONE]')
@@ -510,6 +544,30 @@ class ServiceStreamTest(unittest.TestCase):
         self.assertTrue(appendix.startswith('data: \\n\\n# 부록 C. 규격 조항 대조표'))
         self.assertIn('ISO 9001:2015 | ISO 45001:2018', appendix)
         self.assertNotIn('\n', appendix[:-2])     # 현행 이스케이프 형식 유지
+
+    def _stream_with_finish(self, form, last_finish):
+        resp = _fake_response(['본문', ' 일부'], last_finish=last_finish)
+        with patch.object(svc.http_requests, 'post', return_value=resp):
+            return list(svc.generate_iso_manual_stream(form))
+
+    def test_truncated_output_is_error_not_complete(self):
+        """finish_reason=length 면 [PHASE_COMPLETE] 대신 [ERROR] (절단본 저장 금지, resume 재시도로 연결)."""
+        for extra, phase in (({'max_sections': 5}, 1), ({'continue_from': 7, 'previous_markdown': 'x'}, 2),
+                             ({'continue_from': 9, 'previous_markdown': 'x'}, 3)):
+            chunks = self._stream_with_finish(dict(FORM, target_iso='ISO 9001:2015', **extra), 'length')
+            self.assertEqual(['data: 본문\n\n', 'data:  일부\n\n',
+                              'data: [ERROR] %s\n\n' % svc._MSG_OUTPUT_TRUNCATED, 'data: [DONE]\n\n'],
+                             chunks, phase)
+            self.assertFalse([c for c in chunks if 'PHASE_COMPLETE' in c])
+            self.assertFalse([c for c in chunks if '부록 C' in c])   # 절단 시 부록 C 미전송
+
+    def test_stop_and_missing_finish_reason_keep_normal_flow(self):
+        form = dict(FORM, target_iso='ISO 9001:2015', continue_from=9, previous_markdown='x')
+        for finish in ('stop', None):
+            chunks = self._stream_with_finish(form, finish)
+            self.assertEqual('data: [PHASE_COMPLETE:3]\n\n', chunks[-2], finish)
+            self.assertTrue(chunks[-3].startswith('data: \\n\\n# 부록 C'), finish)
+            self.assertFalse([c for c in chunks if c.startswith('data: [ERROR]')])
 
     def test_default_target_when_missing(self):
         chunks, post = self.run_stream({'max_sections': 5})

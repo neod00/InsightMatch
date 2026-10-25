@@ -292,33 +292,35 @@ flowchart TB
         B["경영 계획수립 및 검토<br/>SMS-CP01"]
         C["조직 및 업무분장<br/>SMS-CP02"]
         I["준수의무(법규 및 기타 요구사항) 관리<br/>SMS-CP08"]
-        R["환경측면·영향 평가<br/>SMS-EP01"]
-        U["위험성평가<br/>SMS-SP01"]
-        V["근로자 협의·참여<br/>SMS-SP03"]
+        N["환경측면·영향 평가<br/>SMS-EP01"]
+        Q["위험성평가<br/>SMS-SP01"]
+        R["근로자 협의·참여<br/>SMS-SP03"]
         A --> B
         B --> C
         C --> I
-        I --> R
-        R --> U
-        U --> V
+        I --> N
+        N --> Q
+        Q --> R
     end
     subgraph CORE["핵심프로세스 (Core)"]
         direction LR
+        W["고객요구접수<br/>SMS-QP01"]
+        X["설계<br/>SMS-QP02"]
+        Y["프로젝트계획<br/>SMS-QP04"]
+        Z["개발/운영<br/>SMS-QP04"]
+        AA["검사시험<br/>SMS-QP05"]
+        AB["인도납품"]
+        AC["피드백클레임<br/>SMS-QP05"]
         J["비상사태 대비 및 대응<br/>SMS-CP09"]
-        L["영업관리<br/>SMS-QP01"]
-        M["설계관리<br/>SMS-QP02"]
-        O["프로젝트(생산)관리<br/>SMS-QP04"]
-        P["검사 및 시험<br/>SMS-QP05"]
-        S["환경 운용관리<br/>SMS-EP04"]
-        X["변경관리<br/>SMS-SP06"]
-        Z["안전보건 운용관리<br/>SMS-SP08"]
-        J --> L
-        L --> M
-        M --> O
-        O --> P
-        P --> S
-        S --> X
-        X --> Z
+        O["환경 운용관리<br/>SMS-EP04"]
+        T["변경관리<br/>SMS-SP06"]
+        V["안전보건 운용관리<br/>SMS-SP08"]
+        W --> X
+        X --> Y
+        Y --> Z
+        Z --> AA
+        AA --> AB
+        AB --> AC
     end
     subgraph SUP["지원프로세스 (Support)"]
         direction LR
@@ -326,33 +328,35 @@ flowchart TB
         E["의사소통 관리<br/>SMS-CP04"]
         F["문서화된 정보관리<br/>SMS-CP05"]
         K["인프라관리<br/>SMS-QP00"]
-        N["협력업체/구매관리<br/>SMS-QP03"]
-        W["도급·계약자·조달 안전관리<br/>SMS-SP05"]
+        L["협력업체/구매관리<br/>SMS-QP03"]
+        S["도급·계약자·조달 안전관리<br/>SMS-SP05"]
     end
     subgraph IMP["개선프로세스 (Improvement)"]
         direction LR
         G["내부심사<br/>SMS-CP06"]
         H["시정조치<br/>SMS-CP07"]
-        Q["부적합 출력 관리<br/>SMS-QP06"]
-        T["환경 모니터링 및 측정<br/>SMS-EP05"]
-        Y["사건조사<br/>SMS-SP07"]
+        M["부적합 출력 관리<br/>SMS-QP06"]
+        P["환경 모니터링 및 측정<br/>SMS-EP05"]
+        U["사건조사<br/>SMS-SP07"]
         G --> H
-        Q --> H
-        T --> H
-        Y --> H
+        M --> H
+        P --> H
+        U --> H
     end
     MGT -.policy.-> CORE
     SUP -.resources.-> CORE
     CORE -.issues.-> IMP
     IMP -.feedback.-> MGT
+    AA -.NC.-> M
+    AC -.claims.-> H
     classDef mgt fill:#fde2e4,stroke:#c9184a,stroke-width:2px
     classDef core fill:#dbeafe,stroke:#1e40af,stroke-width:2px
     classDef sup fill:#e9f5db,stroke:#386641,stroke-width:2px
     classDef imp fill:#ffe8d6,stroke:#bc4749,stroke-width:2px
-    class A,B,C,I,R,U,V mgt
-    class J,L,M,O,P,S,X,Z core
-    class D,E,F,K,N,W sup
-    class G,H,Q,T,Y imp
+    class A,B,C,I,N,Q,R mgt
+    class W,X,Y,Z,AA,AB,AC,J,O,T,V core
+    class D,E,F,K,L,S sup
+    class G,H,M,P,U imp
 ```
 
 (업종에 따라 핵심프로세스에 요구 접수·인도 같은 흐름 노드를 더하거나 라벨을 조정할 수 있으나, 카테고리 subgraph 구조와 카테고리 연결 엣지는 **반드시** 유지)

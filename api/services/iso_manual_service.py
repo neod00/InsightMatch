@@ -69,6 +69,7 @@ DOC_TYPES = {
 STANDARDS_UNAVAILABLE = 'STANDARDS_UNAVAILABLE'
 _MSG_STANDARDS_UNAVAILABLE = f'매뉴얼 기준 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요. ({STANDARDS_UNAVAILABLE})'
 _MSG_SELECTION_INVALID = '선택한 인증 규격으로 매뉴얼을 만들 수 없습니다. 규격 선택을 확인해주세요.'
+_MSG_OUTPUT_TRUNCATED = '분량 한도로 생성이 중간에 끝났습니다. 이어서 다시 시도해주세요.'
 _MSG_PROMPT_FAILED = '매뉴얼 생성 준비 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
 _DEFAULT_TARGET_ISO = 'ISO 9001:2015'   # target_isos·target_iso 가 모두 없을 때(현행 기본값 유지)
 
@@ -261,6 +262,16 @@ def generate_iso_manual_stream(form_data, loader=None):
                 content = (choice.get("delta") or {}).get("content", "")
                 if content:
                     yield _sse_content(content)
+
+        # 출력 상한에 걸려 중간에 끊긴 응답은 성공으로 취급하지 않는다.
+        # [ERROR] 로 끝내면 클라이언트가 실패 phase 로 처리해 저장하지 않고 resume 재시도로 넘어간다.
+        if finish_reason == "length":
+            print(f"[ISO Manual] phase={current_phase} isos={isos_label} truncated "
+                  f"(finish_reason=length) out_tokens={out_tokens} "
+                  f"max_completion_tokens={prompt.max_tokens}")
+            yield _sse(f"[ERROR] {_MSG_OUTPUT_TRUNCATED}")
+            yield _sse("[DONE]")
+            return
 
         # 부록 C(규격 조항 대조표)는 LLM 이 아니라 서버가 JSON 에서 만들어 붙인다 (FR-33)
         if prompt.outline is not None and current_phase in (3, mpb.PHASE_FULL):

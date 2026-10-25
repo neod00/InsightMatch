@@ -532,25 +532,74 @@ def _mermaid_label(text: str) -> str:
     return text
 
 
+# 9001 선택 시 핵심프로세스를 고객가치사슬 흐름으로 그린다(현행 템플릿 복원).
+# (노드 이름, 담당 절차서 merge_key — 없으면 None. 절차서가 outline 에 있을 때만 문서번호를 표기한다)
+_CORE_CHAIN = (
+    ("고객요구접수", "proc.sales"),
+    ("설계", "proc.design"),
+    ("프로젝트계획", "proc.production"),
+    ("개발/운영", "proc.production"),
+    ("검사시험", "proc.inspection"),
+    ("인도납품", None),
+    ("피드백클레임", "proc.inspection"),
+)
+_CHAIN_TEST_INDEX = 4      # 검사시험 노드 (부적합 -> 개선 엣지의 출발점)
+_CHAIN_CLAIM_INDEX = 6     # 피드백클레임 노드 (클레임 -> 시정조치 엣지의 출발점)
+_NONCONFORMING_MERGE_KEY = "proc.nonconforming_output"
+
+
+def _has_standard(outline: mo.ManualOutline, standard_key: str) -> bool:
+    return any(s.standard_key == standard_key for s in outline.selections)
+
+
 def build_process_map_template(outline: mo.ManualOutline) -> str:
-    """선택 규격의 절차서(`process_category`)로 Process Map 템플릿을 만든다 (FR-13)."""
+    """선택 규격의 절차서(`process_category`)로 Process Map 템플릿을 만든다 (FR-13).
+
+    ISO 9001 이 선택 규격에 있으면 핵심프로세스는 고객가치사슬(요구접수 -> ... -> 피드백클레임)로 그리고
+    부적합/클레임 -> 개선 엣지를 더한다. 9001 이 없으면 범주별 절차서 순서 그대로 그린다.
+    """
     ids = _node_ids()
+    chain_mode = _has_standard(outline, "iso9001")
+    chain_keys = {k for _n, k in _CORE_CHAIN if k}
+    by_key = {}
+    for p in outline.procedures:
+        by_key.setdefault(p.merge_key, p)
+
     by_cat: Dict[str, List[Tuple[str, mo.MergedProcedure]]] = {c[0]: [] for c in _CATEGORIES}
     for p in outline.procedures:
+        if chain_mode and p.process_category == "CORE" and p.merge_key in chain_keys:
+            continue            # 고객가치사슬 노드로 대체
         by_cat.setdefault(p.process_category, []).append((next(ids), p))
+
+    chain_nodes: List[Tuple[str, str]] = []     # (노드 ID, 라벨) — 흐름 순서
+    if chain_mode:
+        for name, key in _CORE_CHAIN:
+            proc = by_key.get(key) if key else None
+            label = _mermaid_label(name)
+            if proc is not None:
+                label += "<br/>" + proc.doc_no
+            chain_nodes.append((next(ids), label))
+
     lines = ["```mermaid", "flowchart TB"]
     present = []
+    class_members: Dict[str, List[str]] = {}
     for cat, label, _cls, _style, _desc in _CATEGORIES:
         nodes = by_cat.get(cat) or []
-        if not nodes:
+        extra = chain_nodes if (chain_mode and cat == "CORE") else []
+        if not nodes and not extra:
             continue
         present.append(cat)
+        class_members[cat] = [nid for nid, _ in extra] + [nid for nid, _ in nodes]
         lines.append('    subgraph %s["%s"]' % (cat, label))
         lines.append("        direction LR")
+        for nid, text in extra:
+            lines.append('        %s["%s"]' % (nid, text))
         for nid, p in nodes:
             name = p.name[:-len(" 절차서")] if p.name.endswith(" 절차서") else p.name
             lines.append('        %s["%s<br/>%s"]' % (nid, _mermaid_label(name), p.doc_no))
-        if cat in ("MGT", "CORE"):
+        for (a, _), (b, _) in zip(extra, extra[1:]):
+            lines.append("        %s --> %s" % (a, b))
+        if cat == "MGT" or (cat == "CORE" and not chain_mode):
             for (a, _), (b, _) in zip(nodes, nodes[1:]):
                 lines.append("        %s --> %s" % (a, b))
         elif cat == "IMP":
@@ -563,12 +612,18 @@ def build_process_map_template(outline: mo.ManualOutline) -> str:
     for src, label, dst in _CATEGORY_EDGES:
         if src in present and dst in present:
             lines.append("    %s -.%s.-> %s" % (src, label, dst))
+    if chain_mode and "IMP" in present:
+        imp = dict((p.merge_key, nid) for nid, p in by_cat.get("IMP", []))
+        if _NONCONFORMING_MERGE_KEY in imp:
+            lines.append("    %s -.NC.-> %s" % (chain_nodes[_CHAIN_TEST_INDEX][0], imp[_NONCONFORMING_MERGE_KEY]))
+        if _IMP_SINK_MERGE_KEY in imp:
+            lines.append("    %s -.claims.-> %s" % (chain_nodes[_CHAIN_CLAIM_INDEX][0], imp[_IMP_SINK_MERGE_KEY]))
     for cat, _label, cls, style, _desc in _CATEGORIES:
         if cat in present:
             lines.append("    classDef %s %s" % (cls, style))
     for cat, _label, cls, _style, _desc in _CATEGORIES:
         if cat in present:
-            lines.append("    class %s %s" % (",".join(nid for nid, _ in by_cat[cat]), cls))
+            lines.append("    class %s %s" % (",".join(class_members[cat]), cls))
     lines.append("```")
     return "\n".join(lines)
 

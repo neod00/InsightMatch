@@ -182,13 +182,19 @@ flowchart TB
     end
     subgraph CORE["핵심프로세스 (Core)"]
         direction LR
-        J["영업관리<br/>SMS-QP01"]
-        K["설계관리<br/>SMS-QP02"]
-        M["프로젝트(생산)관리<br/>SMS-QP04"]
-        N["검사 및 시험<br/>SMS-QP05"]
-        J --> K
-        K --> M
+        L["고객요구접수<br/>SMS-QP01"]
+        M["설계<br/>SMS-QP02"]
+        N["프로젝트계획<br/>SMS-QP04"]
+        O["개발/운영<br/>SMS-QP04"]
+        P["검사시험<br/>SMS-QP05"]
+        Q["인도납품"]
+        R["피드백클레임<br/>SMS-QP05"]
+        L --> M
         M --> N
+        N --> O
+        O --> P
+        P --> Q
+        Q --> R
     end
     subgraph SUP["지원프로세스 (Support)"]
         direction LR
@@ -196,28 +202,30 @@ flowchart TB
         E["의사소통 관리<br/>SMS-CP04"]
         F["문서화된 정보관리<br/>SMS-CP05"]
         I["인프라관리<br/>SMS-QP00"]
-        L["협력업체/구매관리<br/>SMS-QP03"]
+        J["협력업체/구매관리<br/>SMS-QP03"]
     end
     subgraph IMP["개선프로세스 (Improvement)"]
         direction LR
         G["내부심사<br/>SMS-CP06"]
         H["시정조치<br/>SMS-CP07"]
-        O["부적합 출력 관리<br/>SMS-QP06"]
+        K["부적합 출력 관리<br/>SMS-QP06"]
         G --> H
-        O --> H
+        K --> H
     end
     MGT -.policy.-> CORE
     SUP -.resources.-> CORE
     CORE -.issues.-> IMP
     IMP -.feedback.-> MGT
+    P -.NC.-> K
+    R -.claims.-> H
     classDef mgt fill:#fde2e4,stroke:#c9184a,stroke-width:2px
     classDef core fill:#dbeafe,stroke:#1e40af,stroke-width:2px
     classDef sup fill:#e9f5db,stroke:#386641,stroke-width:2px
     classDef imp fill:#ffe8d6,stroke:#bc4749,stroke-width:2px
     class A,B,C mgt
-    class J,K,M,N core
-    class D,E,F,I,L sup
-    class G,H,O imp
+    class L,M,N,O,P,Q,R core
+    class D,E,F,I,J sup
+    class G,H,K imp
 ```
 
 (업종에 따라 핵심프로세스에 요구 접수·인도 같은 흐름 노드를 더하거나 라벨을 조정할 수 있으나, 카테고리 subgraph 구조와 카테고리 연결 엣지는 **반드시** 유지)
