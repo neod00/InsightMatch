@@ -29,6 +29,7 @@ from services import MatchingService, ProposalService, EmailService
 from services.iso_manual_service import generate_iso_manual_stream
 from services import standards_loader as manual_standards
 from services import manual_outline as manual_outline_engine
+from services import manual_coverage
 
 # Load environment variables
 # Load from project root directory
@@ -801,6 +802,64 @@ def _mark_stale_generation_aborted(manual):
 
 def _manual_completed_phases(manual):
     return [n for n, md in ((1, manual.phase1_markdown), (2, manual.phase2_markdown), (3, manual.phase3_markdown)) if md]
+
+
+_STANDARD_CODE_RE = re.compile(r'(\d{4,5})\s*:\s*(\d{4})')
+
+
+def build_export_filename(company_name, standard_codes, ext):
+    """내보내기 파일명: `{회사}_ISO_{번호-edition}[_{번호-edition}…]_매뉴얼.{ext}`.
+
+    예) `테스트기업_ISO_9001-2026_매뉴얼.docx`, `테스트기업_ISO_9001-2026_45001-2018_매뉴얼.pdf`.
+    규격은 9001 -> 14001 -> 45001 순(STANDARD_REGISTRY 순서)으로 정렬하고, 구분자는 규격 안 `-`, 규격 사이 `_` 이다.
+    standard_codes 는 'ISO 9001:2026' 형태 문자열 목록(outline.meta.standard_codes 또는 선택 결과).
+    해석할 수 없는 값은 건너뛰고, 하나도 없으면 'ISO' 만 쓴다. 회사명은 한글·영숫자·공백만 남긴다.
+    """
+    order = {spec['number']: i for i, spec in enumerate(manual_standards.STANDARD_REGISTRY.values())}
+    parsed = []
+    for code in standard_codes or ():
+        m = _STANDARD_CODE_RE.search(str(code))
+        if m:
+            parsed.append((order.get(m.group(1), len(order)), m.group(1), m.group(2)))
+    seen, parts = set(), []
+    for _, number, edition in sorted(parsed, key=lambda t: t[0]):
+        if number not in seen:
+            seen.add(number)
+            parts.append(f'{number}-{edition}')
+    safe_company = re.sub(r'[^\w가-힣\s]', '', company_name or '').strip() or 'ISO매뉴얼'
+    safe_iso = 'ISO_' + '_'.join(parts) if parts else 'ISO'
+    safe_ext = re.sub(r'[^0-9A-Za-z]', '', ext or '') or 'pdf'
+    return f'{safe_company}_{safe_iso}_매뉴얼.{safe_ext}'
+
+
+def _manual_coverage_outline(manual):
+    """저장된 세션 form_data 로 outline 을 다시 만든다 (커버리지 재계산용, DB 컬럼 불필요)."""
+    return manual_coverage.outline_from_form_data(manual.get_form_data() or {})
+
+
+def _coverage_log(report):
+    """서버 로그에 한 줄 요약 (사용자 입력·본문은 남기지 않는다)."""
+    missing = ','.join(m.manual_no for m in report.missing) or '-'
+    print(f"[ISO Manual] coverage phase={report.phase} required={report.required} found={report.found} "
+          f"missing={missing} keyword_missing={len(report.keyword_missing)} "
+          f"doc_no_issues={len(report.doc_no_issues)} mermaid_warnings={len(report.mermaid_warnings)} "
+          f"ms={report.elapsed_ms}" + (f" error={report.error}" if report.error else ''))
+
+
+def _coverage_sse_chunk(manual, phase, markdown):
+    """phase 마크다운의 커버리지를 계산해 SSE named event 한 덩어리로 만든다.
+
+    `event: coverage` 는 EventSource.onmessage 로 전달되지 않으므로 기존 프론트의 본문 버퍼에 섞이지 않는다.
+    점검이 실패해도 생성 완료에는 영향이 없다 — 어떤 오류든 None 을 돌려준다 (FR-51).
+    """
+    try:
+        outline = _manual_coverage_outline(manual)
+        report = manual_coverage.check_phase_coverage(markdown, outline, phase)
+        _coverage_log(report)
+        return f"event: coverage\ndata: {manual_coverage.report_to_json(report)}\n\n"
+    except Exception as exc:
+        print(f"[ISO Manual] coverage unavailable phase={phase}: {type(exc).__name__}")
+        return None
 
 
 def require_admin_request():
@@ -2174,6 +2233,33 @@ def resume_iso_manual(manual_id):
     }), 200
 
 
+@app.route('/api/iso-manual/<manual_id>/coverage', methods=['GET'])
+@token_required
+def get_iso_manual_coverage(manual_id):
+    """저장된 phase 마다 필수 조항 커버리지를 다시 계산해 돌려준다 (FR-51, 저장 컬럼 없음).
+
+    권한은 resume 와 같다: 본인 또는 관리자만, 그 밖에는 존재 여부를 숨기려고 404.
+    """
+    role_error = require_manual_user()
+    if role_error:
+        return role_error
+
+    manual = ManualGeneration.query.get(manual_id)
+    if not manual or (manual.user_id != g.current_user.id and g.current_user.role != 'admin'):
+        return jsonify({'message': '매뉴얼 생성 이력을 찾을 수 없습니다.', 'code': 'NOT_FOUND'}), 404
+
+    try:
+        outline = _manual_coverage_outline(manual)
+        result = manual_coverage.check_manual_coverage(
+            {1: manual.phase1_markdown, 2: manual.phase2_markdown, 3: manual.phase3_markdown}, outline)
+    except Exception as exc:
+        # 내부 경로·원문 메시지는 응답에 담지 않는다
+        print(f"[ISO Manual] coverage unavailable manual={manual_id}: {type(exc).__name__}")
+        return jsonify({'message': '커버리지를 계산할 수 없습니다. 잠시 후 다시 시도해주세요.',
+                        'code': 'COVERAGE_UNAVAILABLE'}), 503
+    return jsonify(manual_coverage.manual_coverage_to_dict(result, manual_id=manual.id)), 200
+
+
 # --- ISO Manual Generation SSE Endpoint ---
 @app.route('/api/generate-iso', methods=['GET'])
 def generate_iso_manual():
@@ -2243,6 +2329,10 @@ def generate_iso_manual():
             escaped = existing_markdown.replace('\n', '\\n').replace('\r', '')
             yield f"data: {escaped}\n\n"
             yield f"data: [PHASE_COMPLETE:{phase}]\n\n"
+            # 저장본 재전송에도 커버리지를 다시 계산해 보낸다 (PHASE_COMPLETE 뒤, DONE 앞)
+            coverage_chunk = _coverage_sse_chunk(manual, phase, existing_markdown)
+            if coverage_chunk:
+                yield coverage_chunk
             yield "data: [DONE]\n\n"
         return Response(
             stream_with_context(replay_stream()),
@@ -2299,7 +2389,8 @@ def generate_iso_manual():
 
         try:
             for chunk in generate_iso_manual_stream(form_data):
-                if chunk.startswith('data: ') and _PHASE_COMPLETE_RE.match(chunk[6:].rstrip('\n')):
+                is_phase_complete = chunk.startswith('data: ') and bool(_PHASE_COMPLETE_RE.match(chunk[6:].rstrip('\n')))
+                if is_phase_complete:
                     # 서버리스(Vercel)에서는 스트림 종료 후(post-loop) 코드가
                     # 실행되지 않을 수 있으므로, 성공 신호를 받는 즉시
                     # (스트림이 살아있을 때) 저장을 확정한다.
@@ -2312,6 +2403,12 @@ def generate_iso_manual():
                     if text is not None:
                         generated_parts.append(text)
                 yield chunk
+                if is_phase_complete and manual.status == f'phase_{phase}_completed':
+                    # 커버리지 점검 (FR-50/51): 저장이 끝난 뒤, [PHASE_COMPLETE] 다음 · [DONE] 앞에 named event 로 보낸다.
+                    # 실패해도 생성 결과·신호 순서에는 영향이 없다.
+                    coverage_chunk = _coverage_sse_chunk(manual, phase, ''.join(generated_parts))
+                    if coverage_chunk:
+                        yield coverage_chunk
 
             # 성공/실패 신호 없이 끝났으면(비정상 종료) 실패로 마무리
             if not finalized:
@@ -2380,7 +2477,7 @@ def export_iso_manual():
 
         # 규격 표기: 요청의 target_isos(우선) / target_iso(하위호환), 없으면 저장된 세션 값.
         # 이미 생성된 문서를 내보내는 것이므로 노출 게이트는 다시 적용하지 않는다.
-        cover_standards, filename_numbers = '', ''
+        cover_standards, filename_codes = '', ()
         iso_source = data if (data.get('target_isos') is not None or data.get('target_iso')) else stored_form
         if iso_source.get('target_isos') is not None or iso_source.get('target_iso'):
             try:
@@ -2394,12 +2491,11 @@ def export_iso_manual():
                                 'error_codes': {field: exc.code}}), 400
             try:
                 meta = manual_outline_engine.build_outline(selections).meta
-                cover_standards, filename_numbers = meta.cover_standards, meta.filename_numbers
+                cover_standards, filename_codes = meta.cover_standards, meta.standard_codes
             except Exception as exc:
                 print(f"[Export] outline meta unavailable, using selections: {exc!r}")
                 cover_standards = ' · '.join(sel.standard_code for sel in selections)
-                filename_numbers = '_'.join(
-                    manual_standards.STANDARD_REGISTRY[sel.standard_key]['number'] for sel in selections)
+                filename_codes = tuple(sel.standard_code for sel in selections)
 
         if export_format not in {'pdf', 'docx'}:
             return jsonify({'error': '지원하지 않는 다운로드 형식입니다.'}), 400
@@ -2411,19 +2507,16 @@ def export_iso_manual():
 
         from services.document_export_service import markdown_to_pdf, markdown_to_docx
 
-        # Safe filename
-        safe_company = re.sub(r'[^\w가-힣\s]', '', company_name).strip() or 'ISO매뉴얼'
-        # 파일명에는 edition 을 넣지 않고(FR-74), 표지·문서 제목에는 edition 포함 목록을 쓴다.
-        safe_iso = f"ISO_{filename_numbers}" if filename_numbers else 'ISO'
+        # 파일명과 표지·문서 제목 모두 edition 포함 (사용자 결정: `…_ISO_9001-2026_45001-2018_매뉴얼.pdf`)
         target_iso = cover_standards
 
         if export_format == 'docx':
             buffer = markdown_to_docx(markdown_text, company_name, target_iso)
-            filename = f"{safe_company}_{safe_iso}_매뉴얼.docx"
+            filename = build_export_filename(company_name, filename_codes, 'docx')
             mimetype = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         else:
             buffer = markdown_to_pdf(markdown_text, company_name, target_iso)
-            filename = f"{safe_company}_{safe_iso}_매뉴얼.pdf"
+            filename = build_export_filename(company_name, filename_codes, 'pdf')
             mimetype = 'application/pdf'
 
         return send_file(

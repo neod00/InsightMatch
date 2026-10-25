@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../a
 # index 를 import 하기 전에 인메모리 DB 지정 (tests/conftest.py, manual_retry_test.py 와 같은 이유)
 os.environ['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
 
-from index import app, db, ALLOWED_MANUAL_ISO_STANDARDS, validate_manual_form_data  # noqa: E402
+from index import app, db, ALLOWED_MANUAL_ISO_STANDARDS, validate_manual_form_data, build_export_filename  # noqa: E402
 from models import ManualGeneration, User  # noqa: E402
 from services import standards_loader as sl  # noqa: E402
 
@@ -277,6 +277,35 @@ class OptionsEndpointTest(EditionApiTestBase):
         self.assertNotIn('secret', r.get_data(as_text=True))
 
 
+class ExportFilenameHelperTest(unittest.TestCase):
+    """파일명에 edition 포함 (사용자 결정): `{회사}_ISO_9001-2026_45001-2018_매뉴얼.{ext}`."""
+
+    def test_single(self):
+        self.assertEqual('테스트기업_ISO_9001-2026_매뉴얼.docx',
+                         build_export_filename('테스트기업', ('ISO 9001:2026',), 'docx'))
+        self.assertEqual('A사_ISO_45001-2018_매뉴얼.pdf', build_export_filename('A사', ['ISO 45001:2018'], 'pdf'))
+
+    def test_ims_order_is_9001_14001_45001_regardless_of_input_order(self):
+        codes = ('ISO 45001:2018', 'ISO 9001:2015', 'ISO 14001:2026')
+        self.assertEqual('X_ISO_9001-2015_14001-2026_45001-2018_매뉴얼.pdf', build_export_filename('X', codes, 'pdf'))
+        self.assertEqual('테스트기업_ISO_9001-2026_45001-2018_매뉴얼.pdf',
+                         build_export_filename('테스트기업', ('ISO 9001:2026', 'ISO 45001:2018'), 'pdf'))
+
+    def test_unsafe_characters_are_removed(self):
+        name = build_export_filename(r'../a/b\c:*?"<>| 회사.', ('ISO 9001:2026',), 'pdf')
+        self.assertEqual('abc 회사_ISO_9001-2026_매뉴얼.pdf', name)
+        self.assertNotRegex(name, r'[/\:*?"<>|]')
+        self.assertTrue(build_export_filename('', ('ISO 9001:2026',), 'docx').startswith('ISO매뉴얼_ISO_9001-2026'))
+        self.assertTrue(build_export_filename(None, (), 'docx').startswith('ISO매뉴얼_ISO_매뉴얼'))
+        self.assertTrue(build_export_filename('A', (), 'p/d?f').endswith('.pdf'))
+
+    def test_no_or_unparseable_standards(self):
+        self.assertEqual('A_ISO_매뉴얼.docx', build_export_filename('A', (), 'docx'))
+        self.assertEqual('A_ISO_매뉴얼.docx', build_export_filename('A', ('garbage', None), 'docx'))
+        self.assertEqual('A_ISO_9001-2015_매뉴얼.docx',
+                         build_export_filename('A', ('ISO 9001:2015', 'ISO 9001:2026'), 'docx'))   # 같은 규격 중복은 첫 값
+
+
 class ExportEditionTest(EditionApiTestBase):
     def export(self, fmt='docx', user=None, **extra):
         calls = {}
@@ -306,20 +335,20 @@ class ExportEditionTest(EditionApiTestBase):
         r, calls = self.export('docx', target_iso='ISO 9001:2015')
         self.assertEqual(200, r.status_code)
         self.assertEqual(('테스트기업', 'ISO 9001:2015'), calls['docx'])
-        self.assertEqual('테스트기업_ISO_9001_매뉴얼.docx', self.filename(r))
+        self.assertEqual('테스트기업_ISO_9001-2015_매뉴얼.docx', self.filename(r))
 
     def test_target_isos_ims_cover_and_filename(self):
         r, calls = self.export('pdf', target_isos=['ISO 9001:2015', 'ISO 45001:2018'])
         self.assertEqual(200, r.status_code)
         self.assertEqual('ISO 9001:2015 · ISO 45001:2018', calls['pdf'][1])
-        self.assertEqual('테스트기업_ISO_9001_45001_매뉴얼.pdf', self.filename(r))
+        self.assertEqual('테스트기업_ISO_9001-2015_45001-2018_매뉴얼.pdf', self.filename(r))
 
     def test_edition_shown_for_2026_without_gate(self):
         """이미 생성된 문서의 내보내기에는 노출 게이트를 다시 적용하지 않는다."""
         r, calls = self.export('docx', target_isos=['9001:2026', '45001'])
         self.assertEqual(200, r.status_code)
         self.assertEqual('ISO 9001:2026 · ISO 45001:2018', calls['docx'][1])
-        self.assertEqual('테스트기업_ISO_9001_45001_매뉴얼.docx', self.filename(r))
+        self.assertEqual('테스트기업_ISO_9001-2026_45001-2018_매뉴얼.docx', self.filename(r))
 
     def test_target_isos_wins_over_target_iso(self):
         r, calls = self.export('docx', target_isos=['ISO 14001:2015'], target_iso='ISO 9001:2015')
@@ -340,7 +369,7 @@ class ExportEditionTest(EditionApiTestBase):
         r, calls = self.export('docx', user=self.admin, manual_id=manual_id)
         self.assertEqual(200, r.status_code)
         self.assertEqual('ISO 9001:2026 · ISO 14001:2026', calls['docx'][1])
-        self.assertEqual('테스트기업_ISO_9001_14001_매뉴얼.docx', self.filename(r))
+        self.assertEqual('테스트기업_ISO_9001-2026_14001-2026_매뉴얼.docx', self.filename(r))
 
     def test_no_standard_info_still_works(self):
         r, calls = self.export('docx')
