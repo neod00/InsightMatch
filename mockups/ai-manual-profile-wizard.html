@@ -1,0 +1,1645 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 매뉴얼 개선안 목업</title>
+<link rel="icon" type="image/png" href="../images/logo2.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<!--
+  목업: AI 매뉴얼 만들기 개선 완성형 (로드맵 2~4단계)
+  - 운영 ai-manual.html 의 토큰(다크 + 골드 #C5A880 + 에메랄드 #10B981, Noto Sans/Serif KR)을 그대로 따름
+  - 실제 API 호출 없음. JS 는 탭/단계 전환과 상태 토글만.
+  - 더미 데이터: (주)한빛정밀 / 자동차부품 제조 / 85명 / ISO 9001 + 45001 통합
+-->
+<style>
+  :root {
+    /* ai-manual.html 운영 토큰 그대로 */
+    --bg-primary: #0F0F11;
+    --bg-secondary: #161619;
+    --bg-card: #1C1C20;
+    --text-primary: #E0E0E0;
+    --text-secondary: #9CA3AF;
+    --text-muted: #6B7280;
+    --border: #27272A;
+    --primary: #C5A880;
+    --primary-hover: #D4B890;
+    --primary-soft: rgba(197, 168, 128, 0.12);
+    --primary-line: rgba(197, 168, 128, 0.35);
+    --heading-warm: #E8D5B8;
+    --accent: #10B981;
+    --accent-soft: rgba(16, 185, 129, 0.12);
+    --warning: #F59E0B;
+    --warning-soft: rgba(245, 158, 11, 0.12);
+    --danger: #EF4444;
+    --radius-lg: 16px;
+    --radius-md: 10px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  .hidden { display: none !important; }
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, select, textarea { font-family: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+  /* ---------- Header (운영과 동일) ---------- */
+  .header {
+    background: rgba(15, 15, 17, 0.95);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .header-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--text-primary); }
+  .header-logo img { height: 30px; }
+  .header-logo span { font-weight: 700; font-size: 1.1rem; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .header-badge {
+    background: linear-gradient(135deg, var(--primary), #D4B890);
+    color: #1A1A1A; padding: 4px 12px; border-radius: 20px;
+    font-size: 0.75rem; font-weight: 700; white-space: nowrap;
+  }
+  .mock-flag {
+    font-size: 0.72rem; color: var(--text-muted);
+    border: 1px dashed var(--border); padding: 3px 10px; border-radius: 20px; white-space: nowrap;
+  }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px 56px; }
+
+  /* ---------- 화면 전환 탭 ---------- */
+  .screen-tabs {
+    display: flex; gap: 6px; padding: 5px;
+    background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 14px;
+    margin-bottom: 28px; overflow-x: auto; scrollbar-width: none;
+  }
+  .screen-tabs::-webkit-scrollbar { display: none; }
+  .screen-tab {
+    flex: 1 0 auto; display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 10px 16px; border: none; border-radius: 10px; background: none;
+    color: var(--text-secondary); font-size: 0.88rem; font-weight: 500; white-space: nowrap;
+    transition: background .2s, color .2s;
+  }
+  .screen-tab .key {
+    display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px;
+    font-size: 0.72rem; font-weight: 700; background: var(--bg-card); border: 1px solid var(--border);
+  }
+  .screen-tab:hover { color: var(--text-primary); }
+  .screen-tab[aria-selected="true"] { background: var(--bg-card); color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary-line); }
+  .screen-tab[aria-selected="true"] .key { background: var(--primary); color: #1A1A1A; border-color: var(--primary); }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .screen-intro { margin-bottom: 24px; }
+  .screen-intro h1 {
+    font-family: 'Noto Serif KR', serif; font-size: 1.8rem; font-weight: 700; margin-bottom: 8px;
+    background: linear-gradient(135deg, var(--primary), #E8D5B8);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    display: inline-block;
+  }
+  .screen-intro p { color: var(--text-secondary); font-size: 0.95rem; line-height: 1.7; }
+
+  .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+
+  /* ================= 화면 A: 위저드 ================= */
+  .wizard-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
+
+  .progress-card { padding: 20px 24px; margin-bottom: 20px; }
+  .progress-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .progress-top .title { font-weight: 700; font-size: 1rem; }
+  .eta { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--text-secondary); }
+  .eta strong { color: var(--primary); font-weight: 600; }
+  .eta svg { width: 15px; height: 15px; }
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; list-style: none; }
+  .step-btn {
+    width: 100%; background: none; border: none; text-align: left; color: var(--text-muted);
+    display: flex; flex-direction: column; gap: 8px; padding: 0;
+  }
+  .step-bar { height: 4px; border-radius: 4px; background: var(--border); position: relative; overflow: hidden; }
+  .step-bar::after { content: ''; position: absolute; inset: 0; width: 0; background: var(--accent); transition: width .35s; }
+  .step-btn.done .step-bar::after, .step-btn.current .step-bar::after { width: 100%; }
+  .step-btn.current .step-bar::after { background: linear-gradient(90deg, var(--primary), #E8D5B8); }
+  .step-label { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; }
+  .step-num {
+    flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+    font-size: 0.72rem; font-weight: 700; border: 1px solid var(--border); background: var(--bg-primary);
+  }
+  .step-btn.done { color: var(--text-secondary); }
+  .step-btn.done .step-num { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .step-btn.current { color: var(--text-primary); font-weight: 600; }
+  .step-btn.current .step-num { background: var(--primary); border-color: var(--primary); color: #1A1A1A; }
+  .cur-name { display: none; color: var(--primary); }
+  .step-time { font-size: 0.7rem; color: var(--text-muted); font-weight: 400; padding-left: 30px; margin-top: -6px; }
+
+  .step-panel { display: none; padding: 28px; }
+  .step-panel.active { display: block; }
+  .step-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+  .step-head h2 { font-size: 1.2rem; font-weight: 700; }
+  .step-head .step-of { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; padding-top: 4px; }
+
+  .why {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: var(--primary-soft); border: 1px solid var(--primary-line); border-radius: var(--radius-md);
+    padding: 10px 14px; font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 24px; line-height: 1.6;
+  }
+  .why svg { flex: none; width: 16px; height: 16px; color: var(--primary); margin-top: 3px; }
+  .why b { color: var(--primary); font-weight: 600; }
+
+  .section-label {
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; color: var(--text-muted);
+    margin: 28px 0 14px; display: flex; align-items: center; gap: 10px;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .section-label.first { margin-top: 0; }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .field { margin-bottom: 20px; min-width: 0; }
+  .field-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; min-height: 24px; }
+  .field-head label, .field-head .label { font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); }
+  .req { color: var(--primary); font-size: 0.7rem; margin-left: 4px; font-weight: 600; }
+  .idk {
+    flex: none; background: none; border: 1px dashed #3A3A40; color: var(--text-muted);
+    font-size: 0.72rem; padding: 2px 9px; border-radius: 20px; transition: all .2s; white-space: nowrap;
+  }
+  .idk:hover { border-color: var(--primary-line); color: var(--primary); }
+  .idk .on { display: none; }
+  .field.use-default .idk { border-style: solid; border-color: var(--warning); color: var(--warning); background: var(--warning-soft); }
+  .field.use-default .idk .off { display: none; }
+  .field.use-default .idk .on { display: inline; }
+  .default-note {
+    display: none; margin-top: 8px; font-size: 0.78rem; color: #F3D9A4;
+    background: var(--warning-soft); border-radius: 8px; padding: 6px 10px; line-height: 1.5;
+  }
+  .default-note b { color: var(--warning); font-weight: 600; }
+  .field.use-default .default-note { display: block; }
+  .field.use-default .control-wrap { opacity: 0.4; pointer-events: none; }
+
+  .input {
+    width: 100%; padding: 10px 14px; background: var(--bg-primary); border: 1px solid var(--border);
+    border-radius: var(--radius-md); color: var(--text-primary); font-size: 0.93rem; transition: border-color .2s;
+  }
+  .input:focus { outline: none; border-color: var(--primary); }
+  textarea.input { resize: vertical; min-height: 84px; line-height: 1.65; }
+  .input-suffix { position: relative; }
+  .input-suffix .input { padding-right: 40px; }
+  .input-suffix span { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem; }
+  .help { font-size: 0.76rem; color: var(--text-muted); margin-top: 6px; line-height: 1.55; }
+  .help.good { color: var(--accent); }
+
+  /* chips (운영 checkbox-chip 계승) */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    padding: 6px 14px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 20px;
+    font-size: 0.82rem; color: var(--text-secondary); transition: all .2s; user-select: none;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip:hover { border-color: var(--primary); }
+  .chip.active { background: rgba(197, 168, 128, 0.15); border-color: var(--primary); color: var(--primary); }
+  .chip.active::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--primary); }
+  .chip.add { border-style: dashed; color: var(--text-muted); }
+  .chip.custom.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .chip.custom.active::before { background: var(--accent); }
+  .chip small { font-size: 0.68rem; opacity: .75; }
+  .template-tag { font-size: 0.7rem; color: var(--primary); background: var(--primary-soft); padding: 2px 8px; border-radius: 6px; font-weight: 500; }
+
+  /* 사업장 행 */
+  .site-list { display: flex; flex-direction: column; gap: 8px; }
+  .site-row { display: grid; grid-template-columns: 116px minmax(0, 1fr) 92px 34px; gap: 8px; align-items: center; }
+  .site-row .input { padding: 8px 12px; font-size: 0.86rem; }
+  .site-head { font-size: 0.7rem; color: var(--text-muted); }
+  .icon-btn {
+    width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px;
+    background: none; border: 1px solid var(--border); color: var(--text-muted);
+  }
+  .icon-btn:hover { color: var(--danger); border-color: var(--danger); }
+  .icon-btn svg { width: 14px; height: 14px; }
+  .add-row {
+    margin-top: 2px; background: none; border: 1px dashed var(--border); color: var(--text-muted);
+    border-radius: var(--radius-md); padding: 8px; font-size: 0.82rem; width: 100%; transition: all .2s;
+  }
+  .add-row:hover { border-color: var(--primary); color: var(--primary); }
+
+  /* 토글 */
+  .toggle-list { display: flex; flex-direction: column; gap: 10px; }
+  .toggle-item {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    padding: 12px 14px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-md);
+  }
+  .toggle-item .t-main { font-size: 0.9rem; font-weight: 500; }
+  .toggle-item .t-sub { font-size: 0.76rem; color: var(--text-muted); margin-top: 2px; line-height: 1.5; }
+  .toggle-item .t-right { display: flex; align-items: center; gap: 10px; flex: none; }
+  .switch { width: 40px; height: 22px; border-radius: 22px; background: #3A3A40; border: none; position: relative; transition: background .2s; flex: none; }
+  .switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .2s; }
+  .switch[aria-checked="true"] { background: var(--accent); }
+  .switch[aria-checked="true"]::after { transform: translateX(18px); }
+  .mini-select { padding: 5px 8px; font-size: 0.78rem; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-secondary); }
+  .legal-tag { font-size: 0.66rem; padding: 1px 7px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); margin-left: 6px; font-weight: 600; white-space: nowrap; }
+  .legal-tag.muted { background: rgba(255,255,255,0.04); color: var(--text-muted); }
+
+  /* 미니 조직도 */
+  .org-preview { padding: 16px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-md); }
+  .org-cap { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 12px; display: flex; justify-content: space-between; }
+  .org-top { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+  .org-node { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); font-size: 0.78rem; white-space: nowrap; }
+  .org-node.ceo { border-color: var(--primary); color: var(--primary); font-weight: 700; }
+  .org-node.mr { border-color: var(--accent); color: var(--accent); }
+  .org-line { width: 1px; height: 14px; background: var(--border); margin: 0 auto; }
+  .org-depts { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; border-top: 1px solid var(--border); padding-top: 12px; }
+  .org-depts .org-node { color: var(--text-secondary); }
+
+  /* 프로세스 체크 카드 */
+  .proc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .proc {
+    text-align: left; padding: 12px 14px; background: var(--bg-primary); border: 1px solid var(--border);
+    border-radius: var(--radius-md); color: var(--text-secondary); transition: all .2s; min-height: 64px;
+  }
+  .proc .p-name { font-size: 0.88rem; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+  .proc .p-clause { font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; padding-left: 24px; }
+  .box { flex: none; width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--text-muted); display: grid; place-items: center; }
+  .box svg { width: 10px; height: 10px; display: none; }
+  .proc.on { border-color: var(--primary-line); background: var(--primary-soft); color: var(--text-primary); }
+  .proc.on .box { background: var(--primary); border-color: var(--primary); color: #1A1A1A; }
+  .proc.on .box svg { display: block; }
+  .proc:not(.on) .p-name { color: var(--text-muted); text-decoration: line-through; text-decoration-color: rgba(107,114,128,.6); }
+  .inline-notes { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .inline-note {
+    display: flex; align-items: flex-start; gap: 10px; padding: 9px 12px; border-radius: 8px;
+    font-size: 0.8rem; line-height: 1.55; border-left: 3px solid var(--warning); background: var(--warning-soft); color: #F3D9A4;
+  }
+  .inline-note svg { flex: none; width: 15px; height: 15px; margin-top: 2px; color: var(--warning); }
+  .inline-note b { color: var(--warning); font-weight: 600; }
+  .inline-note .undo { margin-left: auto; flex: none; background: none; border: none; color: var(--warning); font-size: 0.74rem; text-decoration: underline; }
+
+  /* 예/아니오 */
+  .qa-list { display: flex; flex-direction: column; gap: 10px; }
+  .qa { padding: 14px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-md); }
+  .qa-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .qa-q { font-size: 0.9rem; font-weight: 500; }
+  .qa-q small { display: block; font-size: 0.74rem; color: var(--text-muted); font-weight: 400; margin-top: 2px; }
+  .seg { display: inline-flex; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 2px; flex: none; }
+  .seg button { border: none; background: none; color: var(--text-muted); font-size: 0.78rem; padding: 5px 11px; border-radius: 6px; white-space: nowrap; }
+  .seg button.sel { background: var(--primary); color: #1A1A1A; font-weight: 700; }
+  .seg button.sel.idk-opt { background: var(--warning); }
+  .qa-detail { margin-top: 10px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+  .qa-detail .input { padding: 8px 12px; font-size: 0.86rem; }
+  .effect { font-size: 0.72rem; color: var(--accent); background: var(--accent-soft); padding: 3px 9px; border-radius: 6px; white-space: nowrap; }
+  .qa.no-detail .qa-detail { display: none; }
+
+  /* 조건부 블록 */
+  .cond { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-primary); margin-bottom: 12px; overflow: hidden; }
+  .cond summary { list-style: none; cursor: pointer; padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+  .cond summary::-webkit-details-marker { display: none; }
+  .std-pill { font-size: 0.7rem; font-weight: 700; padding: 3px 9px; border-radius: 6px; flex: none; white-space: nowrap; }
+  .std-q { background: rgba(96, 165, 250, 0.14); color: #93C5FD; }
+  .std-e { background: var(--accent-soft); color: #6EE7B7; }
+  .std-s { background: var(--warning-soft); color: #FCD34D; }
+  .cond .c-title { font-weight: 600; font-size: 0.92rem; flex: 1; min-width: 0; }
+  .cond .c-title small { display: block; font-weight: 400; font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+  .chev { width: 18px; height: 18px; color: var(--text-muted); transition: transform .2s; flex: none; }
+  .cond[open] .chev { transform: rotate(180deg); }
+  .cond[open] summary { border-bottom: 1px solid var(--border); }
+  .cond-body { padding: 18px 16px 2px; }
+  .cond.inactive summary .c-title, .cond.inactive summary .std-pill { opacity: .55; }
+  .cond.inactive .cond-body { opacity: .4; }
+  .state-tag { font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; border: 1px solid var(--border); color: var(--text-muted); white-space: nowrap; flex: none; }
+  .state-tag.on { border-color: var(--accent); color: var(--accent); }
+
+  /* 규격 카드 */
+  .std-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .std-card {
+    text-align: left; padding: 16px; border-radius: var(--radius-md); background: var(--bg-primary); border: 1px solid var(--border);
+    color: var(--text-secondary); transition: all .2s; position: relative;
+  }
+  .std-card .s-code { font-family: 'Noto Serif KR', serif; font-size: 1.05rem; font-weight: 700; color: var(--text-primary); }
+  .std-card .s-name { font-size: 0.8rem; margin-top: 2px; }
+  .std-card .s-meta { font-size: 0.72rem; color: var(--text-muted); margin-top: 10px; }
+  .std-card .box { position: absolute; top: 16px; right: 16px; }
+  .std-card.on { border-color: var(--primary); background: var(--primary-soft); }
+  .std-card.on .box { background: var(--primary); border-color: var(--primary); color: #1A1A1A; }
+  .std-card.on .box svg { display: block; }
+  .ims-banner {
+    margin-top: 12px; display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: var(--radius-md);
+    background: linear-gradient(135deg, rgba(197,168,128,0.14), rgba(16,185,129,0.08)); border: 1px solid var(--primary-line);
+    font-size: 0.84rem; color: var(--text-secondary); line-height: 1.55;
+  }
+  .ims-badge { flex: none; background: linear-gradient(135deg, var(--primary), #D4B890); color: #1A1A1A; font-size: 0.74rem; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
+  .draft-wrap { position: relative; }
+  .draft-tag {
+    position: absolute; top: -9px; right: 12px; font-size: 0.68rem; padding: 1px 8px; border-radius: 20px;
+    background: var(--bg-card); border: 1px solid var(--primary-line); color: var(--primary); display: flex; gap: 4px; align-items: center;
+  }
+  .draft-tag svg { width: 11px; height: 11px; }
+
+  .table-scroll { overflow-x: auto; }
+  .excl-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; min-width: 520px; }
+  .excl-table th { text-align: left; font-weight: 600; color: var(--primary); background: rgba(197,168,128,0.08); padding: 9px 12px; border: 1px solid var(--border); font-size: 0.78rem; }
+  .excl-table td { padding: 10px 12px; border: 1px solid var(--border); color: var(--text-secondary); vertical-align: top; line-height: 1.55; }
+  .excl-table .clause { color: var(--text-primary); font-weight: 600; white-space: nowrap; }
+  .src-tag { display: inline-block; font-size: 0.68rem; padding: 1px 7px; border-radius: 6px; background: var(--primary-soft); color: var(--primary); margin-top: 4px; }
+  .link-btn { background: none; border: none; color: var(--primary); font-size: 0.78rem; padding: 0; }
+  .link-btn.danger { color: var(--text-muted); }
+
+  .upload-zone { border: 1px dashed var(--border); border-radius: var(--radius-md); padding: 14px; text-align: center; font-size: 0.8rem; color: var(--text-muted); background: var(--bg-primary); margin-top: 10px; }
+  .upload-zone b { color: var(--primary); font-weight: 500; }
+
+  /* 생성 미리보기 */
+  .gen-preview {
+    margin-top: 28px; padding: 24px; border-radius: var(--radius-lg);
+    background: linear-gradient(145deg, rgba(197,168,128,0.08), rgba(16,185,129,0.06)); border: 1px solid rgba(197,168,128,0.25);
+  }
+  .gen-preview h3 { font-size: 1.05rem; color: var(--primary); margin-bottom: 4px; }
+  .gen-preview .gp-sub { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 18px; }
+  .gp-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
+  .gp-stat { background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .gp-stat .n { font-family: 'Noto Serif KR', serif; font-size: 1.7rem; font-weight: 700; color: var(--text-primary); line-height: 1.1; }
+  .gp-stat .n small { font-size: 0.85rem; color: var(--text-muted); font-family: 'Noto Sans KR', sans-serif; font-weight: 400; margin-left: 2px; }
+  .gp-stat .l { font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; font-weight: 500; }
+  .gp-stat .d { font-size: 0.7rem; color: var(--text-muted); margin-top: 6px; line-height: 1.5; }
+  .gp-stat.free { border-color: var(--primary-line); }
+  .plan { display: inline-flex; align-items: center; gap: 4px; font-size: 0.66rem; padding: 1px 7px; border-radius: 4px; margin-top: 8px; font-weight: 600; }
+  .plan.free { background: var(--accent-soft); color: var(--accent); }
+  .plan.paid { background: var(--primary-soft); color: var(--primary); }
+  .plan svg { width: 10px; height: 10px; }
+  .gp-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .gp-foot .note { font-size: 0.78rem; color: var(--text-muted); line-height: 1.6; }
+
+  .btn-generate {
+    padding: 14px 28px; background: linear-gradient(135deg, var(--primary), #D4B890); color: #1A1A1A; border: none;
+    border-radius: 12px; font-size: 1rem; font-weight: 700; transition: all .3s; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+  }
+  .btn-generate:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(197,168,128,0.3); }
+  .btn-generate svg { width: 18px; height: 18px; }
+  .btn-ghost {
+    padding: 10px 18px; background: none; border: 1px solid var(--border); color: var(--text-secondary);
+    border-radius: 12px; font-size: 0.88rem; font-weight: 500; transition: all .2s; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-ghost:hover { border-color: var(--primary); color: var(--primary); }
+  .btn-next { padding: 11px 24px; background: var(--primary); border: none; color: #1A1A1A; border-radius: 12px; font-size: 0.9rem; font-weight: 700; }
+  .btn-next:hover { background: var(--primary-hover); }
+  .step-nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); }
+  .step-nav .saved { font-size: 0.76rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+  .step-nav .saved::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .step-nav .right { display: flex; gap: 8px; }
+
+  /* 반영 요약 사이드 */
+  .summary { position: sticky; top: 84px; padding: 20px; }
+  .summary h3 { font-size: 0.95rem; margin-bottom: 2px; }
+  .summary .s-sub { font-size: 0.76rem; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5; }
+  .meter { height: 6px; background: var(--border); border-radius: 6px; overflow: hidden; margin: 6px 0 4px; }
+  .meter i { display: block; height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); border-radius: 6px; transition: width .35s; }
+  .meter-label { display: flex; justify-content: space-between; font-size: 0.74rem; color: var(--text-muted); }
+  .sum-list { list-style: none; margin-top: 18px; display: flex; flex-direction: column; gap: 12px; }
+  .sum-list li { display: flex; gap: 10px; font-size: 0.8rem; line-height: 1.5; }
+  .sum-list .k { color: var(--text-muted); font-size: 0.72rem; }
+  .sum-list .v { color: var(--text-primary); }
+  .sum-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; background: var(--primary); }
+  .sum-dot.g { background: var(--accent); }
+  .sum-dot.w { background: var(--warning); }
+  .default-box { margin-top: 18px; padding: 12px; border-radius: var(--radius-md); background: var(--warning-soft); border: 1px solid rgba(245,158,11,0.3); font-size: 0.78rem; color: #F3D9A4; line-height: 1.55; }
+  .default-box b { color: var(--warning); }
+
+  /* ================= 화면 B: 문서 트리 + 뷰어 ================= */
+  .docs-grid { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 20px; align-items: start; padding-bottom: 96px; }
+  .tree-panel { position: sticky; top: 84px; max-height: calc(100vh - 190px); display: flex; flex-direction: column; overflow: hidden; }
+  .tree-head { padding: 18px 18px 14px; border-bottom: 1px solid var(--border); }
+  .tree-head .co { font-family: 'Noto Serif KR', serif; font-weight: 700; font-size: 1.02rem; color: var(--heading-warm); }
+  .tree-head .co-sub { font-size: 0.74rem; color: var(--text-muted); margin-top: 2px; }
+  .tree-progress { margin-top: 12px; }
+  .tree-actions { display: flex; gap: 8px; margin-top: 14px; }
+  .btn-zip {
+    flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 12px;
+    background: rgba(197, 168, 128, 0.1); border: 1px solid var(--primary); color: var(--primary); border-radius: 8px; font-size: 0.82rem; font-weight: 600;
+  }
+  .btn-zip:hover { background: rgba(197, 168, 128, 0.2); }
+  .btn-zip svg, .btn-gen-all svg { width: 14px; height: 14px; }
+  .btn-gen-all { display: inline-flex; align-items: center; gap: 6px; padding: 9px 12px; background: none; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 8px; font-size: 0.8rem; }
+  .btn-gen-all:hover { border-color: var(--primary); color: var(--primary); }
+  .plan-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; font-size: 0.74rem; color: var(--text-muted); padding: 8px 10px; border-radius: 8px; background: var(--bg-primary); border: 1px solid var(--border); }
+  .plan-bar b { color: var(--accent); font-weight: 600; }
+  .plan-bar button { background: none; border: none; color: var(--primary); font-size: 0.74rem; font-weight: 600; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 10px 18px; border-bottom: 1px solid var(--border); font-size: 0.7rem; color: var(--text-muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+
+  .tree { overflow-y: auto; padding: 10px 10px 16px; flex: 1; }
+  .tree::-webkit-scrollbar { width: 6px; }
+  .tree::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .tree-root { display: flex; align-items: center; gap: 8px; padding: 6px 8px; font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; }
+  .tree-root svg { width: 15px; height: 15px; color: var(--primary); }
+  .tree details { margin-left: 10px; border-left: 1px solid var(--border); padding-left: 6px; }
+  .tree summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 7px 8px; font-size: 0.78rem; color: var(--text-muted); font-weight: 600; border-radius: 6px; }
+  .tree summary::-webkit-details-marker { display: none; }
+  .tree summary:hover { color: var(--text-secondary); }
+  .tree summary .tw { width: 12px; height: 12px; transition: transform .2s; }
+  .tree details[open] > summary .tw { transform: rotate(90deg); }
+  .tree summary .cnt { margin-left: auto; font-weight: 400; font-size: 0.7rem; }
+  .doc-item {
+    width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: none; background: none; border-radius: 8px;
+    color: var(--text-secondary); font-size: 0.83rem; text-align: left; transition: background .15s;
+  }
+  .doc-item:hover { background: rgba(255,255,255,0.03); color: var(--text-primary); }
+  .doc-item.sel { background: var(--primary-soft); color: var(--primary); box-shadow: inset 2px 0 0 var(--primary); }
+  .doc-item .code { font-size: 0.72rem; color: var(--text-muted); font-variant-numeric: tabular-nums; min-width: 64px; }
+  .doc-item.sel .code { color: var(--primary); }
+  .doc-item .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .doc-item .lock { width: 12px; height: 12px; color: var(--text-muted); flex: none; }
+  .doc-item.excluded { color: #52525B; }
+  .doc-item.excluded .nm { text-decoration: line-through; }
+  .doc-item.root-doc { margin-left: 4px; }
+  .sugg { font-size: 0.62rem; padding: 1px 6px; border-radius: 4px; background: rgba(96,165,250,0.14); color: #93C5FD; flex: none; white-space: nowrap; }
+  .excl-badge { font-size: 0.62rem; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.05); color: var(--text-muted); flex: none; }
+
+  /* 상태 아이콘 */
+  .st { flex: none; width: 14px; height: 14px; display: inline-grid; place-items: center; }
+  .st svg { width: 14px; height: 14px; }
+  .st.done { color: var(--accent); }
+  .st.gen { color: var(--primary); }
+  .st.gen svg { animation: spin 1.1s linear infinite; }
+  .st.todo { color: var(--text-muted); }
+  .st.na { color: #52525B; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .tree-qc {
+    margin: 0 10px 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(16,185,129,0.3); background: var(--accent-soft);
+    display: flex; align-items: center; gap: 10px; font-size: 0.76rem; color: var(--text-secondary); text-align: left; width: calc(100% - 20px);
+  }
+  .tree-qc svg { width: 16px; height: 16px; color: var(--accent); flex: none; }
+  .tree-qc b { color: var(--accent); }
+  .tree-qc .go { margin-left: auto; color: var(--accent); font-size: 0.72rem; }
+
+  /* 뷰어 */
+  .viewer { min-height: 600px; }
+  .viewer-head { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .crumb { font-size: 0.74rem; color: var(--text-muted); margin-bottom: 4px; }
+  .viewer-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .viewer-title h3 { font-size: 1.05rem; }
+  .meta-pill { font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; border: 1px solid var(--border); color: var(--text-muted); white-space: nowrap; }
+  .meta-pill.ok { border-color: rgba(16,185,129,0.4); color: var(--accent); }
+  .viewer-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .v-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; background: none; border: 1px solid var(--border); color: var(--text-secondary); transition: all .2s; }
+  .v-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .v-btn svg { width: 14px; height: 14px; }
+  .v-btn .tag { font-size: 0.62rem; padding: 1px 5px; border-radius: 4px; font-weight: 700; color: #fff; }
+  .tag-pdf { background: #DC2626; }
+  .tag-docx { background: #2563EB; }
+  .v-btn.primary { background: rgba(197,168,128,0.1); border-color: var(--primary); color: var(--primary); }
+
+  .md-viewer { padding: 8px 32px 40px; }
+  .md-viewer h1 { font-family: 'Noto Serif KR', serif; font-size: 1.6rem; font-weight: 700; margin: 28px 0 16px; padding-bottom: 8px; border-bottom: 2px solid var(--primary); color: var(--primary); }
+  .md-viewer h2 { font-size: 1.22rem; font-weight: 600; margin: 32px 0 12px; color: var(--heading-warm); }
+  .md-viewer h3 { font-size: 1.02rem; font-weight: 600; margin: 20px 0 10px; color: var(--text-primary); }
+  .md-viewer p { line-height: 1.8; margin-bottom: 12px; color: var(--text-secondary); font-size: 0.94rem; }
+  .md-viewer ul { margin: 8px 0 16px 20px; color: var(--text-secondary); line-height: 1.75; font-size: 0.94rem; }
+  .md-viewer table { width: 100%; border-collapse: collapse; margin: 14px 0 18px; font-size: 0.86rem; }
+  .md-viewer th { background: rgba(197, 168, 128, 0.1); padding: 9px 12px; text-align: left; border: 1px solid var(--border); font-weight: 600; color: var(--primary); }
+  .md-viewer td { padding: 8px 12px; border: 1px solid var(--border); color: var(--text-secondary); vertical-align: top; }
+  .md-viewer strong { color: var(--text-primary); }
+  .md-viewer .tbl { overflow-x: auto; }
+  .md-viewer.pre { padding-bottom: 0; }
+  .blurred.md-viewer { padding-top: 0; }
+
+  .sec { position: relative; border-radius: 10px; margin: 0 -12px; padding: 0 12px; transition: background .2s; }
+  .sec:hover { background: rgba(255,255,255,0.015); }
+  .sec-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .regen {
+    flex: none; opacity: 0; transform: translateX(4px); transition: all .2s; display: inline-flex; align-items: center; gap: 5px;
+    font-size: 0.72rem; padding: 4px 10px; border-radius: 20px; background: var(--bg-primary); border: 1px solid var(--primary-line); color: var(--primary); font-weight: 500;
+  }
+  .regen svg { width: 12px; height: 12px; }
+  .sec:hover .regen, .regen:focus-visible { opacity: 1; transform: none; }
+  .sec.demo-hover { background: rgba(197,168,128,0.04); box-shadow: inset 0 0 0 1px rgba(197,168,128,0.15); }
+  .sec.demo-hover .regen { opacity: 1; transform: none; }
+
+  .doc-meta-table td:first-child { width: 110px; color: var(--text-muted); }
+  .callout { display: flex; gap: 10px; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); font-size: 0.86rem; color: var(--text-secondary); line-height: 1.65; margin: 12px 0 16px; }
+  .callout svg { flex: none; width: 16px; height: 16px; color: var(--text-muted); margin-top: 3px; }
+  .xref { display: inline-flex; align-items: center; gap: 4px; font-size: 0.76rem; padding: 1px 8px; border-radius: 6px; background: var(--primary-soft); color: var(--primary); text-decoration: none; white-space: nowrap; }
+
+  /* CSS 프로세스 맵 (부록 B 대체 표현) */
+  .pmap { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; align-items: stretch; margin: 12px 0 8px; }
+  .pmap .pm { padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-primary); font-size: 0.76rem; text-align: center; color: var(--text-secondary); position: relative; }
+  .pmap .pm b { display: block; color: var(--text-primary); font-size: 0.8rem; margin-bottom: 2px; }
+  .pmap .pm.core { border-color: var(--primary-line); }
+  .pmap .pm.ex { border-style: dashed; color: #52525B; }
+  .pmap .pm.ex b { color: #52525B; text-decoration: line-through; }
+  .pmap-support { display: flex; flex-wrap: wrap; gap: 6px; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 16px; }
+  .pmap-support span { padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; }
+
+  /* 뷰어 상태 화면 */
+  .state-view { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: 460px; padding: 40px 24px; color: var(--text-muted); }
+  .state-view .ico { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; background: var(--bg-primary); border: 1px solid var(--border); margin-bottom: 16px; }
+  .state-view .ico svg { width: 26px; height: 26px; }
+  .state-view h4 { font-size: 1.02rem; color: var(--text-primary); margin-bottom: 8px; }
+  .state-view p { font-size: 0.88rem; line-height: 1.7; max-width: 440px; margin-bottom: 18px; }
+  .state-view .btn-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .skeleton { width: 100%; max-width: 640px; margin: 0 auto; padding: 24px 32px; text-align: left; }
+  .sk-line { height: 12px; border-radius: 6px; margin-bottom: 12px; background: linear-gradient(90deg, #232328 0%, #2E2E35 50%, #232328 100%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+  .sk-line.h { height: 20px; width: 45%; margin-bottom: 18px; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  .gen-status { display: flex; align-items: center; gap: 10px; padding: 12px 16px; margin: 20px 32px 0; border-radius: 10px; background: var(--primary-soft); border: 1px solid var(--primary-line); font-size: 0.84rem; color: var(--text-secondary); }
+  .gen-status .st { width: 16px; height: 16px; }
+  .gen-status b { color: var(--primary); }
+  .gen-steps { list-style: none; margin: 12px 32px 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 16px; font-size: 0.8rem; color: var(--text-muted); }
+  .gen-steps li { display: flex; align-items: center; gap: 8px; }
+  .gen-steps li.d { color: var(--text-secondary); }
+
+  .blurred { position: relative; filter: blur(5px); user-select: none; pointer-events: none; max-height: 220px; overflow: hidden; }
+  .lock-card {
+    margin: 8px 32px 32px; background: linear-gradient(145deg, rgba(197,168,128,0.08), rgba(16,185,129,0.06));
+    border: 1px solid rgba(197,168,128,0.25); border-radius: 16px; padding: 24px; text-align: center;
+  }
+  .lock-card h4 { color: var(--primary); font-size: 1.05rem; margin-bottom: 6px; }
+  .lock-card p { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px; line-height: 1.6; }
+  .btn-unlock {
+    padding: 12px 32px; background: linear-gradient(135deg, var(--accent), #059669); color: white; border: none; border-radius: 12px;
+    font-size: 0.95rem; font-weight: 700; transition: all .3s;
+  }
+  .btn-unlock:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(16,185,129,0.3); }
+
+  /* 하단 고정 CTA */
+  .consult-bar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 90; display: none;
+    background: rgba(22, 22, 25, 0.96); backdrop-filter: blur(16px); border-top: 1px solid var(--primary-line);
+  }
+  body.on-docs .consult-bar { display: block; }
+  .consult-inner { max-width: 1200px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; gap: 16px; }
+  .consult-ava { display: flex; flex: none; }
+  .consult-ava span { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--bg-secondary); margin-left: -8px; display: grid; place-items: center; font-size: 0.72rem; font-weight: 700; color: #1A1A1A; }
+  .consult-ava span:first-child { margin-left: 0; }
+  .consult-text { flex: 1; min-width: 0; }
+  .consult-text b { display: block; font-size: 0.92rem; }
+  .consult-text small { font-size: 0.78rem; color: var(--text-muted); }
+  .consult-bar .btn-unlock { white-space: nowrap; padding: 11px 24px; font-size: 0.9rem; flex: none; }
+  .consult-close { background: none; border: none; color: var(--text-muted); width: 28px; height: 28px; display: grid; place-items: center; border-radius: 6px; flex: none; }
+  .consult-close svg { width: 14px; height: 14px; }
+
+  /* ================= 화면 C: 품질 점검 ================= */
+  .qc-wrap { display: grid; grid-template-columns: 420px minmax(0, 1fr); gap: 24px; align-items: start; }
+  .qc-card { padding: 20px; }
+  .qc-top { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .qc-ring { flex: none; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--accent) 0 100%, var(--border) 0); position: relative; }
+  .qc-ring::before { content: ''; position: absolute; inset: 5px; border-radius: 50%; background: var(--bg-card); }
+  .qc-ring svg { position: relative; width: 20px; height: 20px; color: var(--accent); }
+  .qc-top h3 { font-size: 0.98rem; }
+  .qc-top small { display: block; font-size: 0.74rem; color: var(--text-muted); margin-top: 2px; }
+  .qc-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .qc-item { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: var(--bg-primary); border: 1px solid var(--border); }
+  .qc-item svg { width: 16px; height: 16px; }
+  .qc-item .ok { color: var(--accent); }
+  .qc-item .wr { color: var(--warning); }
+  .qc-item .q-name { font-size: 0.84rem; }
+  .qc-item .q-desc { font-size: 0.72rem; color: var(--text-muted); margin-top: 1px; line-height: 1.45; }
+  .qc-item .q-val { font-family: 'Noto Serif KR', serif; font-weight: 700; font-size: 0.98rem; color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .qc-item.warn { border-color: rgba(245,158,11,0.3); }
+  .qc-item.warn .q-val { color: var(--warning); }
+  .qc-item .fix { grid-column: 2 / 4; display: flex; gap: 8px; margin-top: 4px; }
+  .qc-item .fix button { font-size: 0.72rem; padding: 3px 10px; border-radius: 6px; background: var(--warning-soft); border: 1px solid rgba(245,158,11,0.35); color: var(--warning); }
+  .qc-item .fix button.sec-btn { background: none; border-color: var(--border); color: var(--text-muted); }
+  .qc-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 0.74rem; color: var(--text-muted); }
+  .qc-foot button { background: none; border: none; color: var(--primary); font-size: 0.76rem; font-weight: 600; }
+  .qc-explain { padding: 24px; }
+  .qc-explain h3 { font-size: 1rem; margin-bottom: 4px; }
+  .qc-explain > p { font-size: 0.84rem; color: var(--text-muted); margin-bottom: 18px; line-height: 1.6; }
+  .rule { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 14px; padding: 12px 0; border-top: 1px solid var(--border); font-size: 0.84rem; }
+  .rule b { color: var(--text-primary); font-weight: 600; }
+  .rule span { color: var(--text-secondary); line-height: 1.6; }
+  .coverage { display: grid; grid-template-columns: repeat(14, 1fr); gap: 4px; margin-top: 18px; max-width: 420px; }
+  .coverage i { aspect-ratio: 1; border-radius: 4px; background: rgba(16,185,129,0.55); }
+  .coverage i.x { background: rgba(255,255,255,0.06); box-shadow: inset 0 0 0 1px #3A3A40; }
+  .coverage-cap { display: flex; justify-content: space-between; max-width: 420px; font-size: 0.72rem; color: var(--text-muted); margin-top: 8px; }
+
+  /* ================= 반응형 ================= */
+  @media (max-width: 1080px) {
+    .wizard-grid { grid-template-columns: 1fr; }
+    .summary { position: static; }
+    .docs-grid { grid-template-columns: 290px minmax(0, 1fr); }
+    .qc-wrap { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 860px) {
+    .docs-grid { grid-template-columns: 1fr; }
+    .tree-panel { position: static; max-height: 600px; }
+    .tree { min-height: 260px; }
+    .proc-grid { grid-template-columns: repeat(2, 1fr); }
+    .gp-stats { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .header { padding: 12px 16px; }
+    .header-logo span, .mock-flag { display: none; }
+    .container { padding: 20px 16px 48px; }
+    .screen-intro h1 { font-size: 1.4rem; }
+    .screen-tab { flex: 0 0 auto; padding: 9px 12px; font-size: 0.82rem; }
+    .progress-card { padding: 16px; }
+    .step-label .txt { display: none; }
+    .cur-name { display: inline; }
+    .step-time { display: none; }
+    .step-panel { padding: 20px 16px; }
+    .row { grid-template-columns: 1fr; gap: 0; }
+    .site-row { grid-template-columns: 1fr 72px 34px; }
+    .site-row .site-type { grid-column: 1 / 4; }
+    .site-head { display: none; }
+    .proc-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .qa-top { flex-direction: column; align-items: flex-start; }
+    .qa-detail { grid-template-columns: 1fr; }
+    .toggle-item { flex-direction: column; align-items: flex-start; }
+    .std-cards { grid-template-columns: 1fr; }
+    .gp-stats { grid-template-columns: 1fr 1fr; }
+    .gp-foot .btn-generate { width: 100%; justify-content: center; }
+    .step-nav { flex-wrap: wrap; }
+    .step-nav .saved { width: 100%; }
+    .step-nav .right { width: 100%; }
+    .step-nav .right button { flex: 1; }
+    .viewer-head { padding: 14px 16px; }
+    .md-viewer { padding: 4px 16px 32px; }
+    .sec { margin: 0 -8px; padding: 0 8px; }
+    .regen { opacity: 1; transform: none; padding: 4px 8px; }
+    .regen .rt { display: none; }
+    .pmap { grid-template-columns: 1fr 1fr; }
+    .gen-status, .gen-steps { margin-left: 16px; margin-right: 16px; }
+    .gen-steps { grid-template-columns: 1fr; }
+    .lock-card { margin: 8px 16px 24px; }
+    .consult-inner { padding: 12px 16px; gap: 10px; }
+    .consult-ava { display: none; }
+    .consult-text small { display: none; }
+    .consult-text b { font-size: 0.84rem; }
+    .consult-bar .btn-unlock { padding: 10px 16px; font-size: 0.84rem; }
+    .rule { grid-template-columns: 1fr; gap: 4px; }
+    .coverage { grid-template-columns: repeat(7, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- 아이콘 스프라이트 -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-check" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-done" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor" opacity=".18"/><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M7.5 12.3l3 3 6-6.3"/></symbol>
+    <symbol id="i-gen" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.2" opacity=".25"/><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M12 3a9 9 0 0 1 9 9"/></symbol>
+    <symbol id="i-todo" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="3 2.4"/></symbol>
+    <symbol id="i-na" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M7.5 12h9"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path fill="none" stroke="currentColor" stroke-width="2" d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M12 11v6M12 7.2v.1"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M12 3.5l9.5 16.5h-19z"/><path stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M12 10v4.5M12 17.2v.1"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 7v5l3.5 2"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></symbol>
+    <symbol id="i-chev-r" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2l2.2 6.3L20.5 10l-6.3 2.2L12 18.5l-2.2-6.3L3.5 10l6.3-1.7zM19 15l1 2.6 2.5 1-2.5 1L19 22l-1-2.4-2.5-1 2.5-1z"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 12a8 8 0 1 1-2.6-5.9M20 4v4.5h-4.5"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m-4.5-4.5L12 15l4.5-4.5M5 19.5h14"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M3.5 6.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M6 3h8l4.5 4.5V21H6z"/><path fill="none" stroke="currentColor" stroke-width="2" d="M14 3v4.5h4.5M9 12.5h6M9 16h6"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M12 3l8 3v6c0 4.6-3.4 8-8 9-4.6-1-8-4.4-8-9V6z"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M8.5 12l2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></symbol>
+  </defs>
+</svg>
+
+<header class="header">
+  <a href="../index.html" class="header-logo">
+    <img src="../images/logo2.png" alt="InsightMatch">
+    <span>InsightMatch</span>
+  </a>
+  <div class="header-right">
+    <span class="mock-flag">목업 · 실제 생성 없음</span>
+    <span class="header-badge">AI ISO 매뉴얼 Beta</span>
+  </div>
+</header>
+
+<div class="container">
+  <nav class="screen-tabs" role="tablist" aria-label="목업 화면">
+    <button class="screen-tab" role="tab" aria-selected="true" data-screen="A"><span class="key">A</span>회사 프로필 위저드</button>
+    <button class="screen-tab" role="tab" aria-selected="false" data-screen="B"><span class="key">B</span>문서 트리 · 뷰어</button>
+    <button class="screen-tab" role="tab" aria-selected="false" data-screen="C"><span class="key">C</span>품질 점검</button>
+  </nav>
+
+  <!-- ================================================================
+       화면 A. 회사 프로필 위저드
+       ================================================================ -->
+  <section class="screen active" id="screen-A" role="tabpanel" aria-label="회사 프로필 위저드">
+    <div class="screen-intro">
+      <h1>회사 프로필 입력</h1>
+      <p>4단계 질문에 답하면 (주)한빛정밀에 맞는 매뉴얼·절차서·지침서 구성이 자동으로 정해집니다. 모르는 항목은 업종 기본값으로 두고 나중에 고칠 수 있습니다.</p>
+    </div>
+
+    <div class="wizard-grid">
+      <div>
+        <!-- 진행 표시 -->
+        <div class="card progress-card">
+          <div class="progress-top">
+            <div class="title">회사 프로필 위저드<span class="cur-name" id="cur-name"> · 회사 기본</span></div>
+            <div class="eta"><svg><use href="#i-clock"/></svg>전체 <strong>약 10분</strong> · 남은 시간 <span id="eta-left">약 10분</span></div>
+          </div>
+          <ol class="steps">
+            <li><button class="step-btn current" data-step="1"><span class="step-bar"></span><span class="step-label"><span class="step-num">1</span><span class="txt">회사 기본</span></span><span class="step-time">약 2분</span></button></li>
+            <li><button class="step-btn" data-step="2"><span class="step-bar"></span><span class="step-label"><span class="step-num">2</span><span class="txt">조직</span></span><span class="step-time">약 2분</span></button></li>
+            <li><button class="step-btn" data-step="3"><span class="step-bar"></span><span class="step-label"><span class="step-num">3</span><span class="txt">프로세스·현장</span></span><span class="step-time">약 4분</span></button></li>
+            <li><button class="step-btn" data-step="4"><span class="step-bar"></span><span class="step-label"><span class="step-num">4</span><span class="txt">규격·범위</span></span><span class="step-time">약 2분</span></button></li>
+          </ol>
+        </div>
+
+        <div class="card">
+          <!-- ---------- 1단계 ---------- -->
+          <div class="step-panel active" data-panel="1">
+            <div class="step-head"><h2>회사 기본 정보</h2><span class="step-of">1 / 4</span></div>
+            <div class="why"><svg><use href="#i-info"/></svg><span><b>이 정보가 어디에 쓰이나요?</b> 매뉴얼 표지, 1장 적용범위, 4.1 조직상황 분석에 들어가고, 업종에 맞는 부서·프로세스 템플릿을 다음 단계에 미리 채웁니다.</span></div>
+
+            <div class="row">
+              <div class="field">
+                <div class="field-head"><label for="f-co">회사명<span class="req">필수</span></label></div>
+                <input id="f-co" class="input" value="(주)한빛정밀">
+              </div>
+              <div class="field">
+                <div class="field-head"><label for="f-ind">업종<span class="req">필수</span></label></div>
+                <select id="f-ind" class="input">
+                  <option>전자/반도체 제조</option>
+                  <option selected>자동차/부품 제조</option>
+                  <option>기계/금속 제조</option>
+                  <option>화학/석유화학</option>
+                  <option>식품/음료 제조</option>
+                  <option>건설/토목</option>
+                  <option>IT/소프트웨어</option>
+                  <option>서비스업</option>
+                  <option>기타</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="field">
+                <div class="field-head"><label for="f-prod">주요 제품/서비스<span class="req">필수</span></label></div>
+                <input id="f-prod" class="input" value="자동차 변속기용 정밀 샤프트·기어 가공품">
+              </div>
+              <div class="field">
+                <div class="field-head"><label for="f-emp">임직원 수</label><button type="button" class="idk"><span class="off">모르겠어요</span><span class="on">기본값 사용 중</span></button></div>
+                <div class="control-wrap"><div class="input-suffix"><input id="f-emp" class="input" value="85" inputmode="numeric"><span>명</span></div></div>
+                <div class="help good">50인 이상 제조업이므로 안전관리자·보건관리자 선임 대상입니다. 2단계에 자동 표시합니다.</div>
+                <div class="default-note"><b>기본값:</b> 50~99명 구간으로 작성하고 선임 기준은 '확인 필요'로 표시합니다.</div>
+              </div>
+            </div>
+
+            <div class="field">
+              <div class="field-head"><span class="label">사업장</span><button type="button" class="idk"><span class="off">모르겠어요</span><span class="on">기본값 사용 중</span></button></div>
+              <div class="control-wrap">
+                <div class="site-list">
+                  <div class="site-row site-head"><span>구분</span><span>주소</span><span>인원</span><span></span></div>
+                  <div class="site-row">
+                    <select class="input site-type"><option selected>본사·공장</option><option>본사</option><option>공장</option><option>창고</option></select>
+                    <input class="input" value="경기도 화성시 팔탄면 공단로 128">
+                    <div class="input-suffix"><input class="input" value="72"><span>명</span></div>
+                    <button type="button" class="icon-btn" aria-label="사업장 삭제"><svg><use href="#i-trash"/></svg></button>
+                  </div>
+                  <div class="site-row">
+                    <select class="input site-type"><option>본사·공장</option><option>본사</option><option selected>공장</option><option>창고</option></select>
+                    <input class="input" value="충청남도 아산시 둔포면 테크노밸리 4로 22 (제2공장)">
+                    <div class="input-suffix"><input class="input" value="13"><span>명</span></div>
+                    <button type="button" class="icon-btn" aria-label="사업장 삭제"><svg><use href="#i-trash"/></svg></button>
+                  </div>
+                  <button type="button" class="add-row">+ 사업장 추가 (본사 / 공장 / 창고)</button>
+                </div>
+              </div>
+              <div class="default-note"><b>기본값:</b> 단일 사업장(본사·공장)으로 작성합니다. 복수 사업장은 인증 범위에 영향을 주므로 나중에 꼭 확인하세요.</div>
+            </div>
+
+            <div class="field">
+              <div class="field-head"><span class="label">기존 보유 인증</span><button type="button" class="idk"><span class="off">모르겠어요</span><span class="on">기본값 사용 중</span></button></div>
+              <div class="control-wrap chips" data-chips>
+                <button type="button" class="chip active">ISO 9001 <small>2021 취득</small></button>
+                <button type="button" class="chip">IATF 16949</button>
+                <button type="button" class="chip">ISO 14001</button>
+                <button type="button" class="chip">ISO 45001</button>
+                <button type="button" class="chip">없음</button>
+              </div>
+              <div class="help">보유 인증이 있으면 기존 체계를 유지하는 '전환·통합' 방식으로 작성합니다.</div>
+              <div class="default-note"><b>기본값:</b> 보유 인증 없음(신규 구축)으로 작성합니다.</div>
+            </div>
+
+            <div class="field">
+              <div class="field-head"><span class="label">인증 추진 배경 <span style="color:var(--text-muted);font-weight:400">(복수 선택)</span></span><button type="button" class="idk"><span class="off">모르겠어요</span><span class="on">기본값 사용 중</span></button></div>
+              <div class="control-wrap chips" data-chips>
+                <button type="button" class="chip active">고객사 요구</button>
+                <button type="button" class="chip active">입찰 가점</button>
+                <button type="button" class="chip">내부 체계화</button>
+                <button type="button" class="chip">수출</button>
+              </div>
+              <div class="help">5.1 리더십 방침 문구와 4.2 이해관계자 요구사항의 우선순위에 반영됩니다.</div>
+              <div class="default-note"><b>기본값:</b> '내부 체계화' 기준의 일반 방침 문구를 사용합니다.</div>
+            </div>
+
+            <div class="field" style="margin-bottom:0">
+              <div class="field-head"><span class="label">목표 규격 <span style="color:var(--text-muted);font-weight:400">(4단계에서 최종 확정)</span></span></div>
+              <div class="chips" data-chips>
+                <button type="button" class="chip active">ISO 9001 품질</button>
+                <button type="button" class="chip">ISO 14001 환경</button>
+                <button type="button" class="chip active">ISO 45001 안전보건</button>
+              </div>
+              <div class="help">여기서 고른 규격에 맞춰 3단계의 환경·안전보건 질문이 열립니다.</div>
+            </div>
+
+            <div class="step-nav">
+              <span class="saved">자동 저장됨 · 14:21</span>
+              <div class="right"><button type="button" class="btn-next" data-go="2">다음: 조직</button></div>
+            </div>
+          </div>
+
+          <!-- ---------- 2단계 ---------- -->
+          <div class="step-panel" data-panel="2">
+            <div class="step-head"><h2>조직</h2><span class="step-of">2 / 4</span></div>
+            <div class="why"><svg><use href="#i-info"/></svg><span><b>이 정보가 어디에 쓰이나요?</b> 5.3 역할·책임·권한표, 조직도, 각 절차서의 '책임과 권한' 절에 그대로 들어갑니다. 부서명이 실제와 같아야 문서를 바로 쓸 수 있습니다.</span></div>
+
+            <div class="row">
+              <div class="field">
+                <div class="field-head"><label for="f-ceo">최고경영자 직함</label><button type="button" class="idk"><span class="off">모르겠어요</span><span class="on">기본값 사용 중</span></button></div>
+                <div class="control-wrap">
+                  <select id="f-ceo" class="input"><option selected>대표이사</option><option>사장</option><option>공장장</option><option>원장</option><option>직접 입력</option></select>
+                </div>
+                <div class="default-note"><b>기본값:</b> '대표이사'로 작성합니다.</div>
+              </div>
+              <div class="field">
+                <div class="field-head"><span class="label">경영시스템 책임자 (부서 · 직책)</span><button type="button" class="idk"><span class="off">모르겠어요</span><span class="on">기본값 사용 중</span></button></div>
+                <div class="control-wrap" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <select class="input" aria-label="책임자 부서"><option selected>품질안전팀</option><option>품질팀</option><option>경영지원팀</option></select>
+                  <select class="input" aria-label="책임자 직책"><option selected>팀장</option><option>부장</option><option>이사</option></select>
+                </div>
+                <div class="default-note"><b>기본값:</b> 품질 부서장을 책임자로 지정합니다.</div>
+              </div>
+            </div>
+
+            <div class="field">
+              <div class="field-head"><span class="label">부서 목록 <span class="template-tag">업종 템플릿: 자동차/부품 제조</span></span><button type="button" class="idk"><span class="off">모르겠어요</span><span class="on">기본값 사용 중</span></button></div>
+              <div class="control-wrap chips" data-chips>
+                <button type="button" class="chip active">경영지원</button>
+                <button type="button" class="chip active">영업</button>
+                <button type="button" class="chip">설계</button>
+                <button type="button" class="chip active">구매</button>
+                <button type="button" class="chip active">생산</button>
+                <button type="button" class="chip active">생산기술</button>
+                <button type="button" class="chip active">품질</button>
+                <button type="button" class="chip active">안전환경</button>
+                <button type="button" class="chip">물류</button>
+                <button type="button" class="chip custom active">금형관리 <small>직접 추가</small></button>
+                <button type="button" class="chip add">+ 부서 추가</button>
+              </div>
+              <div class="help">템플릿에서 해제한 '설계'는 3단계 설계/개발 프로세스 기본값에도 반영됩니다.</div>
+              <div class="default-note"><b>기본값:</b> 업종 템플릿 7개 부서를 그대로 사용합니다.</div>
+            </div>
+
+            <div class="field">
+              <div class="org-preview" aria-label="조직도 미리보기">
+                <div class="org-cap"><span>조직도 미리보기 · 5.3에 삽입</span><span>8개 부서</span></div>
+                <div class="org-top"><span class="org-node ceo">대표이사</span></div>
+                <div class="org-line"></div>
+                <div class="org-top"><span class="org-node mr">경영시스템 책임자 · 품질안전팀장</span></div>
+                <div class="org-line"></div>
+                <div class="org-depts">
+                  <span class="org-node">경영지원</span><span class="org-node">영업</span><span class="org-node">구매</span><span class="org-node">생산</span><span class="org-node">생산기술</span><span class="org-node">품질</span><span class="org-node">안전환경</span><span class="org-node">금형관리</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="field" style="margin-bottom:0">
+              <div class="field-head"><span class="label">법정 선임자</span><button type="button" class="idk"><span class="off">모르겠어요</span><span class="on">기본값 사용 중</span></button></div>
+              <div class="control-wrap toggle-list">
+                <div class="toggle-item">
+                  <div><div class="t-main">안전관리자 <span class="legal-tag">85명 · 선임 대상</span></div><div class="t-sub">산업안전보건법 · 5.3 책임표와 CP04 참여·협의 절차에 표시</div></div>
+                  <div class="t-right"><select class="mini-select" aria-label="선임 방식"><option selected>직접 선임</option><option>전문기관 위탁</option></select><button type="button" class="switch" role="switch" aria-checked="true" aria-label="안전관리자"></button></div>
+                </div>
+                <div class="toggle-item">
+                  <div><div class="t-main">보건관리자 <span class="legal-tag">85명 · 선임 대상</span></div><div class="t-sub">위탁 시 '보건관리 전문기관'으로 기재</div></div>
+                  <div class="t-right"><select class="mini-select" aria-label="선임 방식"><option>직접 선임</option><option selected>전문기관 위탁</option></select><button type="button" class="switch" role="switch" aria-checked="true" aria-label="보건관리자"></button></div>
+                </div>
+                <div class="toggle-item">
+                  <div><div class="t-main">환경기술인 <span class="legal-tag muted">배출시설 있을 때</span></div><div class="t-sub">대기·수질 배출시설 설치 신고 대상이면 켜세요</div></div>
+                  <div class="t-right"><button type="button" class="switch" role="switch" aria-checked="false" aria-label="환경기술인"></button></div>
+                </div>
+              </div>
+              <div class="default-note"><b>기본값:</b> 임직원 수로 판정한 선임 대상만 켜고, 문서에는 '선임 현황 확인 필요'로 표시합니다.</div>
+            </div>
+
+            <div class="step-nav">
+              <span class="saved">자동 저장됨 · 14:23</span>
+              <div class="right"><button type="button" class="btn-ghost" data-go="1">이전</button><button type="button" class="btn-next" data-go="3">다음: 프로세스·현장</button></div>
+            </div>
+          </div>
+
+          <!-- ---------- 3단계 ---------- -->
+          <div class="step-panel" data-panel="3">
+            <div class="step-head"><h2>프로세스 · 현장</h2><span class="step-of">3 / 4</span></div>
+            <div class="why"><svg><use href="#i-info"/></svg><span><b>이 정보가 어디에 쓰이나요?</b> 생성할 운용 절차서 목록과 적용제외 조항이 여기서 정해집니다. 하지 않는 업무를 해제하면 해당 절차서는 만들지 않고 매뉴얼에 제외 사유를 씁니다.</span></div>
+
+            <div class="section-label first">핵심 프로세스</div>
+            <div class="proc-grid" id="proc-grid">
+              <button type="button" class="proc on" data-proc="sales"><span class="p-name"><span class="box"><svg><use href="#i-check"/></svg></span>영업/견적</span><span class="p-clause">8.2 · QP01</span></button>
+              <button type="button" class="proc" data-proc="design"><span class="p-name"><span class="box"><svg><use href="#i-check"/></svg></span>설계/개발</span><span class="p-clause">8.3 · QP02</span></button>
+              <button type="button" class="proc on" data-proc="buy"><span class="p-name"><span class="box"><svg><use href="#i-check"/></svg></span>구매</span><span class="p-clause">8.4 · QP03</span></button>
+              <button type="button" class="proc on" data-proc="out"><span class="p-name"><span class="box"><svg><use href="#i-check"/></svg></span>외주가공</span><span class="p-clause">8.4 · QP03</span></button>
+              <button type="button" class="proc on" data-proc="prod"><span class="p-name"><span class="box"><svg><use href="#i-check"/></svg></span>생산/시공</span><span class="p-clause">8.5 · QP04</span></button>
+              <button type="button" class="proc on" data-proc="insp"><span class="p-name"><span class="box"><svg><use href="#i-check"/></svg></span>검사/시험</span><span class="p-clause">8.6 · QP05</span></button>
+              <button type="button" class="proc on" data-proc="ship"><span class="p-name"><span class="box"><svg><use href="#i-check"/></svg></span>포장/출하</span><span class="p-clause">8.5.4 · QP04</span></button>
+              <button type="button" class="proc" data-proc="as"><span class="p-name"><span class="box"><svg><use href="#i-check"/></svg></span>설치/A/S</span><span class="p-clause">8.5.5</span></button>
+            </div>
+            <div class="inline-notes">
+              <div class="inline-note" data-note="design"><svg><use href="#i-alert"/></svg><span><b>8.3 설계·개발 적용제외로 반영됩니다.</b> 사유 초안: "고객 도면·사양에 따라 가공만 수행하며 제품 설계 책임이 없음." QP02는 생성하지 않습니다.</span><button type="button" class="undo" data-undo="design">되돌리기</button></div>
+              <div class="inline-note" data-note="as"><svg><use href="#i-alert"/></svg><span><b>8.5.5 인도 후 활동은 '고객 클레임 처리'로 축소 반영됩니다.</b> 제외 조항은 아니며 QP01 영업 절차서의 한 절로 들어갑니다.</span><button type="button" class="undo" data-undo="as">되돌리기</button></div>
+            </div>
+
+            <div class="section-label">현장 조건</div>
+            <div class="qa-list">
+              <div class="qa">
+                <div class="qa-top">
+                  <div class="qa-q">특별공정이 있나요?<small>결과를 출하 후에야 확인할 수 있는 공정 (열처리, 용접, 도장 등)</small></div>
+                  <div class="seg" data-seg><button type="button" class="sel">있음</button><button type="button">없음</button><button type="button" class="idk-opt">모르겠어요</button></div>
+                </div>
+                <div class="qa-detail"><input class="input" value="고주파 열처리(외주), CO2 용접(브래킷 일부)" aria-label="특별공정 상세"><span class="effect">8.5.1 f) 유효성 확인 + 지침서 후보</span></div>
+              </div>
+              <div class="qa">
+                <div class="qa-top">
+                  <div class="qa-q">외주로 맡기는 공정이 있나요?<small>품질에 영향을 주는 가공·처리를 외부 업체가 수행</small></div>
+                  <div class="seg" data-seg><button type="button" class="sel">있음</button><button type="button">없음</button><button type="button" class="idk-opt">모르겠어요</button></div>
+                </div>
+                <div class="qa-detail"><input class="input" value="열처리 2개사, 무전해 니켈 도금 1개사" aria-label="외주공정 상세"><span class="effect">8.4 외부 제공 관리 · QP03</span></div>
+              </div>
+              <div class="qa">
+                <div class="qa-top">
+                  <div class="qa-q">측정장비를 사용하나요?<small>제품 합부 판정에 쓰는 계측기·게이지</small></div>
+                  <div class="seg" data-seg><button type="button" class="sel">있음</button><button type="button">없음</button><button type="button" class="idk-opt">모르겠어요</button></div>
+                </div>
+                <div class="qa-detail"><input class="input" value="3차원 측정기, 경도계, 마이크로미터 등 약 120점" aria-label="측정장비 상세"><span class="effect">7.1.5 · QP06 측정장비 관리</span></div>
+              </div>
+              <div class="qa">
+                <div class="qa-top">
+                  <div class="qa-q">고객 자산을 취급하나요?<small>고객이 지급한 금형, 게이지, 소재, 도면 등</small></div>
+                  <div class="seg" data-seg><button type="button" class="sel">있음</button><button type="button">없음</button><button type="button" class="idk-opt">모르겠어요</button></div>
+                </div>
+                <div class="qa-detail"><input class="input" value="고객 지급 검사 게이지, 사급 소재(SCM420)" aria-label="고객 자산 상세"><span class="effect">8.5.3 · QP07 고객자산 관리</span></div>
+              </div>
+            </div>
+
+            <div class="section-label">규격별 추가 질문</div>
+            <details class="cond inactive">
+              <summary>
+                <span class="std-pill std-e">ISO 14001</span>
+                <span class="c-title">환경 조건<small>목표 규격에 14001이 없어 비활성 상태입니다. 4단계에서 선택하면 답변이 반영됩니다.</small></span>
+                <span class="state-tag">비활성</span>
+                <svg class="chev"><use href="#i-chev"/></svg>
+              </summary>
+              <div class="cond-body">
+                <div class="field">
+                  <div class="field-head"><span class="label">주요 환경측면</span><button type="button" class="idk"><span class="off">모르겠어요</span><span class="on">기본값 사용 중</span></button></div>
+                  <div class="control-wrap chips" data-chips>
+                    <button type="button" class="chip">폐수</button><button type="button" class="chip active">폐기물</button><button type="button" class="chip">대기</button><button type="button" class="chip">소음</button><button type="button" class="chip active">화학물질</button><button type="button" class="chip">에너지</button>
+                  </div>
+                  <div class="default-note"><b>기본값:</b> 업종 표준 환경측면(폐기물·화학물질·에너지)을 사용합니다.</div>
+                </div>
+                <div class="row">
+                  <div class="field">
+                    <div class="field-head"><label>환경 인허가</label><button type="button" class="idk"><span class="off">모르겠어요</span><span class="on">기본값 사용 중</span></button></div>
+                    <div class="control-wrap"><input class="input" placeholder="예: 대기배출시설 설치신고, 지정폐기물 처리계획 확인"></div>
+                    <div class="default-note"><b>기본값:</b> 법규 목록을 '확인 필요' 상태로 생성합니다.</div>
+                  </div>
+                  <div class="field">
+                    <div class="field-head"><span class="label">비상상황 유형</span></div>
+                    <div class="chips" data-chips><button type="button" class="chip">화학물질 누출</button><button type="button" class="chip">화재</button><button type="button" class="chip">폐수 유출</button></div>
+                  </div>
+                </div>
+              </div>
+            </details>
+
+            <details class="cond" open>
+              <summary>
+                <span class="std-pill std-s">ISO 45001</span>
+                <span class="c-title">안전보건 조건<small>위험성평가 절차서(SP01)와 작업지침서 후보를 정합니다.</small></span>
+                <span class="state-tag on">활성</span>
+                <svg class="chev"><use href="#i-chev"/></svg>
+              </summary>
+              <div class="cond-body">
+                <div class="field">
+                  <div class="field-head"><span class="label">주요 위험작업</span><button type="button" class="idk"><span class="off">모르겠어요</span><span class="on">기본값 사용 중</span></button></div>
+                  <div class="control-wrap chips" data-chips>
+                    <button type="button" class="chip">고소작업</button>
+                    <button type="button" class="chip active">중량물 취급</button>
+                    <button type="button" class="chip active">화학물질 <small>절삭유·세척제</small></button>
+                    <button type="button" class="chip">전기작업</button>
+                    <button type="button" class="chip">밀폐공간</button>
+                    <button type="button" class="chip active">지게차</button>
+                    <button type="button" class="chip custom active">회전체 협착 <small>CNC 선반</small></button>
+                    <button type="button" class="chip add">+ 직접 추가</button>
+                  </div>
+                  <div class="default-note"><b>기본값:</b> 업종 표준 위험작업(중량물·지게차·협착)을 사용합니다.</div>
+                </div>
+                <div class="toggle-list" style="margin-bottom:20px">
+                  <div class="toggle-item">
+                    <div><div class="t-main">협력업체 상주 근로자가 있나요?</div><div class="t-sub">청소·경비 2개사, 6명 · SP02 협력업체 안전관리 절차서를 생성합니다</div></div>
+                    <div class="t-right"><button type="button" class="switch" role="switch" aria-checked="true" aria-label="협력업체 상주 근로자"></button></div>
+                  </div>
+                </div>
+                <div class="field">
+                  <div class="field-head"><span class="label">비상상황 유형</span><button type="button" class="idk"><span class="off">모르겠어요</span><span class="on">기본값 사용 중</span></button></div>
+                  <div class="control-wrap chips" data-chips>
+                    <button type="button" class="chip active">화재</button><button type="button" class="chip active">화학물질 누출</button><button type="button" class="chip active">중대 부상</button><button type="button" class="chip">정전</button><button type="button" class="chip">자연재해</button>
+                  </div>
+                  <div class="default-note"><b>기본값:</b> 화재·중대 부상 2개 시나리오로 SP03을 작성합니다.</div>
+                </div>
+              </div>
+            </details>
+
+            <div class="step-nav">
+              <span class="saved">자동 저장됨 · 14:27</span>
+              <div class="right"><button type="button" class="btn-ghost" data-go="2">이전</button><button type="button" class="btn-next" data-go="4">다음: 규격·범위</button></div>
+            </div>
+          </div>
+
+          <!-- ---------- 4단계 ---------- -->
+          <div class="step-panel" data-panel="4">
+            <div class="step-head"><h2>규격 · 범위</h2><span class="step-of">4 / 4</span></div>
+            <div class="why"><svg><use href="#i-info"/></svg><span><b>이 정보가 어디에 쓰이나요?</b> 매뉴얼 1장(적용범위·적용제외), 4.1 내부·외부 이슈, 6.1 리스크와 기회에 들어갑니다. 앞 단계 답변으로 초안을 채워 두었으니 확인만 하셔도 됩니다.</span></div>
+
+            <div class="section-label first">적용 규격</div>
+            <div class="std-cards" id="std-cards">
+              <button type="button" class="std-card on" data-std="9001"><span class="box"><svg><use href="#i-check"/></svg></span><div class="s-code">ISO 9001:2015</div><div class="s-name">품질경영시스템</div><div class="s-meta">보유 중 · 통합 전환</div></button>
+              <button type="button" class="std-card" data-std="14001"><span class="box"><svg><use href="#i-check"/></svg></span><div class="s-code">ISO 14001:2015</div><div class="s-name">환경경영시스템</div><div class="s-meta">선택 시 3단계 환경 질문 활성</div></button>
+              <button type="button" class="std-card on" data-std="45001"><span class="box"><svg><use href="#i-check"/></svg></span><div class="s-code">ISO 45001:2018</div><div class="s-name">안전보건경영시스템</div><div class="s-meta">신규 구축</div></button>
+            </div>
+            <div class="ims-banner" id="ims-banner"><span class="ims-badge">IMS</span><span id="ims-text">2개 규격을 함께 선택해 <strong style="color:var(--text-primary)">통합경영매뉴얼(IMS)</strong> 1권으로 생성합니다. 공통 조항(4~7, 9, 10장)은 한 번만 쓰고, 규격별 요구는 절마다 표시합니다.</span></div>
+
+            <div class="section-label">적용범위</div>
+            <div class="field">
+              <div class="draft-wrap">
+                <span class="draft-tag"><svg><use href="#i-edit"/></svg>자동 초안 · 수정 가능</span>
+                <textarea class="input" rows="3" aria-label="적용범위 문구">자동차 변속기용 정밀 샤프트 및 기어의 가공, 검사 및 출하 (본사·공장: 경기도 화성시 팔탄면 공단로 128 / 제2공장: 충청남도 아산시 둔포면 테크노밸리 4로 22)</textarea>
+              </div>
+              <div class="help">1단계 제품·사업장 정보로 작성했습니다. 인증서에 그대로 찍히는 문구이므로 한 번 읽어 보세요.</div>
+            </div>
+
+            <div class="field">
+              <div class="field-head"><span class="label">적용 제외 조항과 사유</span><span class="template-tag">3단계 답변에서 자동 제안</span></div>
+              <div class="table-scroll">
+                <table class="excl-table">
+                  <thead><tr><th style="width:110px">조항</th><th>제외 사유</th><th style="width:96px">관리</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td class="clause">8.3<br><span style="font-weight:400;color:var(--text-muted);font-size:.76rem">설계·개발</span></td>
+                      <td>고객으로부터 도면 및 사양을 제공받아 가공만 수행하며, 제품 설계에 대한 책임과 권한이 없음.<br><span class="src-tag">출처: 3단계 '설계/개발' 미선택</span></td>
+                      <td><button type="button" class="link-btn">수정</button> · <button type="button" class="link-btn danger">삭제</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="help">ISO 45001은 요구사항 적용제외가 허용되지 않아 9001 조항만 제안합니다.</div>
+            </div>
+
+            <div class="field">
+              <div class="field-head"><span class="label">현재 경영 이슈 <span style="color:var(--text-muted);font-weight:400">(복수 선택)</span></span><button type="button" class="idk"><span class="off">모르겠어요</span><span class="on">기본값 사용 중</span></button></div>
+              <div class="control-wrap chips" data-chips>
+                <button type="button" class="chip active">품질불량</button>
+                <button type="button" class="chip active">고객클레임</button>
+                <button type="button" class="chip">공급업체</button>
+                <button type="button" class="chip">프로세스 비효율</button>
+                <button type="button" class="chip active">안전사고</button>
+                <button type="button" class="chip">환경규제</button>
+                <button type="button" class="chip">에너지비용</button>
+                <button type="button" class="chip active">작업환경</button>
+              </div>
+              <div class="default-note"><b>기본값:</b> 업종 공통 이슈 3개(품질불량·고객클레임·안전사고)를 사용합니다.</div>
+            </div>
+
+            <div class="field">
+              <div class="field-head"><label for="f-pain">현장 애로사항 <span style="color:var(--text-muted);font-weight:400">(자유 기술 · 선택)</span></label></div>
+              <textarea id="f-pain" class="input" rows="3">외주 열처리품의 경도 편차로 고객 클레임이 반복됨. 야간조 지게차 동선이 보행로와 겹침. 신입 작업자 교육 기록이 자주 누락됨.</textarea>
+              <div class="help">4.1 내부 이슈, 6.1 리스크 등록부의 첫 항목과 관련 절차서의 관리 포인트로 쓰입니다.</div>
+            </div>
+
+            <div class="row">
+              <div class="field">
+                <div class="field-head"><span class="label">기존 문서번호 체계</span><button type="button" class="idk"><span class="off">모르겠어요</span><span class="on">기본값 사용 중</span></button></div>
+                <div class="control-wrap">
+                  <div class="seg" data-seg style="margin-bottom:8px"><button type="button" class="sel">있음</button><button type="button">없음</button></div>
+                  <input class="input" value="QM-00 / QP-00 / QF-00 (기존 9001 체계)" aria-label="기존 번호 체계">
+                  <select class="input" style="margin-top:8px" aria-label="번호 체계 처리 방식"><option selected>신규 IMS 체계로 변환 (신·구 번호 대조표 제공)</option><option>기존 체계 그대로 유지</option></select>
+                </div>
+                <div class="default-note"><b>기본값:</b> SMS-M / CP / QP / SP / WI / F 체계로 새로 매깁니다.</div>
+              </div>
+              <div class="field use-default">
+                <div class="field-head"><span class="label">기존 양식</span><button type="button" class="idk"><span class="off">모르겠어요</span><span class="on">기본값 사용 중</span></button></div>
+                <div class="control-wrap">
+                  <div class="seg" data-seg style="margin-bottom:8px"><button type="button">전부 있음</button><button type="button" class="sel">일부 있음</button><button type="button">없음</button></div>
+                  <div class="upload-zone"><b>엑셀·한글 양식 업로드</b> (선택)<br>올리면 같은 이름의 양식은 새로 만들지 않고 번호만 연결합니다</div>
+                </div>
+                <div class="default-note"><b>기본값:</b> 절차서에 필요한 양식을 모두 새로 생성합니다.</div>
+              </div>
+            </div>
+
+            <!-- 생성될 문서 미리보기 -->
+            <div class="gen-preview">
+              <h3>생성될 문서 미리보기</h3>
+              <div class="gp-sub">(주)한빛정밀 통합경영시스템 · ISO 9001 + ISO 45001 · 적용제외 1개 조항</div>
+              <div class="gp-stats">
+                <div class="gp-stat free"><div class="n">1<small>권</small></div><div class="l">통합경영매뉴얼</div><div class="d">SMS-M · 약 38쪽 · 프로세스 맵 포함</div><span class="plan free">무료</span></div>
+                <div class="gp-stat"><div class="n">19<small>종</small></div><div class="l">절차서</div><div class="d">공통 9 · 품질 6 · 안전보건 4<br>QP02 설계는 적용제외</div><span class="plan paid"><svg><use href="#i-lock"/></svg>유료</span></div>
+                <div class="gp-stat"><div class="n">6<small>종</small></div><div class="l">작업지침서 후보</div><div class="d">수입검사, 열처리 외주품 관리, 지게차 안전작업 등</div><span class="plan paid"><svg><use href="#i-lock"/></svg>유료</span></div>
+                <div class="gp-stat"><div class="n">28<small>종</small></div><div class="l">양식</div><div class="d">기존 양식 업로드 시 중복 생성 안 함</div><span class="plan paid"><svg><use href="#i-lock"/></svg>유료</span></div>
+              </div>
+              <div class="gp-foot">
+                <div class="note">매뉴얼을 먼저 만들고(약 3분), 절차서는 이어서 차례로 생성합니다.<br>생성 직후 필수 조항 커버리지와 문서번호 정합성을 자동 점검합니다.</div>
+                <button type="button" class="btn-generate" data-jump="B"><svg><use href="#i-spark"/></svg>매뉴얼 생성 시작</button>
+              </div>
+            </div>
+
+            <div class="step-nav">
+              <span class="saved">자동 저장됨 · 14:30</span>
+              <div class="right"><button type="button" class="btn-ghost" data-go="3">이전</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 반영 요약 -->
+      <aside class="card summary" aria-label="생성 반영 요약">
+        <h3>생성에 반영될 내용</h3>
+        <div class="s-sub">답변이 문서 구성을 어떻게 바꾸는지 실시간으로 보여줍니다.</div>
+        <div class="meter-label"><span>입력 진행</span><span id="fill-label">8 / 31 항목</span></div>
+        <div class="meter"><i id="fill-bar" style="width:26%"></i></div>
+        <ul class="sum-list">
+          <li><span class="sum-dot"></span><div><div class="k">문서 형태</div><div class="v">통합경영매뉴얼 (9001 + 45001)</div></div></li>
+          <li><span class="sum-dot w"></span><div><div class="k">적용제외</div><div class="v">8.3 설계·개발 → QP02 미생성</div></div></li>
+          <li><span class="sum-dot g"></span><div><div class="k">법정 선임</div><div class="v">안전관리자(직접) · 보건관리자(위탁)</div></div></li>
+          <li><span class="sum-dot g"></span><div><div class="k">특별공정 · 외주</div><div class="v">열처리(외주) → 지침서 후보 WI-04-01</div></div></li>
+          <li><span class="sum-dot g"></span><div><div class="k">추가 절차서</div><div class="v">QP06 측정장비 · QP07 고객자산 · SP02 협력업체</div></div></li>
+          <li><span class="sum-dot"></span><div><div class="k">문서번호</div><div class="v">QM/QP → SMS-M/CP/QP/SP 변환 + 대조표</div></div></li>
+        </ul>
+        <div class="default-box" id="default-box"><b>기본값 사용 <span id="default-count">1</span>개 항목</b><br><span id="default-msg">'모르겠어요'를 누른 항목은 업종 기본값으로 작성되고, 문서에 '확인 필요' 표시가 붙습니다.</span></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       화면 B. 문서 트리 + 뷰어
+       ================================================================ -->
+  <section class="screen" id="screen-B" role="tabpanel" aria-label="문서 트리와 뷰어">
+    <div class="screen-intro">
+      <h1>생성된 문서</h1>
+      <p>매뉴얼부터 양식까지 한 트리에서 상태를 보고, 문서를 골라 읽고, 마음에 들지 않는 절만 다시 생성합니다.</p>
+    </div>
+
+    <div class="docs-grid">
+      <!-- 문서 트리 -->
+      <aside class="card tree-panel" aria-label="문서 트리">
+        <div class="tree-head">
+          <div class="co">(주)한빛정밀 통합경영시스템</div>
+          <div class="co-sub">ISO 9001:2015 + ISO 45001:2018 · 2026-10-25 생성</div>
+          <div class="tree-progress">
+            <div class="meter-label"><span>생성 진행</span><span>5 완료 · 1 생성 중 · 전체 54종</span></div>
+            <div class="meter"><i style="width:9%"></i></div>
+          </div>
+          <div class="tree-actions">
+            <button type="button" class="btn-zip"><svg><use href="#i-download"/></svg>전체 zip 다운로드</button>
+            <button type="button" class="btn-gen-all" title="미생성 문서 모두 생성"><svg><use href="#i-spark"/></svg>나머지 생성</button>
+          </div>
+          <div class="plan-bar"><span><b>무료 플랜</b> · 매뉴얼 전체 열람</span><button type="button">절차서 잠금 해제</button></div>
+        </div>
+        <div class="legend" aria-label="상태 범례">
+          <span><span class="st done"><svg><use href="#i-done"/></svg></span>완료</span>
+          <span><span class="st gen"><svg><use href="#i-gen"/></svg></span>생성 중</span>
+          <span><span class="st todo"><svg><use href="#i-todo"/></svg></span>미생성</span>
+          <span><span class="st na"><svg><use href="#i-na"/></svg></span>적용제외</span>
+          <span><svg style="width:12px;height:12px"><use href="#i-lock"/></svg>유료</span>
+        </div>
+
+        <div class="tree" id="tree">
+          <div class="tree-root"><svg><use href="#i-folder"/></svg>(주)한빛정밀 통합경영시스템</div>
+          <button type="button" class="doc-item root-doc sel" data-view="manual" data-group="매뉴얼" data-code="SMS-M" data-name="통합경영매뉴얼" data-status="done" data-free="1"><span class="st done"><svg><use href="#i-done"/></svg></span><span class="code">SMS-M</span><span class="nm">통합경영매뉴얼</span></button>
+
+          <details open>
+            <summary><svg class="tw"><use href="#i-chev-r"/></svg>공통 절차서<span class="cnt">3 / 9</span></summary>
+            <button type="button" class="doc-item" data-view="locked" data-group="공통 절차서" data-code="CP00" data-name="리스크 및 기회 관리" data-status="done"><span class="st done"><svg><use href="#i-done"/></svg></span><span class="code">CP00</span><span class="nm">리스크 및 기회 관리</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="locked" data-group="공통 절차서" data-code="CP01" data-name="조직상황 및 이해관계자" data-status="done"><span class="st done"><svg><use href="#i-done"/></svg></span><span class="code">CP01</span><span class="nm">조직상황 및 이해관계자</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="locked" data-group="공통 절차서" data-code="CP02" data-name="법규 및 준수평가" data-status="done"><span class="st done"><svg><use href="#i-done"/></svg></span><span class="code">CP02</span><span class="nm">법규 및 준수평가</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="gen" data-group="공통 절차서" data-code="CP03" data-name="교육훈련" data-status="gen"><span class="st gen"><svg><use href="#i-gen"/></svg></span><span class="code">CP03</span><span class="nm">교육훈련</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="todo" data-group="공통 절차서" data-code="CP04" data-name="의사소통·참여·협의" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">CP04</span><span class="nm">의사소통·참여·협의</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="todo" data-group="공통 절차서" data-code="CP05" data-name="문서 및 기록 관리" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">CP05</span><span class="nm">문서 및 기록 관리</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="todo" data-group="공통 절차서" data-code="CP06" data-name="내부심사" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">CP06</span><span class="nm">내부심사</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="todo" data-group="공통 절차서" data-code="CP07" data-name="경영검토" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">CP07</span><span class="nm">경영검토</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="todo" data-group="공통 절차서" data-code="CP08" data-name="부적합·사고 및 시정조치" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">CP08</span><span class="nm">부적합·사고 및 시정조치</span><svg class="lock"><use href="#i-lock"/></svg></button>
+          </details>
+
+          <details open>
+            <summary><svg class="tw"><use href="#i-chev-r"/></svg>운용 절차서 · 품질<span class="cnt">1 / 6</span></summary>
+            <button type="button" class="doc-item" data-view="locked" data-group="운용 절차서 · 품질" data-code="QP01" data-name="영업 및 계약검토" data-status="done"><span class="st done"><svg><use href="#i-done"/></svg></span><span class="code">QP01</span><span class="nm">영업 및 계약검토</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item excluded" data-view="excl" data-group="운용 절차서 · 품질" data-code="QP02" data-name="설계 및 개발" data-status="excl"><span class="st na"><svg><use href="#i-na"/></svg></span><span class="code">QP02</span><span class="nm">설계 및 개발</span><span class="excl-badge">적용제외</span></button>
+            <button type="button" class="doc-item" data-view="todo" data-group="운용 절차서 · 품질" data-code="QP03" data-name="구매 및 외주 관리" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">QP03</span><span class="nm">구매 및 외주 관리</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="todo" data-group="운용 절차서 · 품질" data-code="QP04" data-name="생산 및 출하 관리" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">QP04</span><span class="nm">생산 및 출하 관리</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="todo" data-group="운용 절차서 · 품질" data-code="QP05" data-name="검사 및 시험" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">QP05</span><span class="nm">검사 및 시험</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="todo" data-group="운용 절차서 · 품질" data-code="QP06" data-name="측정장비 관리" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">QP06</span><span class="nm">측정장비 관리</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="todo" data-group="운용 절차서 · 품질" data-code="QP07" data-name="고객자산 관리" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">QP07</span><span class="nm">고객자산 관리</span><svg class="lock"><use href="#i-lock"/></svg></button>
+          </details>
+
+          <details open>
+            <summary><svg class="tw"><use href="#i-chev-r"/></svg>운용 절차서 · 안전보건<span class="cnt">0 / 4</span></summary>
+            <button type="button" class="doc-item" data-view="todo" data-group="운용 절차서 · 안전보건" data-code="SP01" data-name="위험성평가" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">SP01</span><span class="nm">위험성평가</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="todo" data-group="운용 절차서 · 안전보건" data-code="SP02" data-name="협력업체 안전관리" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">SP02</span><span class="nm">협력업체 안전관리</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="todo" data-group="운용 절차서 · 안전보건" data-code="SP03" data-name="비상사태 대비 및 대응" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">SP03</span><span class="nm">비상사태 대비 및 대응</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="todo" data-group="운용 절차서 · 안전보건" data-code="SP04" data-name="작업환경측정 및 건강관리" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">SP04</span><span class="nm">작업환경측정 및 건강관리</span><svg class="lock"><use href="#i-lock"/></svg></button>
+          </details>
+
+          <details open>
+            <summary><svg class="tw"><use href="#i-chev-r"/></svg>작업지침서<span class="cnt">후보 6</span></summary>
+            <button type="button" class="doc-item" data-view="sugg" data-from="QP05 검사 및 시험 · 6.2 수입검사" data-group="작업지침서" data-code="WI-05-01" data-name="수입검사 지침" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">WI-05-01</span><span class="nm">수입검사 지침</span><span class="sugg">제안됨</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="sugg" data-from="QP05 검사 및 시험 · 6.3 공정검사" data-group="작업지침서" data-code="WI-05-02" data-name="공정·출하검사 지침" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">WI-05-02</span><span class="nm">공정·출하검사 지침</span><span class="sugg">제안됨</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="sugg" data-from="QP03 구매 및 외주 관리 · 3단계 특별공정 '고주파 열처리'" data-group="작업지침서" data-code="WI-04-01" data-name="열처리 외주품 관리 지침" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">WI-04-01</span><span class="nm">열처리 외주품 관리 지침</span><span class="sugg">제안됨</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="sugg" data-from="QP04 생산 및 출하 관리 · 5.2 작업표준" data-group="작업지침서" data-code="WI-04-02" data-name="CNC 가공 작업표준" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">WI-04-02</span><span class="nm">CNC 가공 작업표준</span><span class="sugg">제안됨</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="sugg" data-from="SP01 위험성평가 · 3단계 위험작업 '지게차'" data-group="작업지침서" data-code="WI-S-01" data-name="지게차 안전작업 지침" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">WI-S-01</span><span class="nm">지게차 안전작업 지침</span><span class="sugg">제안됨</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="sugg" data-from="SP01 위험성평가 · 3단계 위험작업 '화학물질'" data-group="작업지침서" data-code="WI-S-02" data-name="절삭유·세척제 취급 지침" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">WI-S-02</span><span class="nm">절삭유·세척제 취급 지침</span><span class="sugg">제안됨</span><svg class="lock"><use href="#i-lock"/></svg></button>
+          </details>
+
+          <details>
+            <summary><svg class="tw"><use href="#i-chev-r"/></svg>양식<span class="cnt">0 / 28</span></summary>
+            <button type="button" class="doc-item" data-view="todo" data-group="양식" data-code="F-05-01" data-name="검사성적서" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">F-05-01</span><span class="nm">검사성적서</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="todo" data-group="양식" data-code="F-03-01" data-name="협력업체 평가표" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">F-03-01</span><span class="nm">협력업체 평가표</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <button type="button" class="doc-item" data-view="todo" data-group="양식" data-code="F-S-01" data-name="위험성평가표" data-status="todo"><span class="st todo"><svg><use href="#i-todo"/></svg></span><span class="code">F-S-01</span><span class="nm">위험성평가표</span><svg class="lock"><use href="#i-lock"/></svg></button>
+            <div class="doc-item" style="cursor:default;color:var(--text-muted);font-size:.76rem;padding-left:30px">외 25종</div>
+          </details>
+        </div>
+
+        <button type="button" class="tree-qc" data-jump="C"><svg><use href="#i-shield"/></svg><span><b>품질 점검 통과</b> · 경고 2건</span><span class="go">결과 보기</span></button>
+      </aside>
+
+      <!-- 뷰어 -->
+      <article class="card viewer" aria-live="polite">
+        <div class="viewer-head">
+          <div>
+            <div class="crumb" id="v-crumb">통합경영시스템 / 매뉴얼</div>
+            <div class="viewer-title">
+              <h3 id="v-title">SMS-M 통합경영매뉴얼</h3>
+              <span class="meta-pill ok" id="v-status">완료</span>
+              <span class="meta-pill" id="v-plan">무료</span>
+            </div>
+          </div>
+          <div class="viewer-actions">
+            <button type="button" class="v-btn primary"><svg><use href="#i-edit"/></svg>편집</button>
+            <button type="button" class="v-btn"><svg><use href="#i-download"/></svg>PDF</button>
+            <button type="button" class="v-btn"><svg><use href="#i-download"/></svg>DOCX</button>
+          </div>
+        </div>
+        <div id="v-body"></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       화면 C. 품질 점검 패널
+       ================================================================ -->
+  <section class="screen" id="screen-C" role="tabpanel" aria-label="품질 점검">
+    <div class="screen-intro">
+      <h1>자동 품질 점검</h1>
+      <p>생성이 끝나면 규격 필수 조항, 문서번호, 다이어그램을 자동으로 확인합니다. 문서 트리 하단에 작게 붙고, 누르면 이 결과가 열립니다.</p>
+    </div>
+
+    <div class="qc-wrap">
+      <div class="card qc-card" aria-label="품질 점검 결과">
+        <div class="qc-top">
+          <div class="qc-ring"><svg><use href="#i-check"/></svg></div>
+          <div><h3>점검 통과 · 경고 2건</h3><small>SMS-M 통합경영매뉴얼 기준 · 2026-10-25 14:34</small></div>
+        </div>
+        <ul class="qc-list">
+          <li class="qc-item"><svg class="ok"><use href="#i-done"/></svg><div><div class="q-name">필수 조항 커버리지</div><div class="q-desc">9001 + 45001 필수 조항 · 제외 사유 포함</div></div><span class="q-val">28/28</span></li>
+          <li class="qc-item"><svg class="ok"><use href="#i-done"/></svg><div><div class="q-name">문서번호 불일치</div><div class="q-desc">본문 인용 번호와 트리 번호 대조</div></div><span class="q-val">0</span></li>
+          <li class="qc-item"><svg class="ok"><use href="#i-done"/></svg><div><div class="q-name">다이어그램 오류</div><div class="q-desc">프로세스 맵 · 조직도 렌더링</div></div><span class="q-val">0</span></li>
+          <li class="qc-item"><svg class="ok"><use href="#i-done"/></svg><div><div class="q-name">상호참조 연결</div><div class="q-desc">매뉴얼 → 절차서 링크</div></div><span class="q-val">41/41</span></li>
+          <li class="qc-item warn"><svg class="wr"><use href="#i-alert"/></svg><div><div class="q-name">용어 혼용</div><div class="q-desc">'관리책임자' 3회 / '경영시스템 책임자' 11회</div></div><span class="q-val">2</span>
+            <div class="fix"><button type="button">한 용어로 통일</button><button type="button" class="sec-btn">무시</button></div>
+          </li>
+        </ul>
+        <div class="qc-foot"><span>절차서 생성이 끝나면 다시 점검합니다</span><button type="button">지금 다시 점검</button></div>
+      </div>
+
+      <div class="card qc-explain">
+        <h3>무엇을 점검하나요?</h3>
+        <p>심사원이 문서심사에서 가장 먼저 보는 항목을 기준으로 골랐습니다. 통과하지 못한 항목은 해당 절로 바로 이동하고, 그 절만 다시 생성할 수 있습니다.</p>
+        <div class="rule"><b>필수 조항 커버리지</b><span>규격의 '문서화된 정보' 요구 조항이 매뉴얼이나 절차서 어딘가에 대응되는지 확인합니다. 적용제외 조항은 사유가 있으면 충족으로 셉니다.</span></div>
+        <div class="rule"><b>문서번호 불일치</b><span>본문에서 인용한 "QP05에 따른다" 같은 번호가 실제 트리에 있는지, 적용제외 문서(QP02)를 인용하지 않는지 봅니다.</span></div>
+        <div class="rule"><b>다이어그램 오류</b><span>부록 프로세스 맵과 조직도가 깨지지 않고 그려지는지, 3단계에서 해제한 프로세스가 맵에 남아 있지 않은지 확인합니다.</span></div>
+        <div class="coverage" aria-label="필수 조항 28개 커버리지">
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          <i></i><i></i><i></i><i></i><i></i><i style="background:rgba(197,168,128,.6)"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+        <div class="coverage-cap"><span style="color:var(--accent)">■ 본문으로 충족 27</span><span style="color:var(--primary)">■ 제외 사유로 충족 1 (8.3)</span></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- 하단 고정 CTA (화면 B 에서만) -->
+<div class="consult-bar" id="consult-bar" role="region" aria-label="컨설턴트 매칭">
+  <div class="consult-inner">
+    <div class="consult-ava" aria-hidden="true">
+      <span style="background:#C5A880">김</span><span style="background:#10B981">이</span><span style="background:#93C5FD">박</span>
+    </div>
+    <div class="consult-text">
+      <b>이 문서를 검토해 줄 컨설턴트 매칭받기</b>
+      <small>자동차부품 · ISO 45001 통합 경험이 있는 컨설턴트에게 생성 문서를 그대로 넘겨 검토받을 수 있습니다.</small>
+    </div>
+    <button type="button" class="btn-unlock">컨설턴트 매칭받기</button>
+    <button type="button" class="consult-close" aria-label="배너 닫기"><svg><use href="#i-x"/></svg></button>
+  </div>
+</div>
+
+<!-- ================= 뷰어 템플릿 ================= -->
+<template id="tpl-manual">
+  <div class="md-viewer">
+    <h1>통합경영매뉴얼</h1>
+    <div class="tbl"><table class="doc-meta-table">
+      <tr><td>문서번호</td><td>SMS-M</td><td>개정번호</td><td>0</td></tr>
+      <tr><td>시행일</td><td>2026-11-01</td><td>승인</td><td>대표이사</td></tr>
+      <tr><td>적용 규격</td><td colspan="3">ISO 9001:2015, ISO 45001:2018</td></tr>
+    </table></div>
+
+    <div class="sec">
+      <div class="sec-h"><h2>1. 적용범위</h2><button type="button" class="regen"><svg><use href="#i-refresh"/></svg><span class="rt">이 절 다시 생성</span></button></div>
+      <p>본 매뉴얼은 <strong>(주)한빛정밀</strong>의 품질 및 안전보건 통합경영시스템을 규정하며, 다음 범위에 적용한다.</p>
+      <p><strong>자동차 변속기용 정밀 샤프트 및 기어의 가공, 검사 및 출하</strong><br>본사·공장(경기도 화성시) / 제2공장(충청남도 아산시)</p>
+      <div class="tbl"><table>
+        <thead><tr><th style="width:120px">적용제외 조항</th><th>사유</th></tr></thead>
+        <tbody><tr><td>8.3 설계 및 개발</td><td>고객으로부터 도면 및 사양을 제공받아 가공만 수행하며, 제품 설계에 대한 책임과 권한이 없음. 이 제외는 제품 적합성과 고객만족 보장 능력에 영향을 주지 않는다.</td></tr></tbody>
+      </table></div>
+    </div>
+
+    <div class="sec demo-hover">
+      <div class="sec-h"><h2>4. 조직상황</h2><button type="button" class="regen"><svg><use href="#i-refresh"/></svg><span class="rt">이 절 다시 생성</span></button></div>
+      <h3>4.1 내부 및 외부 이슈</h3>
+      <div class="tbl"><table>
+        <thead><tr><th style="width:70px">구분</th><th>이슈</th><th style="width:150px">관련 프로세스</th></tr></thead>
+        <tbody>
+          <tr><td>외부</td><td>완성차 고객사의 품질 요구(PPM 목표) 강화 및 협력사 평가 기준 상향</td><td><a class="xref" href="#">QP01</a> <a class="xref" href="#">QP05</a></td></tr>
+          <tr><td>외부</td><td>중대재해처벌법 시행에 따른 경영책임자 안전보건 확보 의무</td><td><a class="xref" href="#">SP01</a> <a class="xref" href="#">CP02</a></td></tr>
+          <tr><td>내부</td><td>외주 열처리품의 경도 편차로 인한 반복 클레임</td><td><a class="xref" href="#">QP03</a> <a class="xref" href="#">WI-04-01</a></td></tr>
+          <tr><td>내부</td><td>야간조 지게차 운행 동선과 보행로 중첩</td><td><a class="xref" href="#">SP01</a> <a class="xref" href="#">WI-S-01</a></td></tr>
+          <tr><td>내부</td><td>신규 작업자 교육훈련 기록 누락</td><td><a class="xref" href="#">CP03</a></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-h"><h2>5. 리더십 및 근로자 참여</h2><button type="button" class="regen"><svg><use href="#i-refresh"/></svg><span class="rt">이 절 다시 생성</span></button></div>
+      <h3>5.3 조직의 역할, 책임 및 권한</h3>
+      <div class="tbl"><table>
+        <thead><tr><th style="width:170px">직위</th><th>주요 책임과 권한</th></tr></thead>
+        <tbody>
+          <tr><td>대표이사</td><td>통합경영방침 수립, 자원 제공, 경영검토 주관, 안전보건 확보 의무 이행</td></tr>
+          <tr><td>경영시스템 책임자<br><span style="font-size:.78rem;color:var(--text-muted)">품질안전팀장</span></td><td>통합경영시스템 수립·유지, 성과 보고, 내부심사 총괄</td></tr>
+          <tr><td>안전관리자</td><td>위험성평가 실시 지원, 안전교육, 협력업체 안전관리 지도</td></tr>
+          <tr><td>보건관리자 (위탁)</td><td>보건관리 전문기관을 통한 작업환경 및 근로자 건강관리</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-h"><h2>8. 운용</h2><button type="button" class="regen"><svg><use href="#i-refresh"/></svg><span class="rt">이 절 다시 생성</span></button></div>
+      <h3>8.3 설계 및 개발</h3>
+      <div class="callout"><svg><use href="#i-info"/></svg><span>본 조항은 적용제외한다. 사유는 1장 적용범위를 참조한다.</span></div>
+      <h3>8.4 외부에서 제공되는 프로세스, 제품 및 서비스의 관리</h3>
+      <p>회사는 열처리 및 도금 외주업체를 포함한 공급자를 평가·선정하고, 특별공정에 해당하는 고주파 열처리는 로트별 경도 성적서와 정기 공정 감사로 유효성을 확인한다. 세부 사항은 <a class="xref" href="#">QP03 구매 및 외주 관리</a>에 따른다.</p>
+    </div>
+
+    <div class="sec">
+      <div class="sec-h"><h2>부록 B. 프로세스 맵</h2><button type="button" class="regen"><svg><use href="#i-refresh"/></svg><span class="rt">이 절 다시 생성</span></button></div>
+      <div class="pmap">
+        <div class="pm core"><b>영업/견적</b>QP01</div>
+        <div class="pm ex"><b>설계/개발</b>적용제외</div>
+        <div class="pm core"><b>구매·외주</b>QP03</div>
+        <div class="pm core"><b>생산·출하</b>QP04</div>
+        <div class="pm core"><b>검사/시험</b>QP05</div>
+      </div>
+      <div class="pmap-support"><span>지원: 교육훈련 CP03</span><span>측정장비 QP06</span><span>고객자산 QP07</span><span>위험성평가 SP01</span><span>비상대응 SP03</span></div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-locked">
+  <div class="md-viewer pre">
+    <h1 data-fill="name"></h1>
+    <div class="sec">
+      <div class="sec-h"><h2>1. 목적</h2><button type="button" class="regen"><svg><use href="#i-refresh"/></svg><span class="rt">이 절 다시 생성</span></button></div>
+      <p>이 절차서는 (주)한빛정밀 통합경영시스템에서 <strong data-fill="name"></strong>에 필요한 책임, 방법 및 기록을 정하여 업무를 일관되게 수행하는 것을 목적으로 한다.</p>
+    </div>
+  </div>
+  <div class="blurred md-viewer" aria-hidden="true">
+    <h2>2. 적용범위</h2><p>본 절차서는 본사·공장 및 제2공장의 모든 부서에 적용한다. 협력업체 상주 근로자에 관한 사항은 SP02를 함께 따른다.</p>
+    <h2>3. 책임과 권한</h2><p>경영시스템 책임자는 본 절차의 운영을 총괄하며, 각 부서장은 소관 업무의 실행과 기록 유지를 책임진다.</p>
+    <h2>4. 업무 절차</h2><p>4.1 대상 식별 → 4.2 평가 → 4.3 조치 계획 수립 → 4.4 실행 및 모니터링 → 4.5 검토</p>
+  </div>
+  <div class="lock-card">
+    <h4>절차서 전문은 유료 플랜에서 열람할 수 있습니다</h4>
+    <p>목적 절까지 미리 보기로 제공됩니다. 잠금 해제 시 절차서 19종·지침서·양식을 모두 생성하고 DOCX로 받을 수 있습니다.</p>
+    <button type="button" class="btn-unlock">전체 문서 잠금 해제</button>
+  </div>
+</template>
+
+<template id="tpl-gen">
+  <div class="gen-status"><span class="st gen"><svg><use href="#i-gen"/></svg></span><span><b>생성 중</b> · 7개 절 중 3번째 '교육 필요성 파악'을 작성하고 있습니다 (약 40초 남음)</span></div>
+  <ul class="gen-steps">
+    <li class="d"><span class="st done"><svg><use href="#i-done"/></svg></span>1. 목적</li>
+    <li class="d"><span class="st done"><svg><use href="#i-done"/></svg></span>2. 적용범위 · 책임</li>
+    <li><span class="st gen"><svg><use href="#i-gen"/></svg></span>3. 교육 필요성 파악</li>
+    <li><span class="st todo"><svg><use href="#i-todo"/></svg></span>4. 교육 계획 · 실시</li>
+    <li><span class="st todo"><svg><use href="#i-todo"/></svg></span>5. 유효성 평가</li>
+    <li><span class="st todo"><svg><use href="#i-todo"/></svg></span>6. 법정 안전보건교육</li>
+    <li><span class="st todo"><svg><use href="#i-todo"/></svg></span>7. 기록 관리</li>
+  </ul>
+  <div class="skeleton" aria-hidden="true">
+    <div class="sk-line h"></div><div class="sk-line"></div><div class="sk-line" style="width:92%"></div><div class="sk-line" style="width:78%"></div>
+    <div class="sk-line h" style="margin-top:28px"></div><div class="sk-line"></div><div class="sk-line" style="width:85%"></div>
+  </div>
+</template>
+
+<template id="tpl-excl">
+  <div class="state-view">
+    <div class="ico"><svg style="color:#71717A"><use href="#i-na"/></svg></div>
+    <h4>적용제외된 문서입니다</h4>
+    <p>3단계에서 '설계/개발' 프로세스를 해제해 8.3 설계·개발을 적용제외했습니다. 제외 사유는 매뉴얼 1장 적용범위에 기재되어 있고, 이 절차서는 생성하지 않습니다.</p>
+    <div class="btn-row"><button type="button" class="btn-ghost" data-open="SMS-M">매뉴얼 1장 사유 보기</button><button type="button" class="btn-ghost" data-jump="A">위저드에서 다시 포함하기</button></div>
+  </div>
+</template>
+
+<template id="tpl-todo">
+  <div class="state-view">
+    <div class="ico"><svg><use href="#i-todo"/></svg></div>
+    <h4><span data-fill="code"></span> 아직 생성 전입니다</h4>
+    <p>회사 프로필 답변을 바탕으로 생성할 준비가 되어 있습니다. 절차서 이하 문서는 유료 플랜에서 생성·다운로드할 수 있습니다.</p>
+    <div class="btn-row"><button type="button" class="btn-unlock" style="padding:11px 24px">잠금 해제하고 생성</button></div>
+  </div>
+</template>
+
+<template id="tpl-sugg">
+  <div class="state-view">
+    <div class="ico"><svg style="color:#93C5FD"><use href="#i-doc"/></svg></div>
+    <h4><span data-fill="name"></span> <span class="sugg" style="vertical-align:2px">제안됨</span></h4>
+    <p>상위 절차서를 작성하면서 별도 지침이 필요하다고 판단한 문서입니다.<br><strong style="color:var(--text-secondary)">근거: <span data-fill="from"></span></strong></p>
+    <div class="btn-row"><button type="button" class="btn-unlock" style="padding:11px 24px">잠금 해제하고 생성</button><button type="button" class="btn-ghost">목록에서 제외</button></div>
+  </div>
+</template>
+
+<script>
+(function () {
+  const $ = (s, el = document) => el.querySelector(s);
+  const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+
+  /* ---------- 화면 전환 ---------- */
+  function showScreen(key) {
+    $$('.screen-tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.screen === key)));
+    $$('.screen').forEach(s => s.classList.toggle('active', s.id === 'screen-' + key));
+    document.body.classList.toggle('on-docs', key === 'B');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  $$('.screen-tab').forEach(t => t.addEventListener('click', () => showScreen(t.dataset.screen)));
+  document.addEventListener('click', e => {
+    const j = e.target.closest('[data-jump]');
+    if (j) showScreen(j.dataset.jump);
+  });
+
+  /* ---------- 위저드 단계 ---------- */
+  const eta = ['약 10분', '약 8분', '약 6분', '약 2분'];
+  const fill = [8, 16, 25, 31];
+  function goStep(n) {
+    $$('.step-panel').forEach(p => p.classList.toggle('active', +p.dataset.panel === n));
+    $$('.step-btn').forEach(b => {
+      const s = +b.dataset.step;
+      b.classList.toggle('done', s < n);
+      b.classList.toggle('current', s === n);
+    });
+    $('#eta-left').textContent = eta[n - 1];
+    $('#cur-name').textContent = ' · ' + $('.step-btn[data-step="' + n + '"] .txt').textContent;
+    $('#fill-label').textContent = fill[n - 1] + ' / 31 항목';
+    $('#fill-bar').style.width = Math.round(fill[n - 1] / 31 * 100) + '%';
+    $('#screen-A .progress-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  $$('.step-btn').forEach(b => b.addEventListener('click', () => goStep(+b.dataset.step)));
+  $$('[data-go]').forEach(b => b.addEventListener('click', () => goStep(+b.dataset.go)));
+
+  /* ---------- 모르겠어요 → 기본값 ---------- */
+  function updateDefaults() {
+    const n = $$('#screen-A .field.use-default').length;
+    $('#default-count').textContent = n;
+  }
+  updateDefaults();
+  $$('.idk').forEach(b => b.addEventListener('click', () => {
+    b.closest('.field').classList.toggle('use-default');
+    updateDefaults();
+  }));
+
+  /* ---------- 칩 / 세그먼트 / 스위치 ---------- */
+  $$('[data-chips] .chip:not(.add)').forEach(c => c.addEventListener('click', () => c.classList.toggle('active')));
+  $$('[data-seg]').forEach(seg => seg.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    $$('button', seg).forEach(x => x.classList.toggle('sel', x === b));
+    const qa = seg.closest('.qa');
+    if (qa) qa.classList.toggle('no-detail', b.textContent.trim() !== '있음');
+  }));
+  $$('.switch').forEach(s => s.addEventListener('click', () => s.setAttribute('aria-checked', String(s.getAttribute('aria-checked') !== 'true'))));
+
+  /* ---------- 프로세스 체크 → 인라인 안내 ---------- */
+  const procNotes = {
+    sales: ['8.2 고객 요구사항은 적용제외할 수 없습니다.', ' 주문 접수·검토 수준의 최소 절차로 매뉴얼에 직접 기술합니다.'],
+    design: ['8.3 설계·개발 적용제외로 반영됩니다.', ' 사유 초안: "고객 도면·사양에 따라 가공만 수행하며 제품 설계 책임이 없음." QP02는 생성하지 않습니다.'],
+    buy: ['8.4 구매는 적용제외할 수 없습니다.', ' 최소 구매 관리 수준으로 QP03을 작성합니다.'],
+    out: ['QP03에서 외주가공 관리 절이 빠집니다.', ' 아래 \'외주공정\' 답변과 맞는지 확인하세요.'],
+    prod: ['8.5 생산은 제조업에서 제외할 수 없습니다.', ' 다시 확인해 주세요.'],
+    insp: ['8.6 제품 출시(검사)는 제외할 수 없습니다.', ' 최소 출하 승인 절차로 작성합니다.'],
+    ship: ['QP04에서 포장/출하 절이 빠집니다.', ' 8.5.4 보존은 보관 관리로만 기술합니다.'],
+    as: ['8.5.5 인도 후 활동은 \'고객 클레임 처리\'로 축소 반영됩니다.', ' 제외 조항은 아니며 QP01의 한 절로 들어갑니다.']
+  };
+  const notesEl = $('.inline-notes');
+  function renderNotes() {
+    notesEl.innerHTML = '';
+    $$('#proc-grid .proc:not(.on)').forEach(p => {
+      const [b, t] = procNotes[p.dataset.proc];
+      const d = document.createElement('div');
+      d.className = 'inline-note';
+      d.innerHTML = '<svg><use href="#i-alert"/></svg><span><b></b><span></span></span><button type="button" class="undo">되돌리기</button>';
+      d.querySelector('b').textContent = b;
+      d.querySelector('span > span').textContent = t;
+      d.querySelector('.undo').addEventListener('click', () => { p.classList.add('on'); renderNotes(); });
+      notesEl.appendChild(d);
+    });
+  }
+  $$('#proc-grid .proc').forEach(p => p.addEventListener('click', () => { p.classList.toggle('on'); renderNotes(); }));
+  renderNotes();
+
+  /* ---------- 규격 카드 → IMS 배지 / 14001 블록 ---------- */
+  function updateStd() {
+    const on = $$('#std-cards .std-card.on');
+    const banner = $('#ims-banner'), txt = $('#ims-text'), badge = $('.ims-badge', banner);
+    if (on.length >= 2) {
+      banner.classList.remove('hidden');
+      badge.textContent = 'IMS';
+      txt.innerHTML = on.length + '개 규격을 함께 선택해 <strong style="color:var(--text-primary)">통합경영매뉴얼(IMS)</strong> 1권으로 생성합니다. 공통 조항(4~7, 9, 10장)은 한 번만 쓰고, 규격별 요구는 절마다 표시합니다.';
+    } else if (on.length === 1) {
+      banner.classList.remove('hidden');
+      badge.textContent = '단일';
+      txt.textContent = on[0].querySelector('.s-code').textContent + ' 단일 규격 매뉴얼로 생성합니다.';
+    } else {
+      banner.classList.add('hidden');
+    }
+    const env = $$('#screen-A details.cond')[0];
+    const envOn = !!$('#std-cards [data-std="14001"].on');
+    env.classList.toggle('inactive', !envOn);
+    const tag = $('.state-tag', env);
+    tag.textContent = envOn ? '활성' : '비활성';
+    tag.classList.toggle('on', envOn);
+    $('.c-title small', env).textContent = envOn
+      ? '환경측면 등록부와 비상대응 절차에 반영됩니다.'
+      : '목표 규격에 14001이 없어 비활성 상태입니다. 4단계에서 선택하면 답변이 반영됩니다.';
+  }
+  $$('#std-cards .std-card').forEach(c => c.addEventListener('click', () => { c.classList.toggle('on'); updateStd(); }));
+
+  /* ---------- 문서 트리 → 뷰어 ---------- */
+  const statusText = { done: ['완료', 'ok'], gen: ['생성 중', ''], todo: ['미생성', ''], excl: ['적용제외', ''] };
+  function openDoc(item) {
+    $$('#tree .doc-item').forEach(i => i.classList.toggle('sel', i === item));
+    const d = item.dataset;
+    $('#v-crumb').textContent = '통합경영시스템 / ' + d.group;
+    $('#v-title').textContent = d.code + ' ' + d.name;
+    const [st, cls] = statusText[d.status] || ['', ''];
+    const vs = $('#v-status');
+    vs.textContent = st; vs.className = 'meta-pill ' + cls;
+    $('#v-plan').textContent = d.free ? '무료' : (d.status === 'excl' ? '생성 안 함' : '유료');
+    const tpl = $('#tpl-' + d.view);
+    const body = $('#v-body');
+    body.innerHTML = '';
+    body.appendChild(tpl.content.cloneNode(true));
+    $$('[data-fill]', body).forEach(el => { el.textContent = d[el.dataset.fill] || ''; });
+    $$('[data-open]', body).forEach(b => b.addEventListener('click', () => openDoc($('#tree [data-code="' + b.dataset.open + '"]'))));
+    bindRegen(body);
+  }
+  function bindRegen(root) {
+    $$('.regen', root).forEach(b => b.addEventListener('click', () => {
+      const t = b.querySelector('.rt'); if (!t) return;
+      const prev = t.textContent; t.textContent = '다시 생성 중...';
+      setTimeout(() => { t.textContent = prev; }, 1400);
+    }));
+  }
+  $$('#tree button.doc-item').forEach(i => i.addEventListener('click', () => openDoc(i)));
+  openDoc($('#tree .doc-item.sel'));
+
+  /* ---------- 하단 CTA 닫기 ---------- */
+  $('.consult-close').addEventListener('click', () => { $('#consult-bar').style.display = 'none'; });
+
+  /* URL 해시로 화면 바로 열기: #B, #C, #A3 */
+  const h = location.hash.replace('#', '');
+  if (h) {
+    if (h[0] === 'B' || h[0] === 'C') showScreen(h[0]);
+    if (h[0] === 'A' && h[1]) goStep(+h[1]);
+  }
+})();
+</script>
+</body>
+</html>
