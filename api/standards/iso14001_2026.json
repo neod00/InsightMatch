@@ -1,0 +1,1576 @@
+{
+  "schema_version": "1.2",
+  "standard_key": "iso14001",
+  "edition": "2026",
+  "standard_code": "ISO 14001:2026",
+  "tag": "E",
+  "name_ko": "환경경영시스템",
+  "system_noun": "환경경영시스템",
+  "policy_noun": "환경방침",
+  "objective_noun": "환경목표",
+  "default_department": "환경안전팀",
+  "content_source": "self_authored",
+  "source_note": "자체 작성 요약이며 ISO/KS 표준 원문 문장을 포함하지 않는다. 조항 번호와 짧은 제목만 사실 정보로 사용했다. 2026판 내용은 저장소 밖 구매본의 해당 조항 쪽만 열람해 만든 비교 노트(T1c)를 근거로 작성했고, 원문·추출물은 포함하지 않는다. 부속서 A는 열람하지 않아 반영하지 않았다. KS 번역본이 아직 없어 2026판에서 새로 생기거나 번호·제목이 바뀐 조항(6.1.4, 6.1.5, 6.3, 9.3.1, 9.3.2, 9.3.3, 10.1)의 한국어 제목은 임시 번역이다. 인증 심사 전에는 표준 원문과 대조 검토가 필요하다. 제목의 확정 정도는 조항별 title_ko_status(official/provisional/descriptive)로 구분한다.",
+  "published_at": "2026-04",
+  "authored_by": "product-agent (AI 초안, 2026-10-25, T1b — T1c 본문 비교 노트 기반)",
+  "reviewed_by": "InsightMatch 운영자(사용자 본인) — 결정 목록 승인, 조항별 검토 아님",
+  "reviewed_at": "2026-10-25",
+  "terms_section": {
+    "verification": "body_verified",
+    "approach": "3.1~3.4 묶음 구조를 유지한다. 매뉴얼 용어 절에는 회사가 쓰는 핵심 용어만 자체 설명으로 정리하고 표준의 정의 문장은 옮기지 않는다.",
+    "changes_from_previous": [
+      "일반 용어 policy 추가(그 뒤 3.1.x 용어 번호가 하나씩 밀림)",
+      "독립 용어 risk 삭제(risks and opportunities만 유지)",
+      "outsource 삭제(본문도 '외부 제공' 표현을 씀)"
+    ],
+    "notes": "2015판과의 차이는 2015 원문을 다시 열어 대조하지 않았으므로 재대조 권장."
+  },
+  "clauses": [
+    {
+      "id": "4",
+      "title_ko": "조직 상황",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "context",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "carried",
+      "carried_from": "iso14001_2015:4",
+      "requirement_summary": "환경경영시스템을 설계하기 전에 회사가 처한 환경 조건, 이해관계자, 적용범위, 시스템 구조를 먼저 정리한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "조직 상황",
+        "조직상황"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "4.1",
+      "title_ko": "조직과 조직 상황의 이해",
+      "title_ko_status": "official",
+      "parent": "4",
+      "level": 2,
+      "merge_key": "context.issues",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "회사의 목적과 관련해 환경경영의 의도한 결과에 영향을 주는 내부·외부 이슈를 정한다. 이슈에는 회사가 영향을 받거나 영향을 줄 수 있는 환경 여건(오염 수준, 천연자원 가용성, 기후변화, 생물다양성·생태계 건강 등)이 반드시 들어가야 한다.",
+      "manual_guidance": [
+        "PESTEL 분석표를 환경 관점(규제 강화, 기후변화, 생물다양성, 에너지·원자재 가격, 지역사회 민원)으로 작성하고 환경 여건 항목을 따로 표시한다",
+        "이슈 검토 주기와 경영검토 보고 경로를 명시한다"
+      ],
+      "required_artifacts": [
+        "PESTEL 분석표"
+      ],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP00",
+        "CP01"
+      ],
+      "coverage_keywords": [
+        "조직 상황",
+        "조직상황",
+        "기후변화",
+        "생물다양성"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "4.2",
+      "title_ko": "이해관계자의 니즈와 기대 이해",
+      "title_ko_status": "official",
+      "parent": "4",
+      "level": 2,
+      "merge_key": "context.interested_parties",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "인허가 기관, 지역 주민, 고객, 투자자 등 환경경영과 관련된 이해관계자와 그들의 요구·기대를 정하고, 그중 회사의 준수의무가 되는 것과 환경경영시스템으로 다룰 것을 함께 결정한다. 법적 요구가 아닌 요구도 회사가 따르기로 하면 준수의무가 된다.",
+      "manual_guidance": [
+        "이해관계자별 요구·기대, 준수의무 해당 여부, 시스템으로 다룰지 여부, 대응 부서를 표로 정리한다"
+      ],
+      "required_artifacts": [
+        "이해관계자 요구파악표"
+      ],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP00",
+        "EP02"
+      ],
+      "coverage_keywords": [
+        "이해관계자"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "4.3",
+      "title_ko": "환경경영시스템 적용범위 결정",
+      "title_ko_status": "provisional",
+      "parent": "4",
+      "level": 2,
+      "merge_key": "context.scope",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "상황 이슈, 준수의무, 조직 단위·기능·물리적 경계, 활동·제품·서비스, 그리고 전과정에 걸쳐 회사가 통제하거나 영향을 미칠 수 있는 권한과 능력을 고려해 적용범위를 정한다. 범위 안의 활동·제품·서비스는 모두 시스템에 포함하고, 적용범위는 문서화해 이해관계자가 볼 수 있게 한다.",
+      "manual_guidance": [
+        "사업장 경계와 포함 활동을 선언하고, 전과정 단계(원료 조달~폐기) 중 회사가 통제·영향을 미치는 범위를 밝히며, 일부를 범위에서 뺀다면 환경 책임을 회피하려는 것이 아님을 근거로 밝힌다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "환경경영시스템 적용범위"
+        }
+      ],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "적용범위"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "4.4",
+      "title_ko": "환경경영시스템",
+      "title_ko_status": "official",
+      "parent": "4",
+      "level": 2,
+      "merge_key": "context.system_processes",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:4.4",
+      "requirement_summary": "환경성과 향상을 포함한 의도한 결과를 얻도록 필요한 프로세스와 그 상호작용을 갖춘 시스템을 수립·실행·유지·개선하고, 4.1·4.2에서 얻은 정보를 반영한다.",
+      "manual_guidance": [
+        "경영·핵심·지원·개선 4개 범주로 프로세스 상호관계도(Mermaid)를 작성하고, 환경 운용관리(EP04)와 비상대응(EP03)을 핵심 흐름에 표시한다"
+      ],
+      "required_artifacts": [
+        "프로세스 상호관계도(Process Map)"
+      ],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "환경경영시스템",
+        "프로세스"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "5",
+      "title_ko": "리더십",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "leadership",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:5",
+      "requirement_summary": "최고경영자가 환경경영에 대한 책임을 지고 방침과 조직 체계를 세운다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "리더십"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "5.1",
+      "title_ko": "리더십과 의지표명",
+      "title_ko_status": "official",
+      "parent": "5",
+      "level": 2,
+      "merge_key": "leadership.commitment",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:5.1",
+      "requirement_summary": "최고경영자는 시스템 효과성에 책임을 지고, 환경방침·목표를 전략 방향과 맞추며, 사업 프로세스에 환경 요구사항을 녹이고, 자원을 제공하며, 각 관리자가 자기 영역에서 리더십을 발휘하도록 지원한다.",
+      "manual_guidance": [
+        "최고경영자의 책임 사항을 항목별로 선언하고 경영검토와 자원 승인으로 이행함을 기술한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP01"
+      ],
+      "coverage_keywords": [
+        "리더십",
+        "의지표명"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "5.2",
+      "title_ko": "환경방침",
+      "title_ko_status": "official",
+      "parent": "5",
+      "level": 2,
+      "merge_key": "leadership.policy",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:5.2",
+      "requirement_summary": "최고경영자는 활동의 성격·규모·환경영향에 맞고, 환경목표의 틀이 되며, 오염 예방을 포함한 환경 보호, 준수의무 이행, 환경성과 향상을 위한 지속적 개선 의지를 담은 환경방침을 세운다. 방침은 문서로 유지하고 내부에 전달하며 이해관계자가 볼 수 있게 한다.",
+      "manual_guidance": [
+        "{policy_noun} 선언문에 환경 보호(오염 예방 포함), 준수의무 이행, 지속적 개선 의지를 담는다",
+        "내부 전달 수단과 외부 공개 방법(홈페이지, 게시)을 기술한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "환경방침"
+        }
+      ],
+      "linked_procedures": [
+        "CP01",
+        "CP04"
+      ],
+      "coverage_keywords": [
+        "방침"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "5.3",
+      "title_ko": "조직의 역할, 책임 및 권한",
+      "title_ko_status": "official",
+      "parent": "5",
+      "level": 2,
+      "merge_key": "leadership.roles",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:5.3",
+      "requirement_summary": "환경경영 관련 역할의 책임과 권한을 배정해 알리고, 시스템의 요구사항 적합성 보장과 환경성과 보고를 맡을 사람을 지정한다.",
+      "manual_guidance": [
+        "조직도와 R&R 매트릭스에 환경 관련 역할(배출시설, 폐기물, 화학물질 관리 담당)을 표시한다"
+      ],
+      "required_artifacts": [
+        "조직도",
+        "R&R 매트릭스"
+      ],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP02"
+      ],
+      "coverage_keywords": [
+        "역할",
+        "책임",
+        "권한"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6",
+      "title_ko": "기획",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "planning",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "환경측면, 준수의무, 리스크·기회를 바탕으로 조치와 환경목표를 계획하고, 시스템 변경도 계획적으로 진행한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "기획"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.1",
+      "title_ko": "리스크와 기회를 다루는 조치",
+      "title_ko_status": "official",
+      "parent": "6",
+      "level": 2,
+      "merge_key": "planning.risk_opportunity",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "6.1.2~6.1.5(환경측면, 준수의무, 리스크와 기회, 조치의 기획)를 충족하는 프로세스를 수립·유지하고, 그것이 계획대로 운영된다는 확신에 필요한 만큼 문서화한다. 이 흐름에 따라 환경측면과 준수의무를 파악하고, 관련 리스크와 기회를 정해 조치를 계획한다.",
+      "manual_guidance": [
+        "6.1.2~6.1.5의 연결 흐름(환경측면·준수의무 파악 → 리스크와 기회 결정 → 조치 기획)과 단계별 주관 부서·주기를 개괄한다",
+        "6.1.1 일반사항의 프로세스 수립·문서화 요구는 단일 매뉴얼에서는 6.1.1 제목 아래에, 통합경영매뉴얼에서는 별도 제목 없이 이 섹션 본문에 담는다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "6.1.2~6.1.5 프로세스가 계획대로 수행된다는 확신에 필요한 정보"
+        }
+      ],
+      "linked_procedures": [
+        "CP00"
+      ],
+      "coverage_keywords": [
+        "리스크",
+        "기회"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.1.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "official",
+      "parent": "6.1",
+      "level": 3,
+      "merge_key": "planning.risk_opportunity.general",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "6.1.2~6.1.5의 요구를 충족하는 데 필요한 프로세스를 수립·유지하고, 필요한 범위에서 문서화하는 일반 요구다. 2015판에서 이 조항에 있던 리스크·기회 결정은 6.1.4로, 잠재적 비상상황 결정은 6.1.2로 옮겨졌다.",
+      "manual_guidance": [
+        "단일 매뉴얼에서는 6.1.1 일반사항 제목 아래 6.1.2~6.1.5 프로세스의 수립·유지와 필요한 문서화 원칙을 간결히 기술한다. 통합경영매뉴얼에서는 별도 제목을 세우지 않고 6.1 상위 섹션 본문에 담는다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP00"
+      ],
+      "coverage_keywords": [
+        "일반사항",
+        "프로세스"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.1.2",
+      "title_ko": "환경측면",
+      "title_ko_status": "official",
+      "parent": "6.1",
+      "level": 3,
+      "merge_key": "planning.env_aspects",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "회사의 활동·제품·서비스가 환경과 맞닿는 지점(대기·수질 배출, 폐기물, 에너지·용수·원자재 사용, 화학물질 취급 등)과 그 환경영향을 전과정 관점에서 찾아낸다. 비정상 상황과 예정된 변경(6.3)을 고려하고, 환경영향을 줄 수 있는 잠재적 비상상황도 여기서 정한다. 미리 정한 기준으로 중대한 측면을 가려 기획과 운용 관리에 반영하고 관련 부서에 알린다.",
+      "manual_guidance": [
+        "환경측면 파악 범위(공정·설비·외부 제공 활동, 전과정 단계)와 중대성 평가 기준(발생 빈도, 영향 정도, 법규 관련성 등)을 표로 제시한다",
+        "파악한 잠재적 비상상황은 비상사태 대비·대응(8.2)으로, 중대한 환경측면은 {objective_noun} 수립(6.2)과 운용 관리(8.1)로 이어짐을 기술한다",
+        "세부 평가 방법은 「SMS-EP01 환경측면·영향 평가 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [
+        "환경측면 중대성 평가 기준표"
+      ],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "환경측면·환경영향 목록"
+        },
+        {
+          "kind": "maintain",
+          "name": "중대성 결정 기준"
+        },
+        {
+          "kind": "maintain",
+          "name": "중대한 환경측면 목록"
+        }
+      ],
+      "linked_procedures": [
+        "EP01"
+      ],
+      "coverage_keywords": [
+        "환경측면",
+        "비상상황",
+        "전과정"
+      ],
+      "kr_context": [
+        "사업장 배출시설·폐기물 처리 신고 현황과 대조해 누락을 줄인다"
+      ]
+    },
+    {
+      "id": "6.1.3",
+      "title_ko": "준수의무",
+      "title_ko_status": "provisional",
+      "parent": "6.1",
+      "level": 3,
+      "merge_key": "planning.compliance_obligations",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:6.1.3",
+      "requirement_summary": "환경측면과 관련된 법적 요구사항과 회사가 자발적으로 받아들인 기타 요구사항(협약, 고객 요구, 지역사회 합의 등)을 파악해 확보하고, 각각이 회사에 어떻게 적용되는지 정해 시스템 운영 전반에 반영한다.",
+      "manual_guidance": [
+        "적용 법규 목록(대기·수질·폐기물·화학물질·소음진동 등)과 갱신 주기·담당 부서를 기술한다",
+        "세부 관리는 「SMS-EP02 준수의무 관리 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [
+        "준수의무 등록부(적용 법규 목록)"
+      ],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "준수의무 목록"
+        }
+      ],
+      "linked_procedures": [
+        "EP02"
+      ],
+      "coverage_keywords": [
+        "준수의무"
+      ],
+      "kr_context": [
+        "대기환경보전법, 물환경보전법, 폐기물관리법, 화학물질관리법 등 사업장에 해당하는 법령과 인허가 조건을 목록화한다"
+      ]
+    },
+    {
+      "id": "6.1.4",
+      "title_ko": "리스크와 기회",
+      "title_ko_status": "provisional",
+      "parent": "6.1",
+      "level": 3,
+      "merge_key": "planning.risks_opportunities",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "상황 이슈(4.1), 이해관계자 요구(4.2), 적용범위(4.3)를 고려해 환경측면·준수의무·기타 이슈와 관련된 리스크와 기회를 정한다. 의도한 결과 달성, 외부 환경 여건이 회사에 미칠 수 있는 영향을 포함한 원치 않는 영향의 예방·감소, 지속적 개선을 목적으로 하며, 정한 리스크와 기회는 문서화한다.",
+      "manual_guidance": [
+        "리스크·기회 평가 기준과 등급별 대응 원칙을 제시하고 「SMS-CP00 리스크관리 절차서」를 참조하도록 한다",
+        "기후변화 등 외부 환경 여건이 사업에 주는 영향을 리스크 목록에 포함한다"
+      ],
+      "required_artifacts": [
+        "리스크 평가 기준표"
+      ],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "다뤄야 할 리스크와 기회"
+        }
+      ],
+      "linked_procedures": [
+        "CP00"
+      ],
+      "coverage_keywords": [
+        "리스크와 기회",
+        "리스크",
+        "기회"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.1.5",
+      "title_ko": "조치의 기획",
+      "title_ko_status": "provisional",
+      "parent": "6.1",
+      "level": 3,
+      "merge_key": "planning.action_planning",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "중대한 환경측면(6.1.2), 준수의무(6.1.3), 리스크와 기회(6.1.4)에 대한 조치를 계획하고, 이를 시스템과 사업 프로세스에 통합해 실행하는 방법과 효과를 평가하는 방법을 정한다. 조치를 고를 때 기술적 선택지와 재무·운영·사업상 여건을 함께 고려한다.",
+      "manual_guidance": [
+        "조치를 환경목표(6.2), 운용관리(8.1), 비상대응(8.2) 중 어디로 연결할지 기준을 제시한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP00",
+        "EP01"
+      ],
+      "coverage_keywords": [
+        "조치의 기획",
+        "조치"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.2",
+      "title_ko": "환경목표와 달성 기획",
+      "title_ko_status": "provisional",
+      "parent": "6",
+      "level": 2,
+      "merge_key": "planning.objectives",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:6.2",
+      "requirement_summary": "중대한 환경측면, 준수의무, 리스크·기회를 고려해 관련 기능·계층별로 측정 가능한 환경목표를 세워 모니터링·전달·갱신한다. 목표마다 실행 내용, 자원, 책임자, 기한, 결과 평가 방법과 진척 지표를 계획하고 사업 프로세스에 통합한다.",
+      "manual_guidance": [
+        "{objective_noun}·KPI 표(지표, 목표값, 계산식, 주기, 책임자)를 제시한다",
+        "중대한 환경측면과 목표의 연결 관계를 밝힌다"
+      ],
+      "required_artifacts": [
+        "KPI 표"
+      ],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "환경목표"
+        }
+      ],
+      "linked_procedures": [
+        "CP01"
+      ],
+      "coverage_keywords": [
+        "목표"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.2.1",
+      "title_ko": "환경목표",
+      "title_ko_status": "official",
+      "parent": "6.2",
+      "level": 3,
+      "merge_key": "planning.objectives.set",
+      "phase": 1,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:6.2.1",
+      "requirement_summary": "방침과 일관되고 측정 가능하며 중대한 환경측면과 준수의무를 반영한 목표를 필요한 기능·계층에 정한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "목표"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.2.2",
+      "title_ko": "환경목표 달성 기획",
+      "title_ko_status": "provisional",
+      "parent": "6.2",
+      "level": 3,
+      "merge_key": "planning.objectives.plan",
+      "phase": 1,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:6.2.2",
+      "requirement_summary": "목표 달성 조치(무엇을, 어떤 자원으로, 누가, 언제까지, 어떻게 평가할지, 어떤 지표로 진척을 볼지)를 계획하고 사업 프로세스에 통합한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "목표"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.3",
+      "title_ko": "변경의 기획",
+      "title_ko_status": "provisional",
+      "parent": "6",
+      "level": 2,
+      "merge_key": "planning.changes",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "환경경영시스템에 영향을 주는 변경은 계획을 세워 수행하고, 변경이 의도한 결과로 이어지도록 관리한다. 본문에는 변경 시 고려할 항목의 목록이 따로 없다. 변경은 환경측면 결정(6.1.2), 내부 의사소통(7.4.2), 운용 관리(8.1)의 변경 관련 요구와 이어진다.",
+      "manual_guidance": [
+        "변경 요청 → 영향 검토 → 승인 → 실행 → 결과 확인의 흐름을 간단히 기술한다",
+        "변경 시 살필 사항(환경측면·준수의무 영향, 책임 배정, 관련자 소통, 결과 확인)은 요구가 아니라 좋은 관행으로 제시한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP01",
+        "CP02"
+      ],
+      "coverage_keywords": [
+        "변경"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7",
+      "title_ko": "지원",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "support",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:7",
+      "requirement_summary": "환경경영에 필요한 자원, 역량, 인식, 의사소통, 문서화된 정보를 갖춘다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "지원"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.1",
+      "title_ko": "자원",
+      "title_ko_status": "official",
+      "parent": "7",
+      "level": 2,
+      "merge_key": "support.resources",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:7.1",
+      "requirement_summary": "시스템 수립·운영·개선에 필요한 인력, 오염방지시설을 포함한 기반시설, 기술, 재정 자원을 정하고 제공한다.",
+      "manual_guidance": [
+        "오염방지시설, 측정장비, 환경 담당 인력과 예산 확보 원칙을 기술한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "자원"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.2",
+      "title_ko": "역량",
+      "title_ko_status": "official",
+      "parent": "7",
+      "level": 2,
+      "merge_key": "support.competence",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:7.2",
+      "requirement_summary": "환경성과와 준수의무 이행에 영향을 주는 업무 수행자의 필요 역량을 정하고 교육·훈련·경험으로 갖추게 한다. 중대한 환경측면과 시스템에 관련된 교육 필요성을 파악하고, 부족하면 보완한 뒤 효과를 평가한다.",
+      "manual_guidance": [
+        "환경 관련 법정 자격·선임 요건과 직무별 교육 필요성을 기술하고 「SMS-CP03 교육훈련 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "역량의 증거(자격, 교육·평가 기록)"
+        }
+      ],
+      "linked_procedures": [
+        "CP03"
+      ],
+      "coverage_keywords": [
+        "역량",
+        "적격성"
+      ],
+      "kr_context": [
+        "환경기술인 등 법정 선임 자격자 현황을 역량 기준에 반영한다"
+      ]
+    },
+    {
+      "id": "7.3",
+      "title_ko": "인식",
+      "title_ko_status": "official",
+      "parent": "7",
+      "level": 2,
+      "merge_key": "support.awareness",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:7.3",
+      "requirement_summary": "회사의 관리 아래 일하는 사람이 환경방침, 자기 업무와 관련된 중대한 환경측면과 실제·잠재 환경영향, 시스템 효과성에 대한 자신의 기여, 준수의무 미이행을 포함한 요구사항 위반의 결과를 알도록 한다.",
+      "manual_guidance": [
+        "임직원이 {policy_noun}, 본인 업무의 중대한 환경측면과 영향, 시스템 기여, 준수의무 위반 시 결과를 인식하도록 하는 수단(교육, 조회, 게시, 현장 브리핑)을 기술한다",
+        "사업장에 상주하는 협력업체 인원도 인식 대상에 포함한다",
+        "실행·기록은 「SMS-CP03 교육훈련 절차서」와 「SMS-CP04 의사소통 관리 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP03",
+        "CP04"
+      ],
+      "coverage_keywords": [
+        "인식"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.4",
+      "title_ko": "의사소통",
+      "title_ko_status": "official",
+      "parent": "7",
+      "level": 2,
+      "merge_key": "support.communication",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:7.4",
+      "requirement_summary": "환경경영 관련 내부·외부 의사소통의 주제, 시기, 상대, 방법을 정하고, 준수의무를 고려하며, 전달하는 정보가 시스템 정보와 일관되고 믿을 수 있게 한다. 접수된 의견에는 대응하고 의사소통 증거를 남긴다.",
+      "manual_guidance": [
+        "내부·외부 의사소통 매트릭스를 제시하고 외부 민원·문의 대응 경로를 포함한다",
+        "세부 방법은 「SMS-CP04 의사소통 관리 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [
+        "의사소통 매트릭스"
+      ],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "의사소통 증거"
+        }
+      ],
+      "linked_procedures": [
+        "CP04"
+      ],
+      "coverage_keywords": [
+        "의사소통"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.4.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "official",
+      "parent": "7.4",
+      "level": 3,
+      "merge_key": "support.communication.general",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:7.4.1",
+      "requirement_summary": "의사소통 프로세스를 정하고, 준수의무와 정보의 일관성·신뢰성을 고려하며, 접수된 의견에 대응한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "의사소통"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.4.2",
+      "title_ko": "내부 의사소통",
+      "title_ko_status": "official",
+      "parent": "7.4",
+      "level": 3,
+      "merge_key": "support.communication.internal",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:7.4.2",
+      "requirement_summary": "조직 계층과 기능 사이에 변경을 포함한 시스템 정보를 공유하고, 근무자가 개선에 기여할 수 있게 한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "내부"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.4.3",
+      "title_ko": "외부 의사소통",
+      "title_ko_status": "official",
+      "parent": "7.4",
+      "level": 3,
+      "merge_key": "support.communication.external",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:7.4.3",
+      "requirement_summary": "준수의무와 회사가 정한 방식에 따라 시스템 관련 정보를 외부에 전달한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "외부"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.5",
+      "title_ko": "문서화된 정보",
+      "title_ko_status": "official",
+      "parent": "7",
+      "level": 2,
+      "merge_key": "support.documented_info",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:7.5",
+      "requirement_summary": "표준이 요구하는 문서와 회사가 필요하다고 정한 문서를 갖추고, 작성·갱신 때 식별·형식·검토·승인을 거치며, 배포·접근·보관·변경·보존·폐기를 관리한다. 외부 출처 문서도 식별해 관리한다.",
+      "manual_guidance": [
+        "문서 체계와 문서번호 규칙(CP·EP 계열)을 기술하고 「SMS-CP05 문서화된 정보관리 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP05"
+      ],
+      "coverage_keywords": [
+        "문서화된 정보"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.5.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "official",
+      "parent": "7.5",
+      "level": 3,
+      "merge_key": "support.documented_info.general",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:7.5.1",
+      "requirement_summary": "시스템에 포함할 문서화된 정보의 범위를 정하며, 그 양은 조직 규모, 활동 복잡성, 준수의무 이행 입증 필요, 인원 역량에 따라 달라질 수 있다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "문서화된 정보"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.5.2",
+      "title_ko": "작성 및 갱신",
+      "title_ko_status": "official",
+      "parent": "7.5",
+      "level": 3,
+      "merge_key": "support.documented_info.create_update",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:7.5.2",
+      "requirement_summary": "문서를 만들거나 고칠 때 식별 정보, 형식과 매체, 적절성 검토와 승인을 보장한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "작성",
+        "갱신"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.5.3",
+      "title_ko": "문서화된 정보의 관리",
+      "title_ko_status": "official",
+      "parent": "7.5",
+      "level": 3,
+      "merge_key": "support.documented_info.control",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:7.5.3",
+      "requirement_summary": "문서가 필요한 때와 장소에서 쓸 수 있고 적절히 보호되도록 배포, 접근, 검색, 보관, 변경, 보존, 폐기를 관리한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "문서화된 정보"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8",
+      "title_ko": "운용",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "ops",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "carried",
+      "carried_from": "iso14001_2015:8",
+      "requirement_summary": "중대한 환경측면과 준수의무에 관련된 운용을 관리하고 비상 상황에 대비한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "운용"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.1",
+      "title_ko": "운용 기획 및 관리",
+      "title_ko_status": "provisional",
+      "parent": "8",
+      "level": 2,
+      "merge_key": "ops.planning_control",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "시스템 요구사항 충족과 6.1·6.2 조치 실행에 필요한 프로세스에 운용 기준을 정해 관리한다. 계획된 변경을 관리하고 의도하지 않은 변경의 결과를 검토하며, 외부에서 제공받는 프로세스·제품·서비스는 통제하거나 영향력을 행사한다. 전과정 관점에서 설계·조달·운송·사용·폐기 단계의 환경 요구를 관련자에게 전달한다.",
+      "manual_guidance": [
+        "중대한 환경측면별 운용 기준(배출시설, 폐기물, 화학물질, 에너지)을 표로 제시하고 「SMS-EP04 환경 운용관리 절차서」를 참조하도록 한다",
+        "전과정 관점에서 구매·외부 제공·설계·운송·폐기 단계에 환경 요구를 전달하는 방법을 기술한다"
+      ],
+      "required_artifacts": [
+        "환경 운용 기준표"
+      ],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "프로세스가 계획대로 수행된다는 확신에 필요한 정보"
+        }
+      ],
+      "linked_procedures": [
+        "EP04"
+      ],
+      "coverage_keywords": [
+        "운용"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.2",
+      "title_ko": "비상사태 대비 및 대응",
+      "title_ko_status": "official",
+      "parent": "8",
+      "level": 2,
+      "merge_key": "ops.emergency",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "6.1.2에서 정한 잠재적 비상상황(누출, 화재, 방지시설 고장 등)에 대비하고, 실제 발생 시 환경영향을 막거나 줄이도록 대응한다. 대응 계획은 가능한 범위에서 주기적으로 시험·훈련하고, 훈련과 실제 사고 뒤에 검토·수정하며, 관련자에게 필요한 정보와 교육을 제공한다.",
+      "manual_guidance": [
+        "비상 시나리오별 대응 체계(비상연락망, 방제 자재, 역할)를 표로 제시한다",
+        "훈련 주기와 사후 검토 방법을 기술하고 「SMS-EP03 비상사태 대비·대응 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [
+        "비상 시나리오별 대응 체계표"
+      ],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "비상 대응 프로세스가 계획대로 수행된다는 확신에 필요한 정보"
+        }
+      ],
+      "linked_procedures": [
+        "EP03"
+      ],
+      "coverage_keywords": [
+        "비상"
+      ],
+      "kr_context": [
+        "유해화학물질 취급 사업장은 화학사고 대비 관련 법정 계획·신고 내용과 일관되게 기술한다"
+      ]
+    },
+    {
+      "id": "9",
+      "title_ko": "성과 평가",
+      "title_ko_status": "provisional",
+      "parent": null,
+      "level": 1,
+      "merge_key": "perf",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "carried",
+      "carried_from": "iso14001_2015:9",
+      "requirement_summary": "환경성과와 준수 상태를 모니터링·평가하고 내부심사와 경영검토로 시스템을 점검한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "성과 평가",
+        "성과평가"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.1",
+      "title_ko": "모니터링, 측정, 분석 및 평가",
+      "title_ko_status": "official",
+      "parent": "9",
+      "level": 2,
+      "merge_key": "perf.monitoring",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:9.1",
+      "requirement_summary": "환경성과를 무엇으로, 어떻게, 언제 모니터링·측정·분석·평가할지 정하고 준수의무 이행 상태를 정기적으로 평가한다.",
+      "manual_guidance": [
+        "9.1.1 성과 모니터링과 9.1.2 준수평가의 관계를 개괄한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "EP05",
+        "EP02"
+      ],
+      "coverage_keywords": [
+        "모니터링",
+        "측정"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.1.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "official",
+      "parent": "9.1",
+      "level": 3,
+      "merge_key": "perf.monitoring.general",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:9.1.1",
+      "requirement_summary": "모니터링·측정 대상(중대한 환경측면, 운용 기준, 목표 진척, 준수의무 등), 방법, 판단 기준과 지표, 시기, 분석·평가 시기를 정해 환경성과와 시스템 효과성을 평가한다. 교정·검증된 장비를 쓰고, 환경성과 정보를 내부·외부에 전달하며 결과를 기록한다.",
+      "manual_guidance": [
+        "환경성과 지표(배출 농도, 폐기물량, 에너지 원단위 등)와 측정 주기·기준을 표로 제시하고 「SMS-EP05 환경 모니터링 및 측정 절차서」를 참조하도록 한다",
+        "ISO 9001을 함께 적용하는 통합 매뉴얼에서는 측정 장비의 교정·검증 관리를 7.1 자원 섹션의 모니터링·측정 자원(Q 7.1.5)과 서로 참조하게 한다"
+      ],
+      "required_artifacts": [
+        "환경 모니터링·측정 계획표"
+      ],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "모니터링·측정·분석·평가 결과"
+        }
+      ],
+      "linked_procedures": [
+        "EP05"
+      ],
+      "coverage_keywords": [
+        "일반사항",
+        "모니터링"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.1.2",
+      "title_ko": "준수평가",
+      "title_ko_status": "official",
+      "parent": "9.1",
+      "level": 3,
+      "merge_key": "perf.compliance_evaluation",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:9.1.2",
+      "requirement_summary": "준수의무 이행 여부를 정해진 주기와 방법으로 평가하고, 미흡하면 조치하며, 준수 상태를 계속 파악하고 있도록 한다. 평가 결과는 기록으로 남긴다.",
+      "manual_guidance": [
+        "준수평가 주기, 방법(법규 체크리스트, 측정 결과 대조, 인허가 조건 확인), 평가자를 기술한다",
+        "세부 방법은 「SMS-EP02 준수의무 관리 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [
+        "준수평가 체크리스트"
+      ],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "준수평가 결과"
+        }
+      ],
+      "linked_procedures": [
+        "EP02"
+      ],
+      "coverage_keywords": [
+        "준수평가",
+        "준수 평가"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.2",
+      "title_ko": "내부심사",
+      "title_ko_status": "official",
+      "parent": "9",
+      "level": 2,
+      "merge_key": "perf.internal_audit",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "시스템이 회사와 표준의 요구사항에 맞고 효과적으로 운영되는지 정해진 주기로 내부심사한다. 환경적 중요성, 영향을 주는 변경, 이전 결과를 반영해 심사 프로그램을 세우고, 객관적인 심사원을 선정해 결과를 경영진에 보고하며, 심사 프로그램 자체와 그 실행·심사 결과를 증거로 남긴다.",
+      "manual_guidance": [
+        "연간 심사 주기, 심사원 자격과 독립성, 결과 보고·시정조치 연계를 기술하고 「SMS-CP06 내부심사 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "심사 프로그램, 그 실행과 심사 결과의 증거"
+        }
+      ],
+      "linked_procedures": [
+        "CP06"
+      ],
+      "coverage_keywords": [
+        "내부심사",
+        "내부 심사"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.2.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "official",
+      "parent": "9.2",
+      "level": 3,
+      "merge_key": "perf.internal_audit.general",
+      "phase": 3,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "carried",
+      "carried_from": "iso14001_2015:9.2.1",
+      "requirement_summary": "정해진 주기로 심사해 시스템이 요구사항에 적합하고 효과적으로 실행·유지되는지 확인한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "내부심사"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.2.2",
+      "title_ko": "내부심사 프로그램",
+      "title_ko_status": "official",
+      "parent": "9.2",
+      "level": 3,
+      "merge_key": "perf.internal_audit.programme",
+      "phase": 3,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "carried",
+      "carried_from": "iso14001_2015:9.2.2",
+      "requirement_summary": "빈도, 방법, 책임, 계획, 보고를 포함한 심사 프로그램을 세우고, 심사마다 기준과 범위를 정하며, 결과를 관련 경영진에 보고한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "심사 프로그램"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.3",
+      "title_ko": "경영검토",
+      "title_ko_status": "official",
+      "parent": "9",
+      "level": 2,
+      "merge_key": "perf.management_review",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:9.3",
+      "requirement_summary": "최고경영자는 정해진 주기로 시스템의 적절성·충분성·효과성을 검토한다. 이전 조치, 이슈·준수의무·중대한 환경측면·리스크의 변화, 목표 달성도, 환경성과 정보, 자원, 이해관계자 의견, 개선 기회를 입력으로 삼고, 시스템 변경·자원·사업 방향에 대한 결정을 기록한다.",
+      "manual_guidance": [
+        "경영검토 입력·출력 항목표를 제시하고 「SMS-CP01 경영 계획수립 및 검토 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [
+        "경영검토 입력·출력 항목표"
+      ],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "경영검토 결과"
+        }
+      ],
+      "linked_procedures": [
+        "CP01"
+      ],
+      "coverage_keywords": [
+        "경영검토"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.3.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "provisional",
+      "parent": "9.3",
+      "level": 3,
+      "merge_key": "perf.management_review.general",
+      "phase": 3,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "최고경영자는 정해진 주기로 환경경영시스템이 계속 적절하고 충분하며 효과적인지 검토한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "경영검토"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.3.2",
+      "title_ko": "경영검토 입력사항",
+      "title_ko_status": "provisional",
+      "parent": "9.3",
+      "level": 3,
+      "merge_key": "perf.management_review.inputs",
+      "phase": 3,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "이전 검토 후속 조치, 상황 이슈·이해관계자 요구·준수의무·중대한 환경측면·리스크와 기회의 변화, 환경목표 달성도, 환경성과 정보(부적합·시정조치, 모니터링 결과, 준수평가, 심사 결과 등), 자원 충분성, 이해관계자 의견, 개선 기회를 검토 입력으로 삼는다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "입력"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.3.3",
+      "title_ko": "경영검토 결과",
+      "title_ko_status": "provisional",
+      "parent": "9.3",
+      "level": 3,
+      "merge_key": "perf.management_review.outputs",
+      "phase": 3,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "시스템의 적절성·충분성·효과성에 대한 결론과 개선 기회, 시스템 변경·자원 필요성, 목표 미달 시 조치, 사업 방향에 대한 시사점 등의 결정을 경영검토 결과로 정하고 기록으로 남긴다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "결과",
+        "경영검토"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "10",
+      "title_ko": "개선",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "improvement",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "carried",
+      "carried_from": "iso14001_2015:10",
+      "requirement_summary": "부적합을 시정하고 재발을 막으며 환경성과를 계속 높인다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "개선"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "10.1",
+      "title_ko": "지속적 개선",
+      "title_ko_status": "provisional",
+      "parent": "10",
+      "level": 2,
+      "merge_key": "improvement.continual",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "환경성과 향상을 위해 시스템의 적절성·충분성·효과성을 계속 높인다. 성과 평가(9절)와 부적합 및 시정조치(10.2)의 결과를 고려해 개선 기회를 정하고 필요한 조치를 실행한다.",
+      "manual_guidance": [
+        "개선 기회 발굴 경로(성과 분석, 준수평가, 심사, 경영검토)와 개선 과제 선정·추적 방법, 경영검토 연계를 기술한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP01"
+      ],
+      "coverage_keywords": [
+        "지속적 개선",
+        "개선"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "10.2",
+      "title_ko": "부적합 및 시정조치",
+      "title_ko_status": "official",
+      "parent": "10",
+      "level": 2,
+      "merge_key": "improvement.nonconformity_ca",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso14001_2015:10.2",
+      "requirement_summary": "부적합이 생기면 대응해 관리·시정하고 그로 인한 부정적 환경영향을 완화한다. 원인을 분석해 재발이나 다른 곳 발생 가능성을 평가하고, 필요한 시정조치를 실행해 효과를 검토하며, 필요하면 시스템을 바꾼다.",
+      "manual_guidance": [
+        "부적합 처리-원인분석-시정조치-효과 확인 흐름을 기술하고 「SMS-CP07 시정조치 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "부적합의 성격과 후속 조치"
+        },
+        {
+          "kind": "retain",
+          "name": "시정조치 결과"
+        }
+      ],
+      "linked_procedures": [
+        "CP07"
+      ],
+      "coverage_keywords": [
+        "시정조치"
+      ],
+      "kr_context": []
+    }
+  ],
+  "procedures": [
+    {
+      "id": "CP00",
+      "name": "리스크관리 절차서",
+      "iso_clauses": [
+        "6.1"
+      ],
+      "merge_key": "proc.risk",
+      "process_category": "MGT",
+      "department": "환경안전팀",
+      "input": "내외부 이슈, 이해관계자 요구, 환경측면 평가 결과, 준수의무, 잠재 비상 상황",
+      "output": "리스크 및 기회 평가표, 조치계획, 효과성 평가 결과",
+      "records": "리스크 및 기회 평가표, 조치계획서",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "CP01",
+      "name": "경영 계획수립 및 검토 절차서",
+      "iso_clauses": [
+        "5.1",
+        "9.3"
+      ],
+      "merge_key": "proc.planning_review",
+      "process_category": "MGT",
+      "department": "경영지원팀",
+      "input": "환경방침, 환경목표 실적, 준수평가 결과, 내부심사 결과, 이해관계자 의견",
+      "output": "경영계획, 경영검토 회의록, 개선 지시사항",
+      "records": "경영계획서, 경영검토 회의록",
+      "retention": "3년",
+      "media": "전자문서/회의록"
+    },
+    {
+      "id": "CP02",
+      "name": "조직 및 업무분장 절차서",
+      "iso_clauses": [
+        "5.3"
+      ],
+      "merge_key": "proc.organization",
+      "process_category": "MGT",
+      "department": "경영지원팀",
+      "input": "조직도, 직무기술서, 업무분장 변경 요청, 법정 선임 요건",
+      "output": "조직도, 업무분장표, 권한 위임표",
+      "records": "조직도, 업무분장표, 직무기술서",
+      "retention": "개정 후 3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "CP03",
+      "name": "교육훈련 절차서",
+      "iso_clauses": [
+        "7.2"
+      ],
+      "merge_key": "proc.training",
+      "process_category": "SUP",
+      "department": "인사/교육담당부서",
+      "input": "역량 기준, 중대한 환경측면 관련 교육 필요성, 법정 자격·교육 요구",
+      "output": "연간 교육계획, 교육 결과, 적격성 평가 결과, 인식 교육 기록",
+      "records": "교육계획서, 교육참석부, 역량평가표, 인식교육 기록",
+      "retention": "3년",
+      "media": "전자문서/서명부"
+    },
+    {
+      "id": "CP04",
+      "name": "의사소통 관리 절차서",
+      "iso_clauses": [
+        "7.4"
+      ],
+      "merge_key": "proc.communication",
+      "process_category": "SUP",
+      "department": "환경안전팀",
+      "input": "내부 공지사항, 외부 민원·문의, 준수의무상 보고·공개 요구",
+      "output": "의사소통 계획, 회의록, 공지 기록, 외부 의견 처리 기록",
+      "records": "의사소통 계획표, 회의록, 외부 민원 처리 기록",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "CP05",
+      "name": "문서화된 정보관리 절차서",
+      "iso_clauses": [
+        "7.5"
+      ],
+      "merge_key": "proc.documented_info",
+      "process_category": "SUP",
+      "department": "환경안전팀",
+      "input": "문서 제·개정 요청, 기록 생성 기준, 법정 보존 요구사항",
+      "output": "문서목록, 기록목록, 배포/회수 이력, 보존 기준",
+      "records": "문서관리대장, 기록관리대장, 문서 배포대장",
+      "retention": "최신본 유지 및 폐기 후 3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "CP06",
+      "name": "내부심사 절차서",
+      "iso_clauses": [
+        "9.2"
+      ],
+      "merge_key": "proc.internal_audit",
+      "process_category": "IMP",
+      "department": "환경안전팀",
+      "input": "연간 내부심사 계획, ISO 14001 요구사항, 이전 심사 결과",
+      "output": "내부심사 보고서, 부적합 보고서, 시정조치 요구",
+      "records": "내부심사 계획서, 체크리스트, 심사보고서",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "CP07",
+      "name": "시정조치 절차서",
+      "iso_clauses": [
+        "10.2"
+      ],
+      "merge_key": "proc.corrective_action",
+      "process_category": "IMP",
+      "department": "환경안전팀/해당부서",
+      "input": "부적합, 환경사고, 외부 민원, 내부심사 지적, 준수평가 미흡",
+      "output": "시정조치 계획, 원인분석, 조치 결과, 효과성 확인",
+      "records": "시정조치 요구서, 원인분석서, 효과성 확인 기록",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "EP01",
+      "name": "환경측면·영향 평가 절차서",
+      "iso_clauses": [
+        "6.1.2"
+      ],
+      "merge_key": "proc.env_aspects",
+      "process_category": "MGT",
+      "department": "환경안전팀",
+      "input": "공정 흐름도, 원·부자재와 에너지·용수 사용 현황, 배출시설·폐기물 현황, 변경 계획",
+      "output": "환경측면·영향 목록, 중대성 평가 결과, 중대한 환경측면 목록",
+      "records": "환경측면 파악 및 평가표, 중대한 환경측면 목록",
+      "retention": "개정 후 3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "EP02",
+      "name": "준수의무 관리 절차서",
+      "iso_clauses": [
+        "6.1.3",
+        "9.1.2"
+      ],
+      "merge_key": "proc.compliance",
+      "process_category": "MGT",
+      "department": "환경안전팀",
+      "input": "법령 제·개정 정보, 인허가 조건, 이해관계자 협약, 측정 결과",
+      "output": "준수의무 등록부, 준수평가 결과, 미흡 사항 조치계획",
+      "records": "준수의무 등록부, 준수평가표",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "EP03",
+      "name": "비상사태 대비·대응 절차서",
+      "iso_clauses": [
+        "8.2"
+      ],
+      "merge_key": "proc.emergency",
+      "process_category": "CORE",
+      "department": "환경안전팀",
+      "input": "잠재 비상 상황 목록, 방제 자재·설비 현황, 비상연락망",
+      "output": "비상대응 계획, 훈련 결과, 사후 검토 결과",
+      "records": "비상대응 계획서, 훈련 결과 보고서, 사고 보고서",
+      "retention": "3년",
+      "media": "전자문서/훈련사진"
+    },
+    {
+      "id": "EP04",
+      "name": "환경 운용관리 절차서",
+      "iso_clauses": [
+        "8.1"
+      ],
+      "merge_key": "proc.env_operation",
+      "process_category": "CORE",
+      "department": "환경안전팀/생산부서",
+      "input": "중대한 환경측면, 운용 기준, 오염방지시설 운전 조건, 구매·외주 환경 요구",
+      "output": "운용 점검 결과, 방지시설 운영 기록, 폐기물·화학물질 관리 실적",
+      "records": "방지시설 운영일지, 폐기물 관리대장, 화학물질 취급 기록",
+      "retention": "3년 또는 법정 보존기간",
+      "media": "전자문서/현장기록"
+    },
+    {
+      "id": "EP05",
+      "name": "환경 모니터링 및 측정 절차서",
+      "iso_clauses": [
+        "9.1.1"
+      ],
+      "merge_key": "proc.env_monitoring",
+      "process_category": "IMP",
+      "department": "환경안전팀",
+      "input": "모니터링 항목·주기, 측정장비 목록, 법정 측정 요구",
+      "output": "측정 결과, 환경성과 분석 결과, 장비 교정 결과",
+      "records": "자가측정 기록, 에너지·용수 사용 실적, 측정장비 교정 기록",
+      "retention": "3년 또는 법정 보존기간",
+      "media": "전자문서"
+    }
+  ]
+}
