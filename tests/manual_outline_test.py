@@ -33,6 +33,25 @@ UPDATE_GOLDEN = os.environ.get('UPDATE_GOLDEN', '').strip().lower() in ('1', 'tr
 
 LOADER = sl.StandardsLoader()
 
+# AC-10 기대값: 개편 전 `iso_manual_service.SYSTEM_PROMPT_FULL` 의 '### 본문 (ISO 조항 순서)' 목차를
+# (번호, 제목)으로 옮긴 것 (T4 에서 고정 프롬프트를 지우면서 테스트 상수로 이동, 커밋 84e43bd 기준).
+# 파싱 규칙: 절 줄 '**4. 조직 상황 (Context ...)**' 의 한글 제목, 조항 줄에서 ' — '/' → ' 앞 부분,
+# 7.1 처럼 '/' 로 나열한 괄호 설명은 제목에서 뺐다. 9001:2015 단일 매뉴얼 목차는 이것과 같아야 한다.
+LEGACY_9001_2015_TOC = (
+    ('4', '조직 상황'), ('4.1', '조직과 조직 상황의 이해'), ('4.2', '이해관계자의 니즈와 기대 이해'),
+    ('4.3', '경영시스템의 적용범위 결정'), ('4.4', '경영시스템과 그 프로세스'),
+    ('5', '리더십'), ('5.1', '리더십과 의지표명'), ('5.2', '방침'), ('5.3', '조직의 역할, 책임 및 권한'),
+    ('6', '기획'), ('6.1', '리스크와 기회를 다루는 조치'), ('6.2', '목표 및 달성 기획'), ('6.3', '변경의 기획'),
+    ('7', '지원'), ('7.1', '자원'), ('7.2', '역량 (적격성)'), ('7.3', '인식'), ('7.4', '의사소통'),
+    ('7.5', '문서화된 정보'),
+    ('8', '운용'), ('8.1', '운용 기획 및 관리'), ('8.2', '제품 및 서비스 요구사항'),
+    ('8.3', '제품 및 서비스의 설계와 개발'), ('8.4', '외부에서 제공되는 프로세스, 제품 및 서비스의 관리'),
+    ('8.5', '생산 및 서비스 제공'), ('8.6', '제품 및 서비스의 불출(Release)'), ('8.7', '부적합 출력(Output)의 관리'),
+    ('9', '성과 평가'), ('9.1', '모니터링, 측정, 분석 및 평가'), ('9.2', '내부심사'),
+    ('9.3', '경영검토(Management Review)'),
+    ('10', '개선'), ('10.1', '일반사항'), ('10.2', '부적합 및 시정조치'), ('10.3', '지속적 개선'),
+)
+
 
 def sel(*codes, loader=None):
     return (loader or LOADER).normalize_target_isos(list(codes), enforce_exposure=False)
@@ -245,27 +264,10 @@ class SingleOutlineTest(unittest.TestCase):
         return [s.manual_no for s in o.sections]
 
     def test_ac10_9001_2015_matches_current_prompt_toc(self):
-        """AC-10: 9001:2015 단일 outline 의 절·조항(번호·제목) = 현행 SYSTEM_PROMPT_FULL 목차."""
-        with open(os.path.join(REPO_ROOT, 'api', 'services', 'iso_manual_service.py'), encoding='utf-8') as fh:
-            src = fh.read()
-        body = src.split('### 본문 (ISO 조항 순서)', 1)[1].split('### 부록', 1)[0]
-        expected = []
-        for line in body.splitlines():
-            m = re.match(r'^\*\*([0-9]+)\. (.+?) \([A-Za-z ]+\)\*\*$', line.strip())
-            if m:
-                expected.append((m.group(1), m.group(2)))
-                continue
-            m = re.match(r'^([0-9]+\.[0-9]+) (.+)$', line.strip())
-            if m:
-                title = re.split(r' — | → ', m.group(2))[0].strip()
-                # 7.1 "자원 (인적/물적/…)" 처럼 '/' 로 나열한 괄호는 작성 범위 설명이라 제목에서 뺀다.
-                title = re.sub(r' \([^()]*/[^()]*\)$', '', title)
-                expected.append((m.group(1), title))
-        # 파싱 자체를 고정: 현행 목차는 7개 절 + 28개 조항
-        self.assertEqual(35, len(expected))
-        self.assertEqual(('7.1', '자원'), expected[[n for n, _ in expected].index('7.1')])
+        """AC-10: 9001:2015 단일 outline 의 절·조항(번호·제목) = 개편 전 SYSTEM_PROMPT_FULL 목차."""
+        self.assertEqual(35, len(LEGACY_9001_2015_TOC))     # 7개 절 + 28개 조항
         o = outline('ISO 9001:2015')
-        self.assertEqual(expected, [(s.manual_no, s.title) for s in o.sections])
+        self.assertEqual(list(LEGACY_9001_2015_TOC), [(s.manual_no, s.title) for s in o.sections])
 
     def test_9001_2015_all_subclauses_folded(self):
         o = outline('ISO 9001:2015')
