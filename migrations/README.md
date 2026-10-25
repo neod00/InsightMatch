@@ -20,6 +20,58 @@
 
 ---
 
+## 2026-10-25 — AI 매뉴얼 생성기 T6 재시도: `manual_generation.retry_count` 추가
+
+⚠️ **기존 테이블(`manual_generation`)에 컬럼을 추가한다.** `create_all()` 은 기존
+테이블에 컬럼을 추가하지 못하므로 **배포 전에 반드시 아래 ALTER 를 먼저 실행**해야
+한다. 빠뜨리면 `ManualGeneration` 을 조회하는 모든 매뉴얼 API
+(`/api/iso-manual/session`, `/api/generate-iso`, `/api/export-iso`,
+`/api/iso-manual/<id>/resume`)가 500 으로 실패한다 (전례 있음).
+
+> 이 SQL 은 문서화만 한 상태이며 **운영 DB 에는 아직 적용하지 않았다.**
+> 실행은 별도 승인(DB 변경) 후 Supabase SQL Editor 에서 한다.
+
+스키마 변경은 **컬럼 1개뿐**이다. 신규 테이블이 없으므로 RLS 작업은 필요 없다.
+
+```sql
+-- ① 기존 테이블 컬럼 추가 — create_all 이 못 하는 부분. 배포 전 필수.
+--    매뉴얼 1건당 '실제 재생성'(LLM 재호출) 횟수. 상한 MAX_MANUAL_RETRIES=3 은
+--    api/index.py 에 있고, 무료 1단계 재시도도 같은 상한에 합산된다.
+--    저장본 재전송(LLM 미호출)과 처음 시도하는 phase 의 토큰 재발급은 세지 않는다.
+--    NOT NULL DEFAULT 0 이라 기존 행은 0 으로 채워지고, 상한 비교(retry_count < 3)에서
+--    NULL 이 섞여 재시도가 영구 차단되는 일이 없다.
+ALTER TABLE public.manual_generation
+    ADD COLUMN IF NOT EXISTS retry_count INTEGER NOT NULL DEFAULT 0;
+```
+
+적용 확인:
+
+```sql
+SELECT column_name, data_type, is_nullable, column_default
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = 'manual_generation'
+  AND column_name = 'retry_count';
+-- 기대: integer | NO | 0
+```
+
+롤백 (코드를 되돌릴 때만; 컬럼이 남아 있어도 구 코드는 영향받지 않는다):
+
+```sql
+ALTER TABLE public.manual_generation DROP COLUMN IF EXISTS retry_count;
+```
+
+### 운영 메모 — 재시도 정책 (사용자 확정)
+
+- 상한: 매뉴얼 1건당 실제 재생성 **3회 합산** (phase 별 아님, 1단계 포함).
+- 재시도 가능 기간: 매뉴얼 생성 후 **24시간** (`MANUAL_RETRY_WINDOW_HOURS`).
+- `generating_phase_N` 상태가 **90초** 넘게 갱신되지 않으면 중단된 것으로 보고
+  재시도를 허용한다 (`MANUAL_GENERATING_STALE_SECONDS`).
+- 재시도는 새 `manual_generation` 행을 만들지 않으므로 하루 한도
+  (`DAILY_MANUAL_LIMIT`)에 포함되지 않는다.
+
+---
+
 ## 2026-08-22 (4) — L1-C2 리뷰 루프: `review` 신규
 
 ✅ **이번 배치는 기존 테이블을 건드리지 않는다.** 스키마 변경은 **`review`

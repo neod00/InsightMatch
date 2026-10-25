@@ -479,6 +479,8 @@ class ManualGeneration(db.Model):
     phase2_markdown = db.Column(db.Text)
     phase3_markdown = db.Column(db.Text)
     status = db.Column(db.String(30), default='created')
+    # 실제 재생성(LLM 재호출) 횟수. 상한은 index.py 의 MAX_MANUAL_RETRIES. 마이그레이션: migrations/README.md
+    retry_count = db.Column(db.Integer, nullable=False, default=0, server_default='0')
     created_at = db.Column(db.DateTime, default=utc_now)
     updated_at = db.Column(db.DateTime, default=utc_now)
 

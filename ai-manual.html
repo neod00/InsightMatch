@@ -693,6 +693,8 @@
         let currentPhase = 1;  // 현재 생성 단계 (1 or 2)
         let currentManualId = null;
         let currentStreamToken = null;
+        let phaseBaseMarkdown = '';  // 현재 phase 시작 직전까지의 완료분 (실패한 phase 의 부분 출력을 버릴 때 복원)
+        let isResuming = false;  // resume 요청 중 (중복 클릭 방지)
         let phaseGenOk = false;  // 현재 phase가 [PHASE_COMPLETE] 성공 신호를 받았는가
 
         function renderSafeMarkdown(markdown) {
@@ -840,8 +842,13 @@
             isGenerating = true;
             if (!appendMode) {
                 rawMarkdown = '';
+                phaseBaseMarkdown = '';
                 startTime = Date.now();
                 currentPhase = 1;
+            } else {
+                // 완료분을 기억해 두고(실패 시 복원), phase 이음은 서버 저장본과 같이 '\n\n'으로 통일
+                phaseBaseMarkdown = rawMarkdown;
+                if (rawMarkdown && !rawMarkdown.endsWith('\n\n')) rawMarkdown += '\n\n';
             }
 
             // Phase indicator UI
@@ -935,6 +942,8 @@
         // '미완성 초안'으로 명확히 표시하고, 다음 phase 자동 전이나 다운로드는 막는다.
         function handleGenerationError(message) {
             if (renderTimer) { clearTimeout(renderTimer); renderTimer = null; }
+            // 실패한 phase 의 부분 출력은 버리고, 앞서 완료된 phase 만 남긴다 (재시도 시 그 phase 부터 다시 생성)
+            rawMarkdown = phaseBaseMarkdown;
             const viewer = document.getElementById('md-viewer');
             const hasPartial = !!(rawMarkdown && rawMarkdown.length > 0);
 
@@ -957,15 +966,61 @@
             document.getElementById('download-group').classList.remove('visible');
             const phaseText = document.getElementById('phase-text');
             if (phaseText) phaseText.textContent = '중단됨';
-            isFullVersion = false;  // 잘린 전체버전이 이어서 트리거되지 않도록 해제
+            // isFullVersion 은 그대로 둔다: 유료 phase(2·3) 재시도 뒤에도 자동 전이를 이어가야 한다.
+            // (오류 시에는 finishGeneration 이 호출되지 않으므로 잘린 phase 로 자동 전이되지는 않는다)
             resetButton();
         }
 
         // ========== 다시 생성 ==========
-        function retryGeneration() {
-            if (isGenerating) return;
+        // 같은 manual_id 로 resume 을 호출해 실패한 phase 부터 이어서 생성한다 (새 세션을 만들지 않으므로
+        // 하루 한도에 걸리지 않는다). 세션이 없던 경우(세션 생성 전 실패)만 기존 폼 제출 경로를 쓴다.
+        async function retryGeneration() {
+            if (isGenerating || isResuming) return;
             const btn = document.getElementById('btn-generate');
-            if (btn) btn.click();  // 폼 제출 경로 → 새 세션으로 처음부터 재생성
+            const token = localStorage.getItem('token');
+            if (!currentManualId || !token || !lastFormParams) {
+                if (btn) btn.click();  // 폼 제출 경로 → 새 세션으로 처음부터 생성
+                return;
+            }
+
+            isResuming = true;
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/iso-manual/${encodeURIComponent(currentManualId)}/resume`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    if (data.code === 'RETRY_LIMIT_EXCEEDED') {
+                        alert('재생성은 매뉴얼 1건당 최대 3회까지 가능합니다. 더 이상 다시 생성할 수 없습니다.');
+                    } else if (data.code === 'RETRY_WINDOW_EXPIRED') {
+                        alert('다시 생성 가능 기간(생성 후 24시간)이 지났습니다.');
+                    } else {
+                        alert(data.message || data.error || '다시 생성을 시작할 수 없습니다. 잠시 후 다시 시도해주세요.');
+                    }
+                    return;
+                }
+
+                // 새 stream_token 으로 교체 (이전 토큰은 무효화됨)
+                currentStreamToken = data.stream_token;
+                const params = new URLSearchParams(lastFormParams);
+                params.set('manual_id', currentManualId);
+                params.set('stream_token', currentStreamToken);
+                params.delete('continue_from');
+                lastFormParams = new URLSearchParams(params);
+
+                if (data.next_phase >= 2) {
+                    currentPhase = data.next_phase;
+                    params.set('continue_from', String(data.continue_from));
+                    startGeneration(params, true);   // 앞서 완료된 phase 뒤에 이어붙인다
+                } else {
+                    startGeneration(params, false);  // 1단계부터
+                }
+            } catch (err) {
+                alert(`다시 생성 준비 실패: ${err.message}`);
+            } finally {
+                isResuming = false;
+            }
         }
 
         // ========== Render Markdown ==========

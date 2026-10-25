@@ -193,6 +193,9 @@ ALLOWED_MANUAL_ISSUES = {
 MANUAL_TOKEN_TTL_MINUTES = 30
 MAX_MANUAL_MARKDOWN_CHARS = 250000
 DAILY_MANUAL_LIMIT = 1  # 기업 사용자당 하루 매뉴얼 생성 세션 상한 (AI API 비용 남용 방지). 관리자는 면제.
+MAX_MANUAL_RETRIES = 3  # 매뉴얼 1건당 실제 재생성(LLM 재호출) 상한. phase 합산, 무료 1단계 재시도 포함. 저장본 재전송은 세지 않는다.
+MANUAL_RETRY_WINDOW_HOURS = 24  # 재시도 가능 기간 (매뉴얼 생성 후)
+MANUAL_GENERATING_STALE_SECONDS = 90  # generating_phase_N 상태가 이 시간 넘게 갱신되지 않으면 중단된 것으로 본다 (Vercel 강제 종료 대비)
 
 
 def require_company_user():
@@ -690,6 +693,79 @@ def get_manual_generation_from_stream_token(manual_id, stream_token):
     if manual.token_hash != _manual_token_hash(stream_token):
         return None, '매뉴얼 생성 세션이 유효하지 않습니다.'
     return manual, None
+
+
+_GENERATING_STATUS_RE = re.compile(r'^generating_phase_(\d+)$')
+_PHASE_COMPLETE_RE = re.compile(r'^\[PHASE_COMPLETE:\d+\]$')
+
+
+def _as_utc(dt):
+    """DB 에서 읽은 naive datetime 은 UTC 로 간주한다 (utc_now 로 저장됨)."""
+    if dt is not None and dt.tzinfo is None:
+        return dt.replace(tzinfo=datetime.timezone.utc)
+    return dt
+
+
+def _is_full_manual_entitled(manual):
+    """phase 2·3(전체 버전) 생성 권한 hook.
+
+    1단계(기반)에서는 항상 True — 현행 '테스트 모드'(결제 없이 잠금 해제)와 같은 동작이다.
+    4단계에서 결제 확인으로 교체한다. /api/generate-iso 와 resume 가 같은 함수를 호출한다.
+    """
+    return True
+
+
+def _extract_stream_text(chunk):
+    """SSE 청크에서 서버 저장용 내용 토큰을 꺼낸다 (제어 신호·비내용 청크는 None).
+
+    - 'data: ' 접두어(6자)와 SSE 종결자(줄바꿈 2개)만 제거하고 공백은 보존한다.
+      LLM 토큰은 앞에 공백이 붙어 오므로 strip() 하면 띄어쓰기가 사라진다.
+    - 제어 신호는 [PHASE_COMPLETE:N], [ERROR]..., [DONE] 만이다.
+      그 밖에 '[' 로 시작하는 토큰(마크다운 링크·체크박스·Mermaid 노드 라벨)은 내용이다.
+    - 이스케이프된 줄바꿈(백슬래시+n 두 글자)은 실제 줄바꿈으로 복원한다.
+    """
+    if not chunk.startswith('data: '):
+        return None
+    payload = chunk[6:]
+    if payload.endswith('\n\n'):
+        payload = payload[:-2]
+    if payload == '[DONE]' or payload.startswith('[ERROR]') or _PHASE_COMPLETE_RE.match(payload):
+        return None
+    return payload.replace('\\n', '\n')
+
+
+def _sse_error_response(message):
+    """LLM 호출·상태 변경 없이 SSE [ERROR] 로 끝나는 응답."""
+    def error_stream():
+        yield f"data: [ERROR] {message}\n\n"
+        yield "data: [DONE]\n\n"
+    return Response(error_stream(), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*'})
+
+
+def _manual_generating_state(manual):
+    """(진행 중 여부, 중단 여부) — status 가 generating_phase_N 일 때 updated_at 으로 판정."""
+    if not _GENERATING_STATUS_RE.match(manual.status or ''):
+        return False, False
+    updated_at = _as_utc(manual.updated_at or manual.created_at)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    age = (now - updated_at).total_seconds() if updated_at else float('inf')
+    return True, age > MANUAL_GENERATING_STALE_SECONDS
+
+
+def _mark_stale_generation_aborted(manual):
+    """90초 넘게 갱신 없는 generating_phase_N 을 phase_N_aborted 로 정리한다."""
+    match = _GENERATING_STATUS_RE.match(manual.status or '')
+    if not match:
+        return
+    manual.status = f'phase_{match.group(1)}_aborted'
+    manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
+    db.session.commit()
+
+
+def _manual_completed_phases(manual):
+    return [n for n, md in ((1, manual.phase1_markdown), (2, manual.phase2_markdown), (3, manual.phase3_markdown)) if md]
+
 
 def require_admin_request():
     auth_header = request.headers.get('Authorization', '')
@@ -1931,6 +2007,90 @@ def create_iso_manual_session():
     }), 201
 
 
+@app.route('/api/iso-manual/<manual_id>/resume', methods=['POST'])
+@token_required
+def resume_iso_manual(manual_id):
+    """같은 manual_id 로 실패·중단된 phase 부터 다시 생성할 수 있게 새 stream_token 을 발급한다.
+
+    - 새 ManualGeneration 행을 만들지 않으므로 하루 한도(DAILY_MANUAL_LIMIT)에 포함되지 않는다.
+    - 완료된 phase 는 completed_phases 로 알려준다. 그 phase 는 /api/generate-iso 의 기존
+      재전송 경로(LLM 미호출)로 받으면 되고, 상한에 세지 않는다.
+    - 실제 재생성(직전 시도가 failed/aborted/중단인 phase 를 다시 돌리는 경우)만
+      retry_count 를 올리고 MAX_MANUAL_RETRIES 를 적용한다. 처음 시도하는 phase 는 세지 않는다.
+    """
+    role_error = require_manual_user()
+    if role_error:
+        return role_error
+
+    manual = ManualGeneration.query.get(manual_id)
+    # 존재 여부를 숨기기 위해 남의 매뉴얼도 404 (관리자는 예외)
+    if not manual or (manual.user_id != g.current_user.id and g.current_user.role != 'admin'):
+        return jsonify({'message': '매뉴얼 생성 이력을 찾을 수 없습니다.', 'code': 'NOT_FOUND'}), 404
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    created_at = _as_utc(manual.created_at)
+    if created_at and now - created_at > datetime.timedelta(hours=MANUAL_RETRY_WINDOW_HOURS):
+        return jsonify({
+            'message': f'재시도 가능 기간({MANUAL_RETRY_WINDOW_HOURS}시간)이 지났습니다. 새로 생성해주세요.',
+            'code': 'RETRY_WINDOW_EXPIRED',
+        }), 410
+
+    completed_phases = _manual_completed_phases(manual)
+    next_phase = next((n for n in (1, 2, 3) if n not in completed_phases), None)
+    if next_phase is None:
+        return jsonify({
+            'message': '이미 모든 단계가 생성되었습니다.',
+            'code': 'MANUAL_ALREADY_COMPLETE',
+            'completed_phases': completed_phases,
+        }), 409
+
+    if next_phase >= 2 and not _is_full_manual_entitled(manual):
+        return jsonify({'message': '전체 버전 이용 권한이 없습니다.', 'code': 'ENTITLEMENT_REQUIRED'}), 403
+
+    # 동시 실행 방지·중단 상태 정리 (FR-42)
+    is_generating, is_stale = _manual_generating_state(manual)
+    if is_generating:
+        if not is_stale:
+            return jsonify({
+                'message': '이미 생성이 진행 중입니다. 잠시 후 다시 시도해주세요.',
+                'code': 'GENERATION_IN_PROGRESS',
+            }), 409
+        _mark_stale_generation_aborted(manual)
+
+    # 직전 시도가 이 phase 에서 실패·중단됐다면 이번 요청은 '실제 재생성'이다.
+    is_retry = (manual.status or '') in (f'phase_{next_phase}_failed', f'phase_{next_phase}_aborted')
+    if is_retry:
+        # 조회-증가 경합(동시 resume)으로 상한을 넘지 않도록 조건부 UPDATE 로 원자적으로 올린다.
+        updated = ManualGeneration.query.filter(
+            ManualGeneration.id == manual.id,
+            ManualGeneration.retry_count < MAX_MANUAL_RETRIES,
+        ).update({ManualGeneration.retry_count: ManualGeneration.retry_count + 1}, synchronize_session=False)
+        if not updated:
+            db.session.rollback()
+            return jsonify({
+                'message': f'재생성은 매뉴얼 1건당 최대 {MAX_MANUAL_RETRIES}회까지 가능합니다.',
+                'code': 'RETRY_LIMIT_EXCEEDED',
+            }), 429
+
+    raw_token = secrets.token_urlsafe(32)
+    manual.token_hash = _manual_token_hash(raw_token)
+    manual.token_expires_at = now + datetime.timedelta(minutes=MANUAL_TOKEN_TTL_MINUTES)
+    db.session.commit()
+    db.session.refresh(manual)
+
+    return jsonify({
+        'manual_id': manual.id,
+        'stream_token': raw_token,
+        'expires_in_seconds': MANUAL_TOKEN_TTL_MINUTES * 60,
+        'next_phase': next_phase,
+        'continue_from': {1: None, 2: 7, 3: 9}[next_phase],
+        'completed_phases': completed_phases,
+        'is_retry': is_retry,
+        'retry_count': manual.retry_count or 0,
+        'retries_remaining': max(0, MAX_MANUAL_RETRIES - (manual.retry_count or 0)),
+    }), 200
+
+
 # --- ISO Manual Generation SSE Endpoint ---
 @app.route('/api/generate-iso', methods=['GET'])
 def generate_iso_manual():
@@ -1967,6 +2127,10 @@ def generate_iso_manual():
                 yield "data: [DONE]\n\n"
             return Response(unsupported_phase_error(), mimetype='text/event-stream',
                            headers={'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*'})
+        # 앞 단계 검증(FR-47): 7절 이어쓰기는 1단계, 9절 이어쓰기는 1·2단계 저장본이 있어야 한다.
+        # 없으면 LLM 호출·상태 변경 없이 SSE 에러로 끝낸다.
+        if not manual.phase1_markdown or (continue_from_int == 9 and not manual.phase2_markdown):
+            return _sse_error_response('이전 단계가 완료되지 않았습니다.')
         form_data['continue_from'] = continue_from_int
         form_data['max_sections'] = None
         if continue_from_int == 7:
@@ -1979,6 +2143,10 @@ def generate_iso_manual():
         phase = 3 if continue_from_int >= 9 else 2
     else:
         form_data['max_sections'] = 5
+
+    # 전체 버전(2·3단계) 권한 hook — 1단계(기반)에서는 항상 허용 (현행 동작 유지)
+    if phase >= 2 and not _is_full_manual_entitled(manual):
+        return _sse_error_response('전체 버전 이용 권한이 없습니다.')
 
     # 비용 가드: 이미 완료된 phase는 LLM 재호출 없이 저장본을 그대로 재전송한다.
     # (새로고침·토큰 재사용으로 같은 phase를 반복 생성해 비용이 새는 것을 차단)
@@ -2004,6 +2172,14 @@ def generate_iso_manual():
             }
         )
 
+    # 동시 실행 방지·중단 상태 정리(FR-42): 90초 이내에 갱신된 generating_phase_N 이면 다른
+    # 요청이 생성 중이다. 90초 넘게 갱신이 없으면 중단된 것으로 보고 aborted 로 정리한 뒤 진행한다.
+    is_generating, is_stale = _manual_generating_state(manual)
+    if is_generating:
+        if not is_stale:
+            return _sse_error_response('이미 생성이 진행 중입니다. 잠시 후 다시 시도해주세요.')
+        _mark_stale_generation_aborted(manual)
+
     def event_stream():
         generated_parts = []
         finalized = False  # 성공/실패 상태를 이미 확정·커밋했는가
@@ -2016,8 +2192,9 @@ def generate_iso_manual():
             if finalized:
                 return
             if success:
-                text = ''.join(generated_parts).strip()
-                if text:
+                # 저장본은 토큰을 그대로 이은 문자열이다(공백 보존). strip 은 '비었는가' 판정에만 쓴다.
+                text = ''.join(generated_parts)
+                if text.strip():
                     if phase == 1:
                         manual.phase1_markdown = text
                     elif phase == 2:
@@ -2039,16 +2216,18 @@ def generate_iso_manual():
 
         try:
             for chunk in generate_iso_manual_stream(form_data):
-                if chunk.startswith('data: [PHASE_COMPLETE'):
+                if chunk.startswith('data: ') and _PHASE_COMPLETE_RE.match(chunk[6:].rstrip('\n')):
                     # 서버리스(Vercel)에서는 스트림 종료 후(post-loop) 코드가
                     # 실행되지 않을 수 있으므로, 성공 신호를 받는 즉시
                     # (스트림이 살아있을 때) 저장을 확정한다.
                     _finalize(success=True)
                 elif chunk.startswith('data: [ERROR]'):
                     _finalize(success=False)
-                elif chunk.startswith('data: ') and not chunk.startswith('data: ['):
-                    text = chunk[6:].strip()
-                    generated_parts.append(text.replace('\\n', '\n'))
+                else:
+                    # 내용 토큰: 공백 보존, 제어 신호([DONE] 등)와 '[' 로 시작하는 내용 구분 (FR-44)
+                    text = _extract_stream_text(chunk)
+                    if text is not None:
+                        generated_parts.append(text)
                 yield chunk
 
             # 성공/실패 신호 없이 끝났으면(비정상 종료) 실패로 마무리
