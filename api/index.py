@@ -27,6 +27,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, CronRun, ErrorLog, Inquiry, Review, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry, parse_text_or_json_list
 from services import MatchingService, ProposalService, EmailService
 from services.iso_manual_service import generate_iso_manual_stream
+from services import standards_loader as manual_standards
+from services import manual_outline as manual_outline_engine
 
 # Load environment variables
 # Load from project root directory
@@ -179,7 +181,9 @@ def token_optional(f):
 # 'admin'은 절대 포함하지 않는다 — 관리자 계정은 DB에서 수동 부여만 허용.
 ALLOWED_SIGNUP_ROLES = {'company', 'consultant'}
 
-ALLOWED_MANUAL_ISO_STANDARDS = {'ISO 9001:2015', 'ISO 14001:2015', 'ISO 45001:2018'}
+# 허용 규격(edition 포함)은 규격 로더 레지스트리에서 파생한다 (하드코딩 사본 없음, FR-71·FR-82).
+# 실제 입력 검증은 manual_standards.resolve_manual_standards 가 하며(노출 게이트 포함), 이 값은 참조용이다.
+ALLOWED_MANUAL_ISO_STANDARDS = frozenset(manual_standards.allowed_standard_codes())
 ALLOWED_MANUAL_ISSUES = {
     'quality_defect',
     'customer_complaint',
@@ -622,8 +626,29 @@ def _clean_text(value, max_length, required=False):
     return text, None
 
 
+class _ManualFormErrors(dict):
+    """필드별 오류 메시지({field: message}, 기존 응답 형식)에 오류 코드({field: code})를 덧붙인 dict."""
+
+    def __init__(self):
+        super().__init__()
+        self.codes = {}
+
+
+def _resolve_manual_selections(data):
+    """요청 본문에서 규격 선택을 해석한다. `target_isos`(배열) 우선, 없으면 `target_iso`(하위호환),
+    둘 다 없으면 현행 기본값(ISO 9001:2015). 노출 게이트가 닫힌 edition 은 거부한다 (FR-71·FR-81)."""
+    target_isos = data.get('target_isos')
+    target_iso = data.get('target_iso')
+    if isinstance(target_iso, str) and not target_iso.strip():
+        target_iso = None
+    if target_isos is None and target_iso is None:
+        target_iso = 'ISO 9001:2015'
+    return manual_standards.resolve_manual_standards(
+        target_isos=target_isos, target_iso=target_iso, enforce_exposure=True)
+
+
 def validate_manual_form_data(data):
-    errors = {}
+    errors = _ManualFormErrors()
     company_name, err = _clean_text(data.get('company_name'), 100, True)
     if err:
         errors['company_name'] = err
@@ -640,9 +665,17 @@ def validate_manual_form_data(data):
     if err:
         errors['custom_issue'] = err
 
-    target_iso = (data.get('target_iso') or 'ISO 9001:2015').strip()
-    if target_iso not in ALLOWED_MANUAL_ISO_STANDARDS:
-        errors['target_iso'] = '지원하지 않는 ISO 규격입니다.'
+    selections = None
+    try:
+        selections = _resolve_manual_selections(data)
+    except manual_standards.EditionSelectionError as exc:
+        field = exc.field if exc.field in ('target_isos', 'target_iso') else 'target_isos'
+        errors[field] = str(exc)[:300]
+        errors.codes[field] = exc.code
+    except manual_standards.StandardsDataError as exc:
+        print(f"[ISO Manual] standards unavailable while validating session: {exc}")
+        errors['target_isos'] = '매뉴얼 기준 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'
+        errors.codes['target_isos'] = 'STANDARDS_UNAVAILABLE'
 
     reasons = data.get('reasons') or []
     if not isinstance(reasons, list):
@@ -669,7 +702,10 @@ def validate_manual_form_data(data):
         'industry': industry,
         'main_product': main_product,
         'employees': employees,
-        'target_iso': target_iso,
+        # edition 이 확정된 정식 문자열을 저장한다 (생성 시 기본 edition 이 다시 선택되지 않게 함, T4 계약).
+        'target_isos': [sel.standard_code for sel in selections],
+        # 표시용·하위호환 (예: "ISO 9001:2026 + ISO 45001:2018")
+        'target_iso': manual_standards.format_target_iso(selections),
         'reasons': reasons,
         'issues': clean_issues,
         'custom_issue': custom_issue,
@@ -1961,6 +1997,50 @@ def withdraw_account():
 #   api/services/advanced_diagnostic_service.py, data/risk_dbs/, services/__init__.py export
 
 
+@app.route('/api/iso-manual/options', methods=['GET'])
+@token_required
+def get_iso_manual_options():
+    """규격별 edition 선택지·기본값·노출 여부·전환 일정 (읽기 전용, FR-63·FR-75).
+
+    내부 파일 경로·데이터 검증 경고·게이트 사유는 응답에 넣지 않는다.
+    """
+    role_error = require_manual_user()
+    if role_error:
+        return role_error
+    try:
+        raw_options = manual_standards.get_edition_options()
+        info = manual_standards.get_edition_info()
+    except Exception as exc:
+        print(f"[ISO Manual] options unavailable: {exc!r}")
+        return jsonify({'message': '규격 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.',
+                        'code': 'STANDARDS_UNAVAILABLE'}), 503
+
+    standards = []
+    for item in raw_options:
+        standards.append({
+            'standard_key': item['standard_key'],
+            'display': item['display'],
+            'number': item['number'],
+            'tag': item['tag'],
+            'default_edition': item['default_edition'],
+            'editions': [{
+                'edition': e['edition'],
+                'standard_code': e['standard_code'],
+                'published_at': e.get('published_at'),
+                'exposed': bool(e['exposed']),
+                'is_default': bool(e['is_default']),
+            } for e in item['editions']],
+            'schedule': item.get('schedule'),
+        })
+    return jsonify({
+        'standards': standards,
+        'max_standards': manual_standards.MAX_SELECTED_STANDARDS,
+        'schedule_labels': info.get('schedule_labels') or {},
+        'schedule_source': info.get('source'),
+        'schedule_confirmed_at': info.get('confirmed_at'),
+    }), 200
+
+
 @app.route('/api/iso-manual/session', methods=['POST'])
 @token_required
 def create_iso_manual_session():
@@ -1969,9 +2049,12 @@ def create_iso_manual_session():
     if role_error:
         return role_error
 
-    form_data, errors = validate_manual_form_data(request.json or {})
+    form_data, errors = validate_manual_form_data(request.get_json(silent=True) or {})
     if errors:
-        return jsonify({'message': '입력값을 확인해주세요.', 'errors': errors}), 400
+        body = {'message': '입력값을 확인해주세요.', 'errors': dict(errors)}
+        if getattr(errors, 'codes', None):
+            body['error_codes'] = dict(errors.codes)
+        return jsonify(body), 400
 
     # 비용 남용 방지: 기업 사용자당 하루 생성 세션 수 제한 (관리자는 면제).
     # created_at 은 UTC 기준으로 저장되므로 naive UTC 자정을 경계로 사용한다.
@@ -2274,7 +2357,7 @@ def generate_iso_manual():
 def export_iso_manual():
     """
     마크다운 텍스트를 PDF 또는 DOCX로 변환하여 파일로 반환.
-    POST body: { markdown, format: "pdf"|"docx", company_name, target_iso }
+    POST body: { markdown, format: "pdf"|"docx", company_name, target_isos | target_iso, manual_id }
     """
     try:
         role_error = require_manual_user()
@@ -2285,14 +2368,38 @@ def export_iso_manual():
         markdown_text = data.get('markdown', '')
         export_format = data.get('format', 'pdf').lower()
         company_name = data.get('company_name', 'ISO매뉴얼')
-        target_iso = data.get('target_iso', '')
         manual_id = data.get('manual_id', '')
+        stored_form = {}
 
         if manual_id:
             manual = ManualGeneration.query.get(manual_id)
             if not manual or manual.user_id != g.current_user.id:
                 return jsonify({'error': '매뉴얼 생성 이력을 찾을 수 없습니다.'}), 404
             markdown_text = markdown_text or manual.combined_markdown()
+            stored_form = manual.get_form_data() or {}
+
+        # 규격 표기: 요청의 target_isos(우선) / target_iso(하위호환), 없으면 저장된 세션 값.
+        # 이미 생성된 문서를 내보내는 것이므로 노출 게이트는 다시 적용하지 않는다.
+        cover_standards, filename_numbers = '', ''
+        iso_source = data if (data.get('target_isos') is not None or data.get('target_iso')) else stored_form
+        if iso_source.get('target_isos') is not None or iso_source.get('target_iso'):
+            try:
+                selections = manual_standards.resolve_manual_standards(
+                    target_isos=iso_source.get('target_isos'),
+                    target_iso=iso_source.get('target_iso') or None,
+                    enforce_exposure=False)
+            except manual_standards.EditionSelectionError as exc:
+                field = exc.field if exc.field in ('target_isos', 'target_iso') else 'target_isos'
+                return jsonify({'error': '규격 값이 올바르지 않습니다.', 'errors': {field: str(exc)[:300]},
+                                'error_codes': {field: exc.code}}), 400
+            try:
+                meta = manual_outline_engine.build_outline(selections).meta
+                cover_standards, filename_numbers = meta.cover_standards, meta.filename_numbers
+            except Exception as exc:
+                print(f"[Export] outline meta unavailable, using selections: {exc!r}")
+                cover_standards = ' · '.join(sel.standard_code for sel in selections)
+                filename_numbers = '_'.join(
+                    manual_standards.STANDARD_REGISTRY[sel.standard_key]['number'] for sel in selections)
 
         if export_format not in {'pdf', 'docx'}:
             return jsonify({'error': '지원하지 않는 다운로드 형식입니다.'}), 400
@@ -2306,7 +2413,9 @@ def export_iso_manual():
 
         # Safe filename
         safe_company = re.sub(r'[^\w가-힣\s]', '', company_name).strip() or 'ISO매뉴얼'
-        safe_iso = re.sub(r'[:\s]', '_', target_iso)
+        # 파일명에는 edition 을 넣지 않고(FR-74), 표지·문서 제목에는 edition 포함 목록을 쓴다.
+        safe_iso = f"ISO_{filename_numbers}" if filename_numbers else 'ISO'
+        target_iso = cover_standards
 
         if export_format == 'docx':
             buffer = markdown_to_docx(markdown_text, company_name, target_iso)
