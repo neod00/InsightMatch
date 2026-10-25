@@ -11,7 +11,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="color-scheme" content="light dark" />
+  <meta name="color-scheme" content="light" />
+  <script>
+    try {
+      if (localStorage.getItem('im-theme') === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    } catch (e) {}
+  </script>
   <title>InsightMatch · Forest Signal 프리뷰</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -71,33 +78,31 @@
       --font-num: "Space Grotesk", var(--font-sans);
     }
 
-    @media (prefers-color-scheme: dark) {
-      :root {
-        color-scheme: dark;
-        --bg: #0d1e1b;
-        --surface: #142b27;
-        --surface-2: #1b3631;
-        --text: #f3f0e9;
-        --text-2: #dde5df;
-        --text-3: #b8c6bf;
-        --muted: #9fb1a9;
-        --border: #6f8b83;
-        --line: #2d4b44;
-        --signal: #78e6d2;
-        --accent-text: #78e6d2;
-        --signal-soft: #173d36;
-        --on-signal: #102421;
-        --inverse: #f3f0e9;
-        --on-inverse: #102421;
-        --band-bg: #07120f;
-        --band-text: #f3f0e9;
-        --band-muted: rgba(243, 240, 233, 0.76);
-        --band-line: rgba(243, 240, 233, 0.18);
-        --band-accent: #78e6d2;
-        --shadow-c: #000000;
-        --focus: #78e6d2;
-        --header-bg: rgba(13, 30, 27, 0.92);
-      }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #0d1e1b;
+      --surface: #142b27;
+      --surface-2: #1b3631;
+      --text: #f3f0e9;
+      --text-2: #dde5df;
+      --text-3: #b8c6bf;
+      --muted: #9fb1a9;
+      --border: #6f8b83;
+      --line: #2d4b44;
+      --signal: #78e6d2;
+      --accent-text: #78e6d2;
+      --signal-soft: #173d36;
+      --on-signal: #102421;
+      --inverse: #f3f0e9;
+      --on-inverse: #102421;
+      --band-bg: #07120f;
+      --band-text: #f3f0e9;
+      --band-muted: rgba(243, 240, 233, 0.76);
+      --band-line: rgba(243, 240, 233, 0.18);
+      --band-accent: #78e6d2;
+      --shadow-c: #000000;
+      --focus: #78e6d2;
+      --header-bg: rgba(13, 30, 27, 0.92);
     }
 
     /* =========================================================
@@ -3279,9 +3284,7 @@
     .rev-callout ul { margin: 0; padding: 0; list-style: none; }
     .rev-callout li { position: relative; padding-left: 12px; color: var(--text); }
     .rev-callout li::before { content: ""; position: absolute; left: 0; top: 0.7em; width: 5px; height: 1px; background: currentColor; }
-    @media (prefers-color-scheme: dark) {
-      .rev-badge { background: var(--accent-text); color: var(--ink); }
-    }
+    :root[data-theme="dark"] .rev-badge { background: var(--accent-text); color: var(--ink); }
     @media (max-width: 767px) {
       .rev-notice { font-size: 13px; align-items: flex-start; }
       .rev-sep { display: none; }
@@ -3411,6 +3414,98 @@
       .std-group a b { min-width: 104px; }
     }
 
+    /* ── 테마: 기본 라이트, 다크는 헤더 버튼으로만 선택 ── */
+    .theme-toggle {
+      display: inline-grid;
+      flex: none;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      margin-left: auto;
+      border: 1.5px solid var(--line);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color 160ms var(--ease), background-color 160ms var(--ease);
+    }
+    .theme-toggle:hover { border-color: var(--border); }
+    .theme-toggle:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+    .theme-toggle .ic-sun { display: none; }
+    :root[data-theme="dark"] .theme-toggle .ic-sun { display: block; }
+    :root[data-theme="dark"] .theme-toggle .ic-moon { display: none; }
+    .theme-toggle + .header-cta { margin-left: 10px; }
+    @media (max-width: 479px) {
+      /* 로고 · 테마 버튼 · CTA를 한 줄에 유지 */
+      .header-inner { column-gap: 8px; }
+      .brand { gap: 8px; }
+      .theme-toggle { width: 34px; height: 34px; }
+      .theme-toggle + .header-cta { margin-left: 6px; padding: 9px 11px; font-size: 13px; }
+    }
+
+    /* ── 헤더 계정 링크 ── */
+    .nav .nav-login { margin-left: auto; }
+    .nav .nav-expert {
+      padding: 6px 12px;
+      border: 1.5px solid var(--line);
+      background: var(--surface);
+      color: var(--text);
+    }
+    .nav .nav-expert:hover { border-color: var(--border); color: var(--text); }
+    .nav a:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+    /* ── 접이식 상세 (페이지 길이 축소) ── */
+    .more { margin-top: 28px; }
+    .more + .more { margin-top: 14px; }
+    .more > summary { padding: 18px 22px; }
+    .more-sum { display: grid; gap: 4px; min-width: 0; }
+    .more-k {
+      color: var(--accent-text);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+    .more-t { font-size: 18px; font-weight: 800; line-height: 1.35; }
+    .more-s { color: var(--text-3); font-size: 14px; font-weight: 500; line-height: 1.5; }
+    .more-body { padding: 4px 22px 24px; border-top: 1px solid var(--line); }
+    .more-body .reg { display: none; }
+    .more-body .journey, .more-body .hls, .more-body .std-all {
+      margin: 0;
+      padding: 22px 0 0;
+      border: 0;
+      background: transparent;
+    }
+    @media (max-width: 1079px) {
+      .nav .nav-login, .nav .nav-expert { order: -1; }
+      .nav .nav-login { margin-left: 0; }
+      .nav .nav-expert { margin-right: 4px; }
+    }
+    .cat-k { margin: 40px 0 0; }
+    .iso-grid { margin-top: 16px; }
+    .swipe-hint { display: none; }
+    @media (max-width: 767px) {
+      /* 대표 규격 카드: 세로로 쌓지 않고 옆으로 넘겨 보기 */
+      .cat-k { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+      .swipe-hint { display: inline; color: var(--muted); font-size: 12.5px; font-weight: 600; }
+      .iso-grid {
+        display: flex;
+        gap: 12px;
+        margin: 16px -16px 0;
+        padding: 0 16px 12px;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scroll-padding-inline: 16px;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+      }
+      .iso-card { flex: 0 0 86%; padding: 22px 20px; scroll-snap-align: start; }
+      .iso-card:hover { transform: none; box-shadow: 4px 4px 0 var(--shadow-c); }
+      .more > summary { padding: 16px; }
+      .more-t { font-size: 16px; }
+      .more-s { font-size: 13px; }
+      .more-body { padding: 2px 16px 20px; }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       html {
         scroll-behavior: auto;
@@ -3470,7 +3565,13 @@
         <a href="#verification">검증 기준</a>
         <a href="#catalog">ISO 카탈로그</a>
         <a href="#faq">FAQ</a>
+        <a class="nav-login" href="../../login.html">로그인</a>
+        <a class="nav-expert" href="../../consultant_register.html">컨설턴트 등록</a>
       </nav>
+      <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false" aria-label="다크 모드">
+        <svg class="ic-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <svg class="ic-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
       <a class="btn btn-dark btn-sm header-cta" href="#diagnosis" data-focus-diagnosis>무료 매칭 시작</a>
     </div>
   </header>
@@ -3534,7 +3635,7 @@
         <div class="hero-copy">
           <div class="sec-kicker">
             <p class="eyebrow">01 / DIAGNOSE</p>
-            <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 01/09</p>
+            <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 01/08</p>
           </div>
           <a class="rev-notice" href="#faq-iso9001-2026">
             <span class="rev-badge">NEW</span>
@@ -3822,7 +3923,7 @@
       <div class="wrap">
         <div class="sec-kicker">
           <p class="eyebrow">02 / PROBLEM</p>
-          <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 02/09</p>
+          <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 02/08</p>
         </div>
         <h2 class="section-title" id="problem-title">인증을 맡은 담당자는 보통 세 가지에서 막힙니다.</h2>
         <p class="section-lead">InsightMatch는 이 세 가지 걱정에서 출발해 진단과 매칭 흐름을 설계했습니다.</p>
@@ -3860,7 +3961,7 @@
       <div class="wrap">
         <div class="sec-kicker">
           <p class="eyebrow">03 / HOW IT WORKS</p>
-          <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 03/09</p>
+          <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 03/08</p>
         </div>
         <h2 class="section-title" id="process-title">진단 입력에서 계약까지, 세 단계로 이어집니다.</h2>
         <div class="process-flow" data-trigger>
@@ -3900,19 +4001,15 @@
           </li>
         </ol>
         </div>
-      </div>
-    </section>
-
-    <!-- 5. 인증 여정: 준비(InsightMatch 지원) → 심사(인증기관 수행) -->
-    <section class="section" id="journey" aria-labelledby="journey-title">
-      <div class="wrap">
-        <div class="sec-kicker">
-          <p class="eyebrow">04 / CERTIFICATION PATH</p>
-          <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 04/09</p>
-        </div>
-        <h2 class="section-title" id="journey-title">인증은 한 번의 심사가 아니라, 3년 주기로 운영하는 경영시스템입니다.</h2>
-        <p class="section-lead">갭 분석부터 갱신 심사까지의 일반적인 흐름입니다. 준비 단계에서는 문서화된 정보(규격이 요구하는 문서와 기록)를 갖추고, 내부심사·경영검토로 스스로 점검한 뒤 인증기관 심사를 받습니다.</p>
-
+        <details class="more" id="journey">
+          <summary>
+            <span class="more-sum">
+              <span class="more-k">CERTIFICATION PATH</span>
+              <span class="more-t">인증 전체 여정 보기</span>
+              <span class="more-s">갭 분석부터 갱신 심사까지 10단계 · 심사는 인정받은 인증기관이 수행합니다</span>
+            </span>
+          </summary>
+          <div class="more-body">
         <div class="journey" data-trigger>
           <span class="reg reg-tl" aria-hidden="true"></span>
           <span class="reg reg-tr" aria-hidden="true"></span>
@@ -4010,6 +4107,8 @@
           <p class="j-note"><span class="mono">NOTE</span>심사는 인정받은 인증기관이 수행합니다. InsightMatch는 준비 과정을 돕는 전문가를 연결합니다.</p>
           <p class="j-foot">심사 단계 명칭은 ISO/IEC 17021-1(인증기관 요구사항)의 일반적인 구분을 따르며, 세부 일정은 인증기관과 조직 상황에 따라 달라집니다.</p>
         </div>
+          </div>
+        </details>
       </div>
     </section>
 
@@ -4017,8 +4116,8 @@
     <section class="section section-alt" id="services" aria-labelledby="services-title">
       <div class="wrap">
         <div class="sec-kicker">
-          <p class="eyebrow">05 / SERVICES</p>
-          <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 05/09</p>
+          <p class="eyebrow">04 / SERVICES</p>
+          <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 04/08</p>
         </div>
         <h2 class="section-title" id="services-title">매칭이 중심이고, AI 매뉴얼은 준비를 돕는 도구입니다.</h2>
         <div class="service-split">
@@ -4091,8 +4190,8 @@
     <section class="section band verification" id="verification" aria-labelledby="verification-title">
       <div class="wrap">
         <div class="sec-kicker">
-          <p class="eyebrow">06 / VERIFICATION</p>
-          <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 06/09</p>
+          <p class="eyebrow">05 / VERIFICATION</p>
+          <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 05/08</p>
         </div>
         <h2 class="section-title" id="verification-title">'상위 몇 %' 대신, 검증 기준을 그대로 공개합니다.</h2>
         <p class="section-lead">컨설턴트는 아래 기준을 통과한 뒤에만 추천 목록에 노출됩니다. 이해상충(같은 기업의 컨설팅과 심사에 함께 관여하는 상황) 여부도 확인합니다.</p>
@@ -4163,52 +4262,13 @@
     <section class="section" id="catalog" aria-labelledby="catalog-title">
       <div class="wrap">
         <div class="sec-kicker">
-          <p class="eyebrow">07 / CATALOG</p>
-          <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 07/09</p>
+          <p class="eyebrow">06 / CATALOG</p>
+          <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 06/08</p>
         </div>
         <h2 class="section-title" id="catalog-title">대표 경영시스템부터 ESG·정보보안·산업 특화 규격까지 매칭합니다.</h2>
         <p class="section-lead">6개 분야 25개 규격의 전문가를 찾을 수 있습니다. 규격마다 다루는 대상은 다르지만, 주요 경영시스템 규격은 §6.1 리스크와 기회(미리 따져 계획에 반영할 위험과 기회)부터 §10 개선까지 같은 조항 구조를 따릅니다.</p>
 
-        <div class="hls" role="group" aria-labelledby="hls-title">
-          <div class="hls-copy">
-            <p class="hls-k">ANNEX SL · HLS</p>
-            <h3 id="hls-title">공통 상위 구조: 조항 4~10</h3>
-            <p>ISO 9001·14001·45001을 비롯해 27001·50001·22301 같은 경영시스템 규격은 같은 상위 구조(HLS)를 공유해 통합 인증(IMS, 여러 경영시스템을 하나로 운영)이 가능합니다. 조항 번호와 순서가 같아 매뉴얼·내부심사·경영검토를 함께 설계할 수 있습니다.</p>
-            <ul class="hls-eds" aria-label="대표 규격과 개정판">
-              <li class="tag tag-accent">ISO 9001:2026</li>
-              <li class="tag tag-accent">ISO 14001:2026</li>
-              <li class="tag tag-accent">ISO 45001:2018</li>
-            </ul>
-            <p class="hls-note">* 2021년 이후 ISO 지침에서는 ‘조화 구조(Harmonized Structure)’라고 부릅니다. PDCA 대응은 ISO 9001 서문의 PDCA 그림을 바탕으로 한 일반적인 해석입니다.</p>
-          </div>
-          <figure class="hls-fig">
-            <div class="hls-input"><b>§4</b> 조직의 상황 — 이해관계자 요구·적용 범위 (INPUT)</div>
-            <div class="hls-cols">
-              <div class="hls-col">
-                <span class="hls-pdca">PLAN</span>
-                <span class="hls-cl"><b>§6</b> 기획</span>
-              </div>
-              <div class="hls-col">
-                <span class="hls-pdca">DO</span>
-                <span class="hls-cl"><b>§7</b> 지원</span>
-                <span class="hls-cl"><b>§8</b> 운용</span>
-              </div>
-              <div class="hls-col">
-                <span class="hls-pdca">CHECK</span>
-                <span class="hls-cl"><b>§9</b> 성과 평가</span>
-              </div>
-              <div class="hls-col">
-                <span class="hls-pdca">ACT</span>
-                <span class="hls-cl"><b>§10</b> 개선</span>
-              </div>
-            </div>
-            <div class="hls-core"><b>§5</b> 리더십 — 모든 단계의 중심</div>
-            <div class="hls-loop" aria-hidden="true">ACT → PLAN · 지속적 개선</div>
-            <figcaption><span class="mono">FIG. 07</span> · HLS 조항과 PDCA 대응</figcaption>
-          </figure>
-        </div>
-
-        <p class="cat-k"><span class="mono">CORE 3</span> 대표 경영시스템 규격</p>
+        <p class="cat-k"><span><span class="mono">CORE 3</span> 대표 경영시스템 규격</span><span class="swipe-hint" aria-hidden="true">옆으로 밀어 보기 →</span></p>
         <div class="iso-grid">
           <article class="iso-card">
             <div class="iso-top">
@@ -4278,9 +4338,17 @@
             <a class="text-link" href="#diagnosis" data-pick-std="45001">ISO 45001로 매칭 보기 <span class="arr" aria-hidden="true">→</span></a>
           </article>
         </div>
-        <div class="std-all" aria-labelledby="std-all-title">
+        <details class="more" id="std-all-details">
+          <summary>
+            <span class="more-sum">
+              <span class="more-k">6 FIELDS · 25 STANDARDS</span>
+              <span class="more-t">전체 매칭 규격 보기</span>
+              <span class="more-s">경영·운영 · ESG·기후 · 정보보안·AI · 공급망·리스크 · 산업 특화 · 인사·조직·윤리</span>
+            </span>
+          </summary>
+          <div class="more-body">
+        <div class="std-all" aria-label="전체 매칭 규격">
           <div class="std-all-head">
-            <h3 id="std-all-title">전체 매칭 규격 <span class="mono">6 FIELDS · 25 STANDARDS</span></h3>
             <ul class="std-legend" aria-label="표시 안내">
               <li><em class="std-badge b-verify">검증</em>인증 대신 제3자 검증을 받는 규격</li>
               <li><em class="std-badge b-guide">가이드라인</em>인증 대상이 아닌 지침, 도입 컨설팅</li>
@@ -4345,6 +4413,58 @@
             </div>
           </div>
         </div>
+          </div>
+        </details>
+        <details class="more" id="hls-details">
+          <summary>
+            <span class="more-sum">
+              <span class="more-k">ANNEX SL · HLS</span>
+              <span class="more-t">공통 상위 구조 도식 보기</span>
+              <span class="more-s">경영시스템 규격이 조항 4~10을 공유해 통합 인증이 가능한 이유</span>
+            </span>
+          </summary>
+          <div class="more-body">
+        <div class="hls" role="group" aria-labelledby="hls-title">
+          <div class="hls-copy">
+            <p class="hls-k">ANNEX SL · HLS</p>
+            <h3 id="hls-title">공통 상위 구조: 조항 4~10</h3>
+            <p>ISO 9001·14001·45001을 비롯해 27001·50001·22301 같은 경영시스템 규격은 같은 상위 구조(HLS)를 공유해 통합 인증(IMS, 여러 경영시스템을 하나로 운영)이 가능합니다. 조항 번호와 순서가 같아 매뉴얼·내부심사·경영검토를 함께 설계할 수 있습니다.</p>
+            <ul class="hls-eds" aria-label="대표 규격과 개정판">
+              <li class="tag tag-accent">ISO 9001:2026</li>
+              <li class="tag tag-accent">ISO 14001:2026</li>
+              <li class="tag tag-accent">ISO 45001:2018</li>
+            </ul>
+            <p class="hls-note">* 2021년 이후 ISO 지침에서는 ‘조화 구조(Harmonized Structure)’라고 부릅니다. PDCA 대응은 ISO 9001 서문의 PDCA 그림을 바탕으로 한 일반적인 해석입니다.</p>
+          </div>
+          <figure class="hls-fig">
+            <div class="hls-input"><b>§4</b> 조직의 상황 — 이해관계자 요구·적용 범위 (INPUT)</div>
+            <div class="hls-cols">
+              <div class="hls-col">
+                <span class="hls-pdca">PLAN</span>
+                <span class="hls-cl"><b>§6</b> 기획</span>
+              </div>
+              <div class="hls-col">
+                <span class="hls-pdca">DO</span>
+                <span class="hls-cl"><b>§7</b> 지원</span>
+                <span class="hls-cl"><b>§8</b> 운용</span>
+              </div>
+              <div class="hls-col">
+                <span class="hls-pdca">CHECK</span>
+                <span class="hls-cl"><b>§9</b> 성과 평가</span>
+              </div>
+              <div class="hls-col">
+                <span class="hls-pdca">ACT</span>
+                <span class="hls-cl"><b>§10</b> 개선</span>
+              </div>
+            </div>
+            <div class="hls-core"><b>§5</b> 리더십 — 모든 단계의 중심</div>
+            <div class="hls-loop" aria-hidden="true">ACT → PLAN · 지속적 개선</div>
+            <figcaption><span class="mono">FIG. 07</span> · HLS 조항과 PDCA 대응</figcaption>
+          </figure>
+        </div>
+          </div>
+        </details>
+
         <div class="catalog-foot">
           <p><span class="soon">안내</span>규격별로 등록된 전문가 수가 달라, 추천 인원과 적합도 분포는 규격마다 다를 수 있습니다.</p>
           <small>준비 기간은 조직 규모와 현재 체계 수준에 따라 달라지는 일반적인 참고 범위입니다.</small>
@@ -4357,8 +4477,8 @@
       <div class="wrap faq-layout">
         <div>
           <div class="sec-kicker">
-            <p class="eyebrow">08 / FAQ</p>
-            <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 08/09</p>
+            <p class="eyebrow">07 / FAQ</p>
+            <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 07/08</p>
           </div>
           <h2 class="section-title" id="faq-title">기업 담당자가 가장 먼저 묻는 질문</h2>
           <p class="section-lead">더 궁금한 점은 진단 후 문의하기로 남겨 주세요.</p>
@@ -4405,8 +4525,8 @@
       <div class="wrap final-box">
         <div>
           <div class="sec-kicker">
-            <p class="eyebrow">09 / START</p>
-            <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 09/09</p>
+            <p class="eyebrow">08 / START</p>
+            <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 08/08</p>
           </div>
           <h2 id="final-title">인증 준비 상태를 먼저 읽고, 맞는 전문가부터 찾으세요.</h2>
           <p class="final-sub">규격·업종·지역만 고르면 됩니다. 가입 없이 먼저 확인할 수 있습니다.</p>
@@ -4892,6 +5012,25 @@
           tickerBtn.setAttribute('aria-pressed', paused ? 'true' : 'false');
         });
       }
+    })();
+  </script>
+  <script>
+    (function () {
+      var btn = document.getElementById('theme-toggle');
+      if (!btn) return;
+      var root = document.documentElement;
+      function sync() {
+        var dark = root.getAttribute('data-theme') === 'dark';
+        btn.setAttribute('aria-pressed', String(dark));
+        btn.setAttribute('aria-label', dark ? '라이트 모드' : '다크 모드');
+      }
+      btn.addEventListener('click', function () {
+        var dark = root.getAttribute('data-theme') !== 'dark';
+        if (dark) root.setAttribute('data-theme', 'dark'); else root.removeAttribute('data-theme');
+        try { localStorage.setItem('im-theme', dark ? 'dark' : 'light'); } catch (e) {}
+        sync();
+      });
+      sync();
     })();
   </script>
 </body>
