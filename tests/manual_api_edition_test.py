@@ -365,6 +365,10 @@ class ExportEditionTest(EditionApiTestBase):
         self.open_gate()
         created = self.post_session(target_isos=['ISO 9001:2026', 'ISO 14001:2026'])
         manual_id = created.get_json()['manual_id']
+        # T11 F-04 이후: manual_id 가 있으면 요청 markdown 대신 저장본만 내보낸다 → 저장본을 먼저 둔다.
+        manual = ManualGeneration.query.get(manual_id)
+        manual.phase1_markdown = '# 매뉴얼\n저장본'
+        db.session.commit()
         os.environ.pop(GATE_ENV, None)    # 게이트가 닫혀도 내보내기는 가능
         r, calls = self.export('docx', user=self.admin, manual_id=manual_id)
         self.assertEqual(200, r.status_code)

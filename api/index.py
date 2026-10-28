@@ -201,6 +201,10 @@ DAILY_MANUAL_LIMIT = 1  # 기업 사용자당 하루 매뉴얼 생성 세션 상
 MAX_MANUAL_RETRIES = 3  # 매뉴얼 1건당 실제 재생성(LLM 재호출) 상한. phase 합산, 무료 1단계 재시도 포함. 저장본 재전송은 세지 않는다.
 MANUAL_RETRY_WINDOW_HOURS = 24  # 재시도 가능 기간 (매뉴얼 생성 후)
 MANUAL_GENERATING_STALE_SECONDS = 90  # generating_phase_N 상태가 이 시간 넘게 갱신되지 않으면 중단된 것으로 본다 (Vercel 강제 종료 대비)
+# LLM 경로에서 실패·중단된 stream_token 자리에 넣는 값. sha256 hex(0-9a-f)가 아니므로 어떤 토큰의 해시와도 같아질 수 없다.
+_MANUAL_TOKEN_REVOKED = 'revoked'
+MANUAL_GENERATION_IN_PROGRESS_MESSAGE = '이미 생성이 진행 중입니다. 잠시 후 다시 시도해주세요.'
+MANUAL_RETRY_LIMIT_MESSAGE = f'재생성은 매뉴얼 1건당 최대 {MAX_MANUAL_RETRIES}회까지 가능합니다.'
 
 
 def require_company_user():
@@ -727,6 +731,9 @@ def get_manual_generation_from_stream_token(manual_id, stream_token):
         expires_at = expires_at.replace(tzinfo=datetime.timezone.utc)
     if expires_at and expires_at < now:
         return None, '매뉴얼 생성 세션이 만료되었습니다. 다시 생성해주세요.'
+    if manual.token_hash == _MANUAL_TOKEN_REVOKED:
+        # 실패·중단된 생성의 토큰 — 재시도는 resume 으로 새 토큰을 받아야 한다 (F-01)
+        return None, '매뉴얼 생성 세션이 유효하지 않습니다. 다시 생성을 눌러 이어서 진행해주세요.'
     if manual.token_hash != _manual_token_hash(stream_token):
         return None, '매뉴얼 생성 세션이 유효하지 않습니다.'
     return manual, None
@@ -798,6 +805,80 @@ def _mark_stale_generation_aborted(manual):
     manual.status = f'phase_{match.group(1)}_aborted'
     manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
     db.session.commit()
+
+
+_MANUAL_GENERATING_STATUSES = tuple(f'generating_phase_{n}' for n in (1, 2, 3))
+
+
+def _is_manual_retry_status(status, phase, is_stale_generating):
+    """직전 시도가 이 phase 에서 실패·중단됐는가 (= 이번 LLM 호출은 '실제 재생성'인가)."""
+    return (status or '') in (f'phase_{phase}_failed', f'phase_{phase}_aborted') or bool(is_stale_generating)
+
+
+def _claim_manual_generation(manual_id, token_hash, phase, observed_status, is_stale_generating):
+    """LLM 호출 직전에 조건부 UPDATE 한 번으로 생성을 선점한다 (F-01·F-02·F-03).
+
+    - status 를 generating_phase_N 으로 바꾸고, 재시도(직전 상태가 이 phase 의 failed/aborted 또는
+      stale generating)일 때만 retry_count 를 1 올린다. 재시도 차감은 이 UPDATE 한 곳에서만 한다.
+    - 조건: 같은 토큰, 신선한 generating 아님, 읽은 status 그대로(compare-and-swap — 재시도 판정과
+      실제 행 상태가 어긋나지 않게), 재시도면 retry_count < MAX_MANUAL_RETRIES.
+    - 영향 행 수가 1이 아니면 선점 실패 — 호출자는 LLM 을 부르지 않는다.
+    SQLAlchemy update().where() 표준 구문만 쓴다 (SQLite·Postgres 공통).
+
+    Returns: (claimed: bool, is_retry: bool)
+    """
+    is_retry = _is_manual_retry_status(observed_status, phase, is_stale_generating)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    # 비교는 naive UTC 로 한다 (DateTime 컬럼은 tz 를 저장하지 않음, _naive_utc_now 와 같은 규칙)
+    stale_cutoff = _naive_utc_now() - datetime.timedelta(seconds=MANUAL_GENERATING_STALE_SECONDS)
+    conditions = [
+        ManualGeneration.id == manual_id,
+        ManualGeneration.token_hash == token_hash,
+        db.or_(
+            ManualGeneration.status.is_(None),
+            ManualGeneration.status.notin_(_MANUAL_GENERATING_STATUSES),
+            ManualGeneration.updated_at.is_(None),
+            ManualGeneration.updated_at < stale_cutoff,
+        ),
+        (ManualGeneration.status.is_(None) if observed_status is None
+         else ManualGeneration.status == observed_status),
+    ]
+    values = {
+        ManualGeneration.status: f'generating_phase_{phase}',
+        ManualGeneration.updated_at: now,
+    }
+    if is_retry:
+        conditions.append(ManualGeneration.retry_count < MAX_MANUAL_RETRIES)
+        values[ManualGeneration.retry_count] = ManualGeneration.retry_count + 1
+    stmt = db.update(ManualGeneration).where(*conditions).values(values)
+    result = db.session.execute(stmt.execution_options(synchronize_session=False))
+    if result.rowcount != 1:
+        db.session.rollback()
+        return False, is_retry
+    db.session.commit()
+    return True, is_retry
+
+
+def _manual_claim_failure_message(manual_id, token_hash, is_retry):
+    """선점 실패 사유를 다시 읽어 기존 resume 과 같은 문구로 돌려준다 (LLM 미호출)."""
+    db.session.expire_all()
+    current = db.session.get(ManualGeneration, manual_id)
+    if not current or current.token_hash != token_hash:
+        return '매뉴얼 생성 세션이 유효하지 않습니다.'
+    if is_retry and (current.retry_count or 0) >= MAX_MANUAL_RETRIES:
+        return MANUAL_RETRY_LIMIT_MESSAGE
+    return MANUAL_GENERATION_IN_PROGRESS_MESSAGE
+
+
+def _revoke_manual_stream_token(manual_id, token_hash):
+    """LLM 경로에서 실패·중단된 토큰을 무효화한다 — 같은 토큰으로 LLM 을 다시 부를 수 없고,
+    재시도는 resume(새 토큰 발급)으로만 한다. 그 사이 resume 이 토큰을 바꿨다면 건드리지 않는다.
+    커밋은 호출자가 한다."""
+    db.session.execute(
+        db.update(ManualGeneration)
+        .where(ManualGeneration.id == manual_id, ManualGeneration.token_hash == token_hash)
+        .values({ManualGeneration.token_hash: _MANUAL_TOKEN_REVOKED})
+        .execution_options(synchronize_session=False))
 
 
 def _manual_completed_phases(manual):
@@ -2157,8 +2238,12 @@ def resume_iso_manual(manual_id):
     - 새 ManualGeneration 행을 만들지 않으므로 하루 한도(DAILY_MANUAL_LIMIT)에 포함되지 않는다.
     - 완료된 phase 는 completed_phases 로 알려준다. 그 phase 는 /api/generate-iso 의 기존
       재전송 경로(LLM 미호출)로 받으면 되고, 상한에 세지 않는다.
-    - 실제 재생성(직전 시도가 failed/aborted/중단인 phase 를 다시 돌리는 경우)만
-      retry_count 를 올리고 MAX_MANUAL_RETRIES 를 적용한다. 처음 시도하는 phase 는 세지 않는다.
+    - 실제 재생성(직전 시도가 failed/aborted/중단인 phase 를 다시 돌리는 경우)만 횟수에 넣고
+      MAX_MANUAL_RETRIES 를 적용한다. 처음 시도하는 phase 는 세지 않는다.
+    - resume 자체는 retry_count 를 올리지 않는다. 차감은 /api/generate-iso 가 LLM 을 부르기 직전의
+      선점 UPDATE(_claim_manual_generation) 한 곳에서만 한다 — resume 을 연달아 불러도 이중 차감되지
+      않는다(F-03/D-1). 응답의 retry_count·retries_remaining 은 '이번 재생성까지 포함한 예정값'이다
+      (프론트 표시 계약 유지).
     """
     role_error = require_manual_user()
     if role_error:
@@ -2200,25 +2285,20 @@ def resume_iso_manual(manual_id):
         _mark_stale_generation_aborted(manual)
 
     # 직전 시도가 이 phase 에서 실패·중단됐다면 이번 요청은 '실제 재생성'이다.
-    is_retry = (manual.status or '') in (f'phase_{next_phase}_failed', f'phase_{next_phase}_aborted')
-    if is_retry:
-        # 조회-증가 경합(동시 resume)으로 상한을 넘지 않도록 조건부 UPDATE 로 원자적으로 올린다.
-        updated = ManualGeneration.query.filter(
-            ManualGeneration.id == manual.id,
-            ManualGeneration.retry_count < MAX_MANUAL_RETRIES,
-        ).update({ManualGeneration.retry_count: ManualGeneration.retry_count + 1}, synchronize_session=False)
-        if not updated:
-            db.session.rollback()
-            return jsonify({
-                'message': f'재생성은 매뉴얼 1건당 최대 {MAX_MANUAL_RETRIES}회까지 가능합니다.',
-                'code': 'RETRY_LIMIT_EXCEEDED',
-            }), 429
+    is_retry = _is_manual_retry_status(manual.status, next_phase, False)
+    # 상한 확인만 한다(차감 없음). 경합으로 확인을 통과해도 generate-iso 선점 UPDATE 가 상한을 다시 건다.
+    if is_retry and (manual.retry_count or 0) >= MAX_MANUAL_RETRIES:
+        return jsonify({
+            'message': MANUAL_RETRY_LIMIT_MESSAGE,
+            'code': 'RETRY_LIMIT_EXCEEDED',
+        }), 429
 
     raw_token = secrets.token_urlsafe(32)
     manual.token_hash = _manual_token_hash(raw_token)
     manual.token_expires_at = now + datetime.timedelta(minutes=MANUAL_TOKEN_TTL_MINUTES)
     db.session.commit()
     db.session.refresh(manual)
+    projected_retry_count = (manual.retry_count or 0) + (1 if is_retry else 0)
 
     return jsonify({
         'manual_id': manual.id,
@@ -2228,8 +2308,8 @@ def resume_iso_manual(manual_id):
         'continue_from': {1: None, 2: 7, 3: 9}[next_phase],
         'completed_phases': completed_phases,
         'is_retry': is_retry,
-        'retry_count': manual.retry_count or 0,
-        'retries_remaining': max(0, MAX_MANUAL_RETRIES - (manual.retry_count or 0)),
+        'retry_count': projected_retry_count,
+        'retries_remaining': max(0, MAX_MANUAL_RETRIES - projected_retry_count),
     }), 200
 
 
@@ -2345,13 +2425,26 @@ def generate_iso_manual():
             }
         )
 
-    # 동시 실행 방지·중단 상태 정리(FR-42): 90초 이내에 갱신된 generating_phase_N 이면 다른
-    # 요청이 생성 중이다. 90초 넘게 갱신이 없으면 중단된 것으로 보고 aborted 로 정리한 뒤 진행한다.
+    # 동시 실행 방지·재시도 상한(FR-41·FR-42, F-01·F-02): 응답을 돌려주기 전에 조건부 UPDATE 한 번으로
+    # 선점한다. 90초 이내에 갱신된 generating_phase_N 이면 다른 요청이 생성 중이므로 막고, 90초 넘게
+    # 갱신이 없으면 중단된 것으로 보아 재시도로 센다. 선점에 실패하면 LLM 을 부르지 않는다.
+    # (저장본 재전송은 위에서 이미 끝났으므로 선점·차감 대상이 아니다.)
+    manual_pk = manual.id
+    claimed_token_hash = manual.token_hash
     is_generating, is_stale = _manual_generating_state(manual)
-    if is_generating:
-        if not is_stale:
-            return _sse_error_response('이미 생성이 진행 중입니다. 잠시 후 다시 시도해주세요.')
-        _mark_stale_generation_aborted(manual)
+    if is_generating and not is_stale:
+        return _sse_error_response(MANUAL_GENERATION_IN_PROGRESS_MESSAGE)
+    claimed, claim_is_retry = _claim_manual_generation(
+        manual_pk, claimed_token_hash, phase, manual.status, is_generating and is_stale)
+    if not claimed:
+        return _sse_error_response(_manual_claim_failure_message(manual_pk, claimed_token_hash, claim_is_retry))
+
+    def _record_unsuccessful(status_value):
+        # 실패·중단 기록 + 이 토큰 무효화(같은 토큰으로 LLM 재호출 불가, 재시도는 resume 으로만)
+        manual.status = status_value
+        manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
+        _revoke_manual_stream_token(manual_pk, claimed_token_hash)
+        db.session.commit()
 
     def event_stream():
         generated_parts = []
@@ -2375,18 +2468,14 @@ def generate_iso_manual():
                     else:
                         manual.phase3_markdown = text
                     manual.status = f'phase_{phase}_completed'
-                else:
-                    manual.status = f'phase_{phase}_failed'
-            else:
-                manual.status = f'phase_{phase}_failed'
-            manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
-            db.session.commit()
+                    manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
+                    db.session.commit()
+                    finalized = True
+                    return
+            _record_unsuccessful(f'phase_{phase}_failed')
             finalized = True
 
-        manual.status = f'generating_phase_{phase}'
-        manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
-        db.session.commit()
-
+        # generating_phase_N 기록은 위의 선점 UPDATE 가 이미 했다 (여기서 다시 쓰면 check-then-act 틈이 생긴다).
         try:
             for chunk in generate_iso_manual_stream(form_data):
                 is_phase_complete = chunk.startswith('data: ') and bool(_PHASE_COMPLETE_RE.match(chunk[6:].rstrip('\n')))
@@ -2417,20 +2506,17 @@ def generate_iso_manual():
             # 클라이언트 연결 끊김(일시정지·탭 닫기) — 'generating' 상태 고착 방지
             if not finalized:
                 try:
-                    manual.status = f'phase_{phase}_aborted'
-                    manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
-                    db.session.commit()
+                    _record_unsuccessful(f'phase_{phase}_aborted')
                 except Exception:
                     db.session.rollback()
             raise
         except Exception as e:
             db.session.rollback()
-            print(f"[ISO Manual] stream persistence error: {e}")
+            # 예외 문자열에는 SQL 파라미터(본문·폼 데이터)가 섞일 수 있어 클래스명만 남긴다 (F-12)
+            print(f"[ISO Manual] stream persistence error: {type(e).__name__}")
             if not finalized:
                 try:
-                    manual.status = f'phase_{phase}_failed'
-                    manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
-                    db.session.commit()
+                    _record_unsuccessful(f'phase_{phase}_failed')
                 except Exception:
                     db.session.rollback()
             yield "data: [ERROR] 매뉴얼 생성 상태 저장 중 오류가 발생했습니다.\n\n"
@@ -2461,18 +2547,30 @@ def export_iso_manual():
         if role_error:
             return role_error
 
-        data = request.json or {}
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            data = {}
         markdown_text = data.get('markdown', '')
-        export_format = data.get('format', 'pdf').lower()
-        company_name = data.get('company_name', 'ISO매뉴얼')
-        manual_id = data.get('manual_id', '')
+        export_format = data.get('format') or 'pdf'
+        if not isinstance(export_format, str):
+            return jsonify({'error': '지원하지 않는 다운로드 형식입니다.'}), 400
+        export_format = export_format.lower()
+        company_name = data.get('company_name') or 'ISO매뉴얼'
+        if not isinstance(company_name, str):
+            company_name = 'ISO매뉴얼'
+        company_name = company_name.strip()[:100] or 'ISO매뉴얼'
+        manual_id = data.get('manual_id') or ''
+        if not isinstance(manual_id, str):
+            return jsonify({'error': '매뉴얼 생성 이력을 찾을 수 없습니다.'}), 404
         stored_form = {}
 
         if manual_id:
             manual = ManualGeneration.query.get(manual_id)
             if not manual or manual.user_id != g.current_user.id:
                 return jsonify({'error': '매뉴얼 생성 이력을 찾을 수 없습니다.'}), 404
-            markdown_text = markdown_text or manual.combined_markdown()
+            # 저장본 우선 (F-04): manual_id 가 있으면 서버에 저장된 생성 결과만 내보낸다.
+            # 요청 본문의 markdown 은 manual_id 가 없을 때만 쓴다 (임의 마크업 렌더링 경로 축소).
+            markdown_text = manual.combined_markdown()
             stored_form = manual.get_form_data() or {}
 
         # 규격 표기: 요청의 target_isos(우선) / target_iso(하위호환), 없으면 저장된 세션 값.
@@ -2527,10 +2625,12 @@ def export_iso_manual():
         )
 
     except Exception as e:
-        print(f"[Export Error] {str(e)}")
+        # 상세(경로·라이브러리 메시지)는 서버 로그에만 남기고 응답은 고정 문구로 (F-05)
+        print(f"[Export Error] {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({'error': f'파일 변환 중 오류: {str(e)}'}), 500
+        return jsonify({'error': '파일 변환 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+                        'code': 'EXPORT_FAILED'}), 500
 
 # --- Direct Matching Endpoint (Survey-Based, No AI) ---
 @app.route('/api/match', methods=['POST'])

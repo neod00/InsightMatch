@@ -235,7 +235,10 @@ class ResumeTest(ManualRetryTestBase):
         self.assertEqual(data['continue_from'], 7)
         self.assertEqual(data['completed_phases'], [1])
         self.assertTrue(data['is_retry'])
+        # T11 F-03 이후 resume 은 차감하지 않고 '이번 재생성까지 포함한 예정값'을 돌려준다.
+        # 실제 DB 차감은 generate-iso 선점 시점에 한 번 (tests/manual_generation_claim_test.py).
         self.assertEqual(data['retry_count'], 1)
+        self.assertEqual(self.manual(session).retry_count, 0)
         self.assertNotEqual(data['stream_token'], session['stream_token'])
         self.assertEqual(data['expires_in_seconds'], 30 * 60)
 
@@ -243,6 +246,7 @@ class ResumeTest(ManualRetryTestBase):
         self.run_generate(new_session, counted(2), continue_from=data['continue_from'])
         self.assertEqual(llm_calls, [1, 2, 2])  # phase 1 재호출 0회, phase 2 1회 추가
         m = self.manual(session)
+        self.assertEqual(m.retry_count, 1)      # 재생성 선점 시 1회 차감 (T11)
         self.assertEqual(m.status, 'phase_2_completed')
         self.assertTrue(m.phase2_markdown)
         self.assertEqual(ManualGeneration.query.count(), 1)
@@ -458,6 +462,8 @@ class StaleGenerationTest(ManualRetryTestBase):
         _, body = self.run_generate(session, stream)
         self.assertEqual(called, [1])
         self.assertEqual(self.manual(session).status, 'phase_1_completed')
+        # T11 F-01 이후: 중단된 generating 의 재생성은 선점 UPDATE 에서 재시도 1회로 센다 (이전: 0 유지)
+        self.assertEqual(self.manual(session).retry_count, 1)
 
 
 if __name__ == '__main__':
