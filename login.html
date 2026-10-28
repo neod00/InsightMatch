@@ -4,234 +4,154 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
     <title>로그인 - InsightMatch</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="images/logo2.png">
+    <link rel="apple-touch-icon" href="images/logo2.png">
 
-    <!-- Fonts -->
+    <!-- Fonts: Pretendard + DM Sans (메인페이지와 동일) -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap"
-        rel="stylesheet">
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,500;9..40,600;9..40,700;9..40,800&display=swap">
 
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-
-    <!-- Styles -->
-    <link rel="stylesheet" href="style.css">
-    <style>
-        /* Login Type Tabs */
-        .login-tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 24px;
-            padding: 4px;
-            background: var(--bg-secondary);
-            border-radius: var(--radius-md);
-        }
-
-        .login-tab {
-            flex: 1;
-            padding: 12px 16px;
-            background: transparent;
-            border: none;
-            border-radius: var(--radius-sm);
-            color: var(--text-muted);
-            font-size: 0.9rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .login-tab:hover {
-            color: var(--text-primary);
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .login-tab.active {
-            background: var(--primary);
-            color: white;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-        }
-
-        .login-tab i {
-            width: 18px;
-            height: 18px;
-        }
-
-        /* Role Description */
-        .role-description {
-            text-align: center;
-            padding: 16px;
-            margin-bottom: 20px;
-            background: rgba(16, 185, 129, 0.05);
-            border: 1px solid rgba(16, 185, 129, 0.1);
-            border-radius: var(--radius-md);
-        }
-
-        .role-description p {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            margin: 0;
-        }
-
-        .role-description strong {
-            color: var(--primary);
-        }
-
-        /* Footer Admin Link */
-        .admin-login-link {
-            text-align: center;
-            margin-top: 24px;
-            padding-top: 16px;
-            border-top: 1px solid var(--border);
-        }
-
-        .admin-login-link a {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            text-decoration: none;
-            opacity: 0.6;
-            transition: opacity 0.3s ease;
-        }
-
-        .admin-login-link a:hover {
-            opacity: 1;
-            color: var(--text-secondary);
-        }
-
-        /* Auth card adjustment */
-        .auth-card {
-            max-width: 420px;
-        }
-    </style>
+    <!-- B안 공통 스타일. style.css·lucide 는 로드하지 않는다(아이콘은 인라인 SVG). -->
+    <link rel="stylesheet" href="brand.css?v=1">
 </head>
 
-<body>
-    <!-- Background Effects -->
-    <div class="bg-gradient"></div>
-    <div class="bg-grid"></div>
+<body class="hm-body">
+    <a class="hm-skip" href="#login-form">로그인 폼으로 건너뛰기</a>
 
-    <!-- Navigation -->
-    <nav class="navbar">
-        <div class="container nav-content">
-            <a href="index.html" class="logo">
-                <div class="logo-icon">
-                    <i data-lucide="shield-check" style="width: 20px; height: 20px;"></i>
+    <header class="hm-header">
+        <div class="hm-wrap">
+            <div class="hm-header-row">
+                <a class="hm-logo" href="index.html" aria-label="InsightMatch 메인으로">Insight<span class="hm-logo-dot" aria-hidden="true"></span>Match</a>
+                <div class="hm-header-actions">
+                    <a class="hm-acc" href="signup.html">회원가입</a>
+                    <a class="hm-acc hm-acc-outline" href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>메인으로</a>
                 </div>
-                <div class="logo-text">
-                    <span>InsightMatch</span>
-                    <span>by OpenBrain</span>
-                </div>
-            </a>
-
-            <div class="nav-actions">
-                <a href="index.html" class="btn btn-ghost">
-                    <i data-lucide="home" style="width: 18px; height: 18px;"></i>
-                    홈으로
-                </a>
             </div>
-
-            <!-- Mobile Menu Button -->
-            <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="메뉴 열기">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
         </div>
-    </nav>
+    </header>
 
-    <!-- Mobile Navigation -->
-    <div class="mobile-nav" id="mobile-nav"
-        style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;background:var(--bg-primary);display:none;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px 40px;gap:8px;">
-        <button class="absolute top-6 right-6 p-2" id="close-mobile-nav-login" onclick="closeMobileMenu()" style="position:absolute;top:24px;right:24px;background:none;border:none;cursor:pointer;font-size:1.5rem;color:var(--text-primary);">✕</button>
-        <a href="index.html" style="width:100%;max-width:400px;padding:14px 20px;font-size:1rem;color:var(--text-primary);text-decoration:none;">홈</a>
-        <a href="signup.html" style="width:100%;max-width:400px;padding:14px 20px;font-size:1rem;color:var(--text-primary);text-decoration:none;">회원가입</a>
-        <div class="nav-divider"></div>
-        <a href="index.html" class="btn btn-secondary" onclick="closeMobileMenu()">
-            <i data-lucide="home" style="width: 18px; height: 18px;"></i>
-            홈으로
-        </a>
+    <!-- 예전 모바일 메뉴 자리. 아래 스크립트가 #mobile-menu-btn·#mobile-nav 를 참조하므로 요소는 남겨 두고 화면에서는 숨긴다
+         (간단 헤더는 모바일에서도 링크 2개가 한 줄에 들어간다). -->
+    <button class="mobile-menu-btn" id="mobile-menu-btn" type="button" aria-label="메뉴 열기" hidden><span></span></button>
+    <div class="mobile-nav" id="mobile-nav" hidden>
+        <button type="button" id="close-mobile-nav-login" onclick="closeMobileMenu()">메뉴 닫기</button>
     </div>
 
-    <!-- Auth Container -->
-    <div class="auth-container">
-        <div class="auth-card fade-in-up">
-            <div class="auth-header">
-                <div class="logo-icon" style="width: 56px; height: 56px; margin: 0 auto 16px;">
-                    <i data-lucide="shield-check" style="width: 28px; height: 28px;"></i>
+    <main class="hm-wrap hm-auth">
+        <aside class="hm-auth-panel hm-on-dark" aria-label="InsightMatch 안내">
+            <div class="hm-auth-deco" aria-hidden="true"><div class="hm-blob"></div><div class="hm-circle"></div><div class="hm-circle r2"></div></div>
+            <span class="hm-auth-badge"><span class="dot" aria-hidden="true"></span>ISO 인증 컨설턴트 매칭 · 6개 분야 25개 규격</span>
+            <div>
+                <p class="hm-auth-title">검증된 컨설턴트를 <span class="hl">추천 근거</span>와 함께 비교하세요.</p>
+                <p class="hm-auth-lead">인증 규격·업종·지역만 고르면 맞는 컨설턴트를 한 화면에서 비교할 수 있습니다.</p>
+            </div>
+            <ul class="hm-auth-points">
+                <li><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></span><b>검증된 컨설턴트</b><span>관리자가 신원·자격·수행 이력·연락처를 확인해 승인한 컨설턴트만 추천합니다.</span></li>
+                <li><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span><b>가입 없이 진단</b><span>진단과 추천 확인은 무료이며, 가입 없이 시작할 수 있습니다.</span></li>
+                <li><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span><b>추천 근거 공개</b><span>적합도와 추천 근거를 함께 보여 드려 같은 양식으로 비교합니다.</span></li>
+            </ul>
+        </aside>
+
+        <div class="hm-auth-main">
+            <section class="hm-auth-card" aria-labelledby="login-title">
+                <div class="hm-auth-head">
+                    <span class="hm-eyebrow">LOG IN</span>
+                    <h1 id="login-title">로그인</h1>
+                    <p id="login-subtitle">서비스 이용을 위해 로그인해주세요.</p>
                 </div>
-                <h2>로그인</h2>
-                <p id="login-subtitle">서비스 이용을 위해 로그인해주세요.</p>
-            </div>
 
-            <!-- Login Type Tabs -->
-            <div class="login-tabs">
-                <button class="login-tab active" data-role="company" onclick="switchLoginTab('company')">
-                    <i data-lucide="building-2"></i>
-                    기업 회원
-                </button>
-                <button class="login-tab" data-role="consultant" onclick="switchLoginTab('consultant')">
-                    <i data-lucide="user-check"></i>
-                    컨설턴트
-                </button>
-            </div>
-
-            <!-- Role Description -->
-            <div class="role-description" id="role-description">
-                <p><strong>기업 회원</strong>으로 로그인하여 최적의 ISO 전문가를 만나보세요.</p>
-            </div>
-
-            <form id="login-form" class="auth-form">
-                <div class="form-group">
-                    <label for="email">이메일</label>
-                    <input type="text" id="email" required placeholder="name@company.com"
-                        autocomplete="email">
+                <!-- 로그인 유형 탭 (.login-tabs / .login-tab[data-role] — 스크립트가 참조) -->
+                <div class="login-tabs hm-seg" role="group" aria-label="로그인 유형">
+                    <button type="button" class="login-tab active" data-role="company" onclick="switchLoginTab('company')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>
+                        기업 회원
+                    </button>
+                    <button type="button" class="login-tab" data-role="consultant" onclick="switchLoginTab('consultant')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
+                        컨설턴트
+                    </button>
                 </div>
-                <div class="form-group">
-                    <label for="password">비밀번호</label>
-                    <input type="password" id="password" required placeholder="비밀번호를 입력하세요"
-                        autocomplete="current-password">
-                    <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.85rem;">
-                        <a href="find-email.html" style="color: var(--text-muted);">아이디 찾기</a>
-                        <a href="forgot-password.html" style="color: var(--text-muted);">비밀번호 찾기</a>
+
+                <form id="login-form" class="hm-form">
+                    <!-- 역할 안내 (스크립트가 내용을 바꾼다) -->
+                    <div class="role-description" id="role-description">
+                        <p><strong>기업 회원</strong>으로 로그인하여 최적의 ISO 전문가를 만나보세요.</p>
                     </div>
+
+                    <div class="form-group hm-field">
+                        <label for="email">이메일</label>
+                        <input type="text" id="email" required placeholder="name@company.com"
+                            autocomplete="email">
+                    </div>
+                    <div class="form-group hm-field">
+                        <label for="password">비밀번호</label>
+                        <div class="hm-pw">
+                            <input type="password" id="password" required placeholder="비밀번호를 입력하세요"
+                                autocomplete="current-password">
+                            <button type="button" class="hm-pw-toggle" data-pw-toggle aria-label="비밀번호 보기" aria-pressed="false">
+                                <svg class="ic-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <svg class="ic-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="M2 2l20 20"/></svg>
+                            </button>
+                        </div>
+                        <div class="hm-field-row">
+                            <a href="find-email.html" class="hm-text-link">아이디 찾기</a>
+                            <a href="forgot-password.html" class="hm-text-link">비밀번호 찾기</a>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="hm-btn hm-btn-lime hm-btn-lg hm-btn-submit">
+                        로그인
+                    </button>
+                </form>
+
+                <div class="hm-auth-alt">
+                    <span>계정이 없으신가요?</span>
+                    <a href="signup.html" id="signup-link" class="hm-link-under">회원가입</a>
                 </div>
 
-
-                <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
-                    로그인
-                </button>
-            </form>
-
-            <div class="auth-footer">
-                <p style="color: var(--text-muted);">
-                    계정이 없으신가요?
-                    <a href="signup.html" id="signup-link">회원가입</a>
-                </p>
-            </div>
-
-            <!-- Hidden Admin Login Link -->
-            <div class="admin-login-link" id="admin-login-section" style="display: none;">
-                <a href="#" onclick="switchLoginTab('admin'); return false;">
-                    <i data-lucide="shield" style="width: 12px; height: 12px; vertical-align: middle;"></i>
-                    관리자 로그인
-                </a>
-            </div>
+                <!-- Hidden Admin Login Link -->
+                <div class="admin-login-link" id="admin-login-section" style="display: none;">
+                    <a href="#" onclick="switchLoginTab('admin'); return false;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+                        관리자 로그인
+                    </a>
+                </div>
+            </section>
         </div>
-    </div>
+    </main>
 
-    <!-- Footer with hidden admin link -->
-    <footer style="position: fixed; bottom: 0; left: 0; right: 0; padding: 16px; text-align: center;">
-        <a href="#" onclick="showAdminLogin(); return false;"
-            style="color: var(--text-muted); font-size: 0.7rem; opacity: 0.4; text-decoration: none;">
-            관리자
-        </a>
+    <footer class="hm-mini-foot">
+        <div class="hm-wrap hm-mini-foot-row">
+            <span>© 2026 OpenBrain Limited. All rights reserved.</span>
+            <nav aria-label="약관 및 지원">
+                <a href="terms.html">이용약관</a>
+                <a href="privacy.html">개인정보처리방침</a>
+                <a href="contact.html">문의하기</a>
+                <!-- 관리자 로그인 진입 (기존과 같은 숨은 링크) -->
+                <a href="#" class="hm-quiet" onclick="showAdminLogin(); return false;">관리자</a>
+            </nav>
+        </div>
     </footer>
 
+    <script>
+        // 비밀번호 보기 토글 (입력값·id 는 건드리지 않고 type 만 바꾼다)
+        document.querySelectorAll('[data-pw-toggle]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const input = btn.parentElement.querySelector('input');
+                const show = input.type === 'password';
+                input.type = show ? 'text' : 'password';
+                btn.setAttribute('aria-pressed', String(show));
+                btn.setAttribute('aria-label', show ? '비밀번호 숨기기' : '비밀번호 보기');
+            });
+        });
+    </script>
     <script>
         // API Base URL 설정 (환경에 따라 자동 감지)
         const API_BASE_URL = (() => {
@@ -241,9 +161,33 @@
             return '';
         })();
 
+        // 인라인 SVG 아이콘 (lucide 의존 제거 — 탭을 다시 그릴 때 사용)
+        const ICON_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+        const ICONS = {
+            building: `<svg ${ICON_ATTRS}><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>`,
+            userCheck: `<svg ${ICON_ATTRS}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>`,
+            arrowLeft: `<svg ${ICON_ATTRS}><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>`,
+            shield: `<svg ${ICON_ATTRS}><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>`,
+            alert: `<svg ${ICON_ATTRS}><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>`
+        };
+
         // URL에서 redirect 파라미터 추출
+        // 보안: 같은 사이트(http/https, 동일 origin)의 경로만 허용한다.
+        // 외부 주소(//evil.com, https://evil.com)나 javascript: 같은 스킴은 버려서
+        // 로그인 직후 외부 이동·스크립트 실행(오픈 리다이렉트/XSS)을 막는다.
+        function safeRedirectTarget(raw) {
+            if (!raw) return null;
+            try {
+                const target = new URL(raw, window.location.href);
+                if (target.protocol !== 'http:' && target.protocol !== 'https:') return null;
+                if (target.origin !== window.location.origin) return null;
+                return target.pathname + target.search + target.hash;
+            } catch (e) {
+                return null;
+            }
+        }
         const urlParams = new URLSearchParams(window.location.search);
-        const redirectTo = urlParams.get('redirect');
+        const redirectTo = safeRedirectTarget(urlParams.get('redirect'));
 
         // 현재 선택된 로그인 타입
         let currentLoginRole = 'company';
@@ -296,25 +240,22 @@
                     if (emailInput) emailInput.placeholder = '아이디를 입력하세요';
                     break;
             }
-
-            lucide.createIcons();
         }
 
         // 원래 탭 UI로 복구하는 함수
         function restoreNormalTabs() {
             document.querySelector('.login-tabs').innerHTML = `
-                <button class="login-tab active" data-role="company" onclick="switchLoginTab('company')">
-                    <i data-lucide="building-2"></i>
+                <button type="button" class="login-tab active" data-role="company" onclick="switchLoginTab('company')">
+                    ${ICONS.building}
                     기업 회원
                 </button>
-                <button class="login-tab" data-role="consultant" onclick="switchLoginTab('consultant')">
-                    <i data-lucide="user-check"></i>
+                <button type="button" class="login-tab" data-role="consultant" onclick="switchLoginTab('consultant')">
+                    ${ICONS.userCheck}
                     컨설턴트
                 </button>
             `;
             currentLoginRole = 'company';
             switchLoginTab('company');
-            lucide.createIcons();
         }
 
         // 관리자 로그인 표시 함수
@@ -322,20 +263,17 @@
             switchLoginTab('admin');
             // 일반 탭 숨기고 뒤로가기 버튼 표시
             document.querySelector('.login-tabs').innerHTML = `
-                <button class="login-tab" onclick="restoreNormalTabs()" style="flex: none; padding: 8px 16px;">
-                    <i data-lucide="arrow-left"></i>
+                <button type="button" class="login-tab is-back" onclick="restoreNormalTabs()">
+                    ${ICONS.arrowLeft}
                     돌아가기
                 </button>
-                <button class="login-tab active" data-role="admin" style="flex: 1;">
-                    <i data-lucide="shield"></i>
+                <button type="button" class="login-tab active" data-role="admin">
+                    ${ICONS.shield}
                     관리자
                 </button>
             `;
             document.querySelector('.login-tabs').style.display = 'flex';
-            lucide.createIcons();
         }
-
-        lucide.createIcons();
 
         // Mobile Menu Toggle
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
@@ -370,7 +308,7 @@
 
             // Loading state
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="loading-spinner" style="width: 20px; height: 20px; border-width: 2px;"></span> 로그인 중...';
+            submitBtn.innerHTML = '<span class="loading-spinner" aria-hidden="true"></span> 로그인 중...';
 
             try {
                 const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
@@ -444,24 +382,16 @@
             if (existing) existing.remove();
 
             const errorDiv = document.createElement('div');
-            errorDiv.className = 'error-message';
-            errorDiv.style.cssText = `
-                background: rgba(239, 68, 68, 0.1);
-                border: 1px solid rgba(239, 68, 68, 0.3);
-                color: #ef4444;
-                padding: 12px 16px;
-                border-radius: 8px;
-                margin-bottom: 16px;
-                font-size: 0.9rem;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            `;
-            errorDiv.innerHTML = `<i data-lucide="alert-circle" style="width: 18px; height: 18px;"></i> ${message}`;
+            errorDiv.className = 'error-message hm-alert hm-alert-error';
+            errorDiv.setAttribute('role', 'alert');
+            // 서버 메시지가 HTML 로 해석되지 않도록 문구는 textContent 로 넣는다
+            errorDiv.innerHTML = ICONS.alert;
+            const text = document.createElement('span');
+            text.textContent = message;
+            errorDiv.appendChild(text);
 
             const form = document.getElementById('login-form');
             form.insertBefore(errorDiv, form.firstChild);
-            lucide.createIcons();
 
             setTimeout(() => errorDiv.remove(), 5000);
         }

@@ -4,176 +4,205 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
     <title>회원가입 - InsightMatch</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="images/logo2.png">
+    <link rel="apple-touch-icon" href="images/logo2.png">
 
-    <!-- Fonts -->
+    <!-- Fonts: Pretendard + DM Sans (메인페이지와 동일) -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap"
-        rel="stylesheet">
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,500;9..40,600;9..40,700;9..40,800&display=swap">
 
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-
-    <!-- Styles -->
-    <link rel="stylesheet" href="style.css">
+    <!-- B안 공통 스타일. style.css·lucide 는 로드하지 않는다(아이콘은 인라인 SVG). -->
+    <link rel="stylesheet" href="brand.css?v=1">
 </head>
 
-<body>
-    <!-- Background Effects -->
-    <div class="bg-gradient"></div>
-    <div class="bg-grid"></div>
+<body class="hm-body">
+    <a class="hm-skip" href="#signup-form">회원가입 폼으로 건너뛰기</a>
 
-    <!-- Navigation -->
-    <nav class="navbar">
-        <div class="container nav-content">
-            <a href="index.html" class="logo">
-                <div class="logo-icon">
-                    <i data-lucide="shield-check" style="width: 20px; height: 20px;"></i>
+    <header class="hm-header">
+        <div class="hm-wrap">
+            <div class="hm-header-row">
+                <a class="hm-logo" href="index.html" aria-label="InsightMatch 메인으로">Insight<span class="hm-logo-dot" aria-hidden="true"></span>Match</a>
+                <div class="hm-header-actions">
+                    <a class="hm-acc" href="login.html">로그인</a>
+                    <a class="hm-acc hm-acc-outline" href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>메인으로</a>
                 </div>
-                <div class="logo-text">
-                    <span>InsightMatch</span>
-                    <span>by OpenBrain</span>
-                </div>
-            </a>
-
-            <div class="nav-actions">
-                <a href="index.html" class="btn btn-ghost">
-                    <i data-lucide="home" style="width: 18px; height: 18px;"></i>
-                    홈으로
-                </a>
-            </div>
-
-            <!-- Mobile Menu Button -->
-            <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="메뉴 열기">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
-        </div>
-    </nav>
-
-    <!-- Mobile Navigation -->
-    <div class="mobile-nav" id="mobile-nav"
-        style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;background:var(--bg-primary);display:none;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px 40px;gap:8px;">
-        <button onclick="closeMobileMenu()" style="position:absolute;top:24px;right:24px;background:none;border:none;cursor:pointer;font-size:1.5rem;color:var(--text-primary);">✕</button>
-        <a href="index.html" style="width:100%;max-width:400px;padding:14px 20px;font-size:1rem;color:var(--text-primary);text-decoration:none;">홈</a>
-        <a href="login.html" style="width:100%;max-width:400px;padding:14px 20px;font-size:1rem;color:var(--text-primary);text-decoration:none;">로그인</a>
-        <div class="nav-divider"></div>
-        <a href="index.html" class="btn btn-secondary" onclick="closeMobileMenu()">
-            <i data-lucide="home" style="width: 18px; height: 18px;"></i>
-            홈으로
-        </a>
-    </div>
-
-    <!-- Auth Container -->
-    <div class="auth-container">
-        <div class="auth-card fade-in-up" style="max-width: 480px;">
-            <div class="auth-header">
-                <div class="logo-icon" style="width: 56px; height: 56px; margin: 0 auto 16px;">
-                    <i data-lucide="user-plus" style="width: 28px; height: 28px;"></i>
-                </div>
-                <h2>회원가입</h2>
-                <p>InsightMatch에 오신 것을 환영합니다.</p>
-            </div>
-
-            <form id="signup-form" class="auth-form">
-                <div class="form-group">
-                    <label>계정 유형</label>
-                    <div class="checkbox-grid" style="grid-template-columns: 1fr 1fr;">
-                        <label class="checkbox-card">
-                            <input type="radio" name="role" value="company" checked>
-                            <span>기업 담당자<small>ISO 인증 상담 필요</small></span>
-                        </label>
-                        <label class="checkbox-card">
-                            <input type="radio" name="role" value="consultant">
-                            <span>컨설턴트<small>전문가로 등록</small></span>
-                        </label>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>이름 <small style="color: var(--text-muted);">(담당자명 또는 본인 이름)</small></label>
-                    <input type="text" id="name" required placeholder="홍길동">
-                </div>
-                <div class="form-group" id="company-name-group">
-                    <label>회사명 <small id="company-label-optional"
-                            style="color: var(--text-muted); display: none;">(선택)</small></label>
-                    <input type="text" id="companyName" required placeholder="(주)인사이트매치">
-                </div>
-                <div class="form-group" id="industry-group">
-                    <label>업종</label>
-                    <select id="industry" required style="width:100%;padding:12px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:var(--text-primary);font-size:0.95rem;">
-                        <option value="">선택하세요</option>
-                        <option value="전자/반도체">전자/반도체</option>
-                        <option value="자동차/부품 제조">자동차/부품 제조</option>
-                        <option value="기계/금속 제조">기계/금속 제조</option>
-                        <option value="화학/석유화학">화학/석유화학</option>
-                        <option value="식품/음료 제조">식품/음료 제조</option>
-                        <option value="의약/바이오">의약/바이오</option>
-                        <option value="건설/토목">건설/토목</option>
-                        <option value="IT/소프트웨어">IT/소프트웨어</option>
-                        <option value="물류/운송">물류/운송</option>
-                        <option value="서비스업">서비스업</option>
-                        <option value="공공기관">공공기관</option>
-                        <option value="기타">기타</option>
-                    </select>
-                </div>
-                <div class="form-group" id="employees-group">
-                    <label>규모 (종업원 수)</label>
-                    <select id="employees" required style="width:100%;padding:12px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:var(--text-primary);font-size:0.95rem;">
-                        <option value="">선택하세요</option>
-                        <option value="10명 미만">10명 미만</option>
-                        <option value="10~50명">10~50명</option>
-                        <option value="50~100명">50~100명</option>
-                        <option value="100~300명">100~300명</option>
-                        <option value="300명 이상">300명 이상</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>이메일</label>
-                    <input type="text" id="email" required placeholder="name@company.com">
-                </div>
-                <div class="form-group">
-                    <label>비밀번호</label>
-                    <input type="password" id="password" required placeholder="8자 이상 입력해주세요" minlength="8">
-                    <div class="password-strength-meter" id="password-strength">
-                        <div class="strength-bar" id="strength-bar"></div>
-                    </div>
-                    <small class="strength-text" id="strength-text">8자 이상, 영문+숫자 조합 권장</small>
-                </div>
-                <div class="form-group">
-                    <label>휴대폰 번호 <small style="color: var(--text-muted);">(아이디 찾기에 사용됩니다)</small></label>
-                    <input type="tel" id="phone" required placeholder="010-1234-5678">
-                </div>
-                <div class="form-group">
-                    <label>비밀번호 확인</label>
-                    <input type="password" id="confirmPassword" required placeholder="비밀번호를 다시 입력해주세요">
-                </div>
-
-                <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
-                    회원가입
-                </button>
-
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 16px; text-align: center;">
-                    가입 시 <a href="terms.html" target="_blank" rel="noopener"
-                        style="color: var(--primary);">이용약관</a> 및
-                    <a href="privacy.html" target="_blank" rel="noopener"
-                        style="color: var(--primary);">개인정보처리방침</a>에 동의합니다.
-                </p>
-            </form>
-
-            <div class="auth-footer">
-                <p style="color: var(--text-muted);">
-                    이미 계정이 있으신가요?
-                    <a href="login.html">로그인</a>
-                </p>
             </div>
         </div>
+    </header>
+
+    <!-- 예전 모바일 메뉴 자리. 아래 스크립트가 #mobile-menu-btn·#mobile-nav 를 참조하므로 요소는 남겨 두고 화면에서는 숨긴다. -->
+    <button class="mobile-menu-btn" id="mobile-menu-btn" type="button" aria-label="메뉴 열기" hidden><span></span></button>
+    <div class="mobile-nav" id="mobile-nav" hidden>
+        <button type="button" onclick="closeMobileMenu()">메뉴 닫기</button>
     </div>
+
+    <main class="hm-wrap hm-auth">
+        <aside class="hm-auth-panel hm-on-dark" aria-label="InsightMatch 안내">
+            <div class="hm-auth-deco" aria-hidden="true"><div class="hm-blob"></div><div class="hm-circle"></div><div class="hm-circle r2"></div></div>
+            <span class="hm-auth-badge"><span class="dot" aria-hidden="true"></span>ISO 인증 컨설턴트 매칭 · 6개 분야 25개 규격</span>
+            <div>
+                <p class="hm-auth-title">검증된 컨설턴트를 <span class="hl">추천 근거</span>와 함께 비교하세요.</p>
+                <p class="hm-auth-lead">인증 규격·업종·지역만 고르면 맞는 컨설턴트를 한 화면에서 비교할 수 있습니다.</p>
+            </div>
+            <ul class="hm-auth-points">
+                <li><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></span><b>검증된 컨설턴트</b><span>관리자가 신원·자격·수행 이력·연락처를 확인해 승인한 컨설턴트만 추천합니다.</span></li>
+                <li><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span><b>가입 없이 진단</b><span>진단과 추천 확인은 무료이며, 가입 없이 시작할 수 있습니다.</span></li>
+                <li><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span><b>추천 근거 공개</b><span>적합도와 추천 근거를 함께 보여 드려 같은 양식으로 비교합니다.</span></li>
+            </ul>
+        </aside>
+
+        <div class="hm-auth-main">
+            <section class="hm-auth-card is-wide" aria-labelledby="signup-title">
+                <div class="hm-auth-head">
+                    <span class="hm-eyebrow">SIGN UP</span>
+                    <h1 id="signup-title">회원가입</h1>
+                    <p>InsightMatch에 오신 것을 환영합니다.</p>
+                </div>
+
+                <form id="signup-form" class="hm-form">
+                    <fieldset class="form-group hm-field">
+                        <legend class="hm-label">계정 유형</legend>
+                        <div class="hm-opt-grid">
+                            <label class="hm-opt">
+                                <input type="radio" name="role" value="company" checked>
+                                <span class="hm-opt-body"><b>기업 담당자</b><small>ISO 인증 상담 필요</small></span>
+                            </label>
+                            <label class="hm-opt">
+                                <input type="radio" name="role" value="consultant">
+                                <span class="hm-opt-body"><b>컨설턴트</b><small>전문가로 등록</small></span>
+                            </label>
+                        </div>
+                    </fieldset>
+
+                    <div class="hm-field-grid">
+                        <div class="form-group hm-field">
+                            <label for="name">이름 <small>(담당자명 또는 본인 이름)</small></label>
+                            <input type="text" id="name" required placeholder="홍길동" autocomplete="name">
+                        </div>
+                        <div class="form-group hm-field" id="company-name-group">
+                            <label for="companyName">회사명 <small id="company-label-optional"
+                                    style="display: none;">(선택)</small></label>
+                            <input type="text" id="companyName" required placeholder="(주)인사이트매치" autocomplete="organization">
+                        </div>
+                        <div class="form-group hm-field" id="industry-group">
+                            <label for="industry">업종</label>
+                            <select id="industry" required>
+                                <option value="">선택하세요</option>
+                                <option value="전자/반도체">전자/반도체</option>
+                                <option value="자동차/부품 제조">자동차/부품 제조</option>
+                                <option value="기계/금속 제조">기계/금속 제조</option>
+                                <option value="화학/석유화학">화학/석유화학</option>
+                                <option value="식품/음료 제조">식품/음료 제조</option>
+                                <option value="의약/바이오">의약/바이오</option>
+                                <option value="건설/토목">건설/토목</option>
+                                <option value="IT/소프트웨어">IT/소프트웨어</option>
+                                <option value="물류/운송">물류/운송</option>
+                                <option value="서비스업">서비스업</option>
+                                <option value="공공기관">공공기관</option>
+                                <option value="기타">기타</option>
+                            </select>
+                        </div>
+                        <div class="form-group hm-field" id="employees-group">
+                            <label for="employees">규모 (종업원 수)</label>
+                            <select id="employees" required>
+                                <option value="">선택하세요</option>
+                                <option value="10명 미만">10명 미만</option>
+                                <option value="10~50명">10~50명</option>
+                                <option value="50~100명">50~100명</option>
+                                <option value="100~300명">100~300명</option>
+                                <option value="300명 이상">300명 이상</option>
+                            </select>
+                        </div>
+                        <div class="form-group hm-field">
+                            <label for="email">이메일</label>
+                            <input type="text" id="email" required placeholder="name@company.com" autocomplete="email">
+                        </div>
+                        <div class="form-group hm-field">
+                            <label for="phone">휴대폰 번호</label>
+                            <input type="tel" id="phone" required placeholder="010-1234-5678" autocomplete="tel" aria-describedby="phone-hint">
+                            <small class="hm-field-hint" id="phone-hint">아이디 찾기에 사용됩니다</small>
+                        </div>
+                        <div class="form-group hm-field">
+                            <label for="password">비밀번호</label>
+                            <div class="hm-pw">
+                                <input type="password" id="password" required placeholder="8자 이상 입력해주세요" minlength="8" autocomplete="new-password" aria-describedby="strength-text">
+                                <button type="button" class="hm-pw-toggle" data-pw-toggle aria-label="비밀번호 보기" aria-pressed="false">
+                                    <svg class="ic-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                                    <svg class="ic-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="M2 2l20 20"/></svg>
+                                </button>
+                            </div>
+                            <div class="password-strength-meter" id="password-strength">
+                                <div class="strength-bar" id="strength-bar"></div>
+                            </div>
+                            <small class="strength-text" id="strength-text">8자 이상, 영문+숫자 조합 권장</small>
+                        </div>
+                        <div class="form-group hm-field">
+                            <label for="confirmPassword">비밀번호 확인</label>
+                            <div class="hm-pw">
+                                <input type="password" id="confirmPassword" required placeholder="비밀번호 다시 입력" autocomplete="new-password">
+                                <button type="button" class="hm-pw-toggle" data-pw-toggle aria-label="비밀번호 보기" aria-pressed="false">
+                                    <svg class="ic-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                                    <svg class="ic-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="M2 2l20 20"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="hm-btn hm-btn-lime hm-btn-lg hm-btn-submit">
+                        회원가입
+                    </button>
+
+                    <p class="hm-auth-legal">
+                        가입 시 <a href="terms.html" target="_blank" rel="noopener" class="hm-text-link">이용약관</a> 및
+                        <a href="privacy.html" target="_blank" rel="noopener" class="hm-text-link">개인정보처리방침</a>에 동의합니다.
+                    </p>
+                </form>
+
+                <div class="hm-auth-alt">
+                    <span>이미 계정이 있으신가요?</span>
+                    <a href="login.html" class="hm-link-under">로그인</a>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="hm-mini-foot">
+        <div class="hm-wrap hm-mini-foot-row">
+            <span>© 2026 OpenBrain Limited. All rights reserved.</span>
+            <nav aria-label="약관 및 지원">
+                <a href="terms.html">이용약관</a>
+                <a href="privacy.html">개인정보처리방침</a>
+                <a href="contact.html">문의하기</a>
+            </nav>
+        </div>
+    </footer>
 
     <script>
-        lucide.createIcons();
+        // 비밀번호 보기 토글 (입력값·id 는 건드리지 않고 type 만 바꾼다)
+        document.querySelectorAll('[data-pw-toggle]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const input = btn.parentElement.querySelector('input');
+                const show = input.type === 'password';
+                input.type = show ? 'text' : 'password';
+                btn.setAttribute('aria-pressed', String(show));
+                btn.setAttribute('aria-label', show ? '비밀번호 숨기기' : '비밀번호 보기');
+            });
+        });
+    </script>
+    <script>
+        // 인라인 SVG 아이콘 (lucide 의존 제거)
+        const ICON_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+        const ICONS = {
+            'alert-circle': `<svg ${ICON_ATTRS}><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>`,
+            'check-circle': `<svg ${ICON_ATTRS}><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>`
+        };
 
         // Mobile Menu Toggle
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
@@ -223,13 +252,14 @@
             const text = document.getElementById('strength-text');
             const score = calculatePasswordStrength(password);
 
+            // 색은 흰 바탕 위 글자로도 읽히는 값(대비 4.5:1 이상)으로 맞췄다. 단계·문구는 기존과 같다.
             const levels = [
-                { min: 0, width: '0%', color: '#ef4444', text: '8자 이상, 영문+숫자 조합 권장' },
-                { min: 1, width: '20%', color: '#ef4444', text: '약함' },
-                { min: 2, width: '40%', color: '#f97316', text: '보통' },
-                { min: 3, width: '60%', color: '#eab308', text: '양호' },
-                { min: 4, width: '80%', color: '#22c55e', text: '강함' },
-                { min: 5, width: '100%', color: '#16a34a', text: '매우 강함' }
+                { min: 0, width: '0%', color: '#575A52', text: '8자 이상, 영문+숫자 조합 권장' },
+                { min: 1, width: '20%', color: '#C8382B', text: '약함' },
+                { min: 2, width: '40%', color: '#B4570B', text: '보통' },
+                { min: 3, width: '60%', color: '#8A6A00', text: '양호' },
+                { min: 4, width: '80%', color: '#3F7F1F', text: '강함' },
+                { min: 5, width: '100%', color: '#2C6E1F', text: '매우 강함' }
             ];
 
             const level = levels.filter(l => score >= l.min).pop();
@@ -244,31 +274,7 @@
             updatePasswordStrengthUI(e.target.value);
         });
 
-        // Add inline CSS for password strength meter
-        const style = document.createElement('style');
-        style.textContent = `
-            .password-strength-meter {
-                height: 6px;
-                background: rgba(255,255,255,0.1);
-                border-radius: 3px;
-                margin-top: 8px;
-                overflow: hidden;
-            }
-            .strength-bar {
-                height: 100%;
-                width: 0%;
-                transition: all 0.3s ease;
-                border-radius: 3px;
-            }
-            .strength-text {
-                display: block;
-                margin-top: 6px;
-                font-size: 0.75rem;
-                color: var(--text-muted);
-                transition: color 0.3s ease;
-            }
-        `;
-        document.head.appendChild(style);
+        // (예전에는 강도 막대 CSS 를 여기서 <style> 로 주입했다 — 이제 brand.css 에 있다)
 
         // Role change listener - toggle company name required/optional
         const roleInputs = document.querySelectorAll('input[name="role"]');
@@ -307,9 +313,7 @@
         }
         if (afterSignupRedirect.includes('consultant_register.html')) {
             const notice = document.createElement('div');
-            notice.style.cssText =
-                'margin-bottom:20px;padding:12px 16px;border-radius:10px;font-size:0.9rem;' +
-                'background:rgba(16,185,129,0.1);border:1px solid #10B981;color:#065f46;';
+            notice.className = 'hm-alert hm-alert-info hm-auth-notice';
             notice.innerHTML = '<strong>초대 링크로 오셨습니다.</strong><br>컨설턴트 계정을 만든 뒤 프로필 등록으로 이동합니다.';
             const form = document.getElementById('signup-form');
             form.parentNode.insertBefore(notice, form);
@@ -347,7 +351,7 @@
 
             // Loading state
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="loading-spinner" style="width: 20px; height: 20px; border-width: 2px;"></span> 가입 처리 중...';
+            submitBtn.innerHTML = '<span class="loading-spinner" aria-hidden="true"></span> 가입 처리 중...';
 
             try {
                 // API Base URL 설정
@@ -409,31 +413,21 @@
             if (existing) existing.remove();
 
             const messageDiv = document.createElement('div');
-            messageDiv.className = 'message-box';
-
             const isError = type === 'error';
-            const color = isError ? '#ef4444' : '#22c55e';
-            const bgColor = isError ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)';
-            const borderColor = isError ? 'rgba(239, 68, 68, 0.3)' : 'rgba(34, 197, 94, 0.3)';
             const icon = isError ? 'alert-circle' : 'check-circle';
 
-            messageDiv.style.cssText = `
-                background: ${bgColor};
-                border: 1px solid ${borderColor};
-                color: ${color};
-                padding: 12px 16px;
-                border-radius: 8px;
-                margin-bottom: 16px;
-                font-size: 0.9rem;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            `;
-            messageDiv.innerHTML = `<i data-lucide="${icon}" style="width: 18px; height: 18px;"></i> ${message}`;
+            messageDiv.className = `message-box hm-alert ${isError ? 'hm-alert-error' : 'hm-alert-success'}`;
+            messageDiv.setAttribute('role', isError ? 'alert' : 'status');
+            // 서버 메시지가 HTML 로 해석되지 않도록 문구는 textContent 로 넣는다
+            messageDiv.innerHTML = ICONS[icon];
+            const text = document.createElement('span');
+            text.textContent = message;
+            messageDiv.appendChild(text);
 
             const form = document.getElementById('signup-form');
             form.insertBefore(messageDiv, form.firstChild);
-            lucide.createIcons();
+            // 긴 폼 아래에서 제출해도 메시지가 보이도록 화면 안으로 가져온다
+            messageDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
             if (isError) {
                 setTimeout(() => messageDiv.remove(), 5000);

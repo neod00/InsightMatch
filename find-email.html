@@ -4,254 +4,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
     <title>아이디 찾기 - InsightMatch</title>
-    <link rel="icon"
-        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+    <link rel="icon" type="image/png" sizes="32x32" href="images/logo2.png">
+    <link rel="apple-touch-icon" href="images/logo2.png">
+
+    <!-- Fonts: Pretendard + DM Sans (메인페이지와 동일) -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #10b981;
-            --primary-dark: #059669;
-            --bg-main: #0a0f1a;
-            --bg-card: rgba(20, 30, 50, 0.8);
-            --text-primary: #f1f5f9;
-            --text-muted: #94a3b8;
-            --border: rgba(148, 163, 184, 0.15);
-            --error: #ef4444;
-            --success: #10b981;
-        }
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,500;9..40,600;9..40,700;9..40,800&display=swap">
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Outfit', -apple-system, sans-serif;
-            background: var(--bg-main);
-            color: var(--text-primary);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .container {
-            background: var(--bg-card);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 48px;
-            width: 100%;
-            max-width: 420px;
-            text-align: center;
-        }
-
-        .logo {
-            font-size: 3rem;
-            margin-bottom: 16px;
-        }
-
-        h1 {
-            font-size: 1.8rem;
-            font-weight: 600;
-            margin-bottom: 12px;
-        }
-
-        .subtitle {
-            color: var(--text-muted);
-            margin-bottom: 32px;
-            font-size: 0.95rem;
-            line-height: 1.5;
-        }
-
-        .form-group {
-            text-align: left;
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            margin-bottom: 8px;
-        }
-
-        input {
-            width: 100%;
-            padding: 14px 16px;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--text-primary);
-            font-size: 1rem;
-            transition: all 0.2s;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
-        }
-
-        .btn {
-            width: 100%;
-            padding: 16px;
-            border: none;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: white;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
-        }
-
-        .btn-primary:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .message {
-            padding: 14px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            font-size: 0.9rem;
-            display: none;
-        }
-
-        .message.success {
-            background: rgba(16, 185, 129, 0.15);
-            border: 1px solid var(--success);
-            color: var(--success);
-            display: block;
-        }
-
-        .message.error {
-            background: rgba(239, 68, 68, 0.15);
-            border: 1px solid var(--error);
-            color: var(--error);
-            display: block;
-        }
-
-        .result-box {
-            background: rgba(16, 185, 129, 0.1);
-            border: 1px solid var(--primary);
-            border-radius: 12px;
-            padding: 20px;
-            margin-top: 20px;
-        }
-
-        .result-box .label {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            margin-bottom: 8px;
-        }
-
-        .result-box .email {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: var(--primary);
-        }
-
-        .back-link {
-            display: inline-block;
-            margin-top: 24px;
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 0.9rem;
-            transition: color 0.2s;
-        }
-
-        .back-link:hover {
-            color: var(--primary);
-        }
-
-        .loading-spinner {
-            display: inline-block;
-            width: 18px;
-            height: 18px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 0.8s linear infinite;
-            margin-right: 8px;
-            vertical-align: middle;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .links {
-            display: flex;
-            justify-content: center;
-            gap: 16px;
-            margin-top: 24px;
-        }
-
-        .links a {
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 0.85rem;
-        }
-
-        .links a:hover {
-            color: var(--primary);
-        }
-    </style>
+    <!-- B안 공통 스타일 -->
+    <link rel="stylesheet" href="brand.css?v=1">
 </head>
 
-<body>
-    <div class="container">
-        <div class="logo">🔍</div>
-        <h1>아이디(이메일) 찾기</h1>
-        <p class="subtitle">
-            가입 시 등록한 이름과 휴대폰 번호를<br>
-            입력하시면 이메일을 찾아드립니다.
-        </p>
+<body class="hm-body">
+    <a class="hm-skip" href="#find-form">아이디 찾기 폼으로 건너뛰기</a>
 
-        <div id="message" class="message"></div>
-
-        <form id="find-form">
-            <div class="form-group">
-                <label for="name">이름 <small style="color: var(--text-muted);">(담당자명 또는 본인 이름)</small></label>
-                <input type="text" id="name" placeholder="홍길동" required>
+    <header class="hm-header">
+        <div class="hm-wrap">
+            <div class="hm-header-row">
+                <a class="hm-logo" href="index.html" aria-label="InsightMatch 메인으로">Insight<span class="hm-logo-dot" aria-hidden="true"></span>Match</a>
+                <div class="hm-header-actions">
+                    <a class="hm-acc" href="login.html">로그인</a>
+                    <a class="hm-acc hm-acc-outline" href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>메인으로</a>
+                </div>
             </div>
-            <div class="form-group">
-                <label for="phone">휴대폰 번호</label>
-                <input type="tel" id="phone" placeholder="010-1234-5678" required>
+        </div>
+    </header>
+
+    <main class="hm-wrap hm-auth">
+        <aside class="hm-auth-panel hm-on-dark" aria-label="InsightMatch 안내">
+            <div class="hm-auth-deco" aria-hidden="true"><div class="hm-blob"></div><div class="hm-circle"></div><div class="hm-circle r2"></div></div>
+            <span class="hm-auth-badge"><span class="dot" aria-hidden="true"></span>ISO 인증 컨설턴트 매칭 · 6개 분야 25개 규격</span>
+            <div>
+                <p class="hm-auth-title">검증된 컨설턴트를 <span class="hl">추천 근거</span>와 함께 비교하세요.</p>
+                <p class="hm-auth-lead">인증 규격·업종·지역만 고르면 맞는 컨설턴트를 한 화면에서 비교할 수 있습니다.</p>
             </div>
-            <button type="submit" class="btn btn-primary" id="submit-btn">
-                아이디 찾기
-            </button>
-        </form>
+            <ul class="hm-auth-points">
+                <li><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></span><b>검증된 컨설턴트</b><span>관리자가 신원·자격·수행 이력·연락처를 확인해 승인한 컨설턴트만 추천합니다.</span></li>
+                <li><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span><b>가입 없이 진단</b><span>진단과 추천 확인은 무료이며, 가입 없이 시작할 수 있습니다.</span></li>
+                <li><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span><b>추천 근거 공개</b><span>적합도와 추천 근거를 함께 보여 드려 같은 양식으로 비교합니다.</span></li>
+            </ul>
+        </aside>
 
-        <div id="result-box" class="result-box" style="display: none;">
-            <div class="label">가입된 이메일</div>
-            <div class="email" id="found-email"></div>
-        </div>
+        <div class="hm-auth-main">
+            <section class="hm-auth-card" aria-labelledby="find-title">
+                <div class="hm-auth-head">
+                    <span class="hm-eyebrow">FIND ID</span>
+                    <h1 id="find-title">아이디(이메일) 찾기</h1>
+                    <p class="subtitle">가입 시 등록한 이름과 휴대폰 번호를 입력하시면 이메일을 찾아드립니다.</p>
+                </div>
 
-        <div class="links">
-            <a href="forgot-password.html">비밀번호 찾기</a>
-            <span style="color: var(--border);">|</span>
-            <a href="login.html">로그인</a>
+                <div class="hm-auth-stack">
+                    <div id="message" class="message" role="status" aria-live="polite"></div>
+
+                    <form id="find-form" class="hm-form">
+                        <div class="form-group hm-field">
+                            <label for="name">이름 <small>(담당자명 또는 본인 이름)</small></label>
+                            <input type="text" id="name" placeholder="홍길동" required autocomplete="name">
+                        </div>
+                        <div class="form-group hm-field">
+                            <label for="phone">휴대폰 번호</label>
+                            <input type="tel" id="phone" placeholder="010-1234-5678" required autocomplete="tel">
+                        </div>
+                        <button type="submit" class="hm-btn hm-btn-lime hm-btn-lg hm-btn-submit" id="submit-btn">
+                            아이디 찾기
+                        </button>
+                    </form>
+
+                    <div id="result-box" class="result-box" style="display: none;">
+                        <div class="label">가입된 이메일</div>
+                        <div class="email" id="found-email"></div>
+                        <a class="hm-btn hm-btn-ink" href="login.html">로그인하러 가기<span class="hm-arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+                    </div>
+                </div>
+
+                <div class="hm-auth-alt links">
+                    <a href="forgot-password.html" class="hm-text-link">비밀번호 찾기</a>
+                    <span class="sep" aria-hidden="true"></span>
+                    <a href="login.html" class="hm-text-link">로그인</a>
+                </div>
+            </section>
         </div>
-    </div>
+    </main>
+
+    <footer class="hm-mini-foot">
+        <div class="hm-wrap hm-mini-foot-row">
+            <span>© 2026 OpenBrain Limited. All rights reserved.</span>
+            <nav aria-label="약관 및 지원">
+                <a href="terms.html">이용약관</a>
+                <a href="privacy.html">개인정보처리방침</a>
+                <a href="contact.html">문의하기</a>
+            </nav>
+        </div>
+    </footer>
 
     <script>
         const API_BASE_URL = window.location.origin;
@@ -273,7 +124,7 @@
 
             // Show loading
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="loading-spinner"></span>찾는 중...';
+            submitBtn.innerHTML = '<span class="loading-spinner" aria-hidden="true"></span>찾는 중...';
             messageEl.style.display = 'none';
             messageEl.className = 'message';
             resultBox.style.display = 'none';
