@@ -3506,6 +3506,48 @@
       .more-body { padding: 2px 16px 20px; }
     }
 
+    /* ── 첫 화면 정리: 장식 제거, 테두리·그림자 절제 ── */
+    .hero { background: var(--bg); }
+    .hero::after { display: none; }
+    .hero-grid { padding: 56px 0 64px; align-items: start; }
+    .hero h1 { margin-top: 0; }
+    .diag-form { border-width: 1px; box-shadow: none; }
+    .chip label { border-width: 1px; }
+    .result-panel { border-width: 1px; box-shadow: 8px 8px 0 var(--shadow-c); }
+    .rp-top { position: relative; }
+    .rp-title { display: flex; align-items: baseline; gap: 10px; }
+    .rp-std {
+      color: var(--band-accent);
+      font-family: var(--font-num);
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .rp-status {
+      position: absolute;
+      inset: 0;
+      border-top: 0;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 160ms var(--ease);
+    }
+    .result-panel.is-scanning .rp-status { opacity: 1; }
+    .match-list { padding-top: 16px; }
+    .match-card { border-width: 1px; }
+    .match-card:first-child { box-shadow: none; }
+    .mc-row { justify-content: flex-start; margin-top: 10px; }
+    .hero-rev { margin: 18px 0 0; font-size: 13.5px; line-height: 1.5; }
+    .hero-rev a { color: var(--text-3); text-decoration: none; border-bottom: 1px solid var(--line); }
+    .hero-rev a:hover { color: var(--text); border-bottom-color: var(--accent-text); }
+    .hero-rev b { color: var(--text); font-weight: 700; }
+    .hero-rev a:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+    @media (max-width: 899px) {
+      .hero-grid { padding: 36px 0 48px; }
+    }
+    @media (max-width: 767px) {
+      .diag-form { box-shadow: none; }
+      .result-panel { box-shadow: 5px 5px 0 var(--shadow-c); }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       html {
         scroll-behavior: auto;
@@ -3579,75 +3621,14 @@
   <main id="main">
     <!-- 1. HERO: 진단 입력 + 매칭 결과 카드(예시) -->
     <section class="hero" id="diagnosis" aria-labelledby="hero-title">
-      <!-- 배경 도식(장식): PDCA 링 + HLS 조항 4~10 회로. 로드 시 선이 그려지고 다이얼이 느리게 회전 -->
-      <div class="hero-schematic" data-loop aria-hidden="true">
-        <svg class="sch-base" viewBox="0 0 1440 760" width="1440" height="760" focusable="false">
-          <g class="sch-ink" fill="none" stroke="currentColor" stroke-width="1">
-            <path class="sch-draw" pathLength="100" d="M540 380a260 260 0 1 0 520 0a260 260 0 1 0-520 0" />
-            <path class="sch-draw" style="--d:200ms" pathLength="100" d="M604 380a196 196 0 1 0 392 0a196 196 0 1 0-392 0" />
-            <path class="sch-draw" style="--d:400ms" pathLength="100" d="M800 100V184M800 576V660M520 380H604M996 380H1080M788 380H812M800 368V392" />
-            <path class="sch-draw" style="--d:700ms" pathLength="100" d="M616 196H300V92" />
-            <path class="sch-draw" style="--d:760ms" pathLength="100" d="M800 120V40" />
-            <path class="sch-draw" style="--d:820ms" pathLength="100" d="M984 196H1120V92" />
-            <path class="sch-draw" style="--d:880ms" pathLength="100" d="M1060 380H1200V250H1340" />
-            <path class="sch-draw" style="--d:940ms" pathLength="100" d="M984 564H1340" />
-            <path class="sch-draw" style="--d:1000ms" pathLength="100" d="M800 640V690H1100" />
-            <path class="sch-draw" style="--d:1060ms" pathLength="100" d="M616 564H420V690" />
-            <g class="sch-fade" fill="currentColor" stroke="none">
-              <rect x="295" y="87" width="10" height="10" />
-              <rect x="795" y="35" width="10" height="10" />
-              <rect x="1115" y="87" width="10" height="10" />
-              <rect x="1335" y="245" width="10" height="10" />
-              <rect x="1335" y="559" width="10" height="10" />
-              <rect x="1095" y="685" width="10" height="10" />
-              <rect x="415" y="685" width="10" height="10" />
-              <text x="314" y="96">§4 CONTEXT</text>
-              <text x="814" y="44">§5 LEADERSHIP</text>
-              <text x="1134" y="96">§6 PLANNING</text>
-              <text x="1328" y="236" text-anchor="end">§7 SUPPORT</text>
-              <text x="1328" y="550" text-anchor="end">§8 OPERATION</text>
-              <text x="1114" y="694">§9 EVALUATION</text>
-              <text x="434" y="694">§10 IMPROVEMENT</text>
-              <text class="sch-pdca" x="661" y="246" text-anchor="middle">PLAN</text>
-              <text class="sch-pdca" x="939" y="246" text-anchor="middle">DO</text>
-              <text class="sch-pdca" x="939" y="524" text-anchor="middle">CHECK</text>
-              <text class="sch-pdca" x="661" y="524" text-anchor="middle">ACT</text>
-            </g>
-          </g>
-          <g class="sch-pulse-wrap">
-            <path class="sch-pulse" pathLength="100" d="M540 380a260 260 0 1 1 520 0a260 260 0 1 1-520 0" />
-          </g>
-        </svg>
-        <svg class="sch-dial" viewBox="0 0 600 600" width="600" height="600" focusable="false">
-          <g class="sch-ticks" fill="none" stroke="currentColor">
-            <circle cx="300" cy="300" r="272" stroke-width="8" stroke-dasharray="1 13.242" />
-            <circle cx="300" cy="300" r="272" stroke-width="16" stroke-dasharray="1.5 140.92" />
-          </g>
-          <path class="sch-index" d="M293 6h14l-7 12z" />
-        </svg>
-      </div>
-
       <div class="wrap hero-grid">
-        <span class="reg reg-tl" aria-hidden="true"></span>
-        <span class="reg reg-tr" aria-hidden="true"></span>
-        <span class="reg reg-bl" aria-hidden="true"></span>
-        <span class="reg reg-br" aria-hidden="true"></span>
         <div class="hero-copy">
-          <div class="sec-kicker">
-            <p class="eyebrow">01 / DIAGNOSE</p>
-            <p class="doc-meta" aria-hidden="true">DOC IM-PRV-01 · REV 2026.10 · SECTION 01/08</p>
-          </div>
-          <a class="rev-notice" href="#faq-iso9001-2026">
-            <span class="rev-badge">NEW</span>
-            <span class="rev-text"><strong>ISO 9001:2026 발행</strong><span class="rev-sep" aria-hidden="true"> · </span><span class="rev-detail">2015판 인증 기업은 2029년 9월 30일까지 전환이 필요합니다</span></span>
-            <span class="arr" aria-hidden="true">→</span>
-          </a>
           <h1 id="hero-title">컨설턴트 한 명 찾는 데<br /><span class="hl">몇 주씩</span> 걸리셨나요?</h1>
           <p class="hero-sub" id="hero-sub">인증 규격·업종·지역만 고르면, 검증된 컨설턴트를 추천 근거와 함께 한 화면에서 비교할 수 있습니다. 찾는 시간도, 잘못 고를 위험도 함께 줄이세요.</p>
 
           <form class="diag-form" id="diag-form" aria-label="미니 ISO 진단" novalidate>
             <fieldset class="field">
-              <legend class="field-label"><span class="field-no" aria-hidden="true">A</span>인증 규격</legend>
+              <legend class="field-label">인증 규격</legend>
               <div class="chip-group">
                 <span class="chip">
                   <input type="radio" id="std-9001" name="std" value="9001" checked />
@@ -3709,7 +3690,7 @@
 
             <div class="field-row">
               <div class="field">
-                <label class="field-label" for="industry"><span class="field-no" aria-hidden="true">B</span>업종</label>
+                <label class="field-label" for="industry">업종</label>
                 <div class="select">
                   <select id="industry" name="industry">
                     <option value="제조" selected>제조</option>
@@ -3723,7 +3704,7 @@
                 </div>
               </div>
               <div class="field">
-                <label class="field-label" for="region"><span class="field-no" aria-hidden="true">C</span>지역</label>
+                <label class="field-label" for="region">지역</label>
                 <div class="select">
                   <select id="region" name="region">
                     <option value="서울" selected>서울</option>
@@ -3745,32 +3726,25 @@
             </div>
             <p class="form-note">가입 없이 확인 · 진단과 추천 확인은 무료입니다</p>
           </form>
+          <p class="hero-rev"><a href="#faq-iso9001-2026"><b>ISO 9001:2026 발행</b> · 2015판 인증 기업은 2029년 9월 30일까지 전환이 필요합니다 <span aria-hidden="true">→</span></a></p>
         </div>
 
         <aside class="result-panel" id="result-panel" aria-labelledby="result-title">
           <div class="rp-top">
-            <h2 class="rp-title" id="result-title"><span class="mono">MATCH RESULT</span>추천 전문가 3명</h2>
+            <h2 class="rp-title" id="result-title">추천 전문가 3명 <span class="rp-std" data-cond="std">ISO 9001</span></h2>
             <span class="sample-badge">예시 화면</span>
+            <div class="rp-status" aria-hidden="true">
+              <span class="rp-led"></span>
+              <span class="rp-status-text" data-status>MATCHED · 적합 후보 3명 (예시)</span>
+              <span class="rp-status-step" data-status-step>04/04</span>
+            </div>
           </div>
-          <div class="rp-status" aria-hidden="true">
-            <span class="rp-led"></span>
-            <span class="rp-status-text" data-status>MATCHED · 적합 후보 3명 (예시)</span>
-            <span class="rp-status-step" data-status-step>04/04</span>
-          </div>
-          <p class="rp-caption">가명과 가상 점수로 만든 <strong>예시 화면</strong>입니다. 실제 전문가 정보가 아니며, 왼쪽 선택을 바꾸면 즉시 반영됩니다.</p>
-          <div class="rp-cond">
-            <span class="rp-cond-label">FILTER</span>
-            <span class="cond-chip" data-cond="std">ISO 9001</span>
-            <span class="cond-chip" data-cond="industry">제조</span>
-            <span class="cond-chip" data-cond="region">서울</span>
-          </div>
-
           <ol class="match-list">
             <li class="match-card">
               <div class="mc-head">
                 <span class="avatar" aria-hidden="true">KJ</span>
                 <div class="mc-id">
-                  <h3 class="mc-name">컨설턴트 K.J. <span class="mc-rank">#1</span></h3>
+                  <h3 class="mc-name">컨설턴트 K.J.</h3>
                   <p class="mc-meta">가명 · 경력 14년</p>
                 </div>
                 <p class="mc-score">
@@ -3780,10 +3754,6 @@
               </div>
               <div class="mc-bar" aria-hidden="true"><span data-role="bar" style="width: 95%"></span></div>
               <div class="mc-row">
-                <ul class="mc-tags" aria-label="전문 규격">
-                  <li class="tag tag-accent" data-role="std">ISO 9001</li>
-                  <li class="tag" data-role="alt">ISO 14001</li>
-                </ul>
                 <dl class="mc-facts">
                   <div><dt>업종 경험</dt><dd data-role="industry">제조</dd></div>
                   <div><dt>지역</dt><dd data-role="region">서울</dd></div>
@@ -3796,7 +3766,7 @@
               <div class="mc-head">
                 <span class="avatar" aria-hidden="true">PS</span>
                 <div class="mc-id">
-                  <h3 class="mc-name">컨설턴트 P.S. <span class="mc-rank">#2</span></h3>
+                  <h3 class="mc-name">컨설턴트 P.S.</h3>
                   <p class="mc-meta">가명 · 경력 11년</p>
                 </div>
                 <p class="mc-score">
@@ -3806,10 +3776,6 @@
               </div>
               <div class="mc-bar" aria-hidden="true"><span data-role="bar" style="width: 91%"></span></div>
               <div class="mc-row">
-                <ul class="mc-tags" aria-label="전문 규격">
-                  <li class="tag tag-accent" data-role="std">ISO 9001</li>
-                  <li class="tag" data-role="alt">ISO 45001</li>
-                </ul>
                 <dl class="mc-facts">
                   <div><dt>업종 경험</dt><dd data-role="industry">제조</dd></div>
                   <div><dt>지역</dt><dd data-role="region">서울</dd></div>
@@ -3822,7 +3788,7 @@
               <div class="mc-head">
                 <span class="avatar" aria-hidden="true">LH</span>
                 <div class="mc-id">
-                  <h3 class="mc-name">컨설턴트 L.H. <span class="mc-rank">#3</span></h3>
+                  <h3 class="mc-name">컨설턴트 L.H.</h3>
                   <p class="mc-meta">가명 · 경력 9년</p>
                 </div>
                 <p class="mc-score">
@@ -3832,10 +3798,6 @@
               </div>
               <div class="mc-bar" aria-hidden="true"><span data-role="bar" style="width: 88%"></span></div>
               <div class="mc-row">
-                <ul class="mc-tags" aria-label="전문 규격">
-                  <li class="tag tag-accent" data-role="std">ISO 9001</li>
-                  <li class="tag" data-role="alt">통합 인증(IMS)</li>
-                </ul>
                 <dl class="mc-facts">
                   <div><dt>업종 경험</dt><dd data-role="industry">제조</dd></div>
                   <div><dt>지역</dt><dd data-role="region">서울</dd></div>
