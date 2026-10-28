@@ -115,7 +115,11 @@ class ManualCoverage:
 # ---------------------------------------------------------------------------
 
 _FENCE_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})\s*([A-Za-z0-9_-]*)")
-_HEADING_RE = re.compile(r"^\s{0,3}(#{1,6})[ \t]+(.+?)(?:[ \t]+#+)?[ \t]*$")
+# 제목 줄: 정규식 하나로 '제목 + 닫는 #'을 처리하면 공백이 긴 줄에서 역추적이 2차로 늘어난다(F-08).
+# 시작 부분만 정규식으로 보고 나머지는 선형 문자열 연산으로 자른다.
+_HEADING_START_RE = re.compile(r"^\s{0,3}(#{1,6})(?=[ \t])")
+# 실제 제목은 짧다. 이보다 긴 줄은 앞부분만 제목 비교에 쓴다(병적 입력 방어).
+_MAX_HEADING_CHARS = 300
 _NUMBER_RE = re.compile(r"^(?:제\s*)?(\d{1,2}(?:\.\d{1,2}){0,2}(?:\.[A-Za-z]{1,2})?)\.?(?=\s|$)\s*")
 _TAG_RE = re.compile(r"\[\s*관련\s*조항[^\]]*\]")
 _PAREN_RE = re.compile(r"[(（][^)）]*[)）]")
@@ -163,10 +167,11 @@ def _parse(markdown: str) -> Tuple[List[str], List[_Heading], List[_Fence]]:
             cur = _Fence(open_line=i, info=fm.group(2).lower(), marker=fm.group(1))
             fences.append(cur)
             continue
-        hm = _HEADING_RE.match(line)
+        hm = _match_heading(line)
         if hm:
-            number, title = _split_heading(hm.group(2))
-            headings.append(_Heading(line=i, depth=len(hm.group(1)), number=number, title=title))
+            depth, raw_title = hm
+            number, title = _split_heading(raw_title)
+            headings.append(_Heading(line=i, depth=depth, number=number, title=title))
     # 섹션 범위: 다음 같은/상위 수준 제목 직전까지 (하위 제목 포함)
     for idx, h in enumerate(headings):
         h.end = len(lines)
@@ -177,7 +182,26 @@ def _parse(markdown: str) -> Tuple[List[str], List[_Heading], List[_Fence]]:
     return lines, headings, fences
 
 
+def _match_heading(line: str) -> Optional[Tuple[int, str]]:
+    """`## 제목 ##` 형태의 제목 줄이면 (깊이, 제목 원문). 선형 시간."""
+    m = _HEADING_START_RE.match(line)
+    if not m:
+        return None
+    rest = line[m.end():]
+    if len(rest) < 2:               # '#' 다음 공백 하나뿐인 줄은 제목이 아니다(기존 정규식과 같은 동작)
+        return None
+    body = rest.lstrip(" \t")
+    if not body:
+        return len(m.group(1)), ""
+    body = body.rstrip(" \t")
+    trimmed = body.rstrip("#")
+    if trimmed != body and trimmed and trimmed[-1] in " \t":     # 닫는 ## 제거
+        body = trimmed.rstrip(" \t")
+    return len(m.group(1)), body
+
+
 def _split_heading(raw: str) -> Tuple[Optional[str], str]:
+    raw = raw[:_MAX_HEADING_CHARS]
     text = re.sub(r"\*+", "", raw).strip().strip("_ ").strip()      # 굵게(**) 표시 제거
     text = _TAG_RE.sub("", text).strip()
     m = _NUMBER_RE.match(text)

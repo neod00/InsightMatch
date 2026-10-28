@@ -217,6 +217,41 @@ class SectionCoverageTest(unittest.TestCase):
         self.assertLess(time.perf_counter() - started, 1.0)
         self.assertTrue(r.ok)
 
+    def test_pathological_lines_are_linear(self):
+        """F-08: 공백·괄호·탭이 긴 한 줄(16,000자)에서도 제목 파싱이 2차 시간으로 늘지 않는다."""
+        o = outline_of('ISO 9001:2015')
+        n = 16000
+        cases = {
+            '제목 뒤 긴 공백 + 문자': '# 4. 조직 상황' + ' ' * n + 'y',
+            '제목 번호 뒤 긴 공백': '# 1' + ' ' * n + 'y',
+            '탭': '## 4.1 가' + '\t' * n + 'y',
+            '공백뿐인 제목': '# ' + ' ' * n,
+            '괄호 반복': '# 4. ' + '가(' * n,
+            '태그 반복': '# 4 ' + '[관련 조항 ' * (n // 8),
+            '닫는 해시 반복': '# 4 ' + 'a #' * (n // 3),
+            '공백 뒤 문자 반복': '# 4 ' + ' x' * (n // 2),
+            '펜스 안 긴 줄': '```mermaid\nflowchart TB\n' + 'A["' + ' ' * n + '"]\n```',
+        }
+        for name, doc in cases.items():
+            started = time.perf_counter()
+            mc.check_phase_coverage(doc, o, 1)
+            self.assertLess(time.perf_counter() - started, 1.0, name)
+
+    def test_heading_forms_unchanged(self):
+        """제목 줄 파싱을 정규식에서 선형 파싱으로 바꿔도 동작은 같다."""
+        h = mc._match_heading
+        self.assertEqual((1, '4. 조직 상황'), h('# 4. 조직 상황'))
+        self.assertEqual((2, '4.1 이해'), h('  ## 4.1 이해 ##'))
+        self.assertEqual((3, '6.1.A 결정'), h('### 6.1.A 결정   '))
+        self.assertEqual((1, '#'), h('# #'))                  # 닫는 해시는 앞에 공백이 있어야 한다
+        self.assertEqual((1, 'a#'), h('# a#'))
+        self.assertIsNone(h('#제목'))
+        self.assertIsNone(h('####### 일곱'))
+        self.assertIsNone(h('    # 들여쓰기 4칸'))
+        self.assertIsNone(h('# '))
+        self.assertEqual((1, ''), h('#   '))
+        self.assertEqual('x' * mc._MAX_HEADING_CHARS, mc._split_heading('x' * 5000)[1])
+
 
 # ---------------------------------------------------------------------------
 # 키워드 (FR-50)
