@@ -389,7 +389,7 @@
                 </div>
             </div>
             <div class="hm-wordmark" aria-hidden="true">Insight<span class="hm-logo-dot"></span>Match</div>
-            <div class="hm-foot-bottom"><span>© 2025 OpenBrain Limited. All rights reserved.</span><span>InsightMatch - ISO Consultant Matching Platform</span></div>
+            <div class="hm-foot-bottom"><span>© 2026 OpenBrain Limited. All rights reserved.</span><span>InsightMatch - ISO Consultant Matching Platform</span></div>
         </div>
     </footer>
 
@@ -545,9 +545,11 @@
             }
 
             // Trust Score
-            const trustScore = c.trustScore || 50;
-            document.getElementById('trust-score-value').textContent = trustScore;
-            document.getElementById('trust-score-bar').style.width = trustScore + '%';
+            // 신뢰 점수는 관리자 심사 결과다. 값이 없으면 임의 값 대신 '—'로 둔다(메인 결과 카드와 같은 기준).
+            const rawTrust = Number(c.trustScore);
+            const trustScore = (c.trustScore == null || !Number.isFinite(rawTrust)) ? null : Math.max(0, Math.min(100, Math.round(rawTrust)));
+            document.getElementById('trust-score-value').textContent = trustScore === null ? '—' : trustScore;
+            document.getElementById('trust-score-bar').style.width = (trustScore === null ? 0 : trustScore) + '%';
 
             // ISO Experience
             // 값이 역할 문자열이면 (역할) 로 보여 주고, 등록 폼이 저장하는 true(선택 여부만)는 표시하지 않는다.
