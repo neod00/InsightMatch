@@ -115,6 +115,18 @@
         .profile-contact-cta .hm-btn { width: 100%; justify-content: space-between; }
         .profile-contact-cta .hm-btn-ghost { justify-content: center; }
 
+        /* 컨설팅 문의(견적 요청) 확인 패널·결과 */
+        .consult-panel { display: grid; gap: 8px; padding: 16px; border-radius: var(--r-sm); background: var(--lime-soft); border: 1px solid var(--line); }
+        .consult-panel[hidden] { display: none; }
+        .consult-panel-title { font-size: 15px; font-weight: 800; color: var(--ink); }
+        .profile-contact-cta .consult-panel-desc { font-size: 13.5px; color: var(--char); margin: 0; }
+        .consult-panel-actions { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 8px; margin-top: 4px; }
+        .profile-contact-cta .consult-panel .hm-btn { justify-content: center; min-height: 44px; padding: 0 14px; font-size: 14.5px; }
+        .consult-status:empty { display: none; }
+        .consult-status .hm-alert { flex-wrap: wrap; }
+        .consult-status-link { color: inherit; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
+        .profile-contact-cta .hm-btn:disabled { opacity: .6; cursor: progress; }
+
         #profile-error .hm-btn { margin-top: 22px; }
 
         @media (max-width: 1100px) {
@@ -306,10 +318,21 @@
                     <h3>이 전문가와 상담하기</h3>
                     <p>프로젝트 요구사항을 공유하고 맞춤형 제안을 받아보세요.</p>
 
-                    <button type="button" class="hm-btn hm-btn-lime hm-btn-lg">
+                    <button type="button" class="hm-btn hm-btn-lime hm-btn-lg" id="consult-btn" aria-controls="consult-panel" aria-expanded="false">
                         컨설팅 문의하기
                         <span class="hm-arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
                     </button>
+
+                    <!-- 기업 회원 확인 단계: 누르기 전에는 아무것도 보내지 않는다 -->
+                    <div class="consult-panel" id="consult-panel" hidden>
+                        <p class="consult-panel-title">이 전문가에게 견적을 요청합니다</p>
+                        <p class="consult-panel-desc" id="consult-context"></p>
+                        <div class="consult-panel-actions">
+                            <button type="button" class="hm-btn hm-btn-ink" id="consult-send">견적 요청 보내기</button>
+                            <button type="button" class="hm-btn hm-btn-ghost" id="consult-cancel">취소</button>
+                        </div>
+                    </div>
+                    <div class="consult-status" id="consult-status" role="status" aria-live="polite"></div>
 
                     <a href="index.html?action=find-others#results-section" class="hm-btn hm-btn-ghost">
                         다른 전문가 찾기
@@ -666,6 +689,138 @@
             document.getElementById('profile-loading').style.display = 'none';
             document.getElementById('profile-error').style.display = 'block';
         }
+
+        // ===== 컨설팅 문의 (견적 요청) =====
+        // 메인페이지 결과 화면의 견적 요청과 같은 API·요청 형식(/api/quotes/request)을
+        // 이 전문가 한 명에게 쓴다. 비로그인 → 로그인 후 이 페이지로 복귀,
+        // 기업 회원이 아니면 안내, 기업 회원은 확인 패널에서 한 번 더 눌러야 전송된다.
+        const consultBtn = document.getElementById('consult-btn');
+        const consultPanel = document.getElementById('consult-panel');
+        const consultContext = document.getElementById('consult-context');
+        const consultSend = document.getElementById('consult-send');
+        const consultCancel = document.getElementById('consult-cancel');
+        const consultStatus = document.getElementById('consult-status');
+
+        function readLastMatch() {
+            try {
+                return JSON.parse(localStorage.getItem('lastMatchResult') || localStorage.getItem('lastAnalysisResult') || 'null');
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function readUser() {
+            try { return JSON.parse(localStorage.getItem('user')); } catch (e) { return null; }
+        }
+
+        function loginUrlBackHere() {
+            const here = window.location.pathname.replace(/^\//, '') + window.location.search;
+            return 'login.html?redirect=' + encodeURIComponent(here);
+        }
+
+        // 서버·사용자 문자열은 textContent 로만 넣는다.
+        function setConsultStatus(type, text, link) {
+            consultStatus.textContent = '';
+            if (!text) return;
+            const box = document.createElement('div');
+            box.className = 'hm-alert hm-alert-' + type;
+            const msg = document.createElement('span');
+            msg.textContent = text;
+            box.appendChild(msg);
+            if (link) {
+                const a = document.createElement('a');
+                a.href = link.href;
+                a.className = 'consult-status-link';
+                a.textContent = link.label;
+                box.appendChild(a);
+            }
+            consultStatus.appendChild(box);
+        }
+
+        function closeConsultPanel() {
+            consultPanel.hidden = true;
+            consultBtn.setAttribute('aria-expanded', 'false');
+        }
+
+        function standardCodes(ctx) {
+            const list = (ctx && (ctx.selected_standards || ctx.all_standards || ctx.recommended_standards)) || [];
+            if (!Array.isArray(list)) return [];
+            return list.map(s => (typeof s === 'string' ? s : (s && s.code) || '')).filter(Boolean);
+        }
+
+        consultBtn.addEventListener('click', () => {
+            const token = localStorage.getItem('token');
+            const user = readUser();
+            if (!token || !user) {
+                window.location.href = loginUrlBackHere();
+                return;
+            }
+            if (user.role !== 'company') {
+                setConsultStatus('info', '견적 요청은 기업 회원만 보낼 수 있습니다. 기업 회원 계정으로 로그인해 주세요.');
+                return;
+            }
+            const codes = standardCodes(readLastMatch());
+            consultContext.textContent = codes.length
+                ? `최근 무료 진단 조건(${codes.slice(0, 3).join(', ')}${codes.length > 3 ? ' 외' : ''})이 함께 전달됩니다.`
+                : '진단 정보 없이 요청합니다. 메인페이지에서 무료 진단을 먼저 하면 요구사항이 함께 전달됩니다.';
+            setConsultStatus();
+            consultPanel.hidden = false;
+            consultBtn.setAttribute('aria-expanded', 'true');
+            consultSend.focus();
+        });
+
+        consultCancel.addEventListener('click', () => {
+            closeConsultPanel();
+            consultBtn.focus();
+        });
+
+        consultSend.addEventListener('click', async () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = loginUrlBackHere();
+                return;
+            }
+            const ctx = readLastMatch();
+            const idNum = Number(consultantId);
+            consultSend.disabled = true;
+            consultCancel.disabled = true;
+            consultSend.textContent = '요청 중...';
+            try {
+                const response = await fetch('/api/quotes/request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({
+                        consultant_ids: [Number.isFinite(idNum) && idNum > 0 ? idNum : consultantId],
+                        analysis_context: ctx || {},
+                        session_id: (ctx && ctx.session_id) || null
+                    })
+                });
+                let data = {};
+                try { data = await response.json(); } catch (e) { data = {}; }
+
+                if (response.status === 401) {
+                    closeConsultPanel();
+                    setConsultStatus('error', '로그인이 만료되었습니다. 다시 로그인해 주세요.', { href: loginUrlBackHere(), label: '로그인' });
+                } else if (response.ok) {
+                    // 서버 응답 키는 requests/projects (구버전 프론트가 쓰던 created_* 도 대비)
+                    const skipped = (data.requests || data.created_requests || []).filter(r => r && r.skipped);
+                    closeConsultPanel();
+                    if (skipped.length > 0) {
+                        setConsultStatus('info', '이미 이 전문가에게 진행 중인 요청이 있습니다.', { href: 'dashboard.html', label: '대시보드에서 보기' });
+                    } else {
+                        setConsultStatus('success', '견적 요청을 보냈습니다. 전문가가 제안서를 보내면 대시보드에서 확인할 수 있습니다.', { href: 'dashboard.html', label: '대시보드로 이동' });
+                    }
+                } else {
+                    setConsultStatus('error', data.message || '견적 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+                }
+            } catch (e) {
+                setConsultStatus('error', '서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+            } finally {
+                consultSend.disabled = false;
+                consultCancel.disabled = false;
+                consultSend.textContent = '견적 요청 보내기';
+            }
+        });
 
         // Load profile on page load
         loadProfile();
