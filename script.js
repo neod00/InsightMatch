@@ -736,9 +736,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const aiBanner = document.getElementById('ai-manual-banner');
         if (aiBanner) {
             const selectedStandards = result.selected_standards || [];
-            const isoStandards = selectedStandards.filter(s => 
-                s.includes('9001') || s.includes('14001') || s.includes('45001')
-            );
+            // 설문은 2026판 표기('ISO 9001:2026')를 쓰지만 AI 매뉴얼은 2015판 원문 기준이다.
+            // 규격 번호로 접어서 AI 매뉴얼이 지원하는 표기로 바꿔 넘긴다.
+            const MANUAL_ISO_BY_NUMBER = { '9001': 'ISO 9001:2015', '14001': 'ISO 14001:2015', '45001': 'ISO 45001:2018' };
+            const isoStandards = [...new Set(selectedStandards
+                .map(s => (String(s).split(':')[0].match(/\d{4,5}/) || [])[0])
+                .map(num => MANUAL_ISO_BY_NUMBER[num])
+                .filter(Boolean))];
             if (isoStandards.length > 0) {
                 aiBanner.classList.remove('hidden');
                 const bannerStdEl = document.getElementById('banner-iso-standard');
