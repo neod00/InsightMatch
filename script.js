@@ -42,6 +42,17 @@ function formatRating(rating, reviews) {
     return `★ ${value.toFixed(1)} (${count})`;
 }
 
+// 업종 코드(예: 'Construction')를 진단 폼 #industry 의 한글 표기로 바꾼다(표시용).
+// 컨설턴트 데이터는 영문 코드로 저장돼 카드에 'Construction 전문' 처럼 나왔다. 목록에 없으면 원래 값을 쓴다.
+function industryLabel(code) {
+    const sel = document.getElementById('industry');
+    if (sel && code) {
+        const opt = Array.from(sel.options).find(o => o.value && o.value === code);
+        if (opt) return opt.textContent.trim().replace(/\s*\(.*\)$/, '');
+    }
+    return code;
+}
+
 // ========== Privacy Protection: Name Masking ==========
 // Mask consultant names for non-logged-in users
 function maskName(name) {
@@ -84,90 +95,28 @@ function showSessionExpiredModal() {
     // Check if modal already exists
     if (document.getElementById('session-expired-overlay')) return;
 
+    // 스타일은 home.css(#session-expired-overlay, .session-modal)에 있다. script.js 는 index.html 에서만 쓴다.
     const overlay = document.createElement('div');
     overlay.id = 'session-expired-overlay';
     overlay.innerHTML = `
-        <div class="session-modal">
-            <div class="session-modal-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <div class="session-modal" role="alertdialog" aria-modal="true" aria-labelledby="session-expired-title">
+            <div class="session-modal-icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="10"></circle>
                     <polyline points="12 6 12 12 16 14"></polyline>
                 </svg>
             </div>
-            <h3>세션이 만료되었습니다</h3>
+            <h3 id="session-expired-title">세션이 만료되었습니다</h3>
             <p>보안을 위해 자동으로 로그아웃되었습니다.<br>다시 로그인해주세요.</p>
-            <button onclick="window.location.href='login.html'">로그인 페이지로 이동</button>
+            <div class="session-modal-actions">
+                <button type="button" onclick="window.location.href='login.html'">로그인 페이지로 이동</button>
+            </div>
         </div>
     `;
 
-    // Add styles
-    const style = document.createElement('style');
-    style.textContent = `
-        #session-expired-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(8px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 99999;
-            animation: fadeIn 0.3s ease;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        .session-modal {
-            background: linear-gradient(135deg, rgba(30, 30, 40, 0.95), rgba(20, 20, 30, 0.98));
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            padding: 40px;
-            text-align: center;
-            max-width: 400px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-            animation: slideUp 0.4s ease;
-        }
-        @keyframes slideUp {
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        .session-modal-icon {
-            color: #f59e0b;
-            margin-bottom: 16px;
-        }
-        .session-modal h3 {
-            color: #fff;
-            font-size: 1.5rem;
-            margin: 0 0 12px 0;
-        }
-        .session-modal p {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 0.95rem;
-            margin: 0 0 24px 0;
-            line-height: 1.6;
-        }
-        .session-modal button {
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            color: #fff;
-            border: none;
-            padding: 14px 32px;
-            border-radius: 10px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        .session-modal button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
-        }
-    `;
-    document.head.appendChild(style);
     document.body.appendChild(overlay);
+    const loginBtn = overlay.querySelector('button');
+    if (loginBtn) loginBtn.focus();
 }
 
 // Login Required Modal - for accessing protected features
@@ -178,25 +127,31 @@ function showLoginRequiredModal() {
     const overlay = document.createElement('div');
     overlay.id = 'login-required-overlay';
     overlay.innerHTML = `
-        <div class="session-modal">
-            <div class="session-modal-icon" style="color: #10b981;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <div class="session-modal" role="dialog" aria-modal="true" aria-labelledby="login-required-title">
+            <div class="session-modal-icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
                     <circle cx="12" cy="16" r="1"></circle>
                     <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                 </svg>
             </div>
-            <h3>로그인이 필요합니다</h3>
+            <h3 id="login-required-title">로그인이 필요합니다</h3>
             <p>컨설턴트의 상세 프로필은<br>로그인 후 확인하실 수 있습니다.</p>
-            <div style="display: flex; gap: 12px; justify-content: center;">
-                <button onclick="document.getElementById('login-required-overlay').remove()" style="background: rgba(255,255,255,0.1); color: #fff;">닫기</button>
-                <button onclick="window.location.href='login.html'">로그인</button>
+            <div class="session-modal-actions">
+                <button type="button" class="session-modal-secondary" onclick="document.getElementById('login-required-overlay').remove()">닫기</button>
+                <button type="button" onclick="window.location.href='login.html'">로그인</button>
             </div>
         </div>
     `;
 
-    // Reuse session modal styles
+    // 스타일은 home.css(#login-required-overlay, .session-modal). 예전에는 세션 만료 모달이 한 번이라도 떠야
+    // 스타일이 주입돼, 이 모달은 대부분 화면 맨 아래에 스타일 없이 붙었다.
+    // 바깥(어두운 배경)을 누르거나 Esc 를 누르면 닫는다.
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    overlay.addEventListener('keydown', (e) => { if (e.key === 'Escape') overlay.remove(); });
     document.body.appendChild(overlay);
+    const loginBtn = overlay.querySelector('.session-modal-actions button:last-child');
+    if (loginBtn) loginBtn.focus();
 }
 
 // Make functions globally accessible
@@ -237,8 +192,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (action === 'find-others') {
             // User clicked "다른 전문가 찾기" from consultant profile
-            const savedResult = localStorage.getItem('lastAnalysisResult');
-            const savedTime = localStorage.getItem('lastAnalysisTime');
+            // 지금의 진단은 displayMatchResults() 가 lastMatchResult 에 저장한다. 예전에는 여기서
+            // 리스크 분석 시절 키(lastAnalysisResult)만 읽어, 진단을 마친 직후에도 항상
+            // "이전 분석 결과가 만료되었습니다" 로 끝났다. 매칭 결과를 먼저 보고, 없을 때만 예전 키를 본다.
+            const savedMatch = localStorage.getItem('lastMatchResult');
+            const isMatchResult = !!savedMatch;
+            const savedResult = savedMatch || localStorage.getItem('lastAnalysisResult');
+            const savedTime = isMatchResult ? localStorage.getItem('lastMatchTime') : localStorage.getItem('lastAnalysisTime');
 
             if (savedResult) {
                 try {
@@ -255,7 +215,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             resultsSection.classList.remove('hidden');
 
                             // Display results without animation
-                            displayResults(result, true);
+                            if (isMatchResult) {
+                                displayMatchResults(result, true);
+                            } else {
+                                displayResults(result, true);
+                            }
 
                             // Show next batch of consultants (cycle through)
                             setTimeout(() => {
@@ -349,6 +313,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Clear consultant selection (BUG-025 Fix)
         selectedConsultants.clear();
         currentSessionId = null;
+        // 선택을 비운 뒤 선택 바도 내린다. 예전에는 Map 만 비우고 바를 갱신하지 않아,
+        // "새로 컨설턴트 찾기" 뒤 진단 1단계 화면에도 선택 바가 남아 있었다.
+        updateSelectionBar();
+        if (typeof window.closeCompareModal === 'function') window.closeCompareModal();
 
         // ===== Auto-fill user info =====
         prefillUserInfo();
@@ -528,26 +496,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (existing) existing.remove();
 
         const notification = document.createElement('div');
+        // 모양은 home.css 의 .notification / .notification-{type}. 메시지에는 컨설턴트 이름처럼
+        // 외부에서 온 문자열이 섞이므로(견적 요청 안내 등) 텍스트로만 넣는다.
         notification.className = `notification notification-${type}`;
+        notification.setAttribute('role', type === 'error' ? 'alert' : 'status');
         notification.innerHTML = `
-            <span>${message}</span>
-            <button onclick="this.parentElement.remove()">&times;</button>
-        `;
-        notification.style.cssText = `
-            position: fixed;
-            top: 100px;
-            right: 24px;
-            padding: 16px 24px;
-            background: ${type === 'error' ? 'rgba(239, 68, 68, 0.9)' : type === 'success' ? 'rgba(16, 185, 129, 0.9)' : 'rgba(59, 130, 246, 0.9)'};
-            color: white;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            z-index: 10000;
-            animation: slideIn 0.3s ease;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            <span>${escapeHtml(message)}</span>
+            <button type="button" onclick="this.parentElement.remove()" aria-label="알림 닫기">&times;</button>
         `;
 
         // Add animation keyframes if not exists
@@ -620,6 +575,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (loadingStatus) {
                     loadingStatus.textContent = '전문가를 찾고 있습니다...';
                 }
+                // 두 번째 진단부터 진행 막대가 지난번의 100% 로 시작하지 않게 되돌린다(표시만).
+                const fillReset = document.getElementById('progress-fill');
+                const pctReset = document.getElementById('progress-percentage');
+                if (fillReset) fillReset.style.width = '0%';
+                if (pctReset) pctReset.textContent = '진행 중';
             }
 
             try {
@@ -680,13 +640,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Display Match Results (Simplified - No Risk Score) ---
-    function displayMatchResults(result) {
+    // restored=true: 지난 결과 불러오기(?action=find-others)에서 부를 때. 저장 시각을 새로 쓰지 않는다
+    // (그래야 '24시간 안의 결과만 불러온다' 는 기준이 불러올 때마다 연장되지 않는다).
+    function displayMatchResults(result, restored = false) {
         // Save result to localStorage for later use
-        try {
-            localStorage.setItem('lastMatchResult', JSON.stringify(result));
-            localStorage.setItem('lastMatchTime', new Date().toISOString());
-        } catch (e) {
-            console.warn('Could not save match result to localStorage:', e);
+        if (!restored) {
+            try {
+                localStorage.setItem('lastMatchResult', JSON.stringify(result));
+                localStorage.setItem('lastMatchTime', new Date().toISOString());
+            } catch (e) {
+                console.warn('Could not save match result to localStorage:', e);
+            }
         }
 
         // Update Company Title
@@ -696,21 +660,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Update Summary - Show selected standards
+        // (값은 모두 escapeHtml 을 거친다. 선택 규격도 서버가 요청값을 되돌려주는 것이라 그대로 넣지 않는다.)
         const summaryEl = document.getElementById('ai-summary-text');
         if (summaryEl) {
             const selectedStandards = result.selected_standards || [];
             const recommendedStandards = result.recommended_standards || [];
+            const chips = (list) => list.map(s => `<span>${escapeHtml(s)}</span>`).join('');
 
-            let summaryHTML = `<strong>선택하신 인증:</strong> ${selectedStandards.join(', ') || '없음'}`;
+            let summaryHTML = '<dl class="hm-sum-list">';
+            summaryHTML += `<div><dt>선택하신 인증</dt><dd>${selectedStandards.length > 0 ? `<span class="hm-sum-chips">${chips(selectedStandards)}</span>` : '없음'}</dd></div>`;
 
             if (recommendedStandards.length > 0) {
-                summaryHTML += `<br><br><strong>🔔 이슈 기반 추천 인증:</strong> ${recommendedStandards.join(', ')}`;
+                summaryHTML += `<div><dt>이슈 기반 추천 인증</dt><dd><span class="hm-sum-chips alt">${chips(recommendedStandards)}</span></dd></div>`;
             }
 
             if (result.issues_summary) {
-                summaryHTML += `<br><br><strong>주요 경영 이슈:</strong> ${escapeHtml(result.issues_summary)}`;
+                summaryHTML += `<div><dt>주요 경영 이슈</dt><dd>${escapeHtml(result.issues_summary)}</dd></div>`;
             }
 
+            summaryHTML += '</dl>';
             summaryEl.innerHTML = summaryHTML;
         }
 
@@ -729,7 +697,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update AI Summary title
         const aiSummaryTitle = document.querySelector('#ai-summary-text')?.parentElement?.querySelector('h3');
         if (aiSummaryTitle) {
-            aiSummaryTitle.innerHTML = '<i data-lucide="clipboard-list" style="width: 20px; height: 20px; color: var(--primary);"></i> 요청 요약';
+            aiSummaryTitle.innerHTML = '<i data-lucide="clipboard-list" aria-hidden="true"></i> 요청 요약';
         }
 
         // Show AI ISO Manual CTA Banner
@@ -1092,7 +1060,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('Failed to fetch consultants:', error);
             if (consultantList) {
-                consultantList.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">컨설턴트를 불러오는 중 오류가 발생했습니다.</div>';
+                consultantList.innerHTML = '<div class="hm-empty"><p class="hm-empty-title">컨설턴트를 불러오는 중 오류가 발생했습니다.</p></div>';
             }
         }
     }
@@ -1106,7 +1074,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const displayConsultants = filteredConsultants.length > 0 || isFilterActive() ? filteredConsultants : allConsultants;
 
         if (displayConsultants.length === 0 && allConsultants.length > 0) {
-            consultantList.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">필터 조건에 맞는 전문가가 없습니다. 필터를 조정해보세요.</div>';
+            consultantList.innerHTML = '<div class="hm-empty"><p class="hm-empty-title">필터 조건에 맞는 전문가가 없습니다.</p><p>필터를 조정해보세요.</p></div>';
             updateFilterResultCount(0);
             return;
         }
@@ -1114,20 +1082,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (displayConsultants.length === 0) {
             // 이전 문구는 "찾고 있습니다..." 였는데, 로딩 중처럼 보이는데 끝나지 않아
             // 방문자가 기다리다 이탈했다. 결과가 없으면 없다고 말하고 다음 행동을 준다.
+            // 문의는 개인 Gmail mailto 대신 문의 폼(contact.html)으로 보낸다(접수 이력이 남도록, 푸터와 같은 기준).
             consultantList.innerHTML = `
-                <div style="grid-column: 1/-1; text-align: center; padding: 48px 24px;">
-                    <div style="font-size: 2rem; margin-bottom: 12px;">🔍</div>
-                    <p style="font-weight: 600; margin-bottom: 8px;">조건에 맞는 전문가가 아직 없습니다</p>
-                    <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.7;">
+                <div class="hm-empty">
+                    <p class="hm-empty-title">조건에 맞는 전문가가 아직 없습니다</p>
+                    <p>
                         현재 ISO 전문가를 모집하고 있습니다.<br>
                         규격이나 지역 조건을 넓혀 다시 시도해보시거나, 아래로 문의해 주세요.
                     </p>
-                    <a href="mailto:openbrain.main@gmail.com?subject=InsightMatch 전문가 매칭 문의"
-                       style="display: inline-block; margin-top: 18px; padding: 10px 20px;
-                              border: 1px solid var(--primary); border-radius: 8px;
-                              color: var(--primary); text-decoration: none; font-size: 0.92rem;">
-                        문의하기
-                    </a>
+                    <a href="contact.html" class="hm-btn hm-btn-ghost hm-btn-sm">문의하기</a>
                 </div>`;
             return;
         }
@@ -1151,6 +1114,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const trustScore = c.trustScore || 85;
             const isSelected = selectedConsultants.has(c.id);
+            // 다시 그릴 때(필터·다른 추천) 이미 고른 카드의 선택 표시가 사라지던 문제: 체크만 되고 테두리는 빠졌다.
+            if (isSelected) card.classList.add('selected');
+            // 적합도 막대 너비(표시용). 점수가 없으면 막대를 비운다 — formatMatchScore 와 같은 기준.
+            const scoreBar = typeof c.matchScore === 'number' && !Number.isNaN(c.matchScore)
+                ? Math.max(0, Math.min(100, c.matchScore)) : 0;
 
             // Privacy protection: mask name for non-logged-in users
             const isLoggedIn = isUserLoggedIn();
@@ -1159,11 +1127,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Enhanced verified badge
             const verifiedBadge = c.verified
-                ? `<span class="verified-badge" title="InsightMatch에서 검증된 전문가입니다">
-                     <i data-lucide="badge-check" style="width: 12px; height: 12px;"></i> 검증됨
+                ? `<span class="verified-badge" title="관리자 승인 전 확인 항목(신원·ISO 자격·수행 이력·연락처)을 거친 전문가입니다">
+                     <i data-lucide="badge-check" aria-hidden="true"></i> 검증됨
                    </span>`
                 : `<span class="unverified-badge" title="검증 대기 중">
-                     <i data-lucide="clock" style="width: 10px; height: 10px;"></i> 검토중
+                     <i data-lucide="clock" aria-hidden="true"></i> 검토중
                    </span>`;
 
             // B1, B2, B4: 전문성 태그 생성
@@ -1184,63 +1152,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 3. 기업 규모 태그 (B2) - 현재 매칭된 컨텍스트가 있으면 좋지만, 일반적인 경험 노출
             if (c.industryExperience && c.industryExperience.length > 0) {
-                tagsHTML += `<span class="match-tag match-tag-accent">${escapeHtml(c.industryExperience[0])} 전문</span>`;
+                tagsHTML += `<span class="match-tag match-tag-accent">${escapeHtml(industryLabel(c.industryExperience[0]))} 전문</span>`;
             }
 
             tagsHTML += '</div>';
 
+            // 데이터 바인딩·핸들러(toggleConsultantSelection, showLoginRequiredModal)와 escapeHtml 적용 범위는 예전과 같다.
+            // 바뀐 것은 배치와 클래스(B안 결과 카드)뿐이다.
             card.innerHTML = `
-                <div class="consultant-select-checkbox">
-                    <label class="consultant-checkbox" onclick="event.preventDefault(); toggleConsultantSelection(${c.id}, event)">
-                        <input type="checkbox" ${isSelected ? 'checked' : ''} data-id="${c.id}" onclick="event.stopPropagation()">
-                        <span class="checkbox-custom">
-                            <i data-lucide="check" style="width: 14px; height: 14px;"></i>
-                        </span>
-                        <span class="checkbox-label">견적 요청 선택</span>
-                    </label>
-                </div>
-                
-                <div class="consultant-header">
-                    <div class="consultant-avatar">${displayAvatar}</div>
-                    <div class="consultant-info">
-                        <h4>
-                            ${displayName}
-                            ${verifiedBadge}
-                        </h4>
-                        <span class="consultant-specialty">${escapeHtml(c.specialty || '종합')} 전문</span>
+                <div class="hm-cc-top">
+                    <div class="consultant-header">
+                        <div class="consultant-avatar" aria-hidden="true">${displayAvatar}</div>
+                        <div class="consultant-info">
+                            <h4>
+                                <span>${displayName}</span>
+                                ${verifiedBadge}
+                            </h4>
+                            <span class="consultant-specialty">${escapeHtml(c.specialty || '종합')} 전문</span>
+                        </div>
+                    </div>
+                    <div class="consultant-select-checkbox">
+                        <label class="consultant-checkbox" onclick="event.preventDefault(); toggleConsultantSelection(${c.id}, event)">
+                            <input type="checkbox" ${isSelected ? 'checked' : ''} data-id="${c.id}" onclick="event.stopPropagation()" aria-label="비교·견적 요청 후보로 선택">
+                            <span class="checkbox-custom" aria-hidden="true">
+                                <i data-lucide="check"></i>
+                            </span>
+                            <span class="checkbox-label">선택</span>
+                        </label>
                     </div>
                 </div>
-                
+
+                <div class="hm-cc-score">
+                    <span class="match-score">${formatMatchScore(c.matchScore)}</span>
+                    <span class="lbl">적합도</span>
+                </div>
+                <div class="hm-cc-bar" role="img" aria-label="적합도 ${formatMatchScore(c.matchScore)}"><i style="--w: ${scoreBar}%;"></i></div>
+
                 ${tagsHTML}
-                
-                <div class="consultant-match-reason">
-                    ${escapeHtml(c.matchReason || 'ISO 컨설턴트')}
-                </div>
-                
-                <div style="margin-bottom: 16px;">
-                    <div class="flex justify-between items-center" style="font-size: 0.9rem; margin-bottom: 6px;">
-                        <span class="trust-tooltip" data-tooltip="경력, 프로젝트 이력, 고객 평가 기반 점수" style="color: var(--text-muted); cursor: help;">전문가 신뢰도</span>
-                        <span style="color: var(--primary); font-weight: 600;">${trustScore}점</span>
+
+                <p class="consultant-match-reason">
+                    <b>추천 근거</b>${escapeHtml(c.matchReason || 'ISO 컨설턴트')}
+                </p>
+
+                <dl class="consultant-stats">
+                    <div><dt>경력</dt><dd>${escapeHtml(c.experience || '정보없음')}</dd></div>
+                    <div><dt>고객 평가</dt><dd>${escapeHtml(formatRating(c.rating, c.reviews))}</dd></div>
+                    <div>
+                        <dt><span class="trust-tooltip" title="관리자 등록 심사 결과를 반영한 점수">신뢰도</span></dt>
+                        <dd>${trustScore}점</dd>
+                        <span class="trust-score-bar" aria-hidden="true"><span class="trust-score-fill" style="width: ${trustScore}%;"></span></span>
                     </div>
-                    <div class="trust-score-bar">
-                        <div class="trust-score-fill" style="width: ${trustScore}%;"></div>
-                    </div>
-                </div>
-                
-                <div class="consultant-stats">
-                    <span>경력 ${escapeHtml(c.experience || '정보없음')}</span>
-                    <span>${escapeHtml(formatRating(c.rating, c.reviews))}</span>
-                    <span class="match-score">적합도 ${formatMatchScore(c.matchScore)}</span>
-                </div>
-                
-                <div style="display: flex; gap: 8px; margin-top: 16px;">
+                </dl>
+
+                <div class="hm-cc-actions">
                     ${isLoggedIn
-                    ? `<a href="consultant_profile.html?id=${c.id}" class="btn btn-secondary" style="flex: 1;">
-                               <i data-lucide="user" style="width: 16px; height: 16px;"></i>
+                    ? `<a href="consultant_profile.html?id=${c.id}" class="hm-btn hm-btn-ghost hm-btn-sm">
+                               <i data-lucide="user" aria-hidden="true"></i>
                                프로필 보기
                            </a>`
-                    : `<button onclick="showLoginRequiredModal()" class="btn btn-secondary" style="flex: 1;">
-                               <i data-lucide="lock" style="width: 16px; height: 16px;"></i>
+                    : `<button type="button" onclick="showLoginRequiredModal()" class="hm-btn hm-btn-ghost hm-btn-sm">
+                               <i data-lucide="lock" aria-hidden="true"></i>
                                로그인 후 프로필 보기
                            </button>`
                 }
@@ -1317,8 +1288,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Update selected names
             if (selectedNames) {
+                // 카드와 같은 기준으로 비로그인 상태에서는 이름을 가린다(예전에는 선택 바에만 실명이 보였다).
+                const loggedIn = isUserLoggedIn();
                 const names = Array.from(selectedConsultants.values())
-                    .map(c => c.name)
+                    .map(c => loggedIn ? c.name : maskName(c.name))
                     .join(', ');
                 selectedNames.textContent = names;
             }
@@ -1412,7 +1385,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const requestBtn = document.getElementById('request-quotes-btn');
         if (requestBtn) {
             requestBtn.disabled = true;
-            requestBtn.innerHTML = '<span class="loading-spinner" style="width: 16px; height: 16px; border-width: 2px;"></span> 요청 중...';
+            requestBtn.innerHTML = '<span class="loading-spinner" aria-hidden="true"></span> 요청 중...';
         }
 
         try {
@@ -1463,7 +1436,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (requestBtn) {
                 requestBtn.disabled = false;
                 requestBtn.innerHTML = `
-                    <i data-lucide="send" style="width: 18px; height: 18px;"></i>
+                    <i data-lucide="send" aria-hidden="true"></i>
                     견적 요청하기
                 `;
                 lucide.createIcons();
@@ -1489,21 +1462,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const consultants = Array.from(selectedConsultants.values());
 
         // Build comparison table
+        // 행·값은 예전과 같다(전문 분야·경력·신뢰 점수·적합도·고객 평가·ISO 규격·소개 사유). 인라인 style 대신 home.css 클래스를 쓴다.
+        // 이름·아바타는 카드와 같은 기준으로 비로그인 상태에서 가리고, ISO 규격 키도 escapeHtml 을 거친다.
+        const loggedIn = isUserLoggedIn();
+        const ARROW = '<span class="hm-arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
         let tableHTML = `
-            <div class="compare-table-wrapper" style="overflow-x: auto;">
-                <table class="compare-table" style="width: 100%; border-collapse: collapse;">
+            <div class="compare-table-wrapper">
+                <table class="compare-table">
                     <thead>
                         <tr>
-                            <th style="text-align: left; padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 500;">항목</th>
+                            <th scope="col">항목</th>
                             ${consultants.map(c => `
-                                <th style="text-align: center; padding: 12px; border-bottom: 1px solid var(--border); min-width: 180px;">
-                                    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
-                                        <div style="width: 48px; height: 48px; background: linear-gradient(135deg, var(--primary), var(--accent)); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 600; color: white;">
-                                            ${escapeHtml(c.avatar || c.name[0])}
-                                        </div>
+                                <th scope="col">
+                                    <div class="hm-cmp-person">
+                                        <span class="consultant-avatar" aria-hidden="true">${escapeHtml(loggedIn ? (c.avatar || c.name[0]) : (c.name ? c.name[0] : 'C'))}</span>
                                         <div>
-                                            <div style="font-weight: 600;">${escapeHtml(c.name)}</div>
-                                            ${c.verified ? '<span class="verified-badge" style="margin-top: 4px;"><i data-lucide="badge-check" style="width: 12px; height: 12px;"></i> 검증됨</span>' : ''}
+                                            <b>${escapeHtml(loggedIn ? c.name : maskName(c.name))}</b>
+                                            ${c.verified ? '<span class="verified-badge"><i data-lucide="badge-check" aria-hidden="true"></i> 검증됨</span>' : ''}
                                         </div>
                                     </div>
                                 </th>
@@ -1512,52 +1487,47 @@ document.addEventListener('DOMContentLoaded', () => {
                     </thead>
                     <tbody>
                         <tr>
-                            <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">전문 분야</td>
-                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border);">${escapeHtml(c.specialty || '종합')}</td>`).join('')}
+                            <th scope="row">전문 분야</th>
+                            ${consultants.map(c => `<td>${escapeHtml(c.specialty || '종합')}</td>`).join('')}
                         </tr>
                         <tr>
-                            <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">경력</td>
-                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border);">${escapeHtml(c.experience || '정보없음')}</td>`).join('')}
+                            <th scope="row">경력</th>
+                            ${consultants.map(c => `<td>${escapeHtml(c.experience || '정보없음')}</td>`).join('')}
                         </tr>
                         <tr>
-                            <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">신뢰 점수</td>
+                            <th scope="row">신뢰 점수</th>
                             ${consultants.map(c => `
-                                <td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border);">
-                                    <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
-                                        <span style="font-weight: 700; color: var(--primary); font-size: 1.25rem;">${c.trustScore || 85}</span>
-                                        <div style="width: 60px; height: 6px; background: var(--bg-secondary); border-radius: 3px; overflow: hidden;">
-                                            <div style="width: ${c.trustScore || 85}%; height: 100%; background: var(--primary);"></div>
-                                        </div>
-                                    </div>
+                                <td>
+                                    <span class="hm-cmp-num">${c.trustScore || 85}</span>
+                                    <span class="trust-score-bar" aria-hidden="true"><span class="trust-score-fill" style="width: ${c.trustScore || 85}%;"></span></span>
                                 </td>
                             `).join('')}
                         </tr>
                         <tr>
-                            <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">적합도</td>
-                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--primary);">${formatMatchScore(c.matchScore)}</td>`).join('')}
+                            <th scope="row">적합도</th>
+                            ${consultants.map(c => `<td><span class="hm-cmp-num">${formatMatchScore(c.matchScore)}</span></td>`).join('')}
                         </tr>
                         <tr>
-                            <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">고객 평가</td>
-                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border);">${escapeHtml(formatRating(c.rating, c.reviews))}</td>`).join('')}
+                            <th scope="row">고객 평가</th>
+                            ${consultants.map(c => `<td>${escapeHtml(formatRating(c.rating, c.reviews))}</td>`).join('')}
                         </tr>
                         <tr>
-                            <td style="padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">ISO 규격</td>
+                            <th scope="row">ISO 규격</th>
                             ${consultants.map(c => {
             const isoList = c.isoExperience ? Object.keys(c.isoExperience).map(iso => `ISO ${iso}`).join(', ') : '-';
-            return `<td style="padding: 12px; text-align: center; border-bottom: 1px solid var(--border); font-size: 0.85rem;">${isoList}</td>`;
+            return `<td class="hm-cmp-small">${escapeHtml(isoList)}</td>`;
         }).join('')}
                         </tr>
                         <tr>
-                            <td style="padding: 12px; color: var(--text-secondary);">소개 사유</td>
-                            ${consultants.map(c => `<td style="padding: 12px; text-align: center; font-size: 0.85rem; color: var(--text-muted);">${escapeHtml(c.matchReason || '-')}</td>`).join('')}
+                            <th scope="row">소개 사유</th>
+                            ${consultants.map(c => `<td class="hm-cmp-small">${escapeHtml(c.matchReason || '-')}</td>`).join('')}
                         </tr>
                     </tbody>
                 </table>
             </div>
-            <div style="margin-top: 24px; text-align: center;">
-                <button class="btn btn-primary" onclick="requestQuotesForSelected(); closeCompareModal();">
-                    <i data-lucide="send" style="width: 18px; height: 18px;"></i>
-                    선택한 ${consultants.length}명에게 견적 요청하기
+            <div class="hm-cmp-foot">
+                <button type="button" class="hm-btn hm-btn-lime" onclick="requestQuotesForSelected(); closeCompareModal();">
+                    선택한 ${consultants.length}명에게 견적 요청하기${ARROW}
                 </button>
             </div>
         `;
@@ -1565,6 +1535,8 @@ document.addEventListener('DOMContentLoaded', () => {
         content.innerHTML = tableHTML;
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
+        const closeBtn = modal.querySelector('.hm-modal-close');
+        if (closeBtn) closeBtn.focus();
 
         // Re-initialize icons
         if (typeof lucide !== 'undefined') {
@@ -1628,8 +1600,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (toggleBtn) {
                 toggleBtn.innerHTML = isHidden
-                    ? '<i data-lucide="filter-x" style="width: 16px; height: 16px;"></i> 필터 닫기'
-                    : '<i data-lucide="filter" style="width: 16px; height: 16px;"></i> 필터 열기';
+                    ? '<i data-lucide="filter-x" aria-hidden="true"></i> 필터 닫기'
+                    : '<i data-lucide="filter" aria-hidden="true"></i> 필터 열기';
+                toggleBtn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
                 lucide.createIcons();
             }
         }
@@ -1754,11 +1727,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         activeFiltersEl.classList.remove('hidden');
+        // 지역 필터는 방문자가 직접 입력한 문자열이라 escapeHtml 을 거친다.
         activeFiltersEl.innerHTML = tags.map(tag => `
             <span class="filter-tag">
-                ${tag.label}
-                <button onclick="removeFilter('${tag.type}')" aria-label="필터 제거">
-                    <i data-lucide="x" style="width: 12px; height: 12px;"></i>
+                ${escapeHtml(tag.label)}
+                <button type="button" onclick="removeFilter('${tag.type}')" aria-label="${escapeHtml(tag.label)} 필터 제거">
+                    <i data-lucide="x" aria-hidden="true"></i>
                 </button>
             </span>
         `).join('');
