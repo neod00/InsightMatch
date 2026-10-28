@@ -16,7 +16,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
 
     <!-- Marked.js for Markdown rendering -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.3/dist/purify.min.js"></script>
 
     <!-- Mermaid.js for Process Map (부록 B) diagram rendering -->
@@ -735,7 +735,7 @@
                             <div style="font-size:0.82rem;color:var(--text-secondary);text-align:left;margin-bottom:16px;">
                                 <div style="margin-bottom:4px;">✓ 7~10절 + 부록 이어서 생성 (2~3단계 자동)</div>
                                 <div style="margin-bottom:4px;">✓ PDF / Word 다운로드</div>
-                                <div>✓ 재생성 3회</div>
+                                <div>✓ 생성 실패 시 이어서 재시도 3회</div>
                             </div>
                             <button class="btn-unlock" onclick="unlockFullManual()" style="font-size:0.9rem;padding:12px 20px;">
                                 잠금 해제 →
@@ -791,11 +791,8 @@
         function renderSafeMarkdown(markdown) {
             const html = marked.parse(markdown || '');
             if (!window.DOMPurify) return `<pre style="white-space:pre-wrap;">${escapeHtml(markdown || '')}</pre>`;
-            return DOMPurify.sanitize(html, {
-                USE_PROFILES: { html: true },
-                ADD_TAGS: ['svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'text', 'tspan', 'marker', 'defs'],
-                ADD_ATTR: ['viewBox', 'd', 'x', 'y', 'x1', 'x2', 'y1', 'y2', 'cx', 'cy', 'r', 'rx', 'ry', 'points', 'marker-end', 'stroke', 'fill', 'transform', 'class', 'id']
-            });
+            // Mermaid 다이어그램은 정화 이후 별도로 렌더링하므로 LLM 출력에 SVG 태그를 허용할 필요가 없다(T11 F-11).
+            return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
         }
 
         function escapeHtml(value) {
