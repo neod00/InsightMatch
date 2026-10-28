@@ -1,7 +1,10 @@
 /* =========================================================
    InsightMatch 공통 브랜드 스타일 — B안 "Momentum"
    - 메인페이지(index.html + home.css) 바깥 페이지가 같은 디자인을 쓰기 위한 기반 파일.
-     지금은 로그인·가입 묶음 5개(login, signup, find-email, forgot-password, reset-password)가 쓴다.
+     지금은 로그인·가입 묶음 5개(login, signup, find-email, forgot-password, reset-password)와
+     컨설턴트 묶음 3개(consultant_register, consultant_profile, consultant-faq)가 쓴다.
+   - 11~13 은 컨설턴트 묶음에서 "추가만" 한 부품이다. 1~10 의 기존 규칙은 바꾸지 않았다
+     (로그인·가입 화면이 그대로 보이도록).
    - 토큰 이름·값은 home.css 와 같다. 컴포넌트 클래스(hm-btn, hm-logo, hm-field …)도 home.css 와
      같은 이름·같은 모양이라, 두 파일 중 무엇을 로드해도 같은 부품으로 보인다.
    - style.css 는 로드하지 않는 페이지 전제. 리셋·기본값을 여기서 직접 깐다.
@@ -9,6 +12,9 @@
    목차
      1. TOKENS  2. BASE  3. BUTTONS·LINKS·TAGS  4. HEADER  5. FORM FIELDS
      6. CHOICE CARDS  7. ALERTS·SPINNER  8. AUTH LAYOUT  9. MINI FOOTER  10. RESPONSIVE
+     11. SITE NAV·FOOTER (메인과 같은 헤더 링크·햄버거·모바일 메뉴·다크 푸터)
+     12. PAGE PARTS (페이지 머리·단계 알약·폼 카드·규격 카드·체크 칩·동의 체크·알림 토스트·배지·FAQ)
+     13. RESPONSIVE (11~12 전용)
    ========================================================= */
 
 /* 1. TOKENS (home.css 와 동일) */
@@ -482,4 +488,314 @@ input::-ms-reveal, input::-ms-clear { display: none; }
   .hm-logo { font-size: 18px; }
   .hm-acc { padding: 7px 8px; }
   .hm-acc .hm-acc-label-long { display: none; }
+}
+
+/* =========================================================
+   11. SITE NAV · FOOTER — 메인(home.css)과 같은 모양. 컨설턴트 묶음에서 추가.
+   ========================================================= */
+.hm-header.scrolled { box-shadow: 0 1px 0 var(--line); }
+.hm-nav { display: flex; gap: 2px; margin-left: 4px; }
+.hm-nav a {
+  font-size: 15px; font-weight: 600; color: var(--char); white-space: nowrap;
+  padding: 8px 12px; border-radius: var(--pill);
+  transition: background-color .2s;
+}
+.hm-nav a:hover { background: var(--surface); }
+.hm-nav a[aria-current="page"] { background: var(--ink); color: #fff; }
+/* #nav-actions: 페이지 스크립트가 로그인 상태에 따라 내용을 바꾼다 */
+.hm-nav-actions { display: flex; align-items: center; gap: 4px; }
+.hm-acc-user { font-size: 14px; font-weight: 600; color: var(--muted); padding: 8px 6px; white-space: nowrap; }
+.hm-header-cta.hm-btn { margin-left: 6px; min-height: 44px; padding: 0 6px 0 20px; font-size: 15px; }
+.hm-header-cta.hm-btn .hm-arrow { width: 32px; height: 32px; }
+
+.hm-menu-btn {
+  display: none; width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--white);
+  align-items: center; justify-content: center; flex-shrink: 0; padding: 0;
+}
+.hm-menu-btn span, .hm-menu-btn span::before, .hm-menu-btn span::after {
+  display: block; width: 16px; height: 2px; background: var(--ink); border-radius: 2px; position: relative;
+  transition: transform .2s var(--ease), background-color .2s;
+}
+.hm-menu-btn span::before, .hm-menu-btn span::after { content: ""; position: absolute; left: 0; }
+.hm-menu-btn span::before { top: -5px; }
+.hm-menu-btn span::after { top: 5px; }
+.hm-menu-btn.active span, .hm-menu-btn[aria-expanded="true"] span { background: transparent; }
+.hm-menu-btn.active span::before, .hm-menu-btn[aria-expanded="true"] span::before { transform: translateY(5px) rotate(45deg); }
+.hm-menu-btn.active span::after, .hm-menu-btn[aria-expanded="true"] span::after { transform: translateY(-5px) rotate(-45deg); }
+
+/* 모바일 메뉴 패널(#mobile-nav). 기본은 닫힘.
+   열림 계약은 페이지마다 다르다: .active 를 붙이는 페이지(등록·프로필)와
+   opacity-0 + pointer-events-none 을 떼는 페이지(.hm-mnav-fade — FAQ, 메인과 같은 계약). */
+.hm-mnav {
+  position: fixed; z-index: 55; left: 0; right: 0; top: var(--header-h); bottom: 0;
+  background: var(--bg); border-top: 1px solid var(--line);
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .25s var(--ease), visibility .25s;
+}
+.hm-mnav.active, .hm-mnav.hm-mnav-fade:not(.opacity-0) { opacity: 1; visibility: visible; pointer-events: auto; }
+.hm-mnav-inner { padding: 12px var(--gutter) 32px; }
+.hm-mnav-inner > a:not(.hm-btn) {
+  display: block; padding: 14px 4px; font-size: 17px; font-weight: 700; color: var(--ink);
+  border-bottom: 1px solid var(--line);
+}
+.hm-mnav-inner > a[aria-current="page"] { box-shadow: inset 4px 0 0 var(--lime); padding-left: 14px; }
+.hm-mnav-actions { display: grid; gap: 10px; margin-top: 20px; }
+.hm-mnav-actions a, .hm-mnav-actions button {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 0 20px; border-radius: var(--pill);
+  border: 1px solid var(--line); background: var(--white);
+  font-size: 16px; font-weight: 700; color: var(--ink); width: 100%;
+}
+.hm-mnav-actions a.is-primary { background: var(--lime); border-color: var(--lime); }
+.hm-mnav-actions svg { width: 16px; height: 16px; }
+.hm-mnav-user { text-align: center; font-size: 14px; color: var(--muted); font-weight: 600; }
+.hm-mnav-close {
+  display: block; margin: 20px auto 0; font-size: 15px; font-weight: 600; color: var(--muted);
+  padding: 10px 16px; border-radius: var(--pill);
+}
+.hm-mnav-close:hover { background: var(--surface); color: var(--ink); }
+
+/* 다크 푸터 (메인과 같은 모양) */
+.hm-footer { margin-top: 24px; background: var(--d-bg); color: var(--d-text); border-radius: var(--r-xl) var(--r-xl) 0 0; padding: 64px 0 0; overflow: hidden; }
+.hm-foot-top { display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)); gap: 40px; }
+.hm-foot-top p { color: var(--d-muted); font-size: 14px; max-width: 30em; }
+.hm-foot-brand { font-family: var(--font-en); font-weight: 800; font-size: 20px; letter-spacing: -.04em; margin-bottom: 12px; display: inline-flex; align-items: baseline; }
+.hm-foot-brand small { font-family: var(--font-en); font-size: 13px; font-weight: 600; letter-spacing: 0; color: var(--d-muted); margin-left: 8px; }
+.hm-foot-top h4 { margin: 0 0 12px; font-size: 13px; font-family: var(--font-en); font-weight: 700; letter-spacing: .06em; color: var(--d-muted); }
+.hm-foot-top ul { display: grid; gap: 8px; }
+.hm-foot-top a { font-size: 15px; color: var(--d-text); }
+.hm-foot-top a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.hm-wordmark {
+  margin-top: 56px; padding-bottom: .1em; font-family: var(--font-en); font-weight: 800; letter-spacing: -.06em; line-height: .9;
+  font-size: clamp(56px, 15.2vw, 216px); color: var(--d-text); white-space: nowrap;
+  display: flex; align-items: baseline; user-select: none;
+}
+.hm-wordmark .hm-logo-dot { width: .3em; height: .3em; box-shadow: none; margin: 0 .04em; }
+.hm-foot-bottom { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 22px 0 26px; margin-top: 20px; border-top: 1px solid var(--d-line); font-size: 13px; color: var(--d-muted); }
+
+/* =========================================================
+   12. PAGE PARTS — 컨설턴트 묶음에서 추가 (메인 진단·결과·FAQ 와 같은 언어)
+   ========================================================= */
+.hm-ic { width: 18px; height: 18px; flex-shrink: 0; }
+.hm-h1 { font-weight: 800; font-size: clamp(32px, 4.2vw, 56px); line-height: 1.12; letter-spacing: -.035em; }
+.hm-lead { font-size: clamp(16px, 1.35vw, 19px); color: var(--muted); line-height: 1.65; }
+.hm-page-head { padding-top: 48px; padding-bottom: 32px; }
+.hm-page-head .hm-h1 { margin-top: 14px; }
+.hm-page-head .hm-lead { margin-top: 14px; max-width: 40em; }
+.hm-page-head.is-center { text-align: center; }
+.hm-page-head.is-center .hm-lead { margin-left: auto; margin-right: auto; }
+
+/* 단계 알약 (메인 진단 .hm-steps 와 같은 모양).
+   li.is-current / li.is-done 또는 스크립트가 쓰는 .step-item.active / .step-item.completed 둘 다 받는다. */
+.hm-steps { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
+.hm-steps > * {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  padding: 7px 14px 7px 7px; border-radius: var(--pill); background: var(--surface);
+  font-size: 14px; font-weight: 600; color: var(--muted); line-height: 1.3;
+}
+.hm-steps-dot, .hm-steps .step-number {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center;
+  background: var(--white); color: var(--muted); font-family: var(--font-en); font-size: 13px; font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.hm-steps-label, .hm-steps .step-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hm-steps > .is-done, .hm-steps > .completed { background: var(--lime-soft); color: var(--char); }
+.hm-steps > .is-done .hm-steps-dot { background: var(--ink); color: var(--lime); box-shadow: none; }
+/* .completed: 숫자 대신 체크 (숫자는 스크립트가 바꾸지 않으므로 글자만 숨긴다) */
+.hm-steps > .completed .step-number {
+  color: transparent; box-shadow: none;
+  background: var(--ink) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.4l2.9 2.9 6.1-6.4' fill='none' stroke='%23C3FB79' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/15px no-repeat;
+}
+.hm-steps > .is-current, .hm-steps > .active { background: var(--ink); color: #fff; }
+.hm-steps > .is-current .hm-steps-dot, .hm-steps > .active .step-number { background: var(--lime); color: var(--ink); box-shadow: none; }
+
+/* 흰 폼 카드 + 단계 머리 + 이전/다음 */
+.hm-form-card { background: var(--white); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 36px 40px 32px; }
+.hm-form-head { margin-bottom: 24px; }
+.hm-form-kicker { font-family: var(--font-en); font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--muted); }
+.hm-form-head h2, .hm-form-head h3 { margin-top: 6px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; font-size: clamp(22px, 2.2vw, 28px); font-weight: 800; letter-spacing: -.03em; line-height: 1.3; }
+.hm-form-head p { margin-top: 6px; font-size: 15px; color: var(--muted); }
+.hm-req { color: var(--error); font-weight: 700; }
+.hm-sub-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin-bottom: 12px; font-size: 17px; font-weight: 700; letter-spacing: -.02em; line-height: 1.4; color: var(--ink); }
+.hm-form-nav {
+  display: flex; justify-content: flex-end; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--line);
+}
+.hm-form-nav .is-prev { margin-right: auto; }
+.hm-field input[readonly] { background: var(--surface); color: var(--char); cursor: default; }
+.hm-field input[readonly]:hover { border-color: var(--line); }
+
+/* 선택 개수 알약 (#region-counter 등) */
+.hm-count {
+  display: inline-flex; align-items: center; padding: 3px 12px; border-radius: var(--pill);
+  background: var(--lime-soft); box-shadow: inset 0 0 0 1px rgba(14,15,12,.14);
+  font-size: 13px; font-weight: 700; color: var(--ink); letter-spacing: 0; line-height: 1.5; white-space: nowrap;
+}
+
+/* 분야 묶음 + 규격 카드 (메인 진단 "관심 인증" 과 같은 언어) */
+.hm-optgroup { min-width: 0; margin-bottom: 24px; }
+.hm-optgroup > legend {
+  float: left; width: 100%; margin-bottom: 12px;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
+  font-size: 15px; font-weight: 700; color: var(--ink); line-height: 1.4;
+}
+.hm-optgroup > legend + * { clear: both; }
+.hm-optgroup > legend .hm-en { font-size: 13px; font-weight: 700; color: var(--muted); }
+.hm-optgroup > legend small { font-size: 13px; font-weight: 500; color: var(--muted); }
+.hm-std-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.hm-std-grid .hm-opt-body { min-height: 64px; padding: 12px 40px 12px 16px; }
+.hm-std-grid .hm-opt-body b { font-family: var(--font-en); overflow-wrap: anywhere; }
+.hm-std-grid .hm-opt-body::after { top: 12px; right: 12px; }
+
+/* 체크 칩 (지역·산업군 등 여러 개 고르기). .hm-opt 안에 쓴다. */
+.hm-chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.hm-opt.hm-opt-chip .hm-opt-body {
+  flex-direction: row; align-items: center; gap: 8px;
+  min-height: 44px; padding: 0 16px 0 12px; border-radius: var(--pill);
+  font-size: 14.5px; font-weight: 600; color: var(--char); line-height: 1.3;
+}
+.hm-opt.hm-opt-chip .hm-opt-body::after { display: none; }
+.hm-opt.hm-opt-chip .hm-opt-body::before {
+  content: ""; width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+  box-shadow: inset 0 0 0 1.5px #C2C5B9; background: var(--white);
+}
+.hm-opt.hm-opt-chip input:checked + .hm-opt-body { color: var(--ink); }
+.hm-opt.hm-opt-chip input:checked + .hm-opt-body::before {
+  box-shadow: none;
+  background: var(--ink) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.2 8.3l2.5 2.5 5-5.2' fill='none' stroke='%23C3FB79' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat;
+}
+
+/* 동의 체크박스 (네이티브 input 을 그대로 써서 required 검증·초점 유지) */
+.hm-check { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; font-size: 15px; line-height: 1.55; color: var(--char); }
+.hm-check input {
+  -webkit-appearance: none; appearance: none; flex-shrink: 0; margin-top: 1px;
+  width: 22px; height: 22px; border-radius: 7px; background: var(--white);
+  box-shadow: inset 0 0 0 1.5px #A9AC9F; cursor: pointer; transition: background-color .15s, box-shadow .15s;
+}
+.hm-check input:hover { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.hm-check input:checked {
+  box-shadow: none;
+  background: var(--ink) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.4l2.9 2.9 6.1-6.4' fill='none' stroke='%23C3FB79' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/14px no-repeat;
+}
+.hm-check input:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.hm-check a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
+/* 정적 태그 (규격·산업·요약) */
+.hm-chip-tag {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: var(--pill);
+  background: var(--white); box-shadow: inset 0 0 0 1px var(--line);
+  font-size: 13.5px; font-weight: 600; color: var(--ink); line-height: 1.45;
+}
+.hm-chip-tag.is-lime { background: var(--lime-soft); box-shadow: inset 0 0 0 1px rgba(14,15,12,.14); }
+.hm-chip-tag svg { width: 14px; height: 14px; flex-shrink: 0; }
+.hm-chip-tag small { font-size: 12px; font-weight: 600; color: var(--muted); }
+
+/* 검증 배지 (메인 결과 카드와 같은 이름·모양) */
+.verified-badge, .unverified-badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px 2px 7px; border-radius: var(--pill);
+  font-size: 11.5px; font-weight: 700; line-height: 1.5; white-space: nowrap;
+}
+.verified-badge { background: var(--lime); color: var(--ink); }
+.unverified-badge { background: var(--surface); color: var(--muted); }
+.verified-badge svg, .unverified-badge svg { width: 12px; height: 12px; }
+
+/* 알림 토스트 (메인과 같은 다크 토스트). 스크립트가 .notification + .notification-success|error 를 붙인다. */
+.notification {
+  position: fixed; z-index: 10000; top: calc(var(--header-h) + 16px); right: 24px;
+  display: flex; align-items: center; gap: 12px; max-width: min(440px, calc(100vw - 32px));
+  padding: 14px 20px 14px 18px; border-radius: 20px;
+  background: var(--d-bg); color: var(--d-text); font-size: 14.5px; font-weight: 600; line-height: 1.5;
+  box-shadow: 0 14px 40px rgba(14, 15, 12, .28); animation: hm-pop .25s var(--ease);
+}
+.notification::before { content: ""; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--lime); }
+.notification-error::before { background: #FF7A6B; }
+
+/* 불러오는 중 / 빈 상태 / 오류 상태 — 스크립트가 style.display 를 block/none 으로 바꾸므로 display 는 지정하지 않는다 */
+.hm-state { padding: 72px 24px; text-align: center; color: var(--muted); }
+.hm-state > * + * { margin-top: 14px; }
+.hm-state .hm-btn { margin-top: 22px; }
+.hm-state .loading-spinner { display: block; margin: 0 auto; width: 28px; height: 28px; border-width: 3px; }
+.hm-state-icon { margin: 0 auto; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--error-soft); color: var(--error); }
+.hm-state-icon svg { width: 28px; height: 28px; }
+.hm-state h2 { font-size: clamp(22px, 2.2vw, 28px); font-weight: 800; letter-spacing: -.03em; color: var(--ink); }
+.hm-state p { font-size: 15px; }
+.hm-empty-note { padding: 32px 20px; border-radius: var(--r-sm); background: var(--surface); text-align: center; font-size: 15px; color: var(--muted); line-height: 1.6; }
+.hm-empty-note small { display: block; margin-top: 4px; font-size: 13px; }
+
+/* FAQ 아코디언 (메인 .hm-faq 와 같은 모양) */
+.hm-faq-list { display: grid; gap: 12px; }
+.hm-faq { border-radius: var(--r-md); background: var(--white); border: 1px solid var(--line); transition: background-color .2s; }
+.hm-faq[open] { background: var(--surface); border-color: var(--surface); }
+.hm-faq summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; gap: 16px;
+  padding: 22px 22px 22px 28px; font-size: 18px; font-weight: 700; letter-spacing: -.02em; line-height: 1.4;
+  border-radius: var(--r-md);
+}
+.hm-faq summary::-webkit-details-marker { display: none; }
+.hm-faq .plus {
+  margin-left: auto; width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  background: var(--surface); display: grid; place-items: center; transition: transform .25s var(--ease), background-color .2s;
+}
+.hm-faq[open] .plus { transform: rotate(45deg); background: var(--lime); }
+.hm-faq .plus svg { width: 14px; height: 14px; }
+.hm-faq .ans { padding: 0 28px 24px; color: var(--char); font-size: 15.5px; line-height: 1.7; max-width: 46em; }
+.hm-faq .ans > * + * { margin-top: 10px; }
+.hm-faq .ans ul, .hm-faq .ans ol { padding-left: 1.4em; display: grid; gap: 4px; }
+.hm-faq .ans ul { list-style: disc; }
+.hm-faq .ans ol { list-style: decimal; }
+.hm-faq .ans li::marker { color: var(--muted); }
+.hm-faq .ans strong { color: var(--ink); }
+.hm-faq .ans a { color: var(--ink); font-weight: 600; text-decoration: underline; text-decoration-color: #A9AC9F; text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
+.hm-faq .ans a:hover { text-decoration-color: var(--ink); }
+
+/* =========================================================
+   13. RESPONSIVE (11~12 전용)
+   ========================================================= */
+@media (max-width: 1180px) {
+  .hm-nav { display: none; }
+  .hm-menu-btn { display: inline-flex; }
+}
+@media (min-width: 1181px) {
+  .hm-mnav { display: none; }
+}
+@media (max-width: 1100px) {
+  .hm-foot-top { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .hm-foot-top > div:first-child { grid-column: 1 / -1; }
+}
+@media (max-width: 900px) {
+  .hm-steps { grid-auto-columns: auto; justify-content: start; }
+  .hm-steps > * { justify-content: center; padding: 7px; }
+  .hm-steps-label, .hm-steps .step-label { display: none; }
+  .hm-steps > .is-current, .hm-steps > .active { justify-content: flex-start; padding-right: 14px; }
+  .hm-steps > .is-current .hm-steps-label, .hm-steps > .active .step-label { display: block; }
+}
+@media (max-width: 767px) {
+  .hm-acc-user { display: none; }
+  .hm-header-cta.hm-btn { display: none; }
+  .hm-menu-btn { margin-left: 4px; width: 38px; height: 38px; }
+  .hm-page-head { padding-top: 28px; padding-bottom: 22px; }
+  .hm-form-card { padding: 22px 18px 20px; border-radius: var(--r-md); }
+  .hm-form-nav { gap: 8px; }
+  .hm-form-nav .hm-btn { flex: 1 1 auto; justify-content: space-between; }
+  .hm-form-nav .is-prev { margin-right: 0; flex: 0 0 auto; justify-content: center; }
+  .hm-std-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .hm-std-grid .hm-opt-body { padding: 10px 34px 10px 12px; min-height: 58px; }
+  .hm-std-grid .hm-opt-body b { font-size: 14px; }
+  .hm-std-grid .hm-opt-body::after { top: 10px; right: 10px; }
+  .hm-opt.hm-opt-chip .hm-opt-body { min-height: 42px; padding: 0 14px 0 10px; font-size: 14px; }
+  .notification { left: 16px; right: 16px; max-width: none; }
+  .hm-faq summary { font-size: 16px; padding: 18px 16px 18px 20px; }
+  .hm-faq .ans { padding: 0 20px 20px; font-size: 15px; }
+  .hm-foot-top { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px 16px; }
+  .hm-footer { padding-top: 48px; }
+}
+@media (max-width: 479px) {
+  .hm-std-grid .hm-opt-body { padding: 10px 30px 10px 12px; }
+  .hm-std-grid .hm-opt-body b { font-size: 13px; letter-spacing: -.02em; }
+  .hm-std-grid .hm-opt-body small { font-size: 12.5px; }
+  .hm-std-grid .hm-opt-body::after { width: 18px; height: 18px; top: 10px; right: 9px; }
+  .hm-nav-actions .hm-acc svg { display: none; }
+  .hm-nav-actions .hm-acc { padding: 7px 8px; }
 }

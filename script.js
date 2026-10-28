@@ -1412,8 +1412,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const result = await response.json();
 
                 // Check if any consultants were skipped due to existing projects
-                const skipped = result.created_requests?.filter(r => r.skipped) || [];
-                const created = result.created_projects?.length || (selectedConsultants.size - skipped.length);
+                // 서버 응답 키는 requests/projects 다 (created_* 를 읽던 탓에 중복 요청도 항상 "성공"으로 표시됐다).
+                const requestRows = result.requests || result.created_requests || [];
+                const projectRows = result.projects || result.created_projects;
+                const skipped = requestRows.filter(r => r && r.skipped);
+                const created = projectRows ? projectRows.length : (selectedConsultants.size - skipped.length);
 
                 if (skipped.length > 0 && created > 0) {
                     // Partial success

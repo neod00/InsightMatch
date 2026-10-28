@@ -4,191 +4,207 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
     <title>컨설턴트 프로필 - InsightMatch</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="images/logo2.png">
+    <link rel="apple-touch-icon" href="images/logo2.png">
 
-    <!-- Fonts -->
+    <!-- Fonts: Pretendard + DM Sans (메인페이지와 동일) -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap"
-        rel="stylesheet">
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,500;9..40,600;9..40,700;9..40,800&display=swap">
 
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-
-    <!-- Styles -->
-    <link rel="stylesheet" href="style.css">
+    <!-- B안 공통 스타일. style.css·lucide 는 로드하지 않는다(아이콘은 인라인 SVG). -->
+    <link rel="stylesheet" href="brand.css?v=2">
     <style>
-        .profile-container {
-            padding-top: 120px;
-            padding-bottom: 80px;
-        }
-
-        .profile-layout {
-            display: grid;
-            grid-template-columns: 1fr 350px;
-            gap: 32px;
-            align-items: start;
-        }
-
-        @media (max-width: 1024px) {
-            .profile-layout {
-                grid-template-columns: 1fr;
-            }
-
-            .profile-sidebar {
-                position: static !important;
-            }
-        }
+        .profile-container { padding-top: 24px; padding-bottom: 24px; }
 
         .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 0.9rem;
-            margin-bottom: 24px;
-            transition: var(--transition-fast);
+            display: inline-flex; align-items: center; gap: 8px; margin-bottom: 20px;
+            padding: 8px 14px 8px 10px; border-radius: var(--pill);
+            font-size: 14.5px; font-weight: 600; color: var(--char);
+            transition: background-color .2s;
         }
+        .back-link:hover { background: var(--surface); color: var(--ink); }
+        .back-link svg { width: 16px; height: 16px; }
 
-        .back-link:hover {
-            color: var(--primary);
+        /* 스크립트가 style.display = 'grid' 로 연다 */
+        .profile-layout { grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+        .profile-main { display: grid; gap: 16px; min-width: 0; }
+
+        /* 상단 프로필 헤더 — 메인 히어로의 오프블랙 대시보드 카드 언어 */
+        .profile-header {
+            position: relative; overflow: hidden; isolation: isolate;
+            display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 28px; align-items: stretch;
+            padding: 32px; border-radius: var(--r-xl); background: var(--d-bg); color: var(--d-text);
         }
-
-        .profile-loading {
-            text-align: center;
-            padding: 80px 40px;
+        .profile-header .hm-blob { right: -260px; top: -260px; }
+        .profile-id { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+        .profile-id-top { display: flex; align-items: center; gap: 18px; min-width: 0; }
+        .profile-avatar-large {
+            width: 76px; height: 76px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center;
+            background: var(--lime); color: var(--ink); font-family: var(--font-en); font-size: 28px; font-weight: 800; letter-spacing: -.02em;
         }
-
-        .certification-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 12px;
+        .profile-name { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; font-size: clamp(26px, 2.8vw, 38px); font-weight: 800; letter-spacing: -.035em; line-height: 1.2; }
+        .profile-name #profile-badge:empty { display: none; }
+        .profile-name .unverified-badge { background: rgba(255, 255, 255, .1); color: var(--d-muted); }
+        .profile-specialty { margin-top: 6px; font-size: 15.5px; color: var(--d-muted); }
+        .profile-stats { display: flex; flex-wrap: wrap; gap: 8px; }
+        .profile-stat {
+            display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px 7px 10px; border-radius: var(--pill);
+            border: 1px solid var(--d-line); font-size: 14px; font-weight: 600; color: var(--d-text);
         }
+        .profile-stat svg { width: 16px; height: 16px; color: var(--lime); }
 
-        .certification-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 14px 16px;
-            background: var(--bg-secondary);
-            border-radius: var(--radius-sm);
-            border: 1px solid var(--border);
+        .profile-score {
+            display: flex; flex-direction: column; gap: 12px; justify-content: flex-end;
+            padding: 20px; border-radius: 22px; background: var(--d-card);
         }
+        .profile-score-label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--d-muted); }
+        .profile-score-label svg { width: 15px; height: 15px; color: var(--lime); }
+        .profile-score-num { display: flex; align-items: baseline; gap: 6px; }
+        .profile-score-num #trust-score-value { font-family: var(--font-en); font-weight: 800; font-size: 52px; line-height: 1; letter-spacing: -.04em; }
+        .profile-score-num .of { font-family: var(--font-en); font-size: 15px; font-weight: 700; color: var(--d-muted); }
+        .trust-score-bar { height: 8px; border-radius: var(--pill); background: rgba(255, 255, 255, .1); overflow: hidden; }
+        .trust-score-fill { height: 100%; width: 0%; border-radius: inherit; background: var(--lime); transition: width .9s var(--ease); }
+        .profile-score p { font-size: 12.5px; line-height: 1.55; color: var(--d-muted); }
 
-        .certification-item i {
-            color: var(--primary);
+        /* 본문 섹션 카드 */
+        .profile-section { padding: 28px 32px; border-radius: var(--r-lg); background: var(--white); border: 1px solid var(--line); }
+        .profile-section-title { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; font-size: 19px; font-weight: 800; letter-spacing: -.02em; line-height: 1.35; }
+        .profile-section-title .ic { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; background: var(--lime); color: var(--ink); }
+        .profile-section-title .ic svg { width: 16px; height: 16px; }
+        #reviews-summary { margin-left: auto; font-size: 14px; font-weight: 600; color: var(--muted); }
+        .iso-badge-list, .industry-tag-list { display: flex; flex-wrap: wrap; gap: 8px; }
+        .cp-empty { font-size: 15px; color: var(--muted); }
+
+        .certification-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+        .certification-item { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: var(--r-sm); background: var(--bg); border: 1px solid var(--line); }
+        .certification-item svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px; color: var(--ink); }
+        .certification-item span { font-size: 14.5px; color: var(--char); line-height: 1.55; }
+
+        .project-list { display: grid; gap: 10px; }
+        .project-item { padding: 14px 18px; border-radius: var(--r-sm); background: var(--bg); border-left: 4px solid var(--lime-deep); }
+        .project-item h4 { font-size: 15px; font-weight: 700; line-height: 1.5; }
+        .project-item p { margin-top: 4px; font-size: 14px; color: var(--muted); line-height: 1.6; }
+
+        .review-card { padding: 18px 20px; border-radius: var(--r-sm); background: var(--bg); border: 1px solid var(--line); }
+        .review-card + .review-card { margin-top: 10px; }
+        .review-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+        .review-author { font-size: 13.5px; font-weight: 600; color: var(--muted); }
+        .review-rating { display: flex; gap: 3px; }
+        .review-rating svg { width: 16px; height: 16px; }
+        .review-rating .on { color: var(--ink); fill: var(--ink); }
+        .review-rating .off { color: #CDD0C5; fill: #E6E8DF; }
+        .review-content { font-size: 15px; color: var(--char); line-height: 1.65; white-space: pre-line; }
+        .review-content.is-empty { color: var(--muted); white-space: normal; }
+        .review-meta { margin-top: 10px; font-size: 13px; color: var(--muted); }
+
+        /* 오른쪽 행동 카드 */
+        .profile-sidebar { min-width: 0; }
+        .profile-contact-cta {
+            position: sticky; top: calc(var(--header-h) + 16px);
+            display: grid; gap: 12px; padding: 28px; border-radius: var(--r-lg); background: var(--white); border: 1px solid var(--line);
         }
+        .profile-contact-cta h3 { font-size: 20px; font-weight: 800; letter-spacing: -.02em; line-height: 1.3; }
+        .profile-contact-cta p { font-size: 14.5px; color: var(--muted); line-height: 1.6; margin-bottom: 6px; }
+        .profile-contact-cta .hm-btn { width: 100%; justify-content: space-between; }
+        .profile-contact-cta .hm-btn-ghost { justify-content: center; }
 
-        .certification-item span {
-            font-size: 0.9rem;
-            color: var(--text-secondary);
+        /* 컨설팅 문의(견적 요청) 확인 패널·결과 */
+        .consult-panel { display: grid; gap: 8px; padding: 16px; border-radius: var(--r-sm); background: var(--lime-soft); border: 1px solid var(--line); }
+        .consult-panel[hidden] { display: none; }
+        .consult-panel-title { font-size: 15px; font-weight: 800; color: var(--ink); }
+        .profile-contact-cta .consult-panel-desc { font-size: 13.5px; color: var(--char); margin: 0; }
+        .consult-panel-actions { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 8px; margin-top: 4px; }
+        .profile-contact-cta .consult-panel .hm-btn { justify-content: center; min-height: 44px; padding: 0 14px; font-size: 14.5px; }
+        .consult-status:empty { display: none; }
+        .consult-status .hm-alert { flex-wrap: wrap; }
+        .consult-status-link { color: inherit; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
+        .profile-contact-cta .hm-btn:disabled { opacity: .6; cursor: progress; }
+
+        #profile-error .hm-btn { margin-top: 22px; }
+
+        @media (max-width: 1100px) {
+            .profile-header { grid-template-columns: minmax(0, 1fr); }
         }
-
-        .review-card {
-            padding: 20px;
-            background: var(--bg-secondary);
-            border-radius: var(--radius-sm);
-            margin-bottom: 16px;
+        @media (max-width: 1024px) {
+            .profile-layout { grid-template-columns: minmax(0, 1fr); }
+            .profile-contact-cta { position: static; }
         }
-
-        .review-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .review-rating {
-            display: flex;
-            gap: 4px;
-        }
-
-        .review-rating i {
-            width: 16px;
-            height: 16px;
-            color: #f59e0b;
-        }
-
-        .review-content {
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-            line-height: 1.6;
-        }
-
-        .review-meta {
-            margin-top: 12px;
-            font-size: 0.85rem;
-            color: var(--text-muted);
+        @media (max-width: 767px) {
+            .profile-container { padding-top: 16px; }
+            .profile-header { padding: 22px 18px; border-radius: var(--r-lg); gap: 20px; }
+            .profile-avatar-large { width: 60px; height: 60px; font-size: 22px; }
+            .profile-id-top { align-items: flex-start; gap: 14px; }
+            .profile-score-num #trust-score-value { font-size: 44px; }
+            .profile-section { padding: 22px 18px; border-radius: var(--r-md); }
+            .profile-section-title { font-size: 17px; flex-wrap: wrap; }
+            #reviews-summary { margin-left: 0; width: 100%; }
+            .profile-contact-cta { padding: 22px 18px; border-radius: var(--r-md); }
         }
     </style>
 </head>
 
-<body>
-    <!-- Background Effects -->
-    <div class="bg-gradient"></div>
-    <div class="bg-grid"></div>
+<body class="hm-body">
+    <a class="hm-skip" href="#main">본문으로 건너뛰기</a>
 
-    <!-- Navigation -->
-    <nav class="navbar" id="navbar">
-        <div class="container nav-content">
-            <a href="index.html" class="logo">
-                <img src="images/logo2.png" alt="InsightMatch" class="logo-image">
-                <div class="logo-text">
-                    <span>InsightMatch</span>
-                    <span>by OpenBrain</span>
+    <!-- Navigation (#navbar: 스크롤하면 스크립트가 .scrolled 를 붙인다) -->
+    <header class="hm-header" id="navbar">
+        <div class="hm-wrap">
+            <div class="hm-header-row">
+                <a class="hm-logo" href="index.html" aria-label="InsightMatch 메인으로">Insight<span class="hm-logo-dot" aria-hidden="true"></span>Match</a>
+                <nav class="hm-nav" aria-label="주요 메뉴">
+                    <a href="index.html#how-it-works">프로세스</a>
+                    <a href="index.html#diagnosis">컨설턴트 소개</a>
+                    <!-- 이 페이지는 컨설턴트용이므로 기업용 FAQ 대신 전문가 FAQ 로 보낸다.
+                         (정산·수수료·승인 기준은 기업용 FAQ 에 없다) -->
+                    <a href="consultant-faq.html">전문가 FAQ</a>
+                    <a href="blog.html">블로그</a>
+                </nav>
+                <div class="hm-header-actions">
+                    <!-- 로그인 상태면 아래 스크립트(updateNavigation)가 내용을 바꾼다 -->
+                    <div class="hm-nav-actions" id="nav-actions">
+                        <a href="login.html" class="hm-acc">로그인</a>
+                        <a href="index.html#diagnosis" class="hm-btn hm-btn-lime hm-header-cta">무료 상담 신청<span class="hm-arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+                    </div>
+                    <!-- Mobile Menu Button (스크립트가 .active 를 토글) -->
+                    <button class="hm-menu-btn" id="mobile-menu-btn" type="button" aria-controls="mobile-nav" aria-label="메뉴 열기"><span></span></button>
                 </div>
-            </a>
-
-            <div class="nav-links">
-                <a href="index.html#how-it-works">프로세스</a>
-                <a href="index.html#diagnosis">컨설턴트 소개</a>
-                <!-- 이 페이지는 컨설턴트용이므로 기업용 FAQ 대신 전문가 FAQ 로 보낸다.
-                     (정산·수수료·승인 기준은 기업용 FAQ 에 없다) -->
-                <a href="consultant-faq.html">전문가 FAQ</a>
-                <a href="blog.html">블로그</a>
             </div>
+        </div>
+    </header>
 
-            <div class="nav-actions" id="nav-actions">
-                <a href="login.html" class="btn btn-ghost">로그인</a>
-                <a href="index.html#diagnosis" class="btn btn-primary">무료 상담 신청</a>
+    <!-- Mobile Navigation (스크립트가 .active 를 토글) -->
+    <nav class="hm-mnav" id="mobile-nav" aria-label="모바일 메뉴">
+        <div class="hm-mnav-inner">
+            <a href="index.html#how-it-works" onclick="closeMobileMenu()">프로세스</a>
+            <a href="index.html#diagnosis" onclick="closeMobileMenu()">컨설턴트 소개</a>
+            <a href="consultant-faq.html" onclick="closeMobileMenu()">전문가 FAQ</a>
+            <a href="blog.html">블로그</a>
+            <div class="hm-mnav-actions" id="mobile-nav-actions">
+                <a href="login.html">로그인</a>
+                <a href="index.html#diagnosis" class="is-primary" onclick="closeMobileMenu()">무료 상담 신청</a>
             </div>
-
-            <!-- Mobile Menu Button -->
-            <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="메뉴 열기">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
         </div>
     </nav>
 
-    <!-- Mobile Navigation -->
-    <div class="mobile-nav" id="mobile-nav">
-        <a href="index.html#how-it-works" onclick="closeMobileMenu()">프로세스</a>
-        <a href="index.html#diagnosis" onclick="closeMobileMenu()">컨설턴트 소개</a>
-        <a href="consultant-faq.html" onclick="closeMobileMenu()">전문가 FAQ</a>
-        <a href="blog.html">블로그</a>
-        <div class="nav-divider"></div>
-        <div id="mobile-nav-actions">
-            <a href="login.html" class="btn btn-secondary">로그인</a>
-            <a href="index.html#diagnosis" class="btn btn-primary" onclick="closeMobileMenu()">무료 상담 신청</a>
-        </div>
-    </div>
-
     <!-- Profile Container -->
-    <div class="container profile-container">
+    <main class="hm-wrap profile-container" id="main">
         <!-- Back Link -->
         <a href="javascript:history.back()" class="back-link">
-            <i data-lucide="arrow-left" style="width: 18px; height: 18px;"></i>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
             돌아가기
         </a>
 
         <!-- Loading State -->
-        <div id="profile-loading" class="profile-loading">
-            <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
-            <p style="color: var(--text-muted);">프로필을 불러오는 중...</p>
+        <div id="profile-loading" class="profile-loading hm-state" role="status">
+            <div class="loading-spinner" aria-hidden="true"></div>
+            <p>프로필을 불러오는 중...</p>
         </div>
 
         <!-- Profile Content (Hidden until loaded) -->
@@ -196,163 +212,188 @@
             <!-- Main Content -->
             <div class="profile-main">
                 <!-- Profile Header -->
-                <div class="profile-header fade-in-up">
-                    <div class="profile-avatar-large" id="profile-avatar">-</div>
-                    <div class="profile-info">
-                        <h1 class="profile-name">
-                            <span id="profile-name">컨설턴트 이름</span>
-                            <span id="profile-badge"></span>
-                        </h1>
-                        <p class="profile-specialty" id="profile-specialty">전문 분야</p>
+                <section class="profile-header hm-on-dark" aria-labelledby="profile-name">
+                    <div class="hm-auth-deco" aria-hidden="true"><div class="hm-blob"></div><div class="hm-circle"></div><div class="hm-circle r2"></div></div>
+                    <div class="profile-id">
+                        <div class="profile-id-top">
+                            <div class="profile-avatar-large" id="profile-avatar" aria-hidden="true">-</div>
+                            <div class="profile-info">
+                                <h1 class="profile-name">
+                                    <span id="profile-name">컨설턴트 이름</span>
+                                    <span id="profile-badge"></span>
+                                </h1>
+                                <p class="profile-specialty" id="profile-specialty">전문 분야</p>
+                            </div>
+                        </div>
                         <div class="profile-stats">
                             <div class="profile-stat">
-                                <i data-lucide="briefcase" style="width: 18px; height: 18px;"></i>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="7" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
                                 <span id="profile-experience">경력 정보</span>
                             </div>
                             <div class="profile-stat">
-                                <i data-lucide="star" style="width: 18px; height: 18px;"></i>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                                 <span id="profile-rating">평점</span>
                             </div>
                             <div class="profile-stat">
-                                <i data-lucide="message-square" style="width: 18px; height: 18px;"></i>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                                 <span id="profile-reviews">리뷰</span>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Trust Score Section -->
-                <div class="profile-section fade-in-up">
-                    <h3 class="profile-section-title">
-                        <i data-lucide="shield-check" style="width: 20px; height: 20px;"></i>
-                        신뢰 점수
-                    </h3>
-                    <div style="display: flex; align-items: center; gap: 20px;">
-                        <div style="font-size: 3rem; font-weight: 800; color: var(--primary);" id="trust-score-value">0
+                    <!-- Trust Score -->
+                    <div class="profile-score">
+                        <span class="profile-score-label">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+                            신뢰 점수
+                        </span>
+                        <div class="profile-score-num"><span id="trust-score-value">0</span><span class="of">/ 100</span></div>
+                        <div class="trust-score-bar">
+                            <div class="trust-score-fill" id="trust-score-bar" style="width: 0%;"></div>
                         </div>
-                        <div style="flex: 1;">
-                            <div class="trust-score-bar" style="height: 12px; border-radius: 6px;">
-                                <div class="trust-score-fill" id="trust-score-bar"
-                                    style="width: 0%; height: 100%; border-radius: 6px;"></div>
-                            </div>
-                            <p style="margin-top: 8px; font-size: 0.85rem; color: var(--text-muted);">
-                                경력, 프로젝트 이력, 자격증, 고객 평가를 기반으로 산출된 종합 신뢰 점수입니다.
-                            </p>
-                        </div>
+                        <p>관리자 등록 심사 결과를 반영한 점수입니다.</p>
                     </div>
-                </div>
+                </section>
 
                 <!-- ISO Expertise Section -->
-                <div class="profile-section fade-in-up">
-                    <h3 class="profile-section-title">
-                        <i data-lucide="award" style="width: 20px; height: 20px;"></i>
+                <section class="profile-section">
+                    <h2 class="profile-section-title">
+                        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></span>
                         ISO 전문 규격
-                    </h3>
+                    </h2>
                     <div class="iso-badge-list" id="iso-list">
                         <!-- ISO badges will be inserted here -->
                     </div>
-                </div>
+                </section>
 
                 <!-- Industry Experience Section -->
-                <div class="profile-section fade-in-up">
-                    <h3 class="profile-section-title">
-                        <i data-lucide="building-2" style="width: 20px; height: 20px;"></i>
+                <section class="profile-section">
+                    <h2 class="profile-section-title">
+                        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg></span>
                         산업 경험
-                    </h3>
+                    </h2>
                     <div class="industry-tag-list" id="industry-list">
                         <!-- Industry tags will be inserted here -->
                     </div>
-                </div>
+                </section>
 
                 <!-- Certifications Section -->
-                <div class="profile-section fade-in-up" id="certifications-section" style="display: none;">
-                    <h3 class="profile-section-title">
-                        <i data-lucide="file-badge" style="width: 20px; height: 20px;"></i>
+                <section class="profile-section" id="certifications-section" style="display: none;">
+                    <h2 class="profile-section-title">
+                        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><circle cx="12" cy="13" r="3"/><path d="m10.5 15.5-1 4.5 2.5-1.5 2.5 1.5-1-4.5"/></svg></span>
                         보유 자격
-                    </h3>
+                    </h2>
                     <div class="certification-grid" id="certifications-list">
                         <!-- Certifications will be inserted here -->
                     </div>
-                </div>
+                </section>
 
                 <!-- Recent Projects Section -->
-                <div class="profile-section fade-in-up" id="projects-section" style="display: none;">
-                    <h3 class="profile-section-title">
-                        <i data-lucide="folder-open" style="width: 20px; height: 20px;"></i>
+                <section class="profile-section" id="projects-section" style="display: none;">
+                    <h2 class="profile-section-title">
+                        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg></span>
                         최근 프로젝트
-                    </h3>
+                    </h2>
                     <div class="project-list" id="projects-list">
                         <!-- Projects will be inserted here -->
                     </div>
-                </div>
+                </section>
 
                 <!-- Reviews Section -->
-                <div class="profile-section fade-in-up" id="reviews-section">
-                    <h3 class="profile-section-title">
-                        <i data-lucide="message-circle" style="width: 20px; height: 20px;"></i>
+                <section class="profile-section" id="reviews-section">
+                    <h2 class="profile-section-title">
+                        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span>
                         고객 리뷰
-                        <span id="reviews-summary"
-                            style="margin-left: auto; font-size: 0.85rem; font-weight: 500; color: var(--text-muted);"></span>
-                    </h3>
+                        <span id="reviews-summary"></span>
+                    </h2>
                     <div id="reviews-list">
-                        <p style="color: var(--text-muted); text-align: center; padding: 40px;">
-                            리뷰를 불러오는 중...
-                        </p>
+                        <p class="hm-empty-note">리뷰를 불러오는 중...</p>
                     </div>
-                </div>
+                </section>
             </div>
 
             <!-- Sidebar -->
-            <div class="profile-sidebar">
-                <div class="profile-contact-cta" style="position: sticky; top: 100px;">
+            <aside class="profile-sidebar" aria-label="상담 요청">
+                <div class="profile-contact-cta">
                     <h3>이 전문가와 상담하기</h3>
                     <p>프로젝트 요구사항을 공유하고 맞춤형 제안을 받아보세요.</p>
 
-                    <div style="margin-bottom: 16px;">
-                        <div
-                            style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 8px;">
-                            <span style="color: var(--text-muted);">예상 응답 시간</span>
-                            <span style="color: var(--primary); font-weight: 600;">24시간 이내</span>
-                        </div>
-                    </div>
-
-                    <button class="btn btn-primary btn-lg" style="width: 100%; margin-bottom: 12px;">
-                        <i data-lucide="send" style="width: 18px; height: 18px;"></i>
+                    <button type="button" class="hm-btn hm-btn-lime hm-btn-lg" id="consult-btn" aria-controls="consult-panel" aria-expanded="false">
                         컨설팅 문의하기
+                        <span class="hm-arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
                     </button>
 
-                    <a href="index.html?action=find-others#results-section" class="btn btn-secondary"
-                        style="width: 100%;">
-                        <i data-lucide="sparkles" style="width: 18px; height: 18px;"></i>
-                        AI로 다른 전문가 찾기
+                    <!-- 기업 회원 확인 단계: 누르기 전에는 아무것도 보내지 않는다 -->
+                    <div class="consult-panel" id="consult-panel" hidden>
+                        <p class="consult-panel-title">이 전문가에게 견적을 요청합니다</p>
+                        <p class="consult-panel-desc" id="consult-context"></p>
+                        <div class="consult-panel-actions">
+                            <button type="button" class="hm-btn hm-btn-ink" id="consult-send">견적 요청 보내기</button>
+                            <button type="button" class="hm-btn hm-btn-ghost" id="consult-cancel">취소</button>
+                        </div>
+                    </div>
+                    <div class="consult-status" id="consult-status" role="status" aria-live="polite"></div>
+
+                    <a href="index.html?action=find-others#results-section" class="hm-btn hm-btn-ghost">
+                        다른 전문가 찾기
                     </a>
                 </div>
-            </div>
+            </aside>
         </div>
 
         <!-- Error State -->
-        <div id="profile-error" style="display: none; text-align: center; padding: 80px 40px;">
-            <i data-lucide="alert-circle"
-                style="width: 64px; height: 64px; color: var(--error); margin-bottom: 16px;"></i>
-            <h2 style="margin-bottom: 8px;">프로필을 찾을 수 없습니다</h2>
-            <p style="color: var(--text-muted); margin-bottom: 24px;">요청하신 컨설턴트 정보를 불러올 수 없습니다.</p>
-            <a href="index.html" class="btn btn-primary">홈으로 돌아가기</a>
+        <div id="profile-error" class="hm-state" style="display: none;">
+            <div class="hm-state-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></div>
+            <h2>프로필을 찾을 수 없습니다</h2>
+            <p>요청하신 컨설턴트 정보를 불러올 수 없습니다.</p>
+            <a href="index.html" class="hm-btn hm-btn-ink">홈으로 돌아가기<span class="hm-arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
         </div>
-    </div>
+    </main>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-bottom">
-                <span>© 2025 OpenBrain Limited. All rights reserved.</span>
-                <span>InsightMatch - AI-Powered ISO Consultant Matching</span>
+    <!-- Footer (메인과 같은 다크 푸터) -->
+    <footer class="hm-footer hm-on-dark" style="margin-top: 72px;">
+        <div class="hm-wrap">
+            <div class="hm-foot-top">
+                <div>
+                    <div class="hm-foot-brand">Insight<span class="hm-logo-dot" aria-hidden="true"></span>Match<small>by OpenBrain</small></div>
+                    <p>InsightMatch는 ISO 인증을 준비하는 기업과 검증된 컨설턴트를 연결하는 매칭 플랫폼입니다. 심사는 인정받은 인증기관이 수행합니다.</p>
+                </div>
+                <div>
+                    <h4>SERVICE</h4>
+                    <ul>
+                        <li><a href="index.html#diagnosis">컨설턴트 소개</a></li>
+                        <li><a href="index.html#how-it-works">프로세스 안내</a></li>
+                        <li><a href="index.html#verify">검증 기준</a></li>
+                        <li><a href="index.html#iso-catalog">규격</a></li>
+                        <li><a href="ai-manual.html">AI 매뉴얼</a></li>
+                        <li><a href="consultant_register.html">컨설턴트 등록</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>SUPPORT</h4>
+                    <ul>
+                        <li><a href="index.html#faq">자주 묻는 질문</a></li>
+                        <li><a href="consultant-faq.html">전문가 FAQ</a></li>
+                        <li><a href="blog.html">블로그</a></li>
+                        <li><a href="contact.html">문의하기</a></li>
+                        <li><a href="login.html">로그인</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>LEGAL</h4>
+                    <ul>
+                        <li><a href="terms.html">이용약관</a></li>
+                        <li><a href="privacy.html">개인정보처리방침</a></li>
+                        <li><a href="partner-agreement.html">컨설턴트 협력계약</a></li>
+                    </ul>
+                </div>
             </div>
+            <div class="hm-wordmark" aria-hidden="true">Insight<span class="hm-logo-dot"></span>Match</div>
+            <div class="hm-foot-bottom"><span>© 2026 OpenBrain Limited. All rights reserved.</span><span>InsightMatch - ISO Consultant Matching Platform</span></div>
         </div>
     </footer>
 
     <script>
-        lucide.createIcons();
-
         // XSS 방어: 컨설턴트가 직접 입력한 값(자격·프로젝트 등)을
         // innerHTML에 넣기 전 반드시 이스케이프한다.
         function escapeHtml(value) {
@@ -364,6 +405,18 @@
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;');
         }
+
+        // 인라인 SVG 아이콘 (lucide 의존 제거 — 스크립트가 그리는 HTML 에서 사용)
+        const ICON_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+        const ICONS = {
+            dashboard: `<svg ${ICON_ATTRS}><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>`,
+            logout: `<svg ${ICON_ATTRS}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>`,
+            badgeCheck: `<svg ${ICON_ATTRS}><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg>`,
+            clock: `<svg ${ICON_ATTRS}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+            award: `<svg ${ICON_ATTRS}><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>`,
+            fileBadge: `<svg ${ICON_ATTRS}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><circle cx="12" cy="13" r="3"/><path d="m10.5 15.5-1 4.5 2.5-1.5 2.5 1.5-1-4.5"/></svg>`,
+            star: (cls) => `<svg class="${cls}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
+        };
 
         // Mobile Menu Toggle
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
@@ -397,22 +450,22 @@
             const mobileNavActions = document.getElementById('mobile-nav-actions');
 
             if (user && token) {
+                // user.name 은 사용자 입력값이라 이스케이프한다
                 navActions.innerHTML = `
-                    <a href="dashboard.html" class="btn btn-ghost">
-                        <i data-lucide="layout-dashboard" style="width: 18px; height: 18px;"></i>
+                    <a href="dashboard.html" class="hm-acc">
+                        ${ICONS.dashboard}
                         대시보드
                     </a>
-                    <span style="color: var(--primary); font-weight: 500;">${user.name}님</span>
-                    <button onclick="logout()" class="btn btn-ghost">
-                        <i data-lucide="log-out" style="width: 18px; height: 18px;"></i>
+                    <span class="hm-acc-user">${escapeHtml(user.name)}님</span>
+                    <button type="button" onclick="logout()" class="hm-acc hm-acc-outline">
+                        ${ICONS.logout}
                         로그아웃
                     </button>
                 `;
                 mobileNavActions.innerHTML = `
-                    <a href="dashboard.html" class="btn btn-secondary" onclick="closeMobileMenu()">대시보드</a>
-                    <button onclick="logout(); closeMobileMenu();" class="btn btn-ghost" style="width: 100%;">로그아웃</button>
+                    <a href="dashboard.html" onclick="closeMobileMenu()">대시보드</a>
+                    <button type="button" onclick="logout(); closeMobileMenu();">로그아웃</button>
                 `;
-                lucide.createIcons();
             }
         }
 
@@ -477,38 +530,41 @@
             const badgeEl = document.getElementById('profile-badge');
             if (c.verified) {
                 badgeEl.innerHTML = `
-                    <span class="verified-badge-large">
-                        <i data-lucide="badge-check" style="width: 18px; height: 18px;"></i>
+                    <span class="verified-badge">
+                        ${ICONS.badgeCheck}
                         검증된 전문가
                     </span>
                 `;
             } else {
                 badgeEl.innerHTML = `
-                    <span class="unverified-badge" style="padding: 6px 14px; font-size: 0.85rem;">
-                        <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
+                    <span class="unverified-badge">
+                        ${ICONS.clock}
                         검토 중
                     </span>
                 `;
             }
 
             // Trust Score
-            const trustScore = c.trustScore || 50;
-            document.getElementById('trust-score-value').textContent = trustScore;
-            document.getElementById('trust-score-bar').style.width = trustScore + '%';
+            // 신뢰 점수는 관리자 심사 결과다. 값이 없으면 임의 값 대신 '—'로 둔다(메인 결과 카드와 같은 기준).
+            const rawTrust = Number(c.trustScore);
+            const trustScore = (c.trustScore == null || !Number.isFinite(rawTrust)) ? null : Math.max(0, Math.min(100, Math.round(rawTrust)));
+            document.getElementById('trust-score-value').textContent = trustScore === null ? '—' : trustScore;
+            document.getElementById('trust-score-bar').style.width = (trustScore === null ? 0 : trustScore) + '%';
 
             // ISO Experience
+            // 값이 역할 문자열이면 (역할) 로 보여 주고, 등록 폼이 저장하는 true(선택 여부만)는 표시하지 않는다.
             const isoList = document.getElementById('iso-list');
             const isoExp = c.isoExperience || {};
             if (Object.keys(isoExp).length > 0) {
                 isoList.innerHTML = Object.entries(isoExp).map(([code, role]) => `
-                    <span class="iso-badge">
-                        <i data-lucide="award" style="width: 16px; height: 16px;"></i>
+                    <span class="iso-badge hm-chip-tag is-lime">
+                        ${ICONS.award}
                         ISO ${escapeHtml(code)}
-                        ${role ? `<small style="opacity: 0.7;">(${escapeHtml(role)})</small>` : ''}
+                        ${(role && role !== true) ? `<small>(${escapeHtml(role)})</small>` : ''}
                     </span>
                 `).join('');
             } else {
-                isoList.innerHTML = '<p style="color: var(--text-muted);">등록된 ISO 규격이 없습니다.</p>';
+                isoList.innerHTML = '<p class="cp-empty">등록된 ISO 규격이 없습니다.</p>';
             }
 
             // Industry Experience
@@ -516,10 +572,10 @@
             const industries = c.industryExperience || [];
             if (industries.length > 0) {
                 industryList.innerHTML = industries.map(ind => `
-                    <span class="industry-tag">${escapeHtml(translateIndustry(ind))}</span>
+                    <span class="industry-tag hm-chip-tag">${escapeHtml(translateIndustry(ind))}</span>
                 `).join('');
             } else {
-                industryList.innerHTML = '<p style="color: var(--text-muted);">등록된 산업 경험이 없습니다.</p>';
+                industryList.innerHTML = '<p class="cp-empty">등록된 산업 경험이 없습니다.</p>';
             }
 
             // Certifications
@@ -528,7 +584,7 @@
                 document.getElementById('certifications-section').style.display = 'block';
                 document.getElementById('certifications-list').innerHTML = certs.map(cert => `
                     <div class="certification-item">
-                        <i data-lucide="file-badge" style="width: 20px; height: 20px;"></i>
+                        ${ICONS.fileBadge}
                         <span>${escapeHtml(cert)}</span>
                     </div>
                 `).join('');
@@ -548,9 +604,6 @@
 
             // Reviews (별도 엔드포인트 — 숨김 처리된 리뷰는 서버가 이미 걸러 보낸다)
             loadReviews();
-
-            // Re-initialize icons
-            lucide.createIcons();
         }
 
         // ── 고객 리뷰 ──────────────────────────────────────────────
@@ -566,7 +619,7 @@
             } catch (error) {
                 console.error('Error loading reviews:', error);
                 listEl.innerHTML = `
-                    <p style="color: var(--text-muted); text-align: center; padding: 40px;">
+                    <p class="hm-empty-note">
                         리뷰를 불러오지 못했습니다.
                     </p>`;
             }
@@ -580,7 +633,7 @@
             if (!items.length) {
                 summaryEl.textContent = '';
                 listEl.innerHTML = `
-                    <p style="color: var(--text-muted); text-align: center; padding: 40px;">
+                    <p class="hm-empty-note">
                         아직 등록된 리뷰가 없습니다.<br>
                         <small>완료된 프로젝트의 의뢰 기업만 리뷰를 남길 수 있습니다.</small>
                     </p>`;
@@ -595,28 +648,26 @@
                 return `
                     <div class="review-card">
                         <div class="review-header">
-                            <div class="review-rating">${stars}</div>
-                            <span style="font-size: 0.85rem; color: var(--text-muted);">
+                            <div class="review-rating" role="img" aria-label="평점 ${escapeHtml(Math.max(0, Math.min(5, Number(r.rating) || 0)))}점 (5점 만점)">${stars}</div>
+                            <span class="review-author">
                                 ${escapeHtml(r.authorLabel || '기업 고객')}
                             </span>
                         </div>
                         ${r.comment
-                        ? `<p class="review-content" style="white-space: pre-line;">${escapeHtml(r.comment)}</p>`
-                        : '<p class="review-content" style="opacity: 0.6;">코멘트 없이 평점만 남겼습니다.</p>'}
+                        ? `<p class="review-content">${escapeHtml(r.comment)}</p>`
+                        : '<p class="review-content is-empty">코멘트 없이 평점만 남겼습니다.</p>'}
                         <div class="review-meta">
                             ${escapeHtml(dateText)}${r.edited ? ' · 수정됨' : ''}
                         </div>
                     </div>`;
             }).join('');
-
-            lucide.createIcons();
         }
 
         function renderStars(rating) {
             const filled = Math.max(0, Math.min(5, Number(rating) || 0));
             let html = '';
             for (let i = 1; i <= 5; i++) {
-                html += `<i data-lucide="star" style="${i <= filled ? '' : 'opacity: 0.25;'}"></i>`;
+                html += ICONS.star(i <= filled ? 'on' : 'off');
             }
             return html;
         }
@@ -639,8 +690,139 @@
         function showError() {
             document.getElementById('profile-loading').style.display = 'none';
             document.getElementById('profile-error').style.display = 'block';
-            lucide.createIcons();
         }
+
+        // ===== 컨설팅 문의 (견적 요청) =====
+        // 메인페이지 결과 화면의 견적 요청과 같은 API·요청 형식(/api/quotes/request)을
+        // 이 전문가 한 명에게 쓴다. 비로그인 → 로그인 후 이 페이지로 복귀,
+        // 기업 회원이 아니면 안내, 기업 회원은 확인 패널에서 한 번 더 눌러야 전송된다.
+        const consultBtn = document.getElementById('consult-btn');
+        const consultPanel = document.getElementById('consult-panel');
+        const consultContext = document.getElementById('consult-context');
+        const consultSend = document.getElementById('consult-send');
+        const consultCancel = document.getElementById('consult-cancel');
+        const consultStatus = document.getElementById('consult-status');
+
+        function readLastMatch() {
+            try {
+                return JSON.parse(localStorage.getItem('lastMatchResult') || localStorage.getItem('lastAnalysisResult') || 'null');
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function readUser() {
+            try { return JSON.parse(localStorage.getItem('user')); } catch (e) { return null; }
+        }
+
+        function loginUrlBackHere() {
+            const here = window.location.pathname.replace(/^\//, '') + window.location.search;
+            return 'login.html?redirect=' + encodeURIComponent(here);
+        }
+
+        // 서버·사용자 문자열은 textContent 로만 넣는다.
+        function setConsultStatus(type, text, link) {
+            consultStatus.textContent = '';
+            if (!text) return;
+            const box = document.createElement('div');
+            box.className = 'hm-alert hm-alert-' + type;
+            const msg = document.createElement('span');
+            msg.textContent = text;
+            box.appendChild(msg);
+            if (link) {
+                const a = document.createElement('a');
+                a.href = link.href;
+                a.className = 'consult-status-link';
+                a.textContent = link.label;
+                box.appendChild(a);
+            }
+            consultStatus.appendChild(box);
+        }
+
+        function closeConsultPanel() {
+            consultPanel.hidden = true;
+            consultBtn.setAttribute('aria-expanded', 'false');
+        }
+
+        function standardCodes(ctx) {
+            const list = (ctx && (ctx.selected_standards || ctx.all_standards || ctx.recommended_standards)) || [];
+            if (!Array.isArray(list)) return [];
+            return list.map(s => (typeof s === 'string' ? s : (s && s.code) || '')).filter(Boolean);
+        }
+
+        consultBtn.addEventListener('click', () => {
+            const token = localStorage.getItem('token');
+            const user = readUser();
+            if (!token || !user) {
+                window.location.href = loginUrlBackHere();
+                return;
+            }
+            if (user.role !== 'company') {
+                setConsultStatus('info', '견적 요청은 기업 회원만 보낼 수 있습니다. 기업 회원 계정으로 로그인해 주세요.');
+                return;
+            }
+            const codes = standardCodes(readLastMatch());
+            consultContext.textContent = codes.length
+                ? `최근 무료 진단 조건(${codes.slice(0, 3).join(', ')}${codes.length > 3 ? ' 외' : ''})이 함께 전달됩니다.`
+                : '진단 정보 없이 요청합니다. 메인페이지에서 무료 진단을 먼저 하면 요구사항이 함께 전달됩니다.';
+            setConsultStatus();
+            consultPanel.hidden = false;
+            consultBtn.setAttribute('aria-expanded', 'true');
+            consultSend.focus();
+        });
+
+        consultCancel.addEventListener('click', () => {
+            closeConsultPanel();
+            consultBtn.focus();
+        });
+
+        consultSend.addEventListener('click', async () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = loginUrlBackHere();
+                return;
+            }
+            const ctx = readLastMatch();
+            const idNum = Number(consultantId);
+            consultSend.disabled = true;
+            consultCancel.disabled = true;
+            consultSend.textContent = '요청 중...';
+            try {
+                const response = await fetch('/api/quotes/request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({
+                        consultant_ids: [Number.isFinite(idNum) && idNum > 0 ? idNum : consultantId],
+                        analysis_context: ctx || {},
+                        session_id: (ctx && ctx.session_id) || null
+                    })
+                });
+                let data = {};
+                try { data = await response.json(); } catch (e) { data = {}; }
+
+                if (response.status === 401) {
+                    closeConsultPanel();
+                    setConsultStatus('error', '로그인이 만료되었습니다. 다시 로그인해 주세요.', { href: loginUrlBackHere(), label: '로그인' });
+                } else if (response.ok) {
+                    // 서버 응답 키는 requests/projects (구버전 프론트가 쓰던 created_* 도 대비)
+                    const skipped = (data.requests || data.created_requests || []).filter(r => r && r.skipped);
+                    closeConsultPanel();
+                    if (skipped.length > 0) {
+                        setConsultStatus('info', '이미 이 전문가에게 진행 중인 요청이 있습니다.', { href: 'dashboard.html', label: '대시보드에서 보기' });
+                    } else {
+                        setConsultStatus('success', '견적 요청을 보냈습니다. 전문가가 제안서를 보내면 대시보드에서 확인할 수 있습니다.', { href: 'dashboard.html', label: '대시보드로 이동' });
+                    }
+                } else {
+                    setConsultStatus('error', data.message || '견적 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+                }
+            } catch (e) {
+                setConsultStatus('error', '서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+            } finally {
+                consultSend.disabled = false;
+                consultCancel.disabled = false;
+                consultSend.textContent = '견적 요청 보내기';
+            }
+        });
 
         // Load profile on page load
         loadProfile();
