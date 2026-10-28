@@ -42,6 +42,14 @@ function formatRating(rating, reviews) {
     return `★ ${value.toFixed(1)} (${count})`;
 }
 
+// 신뢰 점수 — 관리자 심사로 정해지는 값(대기 50, 승인 시 70 이상, 0~100).
+// 값이 없을 때 예전에는 85를 대신 보여줬지만, 근거 없는 숫자라 null 로 돌려 '—'로 표시한다.
+function trustScoreOf(consultant) {
+    const value = Number(consultant && consultant.trustScore);
+    if (consultant == null || consultant.trustScore == null || !Number.isFinite(value)) return null;
+    return Math.max(0, Math.min(100, Math.round(value)));
+}
+
 // 업종 코드(예: 'Construction')를 진단 폼 #industry 의 한글 표기로 바꾼다(표시용).
 // 컨설턴트 데이터는 영문 코드로 저장돼 카드에 'Construction 전문' 처럼 나왔다. 목록에 없으면 원래 값을 쓴다.
 function industryLabel(code) {
@@ -1112,7 +1120,8 @@ document.addEventListener('DOMContentLoaded', () => {
             card.style.animationDelay = `${index * 0.1}s`;
             card.dataset.consultantId = c.id;
 
-            const trustScore = c.trustScore || 85;
+            // 신뢰 점수는 관리자 심사 결과(대기 50, 승인 시 70 이상)다. 값이 없으면 임의 값(예전 85)을 쓰지 않고 '—'로 둔다.
+            const trustScore = trustScoreOf(c);
             const isSelected = selectedConsultants.has(c.id);
             // 다시 그릴 때(필터·다른 추천) 이미 고른 카드의 선택 표시가 사라지던 문제: 체크만 되고 테두리는 빠졌다.
             if (isSelected) card.classList.add('selected');
@@ -1199,8 +1208,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div><dt>고객 평가</dt><dd>${escapeHtml(formatRating(c.rating, c.reviews))}</dd></div>
                     <div>
                         <dt><span class="trust-tooltip" title="관리자 등록 심사 결과를 반영한 점수">신뢰도</span></dt>
-                        <dd>${trustScore}점</dd>
-                        <span class="trust-score-bar" aria-hidden="true"><span class="trust-score-fill" style="width: ${trustScore}%;"></span></span>
+                        <dd>${trustScore === null ? '—' : `${trustScore}점`}</dd>
+                        <span class="trust-score-bar" aria-hidden="true"><span class="trust-score-fill" style="width: ${trustScore === null ? 0 : trustScore}%;"></span></span>
                     </div>
                 </dl>
 
@@ -1498,8 +1507,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             <th scope="row">신뢰 점수</th>
                             ${consultants.map(c => `
                                 <td>
-                                    <span class="hm-cmp-num">${c.trustScore || 85}</span>
-                                    <span class="trust-score-bar" aria-hidden="true"><span class="trust-score-fill" style="width: ${c.trustScore || 85}%;"></span></span>
+                                    <span class="hm-cmp-num">${trustScoreOf(c) === null ? '—' : trustScoreOf(c)}</span>
+                                    <span class="trust-score-bar" aria-hidden="true"><span class="trust-score-fill" style="width: ${trustScoreOf(c) === null ? 0 : trustScoreOf(c)}%;"></span></span>
                                 </td>
                             `).join('')}
                         </tr>
