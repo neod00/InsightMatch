@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<!--
+  후보 시안 — 운영 반영 전, 인물·점수는 예시
+  InsightMatch · 후보 B "Momentum"
+  - 레퍼런스 방향: 흰 배경 + 대형 타이포 + 둥근 풀블리드 비주얼 카드 + 라임 알약 CTA + 01/02/03 번호 섹션
+  - 단일 자기완결 파일: CSS/JS 인라인, 외부 리소스는 Pretendard(jsDelivr)·Google Fonts(DM Sans)만 사용
+  - 대비 규칙: 라임 #C3FB79는 면(버튼·칩·막대·하이라이트) 전용. 밝은 배경 위 텍스트 색으로 쓰지 않는다.
+  - 라이트모드 전용
+-->
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light" />
+  <title>InsightMatch · 후보 B Momentum</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,500;9..40,600;9..40,700;9..40,800&display=swap" />
+  <script>document.documentElement.classList.add('js');</script>
+  <style>
+    /* =========================================================
+       1. TOKENS — Momentum
+       ========================================================= */
+    :root {
+      color-scheme: light;
+      --bg: #FAFAF7;
+      --white: #FFFFFF;
+      --ink: #0E0F0C;
+      --char: #2A2C27;
+      --muted: #575A52;          /* on #FAFAF7 ≈ 6.9:1 */
+      --line: #E3E4DC;
+      --surface: #F0F1EA;
+      --lime: #C3FB79;
+      --lime-deep: #AEEA5C;
+      --lime-soft: #EBFCD3;
+
+      --d-bg: #0E0F0C;
+      --d-panel: #181A16;
+      --d-card: #20231E;
+      --d-line: rgba(255, 255, 255, .12);
+      --d-text: #F3F4EE;
+      --d-muted: #A9ACA2;        /* on #0E0F0C ≈ 8.3:1 */
+
+      --font-kr: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      --font-en: "DM Sans", "Pretendard Variable", Pretendard, sans-serif;
+
+      --r-xl: 40px;
+      --r-lg: 32px;
+      --r-md: 24px;
+      --r-sm: 16px;
+      --pill: 999px;
+
+      --wrap: 1328px;
+      --gutter: 56px;
+      --header-h: 72px;
+      --ease: cubic-bezier(.2, .7, .2, 1);
+    }
+
+    /* =========================================================
+       2. BASE
+       ========================================================= */
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: calc(var(--header-h) + 16px); -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--font-kr);
+      font-size: 16px;
+      line-height: 1.6;
+      word-break: keep-all;
+      overflow-wrap: break-word;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    img, svg { display: block; max-width: 100%; }
+    a { color: inherit; }
+    h1, h2, h3, p { margin: 0; }
+    button { font: inherit; color: inherit; }
+    .wrap { width: 100%; max-width: calc(var(--wrap) + var(--gutter) * 2); margin: 0 auto; padding: 0 var(--gutter); }
+    .en { font-family: var(--font-en); }
+    .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+    :focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; border-radius: 8px; }
+    .on-dark :focus-visible { outline-color: var(--lime); }
+
+    .skip { position: absolute; left: 16px; top: -60px; z-index: 100; background: var(--ink); color: #fff; padding: 10px 16px; border-radius: var(--pill); text-decoration: none; font-weight: 700; }
+    .skip:focus { top: 12px; }
+
+    /* =========================================================
+       3. COMPONENTS
+       ========================================================= */
+    .btn {
+      display: inline-flex; align-items: center; gap: 12px;
+      min-height: 48px; padding: 0 8px 0 24px;
+      border-radius: var(--pill); border: 0;
+      font-weight: 700; font-size: 16px; letter-spacing: -.01em;
+      text-decoration: none; cursor: pointer; white-space: nowrap;
+      transition: background-color .2s var(--ease), transform .2s var(--ease);
+    }
+    .btn .arrow {
+      display: grid; place-items: center;
+      width: 34px; height: 34px; border-radius: 50%;
+      transition: transform .25s var(--ease);
+    }
+    .btn .arrow svg { width: 16px; height: 16px; }
+    .btn:hover .arrow { transform: translateX(3px) rotate(-45deg); }
+    .btn-lime { background: var(--lime); color: var(--ink); }
+    .btn-lime .arrow { background: var(--ink); color: var(--lime); }
+    .btn-lime:hover { background: var(--lime-deep); }
+    .btn-ink { background: var(--ink); color: #fff; }
+    .btn-ink .arrow { background: var(--lime); color: var(--ink); }
+    .btn-ink:hover { background: var(--char); }
+    .btn-lg { min-height: 60px; padding: 0 10px 0 30px; font-size: 18px; }
+    .btn-lg .arrow { width: 42px; height: 42px; }
+
+    .link-under {
+      font-weight: 600; text-decoration: none; color: var(--ink);
+      border-bottom: 2px solid var(--ink); padding-bottom: 2px;
+      transition: border-color .2s;
+    }
+    .link-under:hover { border-color: var(--lime-deep); }
+
+    .tag {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 14px; border-radius: var(--pill);
+      font-size: 13px; font-weight: 600; line-height: 1.4;
+      background: var(--white); border: 1px solid var(--line); color: var(--char);
+    }
+    .tag .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 1px rgba(14,15,12,.25); }
+
+    .sample-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 12px; border-radius: var(--pill);
+      font-size: 12px; font-weight: 700; letter-spacing: .01em;
+      background: var(--lime); color: var(--ink);
+    }
+
+    .eyebrow {
+      font-family: var(--font-en); font-weight: 700; font-size: 14px;
+      letter-spacing: .02em; color: var(--muted);
+      display: inline-flex; align-items: center; gap: 10px;
+    }
+    .eyebrow::before { content: ""; width: 22px; height: 10px; border-radius: var(--pill); background: var(--lime); box-shadow: inset 0 0 0 1px rgba(14,15,12,.18); }
+
+    .h2 {
+      font-weight: 800; font-size: clamp(32px, 4.2vw, 58px);
+      line-height: 1.12; letter-spacing: -.035em;
+    }
+    .lead { font-size: clamp(16px, 1.35vw, 19px); color: var(--muted); line-height: 1.65; }
+
+    /* =========================================================
+       4. HEADER
+       ========================================================= */
+    .site-header {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(250, 250, 247, .86);
+      -webkit-backdrop-filter: saturate(160%) blur(14px);
+      backdrop-filter: saturate(160%) blur(14px);
+      border-bottom: 1px solid transparent;
+      transition: border-color .2s;
+    }
+    .site-header.scrolled { border-bottom-color: var(--line); }
+    .header-row { display: flex; align-items: center; gap: 28px; height: var(--header-h); }
+    .logo {
+      font-family: var(--font-en); font-weight: 800; font-size: 22px;
+      letter-spacing: -.04em; text-decoration: none; color: var(--ink);
+      display: inline-flex; align-items: baseline; flex-shrink: 0;
+    }
+    .logo .logo-dot {
+      display: inline-block; width: .34em; height: .34em; border-radius: 50%;
+      background: var(--lime); box-shadow: inset 0 0 0 1.5px var(--ink);
+      margin: 0 .06em; transform: translateY(-.02em);
+    }
+    .main-nav { display: flex; gap: 4px; margin-left: 8px; }
+    .main-nav a {
+      text-decoration: none; font-size: 15px; font-weight: 600; color: var(--char);
+      padding: 8px 14px; border-radius: var(--pill);
+      transition: background-color .2s;
+    }
+    .main-nav a:hover { background: var(--surface); }
+    .header-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+    .header-actions .acc {
+      text-decoration: none; font-size: 15px; font-weight: 600; color: var(--char);
+      padding: 8px 12px; border-radius: var(--pill); white-space: nowrap;
+    }
+    .header-actions .acc:hover { background: var(--surface); }
+    .header-actions .acc-outline { border: 1px solid var(--line); background: var(--white); }
+    .header-actions .btn { margin-left: 6px; min-height: 44px; padding: 0 6px 0 20px; font-size: 15px; }
+    .header-actions .btn .arrow { width: 32px; height: 32px; }
+    .menu-btn {
+      display: none; width: 40px; height: 40px; border-radius: 50%;
+      border: 1px solid var(--line); background: var(--white); cursor: pointer;
+      align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .menu-btn span, .menu-btn span::before, .menu-btn span::after {
+      display: block; width: 16px; height: 2px; background: var(--ink); border-radius: 2px; position: relative;
+      transition: transform .2s var(--ease), background-color .2s;
+    }
+    .menu-btn span::before, .menu-btn span::after { content: ""; position: absolute; left: 0; }
+    .menu-btn span::before { top: -5px; }
+    .menu-btn span::after { top: 5px; }
+    .menu-btn[aria-expanded="true"] span { background: transparent; }
+    .menu-btn[aria-expanded="true"] span::before { transform: translateY(5px) rotate(45deg); }
+    .menu-btn[aria-expanded="true"] span::after { transform: translateY(-5px) rotate(-45deg); }
+    .mobile-nav { display: none; }
+
+    /* =========================================================
+       5. HERO
+       ========================================================= */
+    .hero { padding: 56px 0 0; }
+    .hero-title {
+      margin-top: 22px;
+      font-weight: 800;
+      font-size: clamp(40px, 6.1vw, 88px);
+      line-height: 1.06;
+      letter-spacing: -.045em;
+      max-width: 15.5em;
+    }
+    .hero-title .hl {
+      position: relative; white-space: nowrap; z-index: 0;
+    }
+    .hero-title .hl::after {
+      content: ""; position: absolute; z-index: -1;
+      left: -.08em; right: -.08em; bottom: .04em; height: .42em;
+      background: var(--lime); border-radius: var(--pill);
+      transform-origin: left center;
+    }
+    .hero-foot {
+      margin-top: 34px;
+      display: grid; grid-template-columns: minmax(0, 620px) auto; justify-content: space-between; align-items: end; gap: 32px;
+    }
+    .hero-sub { font-size: clamp(16px, 1.4vw, 19px); color: var(--muted); line-height: 1.65; }
+    .hero-cta { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+    .hero-cta-row { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; justify-content: flex-end; }
+    .hero-cta-row .link-under { order: -1; }
+    .hero-note { font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+    .hero-note svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    /* Dashboard visual card */
+    .stage {
+      position: relative; margin-top: 44px;
+      background: var(--d-bg); color: var(--d-text);
+      border-radius: var(--r-xl);
+      padding: 28px;
+      overflow: hidden;
+      isolation: isolate;
+    }
+    .stage-deco { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+    .blob {
+      position: absolute; width: 520px; height: 520px; right: -140px; top: -220px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 40% 40%, rgba(195, 251, 121, .55), rgba(195, 251, 121, 0) 66%);
+      filter: blur(10px);
+      animation: drift 22s ease-in-out infinite alternate;
+    }
+    .ring {
+      position: absolute; width: 760px; height: 760px; left: -260px; bottom: -560px;
+      border-radius: 50%; border: 1px solid rgba(255,255,255,.07);
+    }
+    .ring.r2 { width: 520px; height: 520px; left: -140px; bottom: -440px; }
+    @keyframes drift {
+      0%   { transform: translate(0, 0) scale(1); }
+      50%  { transform: translate(-60px, 40px) scale(1.06); }
+      100% { transform: translate(-20px, 90px) scale(.96); }
+    }
+
+    .stage-top {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 4px 4px 22px;
+    }
+    .stage-top .crumbs { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--d-muted); }
+    .win-dots { display: flex; gap: 6px; }
+    .win-dots i { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,.16); }
+    .win-dots i:first-child { background: var(--lime); }
+    .stage-grid { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 20px; }
+
+    .diag {
+      background: var(--d-panel); border: 1px solid var(--d-line);
+      border-radius: var(--r-md); padding: 24px;
+    }
+    .diag h2 { font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
+    .diag > p { font-size: 14px; color: var(--d-muted); margin-top: 4px; }
+    .diag fieldset { border: 0; padding: 0; margin: 20px 0 0; min-width: 0; }
+    .diag legend { font-size: 13px; font-weight: 600; color: var(--d-muted); padding: 0; margin-bottom: 10px; display: flex; gap: 8px; align-items: baseline; }
+    .diag legend .en { font-weight: 700; font-size: 12px; letter-spacing: .06em; color: #CFD2C8; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip { position: relative; }
+    .chip input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+    .chip label {
+      display: inline-flex; align-items: center; min-height: 38px; padding: 0 15px;
+      border-radius: var(--pill); border: 1px solid rgba(255,255,255,.2);
+      font-size: 14px; font-weight: 600; color: var(--d-text); cursor: pointer;
+      transition: background-color .18s, border-color .18s, color .18s;
+      user-select: none;
+    }
+    .chip label:hover { border-color: rgba(255,255,255,.45); }
+    .chip input:checked + label { background: var(--lime); border-color: var(--lime); color: var(--ink); }
+    .chip input:focus-visible + label { outline: 3px solid var(--lime); outline-offset: 3px; }
+    .diag-foot { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--d-line); font-size: 13px; color: var(--d-muted); display: flex; gap: 8px; align-items: center; }
+    .diag-foot svg { width: 16px; height: 16px; color: var(--lime); flex-shrink: 0; }
+
+    .results { min-width: 0; display: flex; flex-direction: column; }
+    .results-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; padding: 4px 4px 0; }
+    .results-head h3 { font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
+    .results-head .q { font-size: 14px; color: var(--d-muted); margin-left: 10px; font-weight: 500; }
+    .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; flex: 1; }
+    .rc {
+      background: var(--d-card); border-radius: 22px; padding: 20px;
+      display: flex; flex-direction: column; gap: 14px;
+      border: 1px solid transparent;
+      transition: transform .35s var(--ease), border-color .2s;
+    }
+    .rc.top { border-color: rgba(195, 251, 121, .45); }
+    .rc-head { display: flex; align-items: center; gap: 12px; }
+    .avatar {
+      width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+      display: grid; place-items: center;
+      font-family: var(--font-en); font-weight: 800; font-size: 15px; letter-spacing: -.02em;
+      background: #3A3D36; color: var(--d-text);
+    }
+    .rc.top .avatar { background: var(--lime); color: var(--ink); }
+    .rc-name { font-weight: 700; font-size: 16px; line-height: 1.3; }
+    .rc-name .alias { font-size: 11px; font-weight: 700; color: var(--d-muted); border: 1px solid var(--d-line); border-radius: var(--pill); padding: 1px 7px; margin-left: 6px; vertical-align: 2px; }
+    .rc-meta { font-size: 13px; color: var(--d-muted); margin-top: 2px; }
+    .rc-rank { margin-left: auto; font-family: var(--font-en); font-weight: 700; font-size: 13px; color: var(--d-muted); align-self: flex-start; }
+    .rc-score { display: flex; align-items: baseline; gap: 6px; }
+    .rc-score .num { font-family: var(--font-en); font-weight: 800; font-size: 44px; line-height: 1; letter-spacing: -.04em; }
+    .rc-score .pct { font-family: var(--font-en); font-weight: 700; font-size: 20px; }
+    .rc-score .lbl { margin-left: auto; font-size: 12px; color: var(--d-muted); }
+    .bar { height: 8px; border-radius: var(--pill); background: rgba(255,255,255,.1); overflow: hidden; }
+    .bar i { display: block; height: 100%; width: var(--w, 0%); border-radius: inherit; background: var(--lime); transition: width 1.1s var(--ease); }
+    .js .stage:not(.filled) .bar i { width: 0%; }
+    .rc-why { font-size: 13.5px; line-height: 1.55; color: #DADDD3; border-top: 1px solid var(--d-line); padding-top: 12px; }
+    .rc-why b { display: block; font-size: 12px; color: var(--d-muted); font-weight: 600; margin-bottom: 3px; }
+
+    /* =========================================================
+       6. FACT STRIP
+       ========================================================= */
+    .facts { padding: 28px 0 0; }
+    .facts-row {
+      display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+      border-radius: var(--r-lg); background: var(--white); border: 1px solid var(--line);
+    }
+    .fact { padding: 26px 28px; display: flex; flex-direction: column; gap: 6px; }
+    .fact + .fact { border-left: 1px solid var(--line); }
+    .fact .k { font-family: var(--font-en); font-weight: 800; font-size: 34px; letter-spacing: -.04em; line-height: 1.1; }
+    .fact .k small { font-family: var(--font-kr); font-size: 18px; font-weight: 700; letter-spacing: -.02em; margin-left: 4px; }
+    .fact .v { font-size: 14.5px; color: var(--muted); }
+
+    /* =========================================================
+       7. SECTIONS
+       ========================================================= */
+    .section { padding: 128px 0 0; }
+    .sec-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 460px); gap: 40px; align-items: end; margin-bottom: 56px; }
+    .sec-head .h2 { margin-top: 14px; }
+
+    /* How it works — alternating numbered rows */
+    .step {
+      display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; align-items: center;
+    }
+    .step + .step { margin-top: 40px; }
+    .step.flip { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+    .step.flip .step-text { order: 2; }
+    .step-num {
+      font-family: var(--font-en); font-weight: 800; font-size: clamp(72px, 8vw, 120px);
+      line-height: .9; letter-spacing: -.06em; color: var(--ink);
+      display: flex; align-items: center; gap: 16px;
+    }
+    .step-num .kicker {
+      font-family: var(--font-kr); font-size: 15px; font-weight: 700; letter-spacing: 0;
+      background: var(--lime); padding: 6px 14px; border-radius: var(--pill);
+    }
+    .step h3 { margin-top: 22px; font-size: clamp(24px, 2.4vw, 34px); font-weight: 800; letter-spacing: -.03em; line-height: 1.25; }
+    .step p { margin-top: 14px; color: var(--muted); font-size: 17px; max-width: 30em; }
+    .step ul { list-style: none; padding: 0; margin: 22px 0 0; display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .vcard {
+      position: relative; border-radius: var(--r-lg); padding: 32px; min-height: 340px;
+      overflow: hidden; isolation: isolate;
+      display: flex; flex-direction: column; justify-content: center;
+    }
+    .vcard .sample-badge { position: absolute; top: 22px; right: 22px; }
+    .v-lime { background: var(--lime-soft); }
+    .v-dark { background: var(--d-bg); color: var(--d-text); }
+    .v-gray { background: var(--surface); }
+    .v-shape { position: absolute; z-index: -1; border-radius: 50%; pointer-events: none; }
+
+    /* 01 visual — input form */
+    .form-mock { display: grid; gap: 12px; max-width: 520px; width: 100%; margin: 26px auto 0; }
+    .fm-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      background: var(--white); border-radius: var(--pill); padding: 10px 10px 10px 24px;
+      border: 1px solid rgba(14,15,12,.08);
+    }
+    .fm-row .k { font-size: 13px; color: var(--muted); font-weight: 600; }
+    .fm-row .v { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 10px; }
+    .fm-row .v .pill { background: var(--surface); padding: 6px 14px; border-radius: var(--pill); }
+    .fm-row.go { background: var(--ink); color: #fff; border-color: var(--ink); justify-content: center; padding: 16px; font-weight: 700; }
+
+    /* 02 visual — filters + evidence */
+    .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 28px; }
+    .filters span {
+      display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px;
+      border-radius: var(--pill); border: 1px solid var(--d-line); font-size: 14px; font-weight: 600;
+    }
+    .filters span::before { content: ""; width: 16px; height: 16px; border-radius: 50%; background: var(--lime) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.2l2.3 2.3 4.7-4.9' fill='none' stroke='%230E0F0C' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/16px no-repeat; }
+    .evidence { margin-top: 22px; display: grid; gap: 10px; }
+    .ev {
+      display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 14px; align-items: center;
+      background: var(--d-card); border-radius: 18px; padding: 14px 18px;
+    }
+    .ev .avatar { width: 40px; height: 40px; font-size: 13px; }
+    .ev:first-child .avatar { background: var(--lime); color: var(--ink); }
+    .ev .t { font-size: 14px; color: #DADDD3; line-height: 1.45; }
+    .ev .t b { color: var(--d-text); font-weight: 700; display: block; font-size: 14px; }
+    .ev .s { font-family: var(--font-en); font-weight: 800; font-size: 22px; letter-spacing: -.03em; }
+
+    /* 03 visual — comparison */
+    .cmp { width: 100%; margin-top: 26px; border-collapse: separate; border-spacing: 0; font-size: 14px; }
+    .cmp th, .cmp td { text-align: left; padding: 14px 14px; vertical-align: top; }
+    .cmp thead th { font-weight: 700; font-size: 14px; }
+    .cmp thead th:first-child { color: var(--muted); font-weight: 600; font-size: 13px; }
+    .cmp tbody th { color: var(--muted); font-weight: 600; font-size: 13px; white-space: nowrap; }
+    .cmp tbody tr td, .cmp tbody tr th { border-top: 1px solid rgba(14,15,12,.09); }
+    .cmp .pick { background: var(--white); }
+    .cmp thead .pick { border-radius: 16px 16px 0 0; }
+    .cmp tbody tr:last-child .pick { border-radius: 0 0 16px 16px; }
+    .cmp .chosen { display: inline-flex; align-items: center; gap: 6px; background: var(--lime); padding: 3px 10px; border-radius: var(--pill); font-size: 12px; font-weight: 700; margin-left: 6px; }
+
+    /* Verification — dark band */
+    .band {
+      margin-top: 128px; background: var(--d-bg); color: var(--d-text);
+      border-radius: var(--r-xl); padding: 88px 0; position: relative; overflow: hidden; isolation: isolate;
+    }
+    .band .eyebrow { color: var(--d-muted); }
+    .band .lead { color: var(--d-muted); }
+    .band-blob {
+      position: absolute; z-index: -1; width: 460px; height: 460px; left: -160px; bottom: -260px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(195, 251, 121, .28), rgba(195,251,121,0) 68%);
+      animation: drift 26s ease-in-out infinite alternate-reverse;
+    }
+    .criteria { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+    .crit {
+      background: var(--d-panel); border: 1px solid var(--d-line); border-radius: var(--r-md);
+      padding: 26px 22px; display: flex; flex-direction: column; gap: 10px;
+    }
+    .check {
+      width: 44px; height: 44px; border-radius: 50%; background: var(--lime); color: var(--ink);
+      display: grid; place-items: center; flex-shrink: 0;
+    }
+    .check svg { width: 22px; height: 22px; }
+    .crit .n { font-family: var(--font-en); font-weight: 700; font-size: 13px; color: var(--d-muted); margin-left: auto; }
+    .crit .top { display: flex; align-items: center; }
+    .crit h3 { font-size: 19px; font-weight: 700; letter-spacing: -.02em; margin-top: 28px; }
+    .crit p { font-size: 14px; color: var(--d-muted); line-height: 1.55; }
+    .band-note {
+      margin-top: 28px; display: flex; gap: 12px; align-items: center;
+      padding: 16px 22px; border-radius: var(--pill); border: 1px solid var(--d-line); font-size: 14.5px; color: #DADDD3;
+      width: fit-content; max-width: 100%;
+    }
+    .band-note svg { width: 18px; height: 18px; flex-shrink: 0; color: var(--lime); }
+
+    /* Scope */
+    .reps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .rep {
+      border-radius: var(--r-lg); padding: 30px; min-height: 260px; position: relative; overflow: hidden; isolation: isolate;
+      display: flex; flex-direction: column; gap: 10px; background: var(--white); border: 1px solid var(--line);
+    }
+    .rep:first-child { background: var(--lime); border-color: var(--lime); }
+    .rep .code { font-family: var(--font-en); font-weight: 800; font-size: 48px; letter-spacing: -.045em; line-height: 1; }
+    .rep .code small { font-size: 18px; font-weight: 700; letter-spacing: -.02em; margin-right: 6px; vertical-align: 6px; }
+    .rep .name { font-size: 17px; font-weight: 700; }
+    .rep .ed { margin-top: auto; font-size: 14px; color: var(--char); line-height: 1.55; }
+    .rep:not(:first-child) .ed { color: var(--muted); }
+    .rep .ai { align-self: flex-start; margin-top: 6px; }
+    .rep:first-child .ai { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .rep:first-child .ai .dot { box-shadow: none; }
+
+    .manual-note {
+      margin-top: 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 20px 20px 20px 28px; border-radius: var(--r-md); background: var(--surface);
+    }
+    .manual-note p { font-size: 15px; color: var(--char); }
+    .manual-note p b { font-weight: 700; }
+
+    .cloud {
+      margin-top: 16px; border-radius: var(--r-lg); background: var(--white); border: 1px solid var(--line);
+      padding: 36px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px 36px;
+    }
+    .group h3 { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .group h3 .en { font-size: 13px; color: var(--muted); font-weight: 700; }
+    .group ul { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+    .group li {
+      font-family: var(--font-en); font-weight: 600; font-size: 14px;
+      padding: 7px 14px; border-radius: var(--pill); background: var(--surface); color: var(--ink);
+    }
+    .group li.core { background: var(--lime); }
+
+    /* FAQ */
+    .faq-wrap { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: 56px; align-items: start; }
+    .faq-list { display: grid; gap: 12px; }
+    .faq {
+      border-radius: var(--r-md); background: var(--white); border: 1px solid var(--line);
+      transition: background-color .2s;
+    }
+    .faq[open] { background: var(--surface); border-color: var(--surface); }
+    .faq summary {
+      list-style: none; cursor: pointer; display: flex; align-items: center; gap: 16px;
+      padding: 22px 22px 22px 28px; font-size: 18px; font-weight: 700; letter-spacing: -.02em;
+      border-radius: var(--r-md);
+    }
+    .faq summary::-webkit-details-marker { display: none; }
+    .faq .plus {
+      margin-left: auto; width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+      background: var(--surface); display: grid; place-items: center; transition: transform .25s var(--ease), background-color .2s;
+    }
+    .faq[open] .plus { transform: rotate(45deg); background: var(--lime); }
+    .faq .plus svg { width: 14px; height: 14px; }
+    .faq .ans { padding: 0 28px 24px; color: var(--char); font-size: 15.5px; line-height: 1.7; max-width: 46em; }
+    .faq .ans p + p { margin-top: 8px; }
+    .faq .ans small { display: block; margin-top: 10px; font-size: 13px; color: var(--muted); }
+
+    /* Final CTA */
+    .final {
+      margin-top: 128px; border-radius: var(--r-xl); background: var(--lime); padding: 72px 64px;
+      position: relative; overflow: hidden; isolation: isolate;
+      display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 40px; align-items: end;
+    }
+    .final .h2 { font-size: clamp(32px, 4.6vw, 64px); }
+    .final p { margin-top: 18px; font-size: 17px; color: var(--char); max-width: 40em; }
+    .final-ring { position: absolute; z-index: -1; border-radius: 50%; border: 1.5px solid rgba(14,15,12,.12); width: 640px; height: 640px; right: -180px; top: -320px; }
+    .final-ring.r2 { width: 420px; height: 420px; right: -70px; top: -210px; }
+    .final-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+    .final-actions .sub { font-size: 14px; color: var(--char); }
+
+    /* Footer */
+    .site-footer { margin-top: 24px; background: var(--d-bg); color: var(--d-text); border-radius: var(--r-xl) var(--r-xl) 0 0; padding: 64px 0 0; overflow: hidden; }
+    .foot-top { display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)); gap: 40px; }
+    .foot-top p { color: var(--d-muted); font-size: 14px; max-width: 30em; }
+    .foot-top h4 { margin: 0 0 12px; font-size: 13px; font-family: var(--font-en); font-weight: 700; letter-spacing: .06em; color: var(--d-muted); }
+    .foot-top ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .foot-top a { text-decoration: none; font-size: 15px; color: var(--d-text); }
+    .foot-top a:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .wordmark {
+      margin-top: 56px; padding-bottom: .1em; font-family: var(--font-en); font-weight: 800; letter-spacing: -.06em; line-height: .9;
+      font-size: clamp(56px, 15.2vw, 216px); color: var(--d-text); white-space: nowrap;
+      display: flex; align-items: baseline;
+      user-select: none;
+    }
+    .wordmark .logo-dot { display: inline-block; width: .3em; height: .3em; border-radius: 50%; background: var(--lime); margin: 0 .04em; }
+    .foot-bottom { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 22px 0 26px; margin-top: 20px; border-top: 1px solid var(--d-line); font-size: 13px; color: var(--d-muted); }
+
+    /* =========================================================
+       8. MOTION
+       ========================================================= */
+    .js .reveal { opacity: 0; transform: translateY(28px); transition: opacity .8s var(--ease), transform .8s var(--ease); }
+    .js .reveal.in { opacity: 1; transform: none; }
+    .js .reveal.d1 { transition-delay: .08s; }
+    .js .reveal.d2 { transition-delay: .16s; }
+    .js .reveal.d3 { transition-delay: .24s; }
+    .js .hero-title .hl::after { transform: scaleX(0); transition: transform .9s .35s var(--ease); }
+    .js .hero-title.in .hl::after { transform: scaleX(1); }
+    .rc.flash { animation: flash .5s var(--ease); }
+    @keyframes flash { 0% { transform: translateY(6px); opacity: .5; } 100% { transform: none; opacity: 1; } }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .js .reveal { opacity: 1; transform: none; }
+      .js .hero-title .hl::after { transform: none; }
+      .js .stage:not(.filled) .bar i { width: var(--w); }
+    }
+
+    /* =========================================================
+       9. RESPONSIVE
+       ========================================================= */
+    /* 마무리: 기업용 CTA + 컨설턴트 모집 카드 */
+    .final-grid { margin-top: 128px; display: grid; grid-template-columns: minmax(0, 8fr) minmax(0, 4fr); gap: 20px; align-items: stretch; }
+    .final-grid .final { margin-top: 0; grid-template-columns: 1fr; align-items: start; align-content: space-between; }
+    .final-grid .final-actions { align-items: flex-start; }
+    .pro-card {
+      position: relative; overflow: hidden; isolation: isolate;
+      display: flex; flex-direction: column; gap: 16px;
+      padding: 48px 40px; border-radius: var(--r-xl);
+      background: var(--d-bg); color: var(--d-text);
+    }
+    .pro-card .blob { z-index: -1; top: auto; bottom: -260px; right: -200px; }
+    .pro-card .eyebrow { color: var(--d-muted); }
+    .pro-card h3 { margin: 0; font-size: clamp(24px, 2.2vw, 30px); font-weight: 800; line-height: 1.25; letter-spacing: -.02em; }
+    .pro-card p { margin: 0; color: var(--d-muted); font-size: 15.5px; line-height: 1.6; }
+    .pro-card .btn { margin-top: auto; align-self: flex-start; }
+    .btn-white { background: #fff; color: var(--ink); }
+    .btn-white .arrow { background: var(--ink); color: var(--lime); }
+    .btn-white:hover { background: var(--lime-soft); }
+    @media (max-width: 1100px) {
+      .final-grid { grid-template-columns: 1fr; }
+      .pro-card .btn { margin-top: 12px; }
+    }
+    @media (max-width: 767px) {
+      .final-grid { margin-top: 88px; gap: 14px; }
+      .pro-card { padding: 32px 24px; }
+    }
+
+    @media (max-width: 1240px) {
+      .main-nav a { padding: 8px 10px; font-size: 14.5px; }
+      .header-row { gap: 16px; }
+      .criteria { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (max-width: 1100px) {
+      :root { --gutter: 32px; }
+      .main-nav { display: none; }
+      .menu-btn { display: inline-flex; }
+      .mobile-nav.open { display: block; }
+      .mobile-nav { border-top: 1px solid var(--line); padding: 12px 0 20px; }
+      .mobile-nav a { display: block; text-decoration: none; padding: 12px 4px; font-size: 17px; font-weight: 700; border-bottom: 1px solid var(--line); }
+      .mobile-nav .btn { display: inline-flex; margin-top: 16px; border-bottom: 0; padding: 0 8px 0 24px; font-size: 16px; }
+      .stage-grid { grid-template-columns: minmax(0, 1fr); }
+      .diag { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 24px; }
+      .diag > h2, .diag > p, .diag-foot { grid-column: 1 / -1; }
+      .step, .step.flip { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; }
+      .faq-wrap { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+      .final { grid-template-columns: minmax(0, 1fr); padding: 56px 48px; }
+      .final-actions { align-items: flex-start; }
+      .cloud { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 900px) {
+      .hero-foot { grid-template-columns: minmax(0, 1fr); align-items: start; gap: 24px; }
+      .hero-cta { align-items: flex-start; }
+      .hero-cta-row { justify-content: flex-start; }
+      .hero-cta-row .link-under { order: 0; }
+      .cards { grid-template-columns: minmax(0, 1fr); }
+      .rc { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 12px 24px; align-items: center; }
+      .rc-head { grid-column: 1; }
+      .rc-score { grid-column: 2; grid-row: 1; }
+      .rc .bar { grid-column: 2; }
+      .rc-why { grid-column: 1; grid-row: 2; border-top: 0; padding-top: 0; }
+      .facts-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .fact:nth-child(3) { border-left: 0; }
+      .fact:nth-child(n+3) { border-top: 1px solid var(--line); }
+      .sec-head { grid-template-columns: minmax(0, 1fr); gap: 18px; margin-bottom: 40px; }
+      .step, .step.flip { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+      .step.flip .step-text { order: 0; }
+      .step + .step { margin-top: 72px; }
+      .reps { grid-template-columns: minmax(0, 1fr); }
+      .rep { min-height: 0; }
+      .foot-top { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+      .foot-top > div:first-child { grid-column: 1 / -1; }
+      .section { padding-top: 104px; }
+      .band, .final { margin-top: 104px; }
+    }
+    @media (max-width: 767px) {
+      :root { --gutter: 16px; --header-h: 64px; --r-xl: 28px; --r-lg: 24px; --r-md: 20px; }
+      .header-row { gap: 8px; }
+      .logo { font-size: 19px; }
+      .header-actions { gap: 2px; }
+      .header-actions .acc { font-size: 14px; padding: 7px 9px; }
+      .header-actions .btn { display: none; }
+      .menu-btn { margin-left: 4px; width: 38px; height: 38px; }
+      .hero { padding-top: 32px; }
+      .hero-title { margin-top: 16px; letter-spacing: -.04em; line-height: 1.12; }
+      .hero-foot { margin-top: 22px; }
+      .btn-lg { min-height: 56px; font-size: 17px; }
+      .stage { margin-top: 36px; padding: 16px; }
+      .stage-top { padding: 4px 4px 14px; }
+      .stage-top .crumbs span.path { display: none; }
+      .diag { display: block; padding: 20px; }
+      .rc { display: flex; align-items: stretch; padding: 18px; gap: 12px; }
+      .rc-score .num { font-size: 38px; }
+      .blob { width: 340px; height: 340px; right: -140px; top: -140px; }
+      .facts { padding-top: 16px; }
+      .fact { padding: 20px 18px; }
+      .fact .k { font-size: 28px; }
+      .fact .k small { font-size: 15px; }
+      .fact .v { font-size: 13.5px; }
+      .section { padding-top: 88px; }
+      .band, .final { margin-top: 88px; }
+      .vcard { padding: 22px; min-height: 0; }
+      .vcard .sample-badge { top: 16px; right: 16px; }
+      .fm-row { padding: 8px 8px 8px 18px; }
+      .fm-row .v { font-size: 14px; }
+      .fm-row .v .pill { padding: 5px 10px; }
+      .cmp { font-size: 13px; }
+      .cmp th, .cmp td { padding: 11px 7px; }
+      .cmp .chosen { margin: 4px 0 0; }
+      .band { padding: 64px 0; border-radius: var(--r-xl); }
+      .criteria { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+      .crit { min-height: 0; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 4px 16px; padding: 20px; }
+      .crit .top { grid-row: 1 / span 2; align-self: start; }
+      .crit .n { display: none; }
+      .crit h3 { margin-top: 0; font-size: 17px; }
+      .band-note { border-radius: var(--r-md); align-items: flex-start; }
+      .rep { padding: 24px; }
+      .rep .code { font-size: 40px; }
+      .manual-note { padding: 20px; }
+      .cloud { grid-template-columns: minmax(0, 1fr); padding: 24px 20px; gap: 24px; }
+      .faq summary { font-size: 16px; padding: 18px 16px 18px 20px; }
+      .faq .ans { padding: 0 20px 20px; font-size: 15px; }
+      .final { padding: 44px 24px; }
+      .foot-top { gap: 28px 16px; }
+      .site-footer { padding-top: 48px; }
+    }
+    @media (max-width: 380px) {
+      .header-actions .acc-outline { padding: 7px 8px; }
+      .logo { font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">본문으로 건너뛰기</a>
+
+  <!-- ===================== HEADER ===================== -->
+  <header class="site-header" id="top">
+    <div class="wrap">
+      <div class="header-row">
+        <a class="logo" href="#top" aria-label="Insight.Match 홈">Insight<span class="logo-dot" aria-hidden="true"></span>Match</a>
+        <nav class="main-nav" aria-label="주요 메뉴">
+          <a href="#diagnose">ISO 진단</a>
+          <a href="#how">작동 방식</a>
+          <a href="#verify">검증 기준</a>
+          <a href="#scope">규격</a>
+          <a href="#faq">FAQ</a>
+        </nav>
+        <div class="header-actions">
+          <a class="acc" href="../../login.html">로그인</a>
+          <a class="acc acc-outline" href="../../consultant_register.html">컨설턴트 등록</a>
+          <a class="btn btn-lime" href="#diagnose">무료 매칭 시작<span class="arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+          <button class="menu-btn" type="button" aria-expanded="false" aria-controls="mobile-nav" aria-label="메뉴 열기"><span></span></button>
+        </div>
+      </div>
+      <nav class="mobile-nav" id="mobile-nav" aria-label="모바일 메뉴">
+        <a href="#diagnose">ISO 진단</a>
+        <a href="#how">작동 방식</a>
+        <a href="#verify">검증 기준</a>
+        <a href="#scope">규격</a>
+        <a href="#faq">FAQ</a>
+        <a class="btn btn-lime" href="#diagnose">무료 매칭 시작<span class="arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ===================== HERO ===================== -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="wrap">
+        <span class="tag reveal"><span class="dot" aria-hidden="true"></span>ISO 인증 컨설턴트 매칭 · 6개 분야 25개 규격</span>
+        <h1 class="hero-title reveal d1" id="hero-title">컨설턴트 한 명 찾는 데 <span class="hl">몇 주씩</span> 걸리셨나요?</h1>
+        <div class="hero-foot">
+          <p class="hero-sub reveal d2">인증 규격·업종·지역만 고르면, 검증된 컨설턴트를 추천 근거와 함께 한 화면에서 비교할 수 있습니다. 찾는 시간도, 잘못 고를 위험도 함께 줄이세요.</p>
+          <div class="hero-cta reveal d3">
+            <div class="hero-cta-row">
+              <a class="btn btn-lime btn-lg" id="primary-cta" href="#diagnose">매칭 결과 보기<span class="arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+              <a class="link-under" href="#manual">AI 매뉴얼 먼저 보기</a>
+            </div>
+            <p class="hero-note"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="#C3FB79" stroke="#0E0F0C" stroke-width="1"/><path d="M5 8.2l2 2 4-4.2" stroke="#0E0F0C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>가입 없이 확인 · 진단과 추천 확인은 무료입니다</p>
+          </div>
+        </div>
+
+        <!-- Product dashboard visual -->
+        <div class="stage on-dark reveal" id="diagnose" aria-label="ISO 진단과 매칭 결과 미리보기 (예시 화면)">
+          <div class="stage-deco" aria-hidden="true">
+            <div class="blob"></div>
+            <div class="ring"></div>
+            <div class="ring r2"></div>
+          </div>
+          <div class="stage-top">
+            <div class="crumbs"><span class="win-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="path">InsightMatch · ISO 진단</span></div>
+            <span class="sample-badge">예시 화면 · 인물·점수 가상</span>
+          </div>
+          <div class="stage-grid">
+            <form class="diag" id="diag-form" onsubmit="return false;">
+              <h2>ISO 진단</h2>
+              <p>항목을 고르면 추천 결과가 바로 바뀝니다.</p>
+              <fieldset>
+                <legend><span class="en">STANDARD</span>인증 규격</legend>
+                <div class="chips">
+                  <span class="chip"><input type="radio" name="std" id="std-9001" value="ISO 9001" checked /><label for="std-9001">ISO 9001</label></span>
+                  <span class="chip"><input type="radio" name="std" id="std-14001" value="ISO 14001" /><label for="std-14001">ISO 14001</label></span>
+                  <span class="chip"><input type="radio" name="std" id="std-45001" value="ISO 45001" /><label for="std-45001">ISO 45001</label></span>
+                  <span class="chip"><input type="radio" name="std" id="std-27001" value="ISO/IEC 27001" /><label for="std-27001">ISO/IEC 27001</label></span>
+                </div>
+              </fieldset>
+              <fieldset>
+                <legend><span class="en">INDUSTRY</span>업종</legend>
+                <div class="chips">
+                  <span class="chip"><input type="radio" name="ind" id="ind-mfg" value="제조" checked /><label for="ind-mfg">제조</label></span>
+                  <span class="chip"><input type="radio" name="ind" id="ind-con" value="건설" /><label for="ind-con">건설</label></span>
+                  <span class="chip"><input type="radio" name="ind" id="ind-it" value="IT·서비스" /><label for="ind-it">IT·서비스</label></span>
+                  <span class="chip"><input type="radio" name="ind" id="ind-food" value="식품" /><label for="ind-food">식품</label></span>
+                </div>
+              </fieldset>
+              <fieldset>
+                <legend><span class="en">REGION</span>지역</legend>
+                <div class="chips">
+                  <span class="chip"><input type="radio" name="reg" id="reg-cap" value="수도권" checked /><label for="reg-cap">수도권</label></span>
+                  <span class="chip"><input type="radio" name="reg" id="reg-cc" value="충청" /><label for="reg-cc">충청</label></span>
+                  <span class="chip"><input type="radio" name="reg" id="reg-yn" value="영남" /><label for="reg-yn">영남</label></span>
+                  <span class="chip"><input type="radio" name="reg" id="reg-hn" value="호남·제주" /><label for="reg-hn">호남·제주</label></span>
+                </div>
+              </fieldset>
+              <p class="diag-foot"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.5l5.5 2v4.2c0 3.2-2.3 5.6-5.5 6.8-3.2-1.2-5.5-3.6-5.5-6.8V3.5L8 1.5z" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 8l1.8 1.8L10.7 6.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>실제 제출은 없습니다. 미리보기용 예시입니다.</p>
+            </form>
+
+            <div class="results">
+              <div class="results-head">
+                <h3>추천 컨설턴트 <span class="q" id="result-query">ISO 9001 · 제조 · 수도권</span></h3>
+              </div>
+              <div class="cards" id="cards" aria-live="polite">
+                <article class="rc top">
+                  <div class="rc-head"><span class="avatar" aria-hidden="true">KJ</span><div><div class="rc-name">컨설턴트 K.J.<span class="alias">가명</span></div><div class="rc-meta">경력 14년 · <span class="ctx">제조 · 수도권</span></div></div><span class="rc-rank">01</span></div>
+                  <div class="rc-score"><span class="num">97</span><span class="pct">%</span><span class="lbl">적합도</span></div>
+                  <div class="bar" role="img" aria-label="적합도 97%"><i style="--w:97%"></i></div>
+                  <p class="rc-why"><b>추천 근거</b>제조 업종 품질 문서 체계 정비 경험</p>
+                </article>
+                <article class="rc">
+                  <div class="rc-head"><span class="avatar" aria-hidden="true">PS</span><div><div class="rc-name">컨설턴트 P.S.<span class="alias">가명</span></div><div class="rc-meta">경력 11년 · <span class="ctx">제조 · 수도권</span></div></div><span class="rc-rank">02</span></div>
+                  <div class="rc-score"><span class="num">94</span><span class="pct">%</span><span class="lbl">적합도</span></div>
+                  <div class="bar" role="img" aria-label="적합도 94%"><i style="--w:94%"></i></div>
+                  <p class="rc-why"><b>추천 근거</b>내부심사·경영검토 준비를 패키지로 진행</p>
+                </article>
+                <article class="rc">
+                  <div class="rc-head"><span class="avatar" aria-hidden="true">LH</span><div><div class="rc-name">컨설턴트 L.H.<span class="alias">가명</span></div><div class="rc-meta">경력 9년 · <span class="ctx">제조 · 수도권</span></div></div><span class="rc-rank">03</span></div>
+                  <div class="rc-score"><span class="num">92</span><span class="pct">%</span><span class="lbl">적합도</span></div>
+                  <div class="bar" role="img" aria-label="적합도 92%"><i style="--w:92%"></i></div>
+                  <p class="rc-why"><b>추천 근거</b>갱신 심사 일정에 맞춘 단기 착수 이력</p>
+                </article>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== FACT STRIP ===================== -->
+    <section class="facts" aria-label="서비스 핵심 사실">
+      <div class="wrap">
+        <div class="facts-row reveal">
+          <div class="fact"><span class="k en">25<small>개 규격</small></span><span class="v">6개 분야 전문가 매칭</span></div>
+          <div class="fact"><span class="k en">0<small>원</small></span><span class="v">진단과 추천 확인은 무료</span></div>
+          <div class="fact"><span class="k en">3<small>단계</small></span><span class="v">진단 → 매칭 → 견적 비교</span></div>
+          <div class="fact"><span class="k en">5<small>개 기준</small></span><span class="v">검증 기준을 공개합니다</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== HOW IT WORKS ===================== -->
+    <section class="section" id="how" aria-labelledby="how-title">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="reveal">
+            <span class="eyebrow">HOW IT WORKS</span>
+            <h2 class="h2" id="how-title">고르고, 좁히고, 비교하면 끝.</h2>
+          </div>
+          <p class="lead reveal d1">가입 없이 진단을 시작하고, 근거가 공개된 후보를 같은 양식으로 비교한 뒤 담당자가 직접 선택합니다.</p>
+        </div>
+
+        <!-- 01 -->
+        <div class="step">
+          <div class="step-text reveal">
+            <div class="step-num">01<span class="kicker">진단</span></div>
+            <h3>규격·업종·지역과<br />희망 일정만 고릅니다</h3>
+            <p>복잡한 신청서 대신 몇 가지 선택으로 시작합니다. 가입하지 않아도 결과를 확인할 수 있습니다.</p>
+            <ul><li class="tag">가입 없이 시작</li><li class="tag">선택형 입력</li></ul>
+          </div>
+          <div class="vcard v-lime reveal d1" aria-hidden="true">
+            <span class="sample-badge" style="background:#0E0F0C;color:#fff">예시 화면</span>
+            <div class="v-shape" style="width:300px;height:300px;right:-90px;bottom:-130px;background:#C3FB79"></div>
+            <div class="v-shape" style="width:120px;height:120px;left:-40px;top:-40px;border:1.5px solid rgba(14,15,12,.12)"></div>
+            <div class="form-mock">
+              <div class="fm-row"><span class="k">인증 규격</span><span class="v"><span class="pill">ISO 9001</span></span></div>
+              <div class="fm-row"><span class="k">업종</span><span class="v"><span class="pill">제조</span></span></div>
+              <div class="fm-row"><span class="k">지역</span><span class="v"><span class="pill">수도권</span></span></div>
+              <div class="fm-row"><span class="k">희망 일정</span><span class="v"><span class="pill">3개월 이내</span></span></div>
+              <div class="fm-row go">매칭 결과 보기 →</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 02 -->
+        <div class="step flip">
+          <div class="step-text reveal">
+            <div class="step-num">02<span class="kicker">매칭</span></div>
+            <h3>근거가 보이는<br />후보만 남깁니다</h3>
+            <p>수행 이력·인증 범위·지역·착수 가능 일정으로 후보를 좁히고, 적합도와 추천 근거를 함께 공개합니다.</p>
+            <ul><li class="tag">적합도 공개</li><li class="tag">추천 근거 공개</li></ul>
+          </div>
+          <div class="vcard v-dark reveal d1" aria-hidden="true">
+            <span class="sample-badge">예시 화면</span>
+            <div class="v-shape" style="width:360px;height:360px;right:-160px;top:-180px;background:radial-gradient(circle, rgba(195,251,121,.35), rgba(195,251,121,0) 68%)"></div>
+            <div class="filters"><span>수행 이력</span><span>인증 범위</span><span>지역</span><span>착수 가능 일정</span></div>
+            <div class="evidence">
+              <div class="ev"><span class="avatar">KJ</span><span class="t"><b>컨설턴트 K.J. · 가명</b>제조 업종 품질 문서 체계 정비 경험</span><span class="s">97%</span></div>
+              <div class="ev"><span class="avatar">PS</span><span class="t"><b>컨설턴트 P.S. · 가명</b>내부심사·경영검토 준비를 패키지로 진행</span><span class="s">94%</span></div>
+              <div class="ev"><span class="avatar">LH</span><span class="t"><b>컨설턴트 L.H. · 가명</b>갱신 심사 일정에 맞춘 단기 착수 이력</span><span class="s">92%</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 03 -->
+        <div class="step">
+          <div class="step-text reveal">
+            <div class="step-num">03<span class="kicker">비교</span></div>
+            <h3>같은 양식으로 비교하고<br />담당자가 직접 고릅니다</h3>
+            <p>제안 범위·일정·견적을 같은 양식으로 나란히 놓고 비교합니다. 결재권자에게 보고할 근거도 그대로 남습니다.</p>
+            <ul><li class="tag">견적 비교</li><li class="tag">직접 선택·계약</li></ul>
+          </div>
+          <div class="vcard v-gray reveal d1" aria-hidden="true">
+            <span class="sample-badge">예시 화면</span>
+            <table class="cmp">
+              <thead><tr><th>항목</th><th class="pick">K.J.<span class="chosen">선택</span></th><th>P.S.</th><th>L.H.</th></tr></thead>
+              <tbody>
+                <tr><th>제안 범위</th><td class="pick">문서 체계 정비</td><td>내부심사·경영검토</td><td>갱신 심사 대비</td></tr>
+                <tr><th>일정</th><td class="pick">착수일 협의</td><td>착수일 협의</td><td>단기 착수</td></tr>
+                <tr><th>견적</th><td class="pick">견적서 수신</td><td>견적서 수신</td><td>견적서 수신</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== VERIFICATION ===================== -->
+    <section id="verify" aria-labelledby="verify-title">
+      <div class="wrap">
+        <div class="band on-dark">
+          <div class="band-blob" aria-hidden="true"></div>
+          <div class="wrap" style="max-width:none;padding:0 clamp(20px, 4.5vw, 64px)">
+            <div class="sec-head">
+              <div class="reveal">
+                <span class="eyebrow">VERIFICATION</span>
+                <h2 class="h2" id="verify-title">추천은 공개된 기준을<br />통과한 전문가만.</h2>
+              </div>
+              <p class="lead reveal d1">어떤 기준으로 걸렀는지 숨기지 않습니다. 담당자가 결재권자에게 그대로 설명할 수 있도록 검증 항목을 공개합니다.</p>
+            </div>
+            <ul class="criteria">
+              <li class="crit reveal"><div class="top"><span class="check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M6 12.5l4 4 8-9" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="n">01</span></div><h3>자격·경력 확인</h3><p>보유 자격과 경력 사항을 확인합니다.</p></li>
+              <li class="crit reveal d1"><div class="top"><span class="check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M6 12.5l4 4 8-9" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="n">02</span></div><h3>수행 이력 확인</h3><p>규격·업종별 실제 수행 이력을 확인합니다.</p></li>
+              <li class="crit reveal d2"><div class="top"><span class="check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M6 12.5l4 4 8-9" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="n">03</span></div><h3>리뷰 신뢰도 가중 평점</h3><p>리뷰의 신뢰도를 반영해 평점을 계산합니다.</p></li>
+              <li class="crit reveal d3"><div class="top"><span class="check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M6 12.5l4 4 8-9" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="n">04</span></div><h3>이해상충 고지</h3><p>인증기관 소속이나 해당 기업 심사 관여 여부를 확인해 알립니다.</p></li>
+              <li class="crit reveal d3"><div class="top"><span class="check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M6 12.5l4 4 8-9" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="n">05</span></div><h3>정기 재검토</h3><p>등록 이후에도 정기적으로 다시 검토합니다.</p></li>
+            </ul>
+            <p class="band-note reveal"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8.2" stroke="currentColor" stroke-width="1.6"/><path d="M10 9v5M10 6.2v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>심사는 인정받은 인증기관이 수행하며, InsightMatch는 준비를 돕는 전문가를 연결합니다.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== SCOPE ===================== -->
+    <section class="section" id="scope" aria-labelledby="scope-title">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="reveal">
+            <span class="eyebrow">COVERAGE</span>
+            <h2 class="h2" id="scope-title">6개 분야 25개 규격,<br />전문가를 찾아 드립니다.</h2>
+          </div>
+          <p class="lead reveal d1">가장 많이 찾는 품질·환경·안전보건부터 ESG, <span style="white-space:nowrap">정보보안·AI</span>, 공급망까지 규격별 전문가를 매칭합니다.</p>
+        </div>
+
+        <div class="reps">
+          <article class="rep reveal">
+            <span class="code en"><small>ISO</small>9001</span>
+            <span class="name">품질경영</span>
+            <span class="tag ai"><span class="dot" aria-hidden="true"></span>AI 매뉴얼 자동 생성</span>
+            <p class="ed">2026판(6판) 2026-09-16 발행. 2015판 인증 기업은 2029-09-30까지 전환이 필요합니다(ISO/TC 176 안내).</p>
+          </article>
+          <article class="rep reveal d1">
+            <span class="code en"><small>ISO</small>14001</span>
+            <span class="name">환경경영</span>
+            <span class="tag ai"><span class="dot" aria-hidden="true"></span>AI 매뉴얼 자동 생성</span>
+            <p class="ed">2026판이 2026년 4월 발행되었습니다.</p>
+          </article>
+          <article class="rep reveal d2">
+            <span class="code en"><small>ISO</small>45001</span>
+            <span class="name">안전보건경영</span>
+            <span class="tag ai"><span class="dot" aria-hidden="true"></span>AI 매뉴얼 자동 생성</span>
+            <p class="ed">2018판이 현행 규격입니다.</p>
+          </article>
+        </div>
+
+        <div class="manual-note reveal" id="manual">
+          <p><b>AI 매뉴얼 자동 생성</b>은 ISO 9001·14001·45001에서 제공됩니다. 컨설턴트 매칭은 25개 규격 전체가 대상입니다.</p>
+          <a class="btn btn-ink" href="../../ai-manual.html">AI 매뉴얼 먼저 보기<span class="arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+        </div>
+
+        <div class="cloud reveal" aria-label="매칭 가능 규격 전체 목록">
+          <div class="group"><h3><span class="en">A</span>경영·운영 시스템</h3><ul><li class="core">ISO 9001</li><li class="core">ISO 14001</li><li class="core">ISO 45001</li><li>ISO 50001</li></ul></div>
+          <div class="group"><h3><span class="en">B</span>ESG·지속가능성·기후변화</h3><ul><li>ISO 14064-1</li><li>ISO 14067</li><li>ISO 14068-1</li><li>ISO 26000</li><li>ISO 20400</li></ul></div>
+          <div class="group"><h3><span class="en">C</span>정보보안·디지털·AI</h3><ul><li>ISO/IEC 27001</li><li>ISO/IEC 27701</li><li>ISO/IEC 27017</li><li>ISO/IEC 42001</li></ul></div>
+          <div class="group"><h3><span class="en">D</span>공급망·리스크·연속성</h3><ul><li>ISO 22301</li><li>ISO 31000</li><li>ISO 28000</li><li>ISO 37301</li></ul></div>
+          <div class="group"><h3><span class="en">E</span>산업·특수 목적</h3><ul><li>ISO 13485</li><li>ISO 22000</li><li>IATF 16949</li><li>ISO 19443</li></ul></div>
+          <div class="group"><h3><span class="en">F</span>인사·조직·윤리</h3><ul><li>ISO 30401</li><li>ISO 30414</li><li>ISO 37001</li><li>ISO 45003</li></ul></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== FAQ ===================== -->
+    <section class="section" id="faq" aria-labelledby="faq-title">
+      <div class="wrap faq-wrap">
+        <div class="reveal">
+          <span class="eyebrow">FAQ</span>
+          <h2 class="h2" id="faq-title" style="margin-top:14px">자주 묻는 질문</h2>
+          <p class="lead" style="margin-top:16px">처음 인증을 준비하는 담당자분들이 가장 많이 묻는 내용입니다.</p>
+        </div>
+        <div class="faq-list">
+          <details class="faq reveal" open>
+            <summary>정말 무료인가요?<span class="plus" aria-hidden="true"><svg viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span></summary>
+            <div class="ans"><p>네. 진단과 추천 확인은 무료이며 가입 없이 결과를 볼 수 있습니다. 실제 컨설팅 비용은 컨설턴트가 제안한 견적을 비교한 뒤 직접 선택·계약하실 때 정해집니다.</p></div>
+          </details>
+          <details class="faq reveal d1">
+            <summary>추천 컨설턴트는 어떻게 검증하나요?<span class="plus" aria-hidden="true"><svg viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span></summary>
+            <div class="ans"><p>자격·경력 확인, 수행 이력 확인, 리뷰 신뢰도 가중 평점, 이해상충 고지(인증기관 소속이나 해당 기업 심사 관여 여부 확인), 정기 재검토의 5가지 기준을 공개하고 적용합니다.</p></div>
+          </details>
+          <details class="faq reveal d2">
+            <summary>ISO 9001:2026 개정, 언제까지 전환해야 하나요?<span class="plus" aria-hidden="true"><svg viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span></summary>
+            <div class="ans"><p>ISO 9001:2026(6판)은 2026년 9월 16일 발행되었습니다. 2015판으로 인증받은 기업은 2029년 9월 30일까지 전환이 필요합니다.</p><small>출처: ISO/TC 176 안내. 세부 일정은 이용 중인 인증기관에 확인하세요.</small></div>
+          </details>
+          <details class="faq reveal d3">
+            <summary>ISO 9001·14001·45001 외 규격도 매칭되나요?<span class="plus" aria-hidden="true"><svg viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span></summary>
+            <div class="ans"><p>네. ESG·기후변화, 정보보안·AI, 공급망·리스크, 산업·특수 목적, 인사·조직·윤리까지 6개 분야 25개 규격의 전문가를 매칭합니다. AI 매뉴얼 자동 생성만 ISO 9001·14001·45001로 한정됩니다.</p></div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== FINAL CTA ===================== -->
+    <section aria-labelledby="final-title">
+      <div class="wrap final-grid">
+        <div class="final reveal">
+          <div class="final-ring" aria-hidden="true"></div>
+          <div class="final-ring r2" aria-hidden="true"></div>
+          <div>
+            <h2 class="h2" id="final-title">몇 주 대신, 오늘<br />후보를 비교해 보세요.</h2>
+            <p>규격·업종·지역만 고르면 검증된 컨설턴트와 추천 근거를 한 화면에서 확인할 수 있습니다.</p>
+          </div>
+          <div class="final-actions">
+            <a class="btn btn-ink btn-lg" href="#diagnose">무료 매칭 시작<span class="arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+            <span class="sub">가입 없이 확인 · 진단과 추천 확인은 무료입니다</span>
+          </div>
+        </div>
+        <aside class="pro-card on-dark reveal" aria-labelledby="pro-title">
+          <div class="blob" aria-hidden="true"></div>
+          <span class="eyebrow">FOR CONSULTANTS</span>
+          <h3 id="pro-title">ISO 컨설턴트이신가요?</h3>
+          <p>전문 규격과 수행 이력을 등록하면, 검증 기준을 거쳐 맞는 기업의 추천 후보로 소개됩니다.</p>
+          <a class="btn btn-white" href="../../consultant_register.html">컨설턴트 등록<span class="arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="site-footer on-dark">
+    <div class="wrap">
+      <div class="foot-top">
+        <div>
+          <p>InsightMatch는 ISO 인증을 준비하는 기업과 검증된 컨설턴트를 연결하는 매칭 플랫폼입니다. 심사는 인정받은 인증기관이 수행합니다.</p>
+        </div>
+        <div>
+          <h4>SERVICE</h4>
+          <ul><li><a href="#diagnose">ISO 진단</a></li><li><a href="#how">작동 방식</a></li><li><a href="#verify">검증 기준</a></li><li><a href="#scope">규격</a></li></ul>
+        </div>
+        <div>
+          <h4>ACCOUNT</h4>
+          <ul><li><a href="../../login.html">로그인</a></li><li><a href="../../consultant_register.html">컨설턴트 등록</a></li><li><a href="#faq">FAQ</a></li></ul>
+        </div>
+      </div>
+      <div class="wordmark" aria-hidden="true">Insight<span class="logo-dot"></span>Match</div>
+      <div class="foot-bottom"><span>© InsightMatch</span><span>후보 시안 — 운영 반영 전, 인물·점수는 예시입니다.</span></div>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      /* Header border on scroll */
+      var header = document.querySelector('.site-header');
+      function onScroll() { header.classList.toggle('scrolled', window.scrollY > 8); }
+      window.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+
+      /* Mobile menu */
+      var menuBtn = document.querySelector('.menu-btn');
+      var mobileNav = document.getElementById('mobile-nav');
+      menuBtn.addEventListener('click', function () {
+        var open = menuBtn.getAttribute('aria-expanded') === 'true';
+        menuBtn.setAttribute('aria-expanded', String(!open));
+        menuBtn.setAttribute('aria-label', open ? '메뉴 열기' : '메뉴 닫기');
+        mobileNav.classList.toggle('open', !open);
+      });
+      mobileNav.addEventListener('click', function (e) {
+        if (e.target.closest('a')) {
+          menuBtn.setAttribute('aria-expanded', 'false');
+          menuBtn.setAttribute('aria-label', '메뉴 열기');
+          mobileNav.classList.remove('open');
+        }
+      });
+
+      /* Scroll reveal + bar fill */
+      var stage = document.querySelector('.stage');
+      var targets = document.querySelectorAll('.reveal');
+      if (reduce || !('IntersectionObserver' in window)) {
+        targets.forEach(function (el) { el.classList.add('in'); });
+        stage.classList.add('filled');
+      } else {
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (en) {
+            if (en.isIntersecting) {
+              en.target.classList.add('in');
+              if (en.target === stage) setTimeout(function () { stage.classList.add('filled'); }, 350);
+              io.unobserve(en.target);
+            }
+          });
+        }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+        targets.forEach(function (el) { io.observe(el); });
+      }
+
+      /* Diagnosis → deterministic example scores (82–97) */
+      var people = [
+        { id: 'KJ', name: 'K.J.', years: 14, why: '제조 업종 품질 문서 체계 정비 경험', base: 97 },
+        { id: 'PS', name: 'P.S.', years: 11, why: '내부심사·경영검토 준비를 패키지로 진행', base: 94 },
+        { id: 'LH', name: 'L.H.', years: 9, why: '갱신 심사 일정에 맞춘 단기 착수 이력', base: 92 }
+      ];
+      var form = document.getElementById('diag-form');
+      var cardsEl = document.getElementById('cards');
+      var queryEl = document.getElementById('result-query');
+
+      function hash(str) {
+        var h = 2166136261;
+        for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+        return h >>> 0;
+      }
+      function val(name) { var el = form.querySelector('input[name="' + name + '"]:checked'); return el ? el.value : ''; }
+      function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+      function render() {
+        var std = val('std'), ind = val('ind'), reg = val('reg');
+        var isDefault = std === 'ISO 9001' && ind === '제조' && reg === '수도권';
+        var key = std + '|' + ind + '|' + reg;
+        var list = people.map(function (p) {
+          return { p: p, s: isDefault ? p.base : 82 + (hash(key + '|' + p.id) % 16) };
+        }).sort(function (a, b) { return b.s - a.s; });
+
+        queryEl.textContent = std + ' · ' + ind + ' · ' + reg;
+        cardsEl.innerHTML = list.map(function (r, i) {
+          var p = r.p;
+          return '<article class="rc' + (i === 0 ? ' top' : '') + ' flash">' +
+            '<div class="rc-head"><span class="avatar" aria-hidden="true">' + p.id + '</span><div><div class="rc-name">컨설턴트 ' + p.name + '<span class="alias">가명</span></div>' +
+            '<div class="rc-meta">경력 ' + p.years + '년 · <span class="ctx">' + esc(ind) + ' · ' + esc(reg) + '</span></div></div><span class="rc-rank">0' + (i + 1) + '</span></div>' +
+            '<div class="rc-score"><span class="num">' + r.s + '</span><span class="pct">%</span><span class="lbl">적합도</span></div>' +
+            '<div class="bar" role="img" aria-label="적합도 ' + r.s + '%"><i style="--w:' + (reduce ? r.s : 0) + '%"></i></div>' +
+            '<p class="rc-why"><b>추천 근거</b>' + esc(p.why) + '</p></article>';
+        }).join('');
+
+        var bars = cardsEl.querySelectorAll('.bar i');
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            bars.forEach(function (b, i) { b.style.setProperty('--w', list[i].s + '%'); });
+          });
+        });
+      }
+      form.addEventListener('change', render);
+    })();
+  </script>
+</body>
+</html>
