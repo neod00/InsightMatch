@@ -4969,7 +4969,9 @@ def request_quotes():
                     timeline=analysis_context.get('timeline', 'flexible'),
                     budget=analysis_context.get('budget', 'unknown'),
                     additional_notes=analysis_context.get('additional_notes'),
-                    project_id=project_id
+                    project_id=project_id,
+                    # 기본값(www.insightmatch.com)은 보유하지 않은 도메인이라 링크가 죽는다.
+                    dashboard_url=f'{frontend_base_url()}/dashboard.html'
                 )
                 email_results.append({
                     'consultant_id': consultant.id,

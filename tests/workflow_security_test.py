@@ -2187,6 +2187,38 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertEqual(kwargs['standards'], ['ISO 9001'])
         self.assertEqual(kwargs['industry'], 'Manufacturing')
 
+    def test_quote_request_email_links_to_frontend_base_url(self):
+        """견적 요청 메일의 대시보드 링크가 메서드 기본값(www.insightmatch.com)으로 빠지면 안 된다.
+
+        그 도메인은 보유하지 않아 DNS 가 없고, 컨설턴트가 링크를 눌러도 아무 데도 가지 않는다.
+        """
+        from index import email_service
+
+        quote_user = User(email='quote-consultant@example.com', password_hash='x',
+                          role='consultant', name='Quote Consultant User')
+        db.session.add(quote_user)
+        db.session.flush()
+        quote_consultant = Consultant(user_id=quote_user.id, name='Quote Expert',
+                                      verified=True, status='verified')
+        db.session.add(quote_consultant)
+        db.session.commit()
+
+        with patch.dict(os.environ, {'BASE_URL': 'https://app.example.test'}), \
+                patch.object(email_service, 'send_quote_request_to_consultant', autospec=True,
+                             return_value={'success': True}) as mock_send, \
+                patch.object(email_service, 'send_quote_confirmation_to_company', autospec=True,
+                             return_value={'success': True}):
+            response = self.client.post(
+                '/api/quotes/request',
+                json={'consultant_ids': [quote_consultant.id], 'analysis_context': {}},
+                headers=auth_headers(self.company),
+            )
+
+        self.assertEqual(response.status_code, 201, response.get_json())
+        mock_send.assert_called_once()
+        self.assertEqual(mock_send.call_args.kwargs.get('dashboard_url'),
+                         'https://app.example.test/dashboard.html')
+
     def test_standard_codes_are_normalized_for_email(self):
         """L0: 저장된 진단 맥락에는 [{'code': ...}] 형태가 섞여 들어올 수 있다.
 
