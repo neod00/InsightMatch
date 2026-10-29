@@ -239,13 +239,13 @@ class TestWorkflowSecurity(unittest.TestCase):
 
         company_sign = self.client.post(
             f'/api/projects/{project_id}/contract/sign',
-            json={},
+            json={'contract_hash': self._contract_hash(project_id, self.company)},
             headers=auth_headers(self.company),
         )
         self.assertEqual(company_sign.status_code, 200)
         consultant_sign = self.client.post(
             f'/api/projects/{project_id}/contract/sign',
-            json={},
+            json={'contract_hash': self._contract_hash(project_id, second_consultant_user)},
             headers=auth_headers(second_consultant_user),
         )
         self.assertEqual(consultant_sign.status_code, 200)
@@ -662,6 +662,66 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.get_json()['contracted_count'], 1)
 
+    def _contract_hash(self, project_id, user):
+        """서명하려면 화면에 보인 계약서 원문의 해시를 함께 보내야 한다."""
+        preview = self.client.get(f'/api/projects/{project_id}/contract/preview', headers=auth_headers(user))
+        self.assertEqual(preview.status_code, 200)
+        return preview.get_json()['contract_hash']
+
+    def test_contract_signing_records_evidence_and_blocks_resign(self):
+        """서명마다 원문·버전·해시·서명자·접속 정보를 남기고, 두 사람은 같은 원문에 서명한다. 재서명은 막는다."""
+        from models import ContractSignature
+        self.client.post(f'/api/projects/{self.project.id}/contract/draft', json={'special_terms': '부가세 별도'},
+                         headers=auth_headers(self.company))
+
+        preview = self.client.get(f'/api/projects/{self.project.id}/contract/preview',
+                                  headers=auth_headers(self.company)).get_json()
+        text = preview['contract_text']
+        self.assertIn('갑(의뢰인): Buyer Co (사업자등록번호 123-45-67891), 담당자 Company User', text)
+        self.assertIn('을(컨설턴트): ISO Expert', text)
+        self.assertIn('특약 사항\n부가세 별도', text)
+        self.assertNotIn('전문가', text)
+
+        # 화면에 보인 원문과 다른 해시로는 서명할 수 없다
+        stale = self.client.post(f'/api/projects/{self.project.id}/contract/sign', json={'contract_hash': 'x' * 64},
+                                 headers=auth_headers(self.company))
+        self.assertEqual(stale.status_code, 409)
+        self.assertEqual(stale.get_json()['code'], 'CONTRACT_CHANGED')
+
+        first = self.client.post(f'/api/projects/{self.project.id}/contract/sign',
+                                 json={'contract_hash': preview['contract_hash']},
+                                 headers={**auth_headers(self.company), 'User-Agent': 'pytest-browser'})
+        self.assertEqual(first.status_code, 200)
+        self.assertIn('컨설턴트의 서명을 기다리고', first.get_json()['message'])
+
+        # 다시 서명해도 시각이 바뀌지 않는다
+        signed_at = Project.query.get(self.project.id).company_signed_at
+        again = self.client.post(f'/api/projects/{self.project.id}/contract/sign',
+                                 json={'contract_hash': preview['contract_hash']}, headers=auth_headers(self.company))
+        self.assertEqual(again.get_json()['code'], 'ALREADY_SIGNED')
+        self.assertEqual(Project.query.get(self.project.id).company_signed_at, signed_at)
+
+        # 첫 서명 뒤에 회사 정보가 바뀌어도 두 번째 서명자는 첫 서명과 같은 원문을 본다
+        self.company.company_name = 'Renamed Co'
+        db.session.commit()
+        second_preview = self.client.get(f'/api/projects/{self.project.id}/contract/preview',
+                                         headers=auth_headers(self.consultant_user)).get_json()
+        self.assertEqual(second_preview['contract_text'], text)
+        second = self.client.post(f'/api/projects/{self.project.id}/contract/sign',
+                                  json={'contract_hash': second_preview['contract_hash']},
+                                  headers=auth_headers(self.consultant_user))
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(Project.query.get(self.project.id).status, 'contracted')
+
+        rows = ContractSignature.query.filter_by(project_id=self.project.id).order_by(ContractSignature.id).all()
+        self.assertEqual([r.signer_role for r in rows], ['company', 'consultant'])
+        self.assertEqual({r.contract_hash for r in rows}, {preview['contract_hash']})
+        self.assertEqual(rows[0].contract_text, text)
+        self.assertEqual(rows[0].user_agent, 'pytest-browser')
+        self.assertEqual(rows[0].signer_name, 'Company User')
+        self.assertIsNotNone(rows[0].ip_address)
+        self.assertEqual(len(second_preview['signatures']), 1)
+
     def test_contract_signer_is_derived_from_authenticated_user(self):
         self.client.post(
             f'/api/projects/{self.project.id}/contract/draft',
@@ -673,7 +733,7 @@ class TestWorkflowSecurity(unittest.TestCase):
 
         response = self.client.post(
             f'/api/projects/{self.project.id}/contract/sign',
-            json={'signer': 'consultant'},
+            json={'signer': 'consultant', 'contract_hash': self._contract_hash(self.project.id, self.company)},
             headers=auth_headers(self.company),
         )
         self.assertEqual(response.status_code, 200)
@@ -687,7 +747,7 @@ class TestWorkflowSecurity(unittest.TestCase):
 
         response = self.client.post(
             f'/api/projects/{self.project.id}/contract/sign',
-            json={'signer': 'company'},
+            json={'signer': 'company', 'contract_hash': self._contract_hash(self.project.id, self.consultant_user)},
             headers=auth_headers(self.consultant_user),
         )
         self.assertEqual(response.status_code, 200)
