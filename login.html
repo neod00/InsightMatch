@@ -192,6 +192,11 @@
         // 현재 선택된 로그인 타입
         let currentLoginRole = 'company';
 
+        // 전문가 프로필 등록에서 넘어온 경우 컨설턴트 탭으로 연다(회원가입 링크도 컨설턴트 가입으로 바뀐다).
+        if (redirectTo && redirectTo.startsWith('/consultant_register.html')) {
+            document.addEventListener('DOMContentLoaded', () => switchLoginTab('consultant'));
+        }
+
         // 탭 전환 함수
         function switchLoginTab(role) {
             currentLoginRole = role;
@@ -225,7 +230,9 @@
                 case 'consultant':
                     description.innerHTML = '<p><strong>전문위원</strong>으로 로그인하여 새로운 프로젝트를 확인하세요.</p>';
                     subtitle.textContent = '전문가 전용 로그인';
-                    signupLink.href = 'consultant_register.html';
+                    // 프로필 등록 화면은 로그인한 컨설턴트만 열 수 있다. 계정이 없는 분은 먼저 컨설턴트로 가입하고,
+                    // 가입 → 로그인 → 프로필 등록 순으로 이어지게 한다(바로 등록 화면으로 보내면 로그인으로 되돌아오는 고리가 생긴다).
+                    signupLink.href = `signup.html?role=consultant&redirect=${encodeURIComponent('consultant_register.html')}`;
                     loginTabs.style.display = 'flex';
                     description.style.display = 'block';
                     if (emailLabel) emailLabel.textContent = '이메일';
