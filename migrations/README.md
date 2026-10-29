@@ -446,3 +446,19 @@ ALTER TABLE IF EXISTS public.contract_signature ENABLE ROW LEVEL SECURITY;
 -- 확인: rowsecurity = true
 SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public' AND tablename = 'contract_signature';
 ```
+
+## 2026-10-29 — 대금 지급 일정 (`project.payment_schedule` 열)
+
+기본은 선금 50 · 잔금 50(열이 비어 있으면 기본). 관리자가 서명 전까지 프로젝트별로 조정하고, 계약서 제4조(대금 지급)에 그대로 들어간다.
+**코드 배포 전에 실행** — 열이 없으면 `project` 를 읽는 요청이 500 이 난다.
+
+```sql
+ALTER TABLE public.project ADD COLUMN IF NOT EXISTS payment_schedule TEXT NULL;  -- JSON [{label, percent, due}]
+
+-- 확인: 1행
+SELECT column_name, data_type FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = 'project' AND column_name = 'payment_schedule';
+
+-- 되돌리기
+-- ALTER TABLE public.project DROP COLUMN IF EXISTS payment_schedule;
+```

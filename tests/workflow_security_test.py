@@ -668,6 +668,58 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertEqual(preview.status_code, 200)
         return preview.get_json()['contract_hash']
 
+    def test_contract_includes_default_50_50_payment_schedule(self):
+        text = self.client.get(f'/api/projects/{self.project.id}/contract/preview',
+                               headers=auth_headers(self.company)).get_json()['contract_text']
+        self.assertIn('제4조 (대금 지급)', text)
+        self.assertIn('1. 선금 50%(2,500,000원): 계약 체결 후 7일 이내', text)
+        self.assertIn('2. 잔금 50%(2,500,000원): 갑의 완료 확인 후 7일 이내', text)
+        self.assertIn('제7조 (전자 서명)', text)
+
+    def test_admin_adjusts_payment_schedule_before_signing_only(self):
+        url = f'/api/admin/projects/{self.project.id}/payment-schedule'
+        schedule = [{'label': '선금', 'percent': 30, 'due': '계약 체결 후 7일 이내'},
+                    {'label': '중도금', 'percent': 30, 'due': '문서 구축 완료 후 7일 이내'},
+                    {'label': '잔금', 'percent': 40, 'due': '완료 확인 후 7일 이내'}]
+
+        # 관리자만
+        self.assertEqual(self.client.put(url, json={'payment_schedule': schedule},
+                                         headers=auth_headers(self.company)).status_code, 403)
+        # 합계 100 이 아니면 거절
+        bad = self.client.put(url, json={'payment_schedule': schedule[:2]}, headers=auth_headers(self.admin_user))
+        self.assertEqual(bad.status_code, 400)
+        self.assertIn('100%', bad.get_json()['message'])
+
+        ok = self.client.put(url, json={'payment_schedule': schedule}, headers=auth_headers(self.admin_user))
+        self.assertEqual(ok.status_code, 200, ok.get_json())
+        self.assertFalse(ok.get_json()['is_default'])
+        text = self.client.get(f'/api/projects/{self.project.id}/contract/preview',
+                               headers=auth_headers(self.company)).get_json()['contract_text']
+        # 5,000,000원의 30/30/40
+        self.assertIn('1. 선금 30%(1,500,000원)', text)
+        self.assertIn('2. 중도금 30%(1,500,000원): 문서 구축 완료 후 7일 이내', text)
+        self.assertIn('3. 잔금 40%(2,000,000원)', text)
+        self.assertEqual(AdminActionLog.query.filter_by(action='payment_schedule_update').count(), 1)
+
+        # 서명이 시작되면 잠긴다
+        self.client.post(f'/api/projects/{self.project.id}/contract/draft', json={}, headers=auth_headers(self.company))
+        self.client.post(f'/api/projects/{self.project.id}/contract/sign',
+                         json={'contract_hash': self._contract_hash(self.project.id, self.company)},
+                         headers=auth_headers(self.company))
+        locked = self.client.put(url, json={'reset': True}, headers=auth_headers(self.admin_user))
+        self.assertEqual(locked.status_code, 409)
+        self.assertEqual(locked.get_json()['code'], 'PAYMENT_SCHEDULE_LOCKED')
+        self.assertTrue(self.client.get(url, headers=auth_headers(self.admin_user)).get_json()['locked'])
+
+    def test_payment_amounts_put_remainder_on_last_installment(self):
+        from index import payment_schedule_lines
+        self.project.proposal_price = 1000001
+        self.project.payment_schedule = json.dumps([
+            {'label': '선금', 'percent': 33, 'due': 'a'}, {'label': '중도금', 'percent': 33, 'due': 'b'},
+            {'label': '잔금', 'percent': 34, 'due': 'c'}], ensure_ascii=False)
+        lines = payment_schedule_lines(self.project)
+        self.assertEqual(lines, ['1. 선금 33%(330,000원): a', '2. 중도금 33%(330,000원): b', '3. 잔금 34%(340,001원): c'])
+
     def test_contract_signing_records_evidence_and_blocks_resign(self):
         """서명마다 원문·버전·해시·서명자·접속 정보를 남기고, 두 사람은 같은 원문에 서명한다. 재서명은 막는다."""
         from models import ContractSignature

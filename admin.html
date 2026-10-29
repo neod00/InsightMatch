@@ -2245,6 +2245,107 @@
                 }
             }
 
+            // ===== 대금 지급 일정 (기본 선금 50 · 잔금 50, 서명 전까지 프로젝트별 조정) =====
+            const PAYMENT_SCHEDULES = {};
+            const PAYMENT_INPUT_STYLE = 'min-height:36px;padding:0 8px;border:1.5px solid var(--line);border-radius:10px;background:var(--white);font-size:14px;';
+
+            function paymentRowHtml(item) {
+                return `
+                    <div class="pay-row" style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap;">
+                        <input data-k="label" aria-label="단계 이름" value="${escapeAttr(item.label || '')}" maxlength="20" style="${PAYMENT_INPUT_STYLE}width:80px;">
+                        <input data-k="percent" aria-label="비율(%)" type="number" min="1" max="100" value="${Number(item.percent) || ''}" style="${PAYMENT_INPUT_STYLE}width:70px;">%
+                        <input data-k="due" aria-label="지급 시점" value="${escapeAttr(item.due || '')}" maxlength="60" style="${PAYMENT_INPUT_STYLE}flex:1;min-width:160px;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="this.closest('.pay-row').remove(); updatePaymentSum(this)">삭제</button>
+                    </div>`;
+            }
+
+            function readPaymentRows(box) {
+                return Array.from(box.querySelectorAll('.pay-row')).map(row => ({
+                    label: row.querySelector('[data-k="label"]').value.trim(),
+                    percent: Number(row.querySelector('[data-k="percent"]').value),
+                    due: row.querySelector('[data-k="due"]').value.trim()
+                }));
+            }
+
+            function updatePaymentSum(el) {
+                const box = el.closest ? el.closest('[id^="payment-box-"]') : el;
+                if (!box) return;
+                const total = readPaymentRows(box).reduce((s, r) => s + (Number(r.percent) || 0), 0);
+                const sum = box.querySelector('[data-pay-sum]');
+                if (sum) sum.textContent = `합계 ${total}%${total === 100 ? '' : ' — 100%가 되어야 저장됩니다'}`;
+            }
+
+            function renderPaymentBox(projectId) {
+                const id = Number(projectId);
+                const box = document.getElementById(`payment-box-${id}`);
+                const info = PAYMENT_SCHEDULES[id] || { schedule: [], locked: false, price: 0 };
+                if (info.locked) {
+                    box.innerHTML = `<strong>지급 일정</strong> <span class="hm-pill">서명 시작됨 · 변경 불가</span>
+                        <div class="hm-pre-line" style="margin-top:8px;">${info.schedule.map((s, i) =>
+                            escapeHtml(`${i + 1}. ${s.label} ${s.percent}%: ${s.due}`)).join('\n')}</div>
+                        <p style="margin:8px 0 0;font-size:13px;color:var(--muted);">바꾸려면 변경계약으로 진행해야 합니다.</p>`;
+                    return;
+                }
+                box.innerHTML = `
+                    <strong>지급 일정</strong>
+                    <p style="margin:4px 0 10px;font-size:13px;color:var(--muted);">기본은 선금 50% · 잔금 50%입니다. 서명 전까지 조정할 수 있고, 계약서 제4조에 그대로 들어갑니다.</p>
+                    <div data-pay-rows oninput="updatePaymentSum(this)">${info.schedule.map(paymentRowHtml).join('')}</div>
+                    <div data-pay-sum style="font-size:13px;margin:6px 0 10px;"></div>
+                    <div class="hm-ci-actions" style="margin-top:0;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="addPaymentRow(${id})">단계 추가</button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="savePaymentSchedule(${id}, true)">기본으로</button>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="savePaymentSchedule(${id}, false)">저장</button>
+                    </div>`;
+                updatePaymentSum(box);
+            }
+
+            function togglePaymentSchedule(projectId) {
+                const box = document.getElementById(`payment-box-${Number(projectId)}`);
+                if (!box) return;
+                if (!box.classList.contains('hidden')) { box.classList.add('hidden'); return; }
+                renderPaymentBox(projectId);
+                box.classList.remove('hidden');
+            }
+
+            function addPaymentRow(projectId) {
+                const box = document.getElementById(`payment-box-${Number(projectId)}`);
+                const rows = box.querySelector('[data-pay-rows]');
+                if (rows.querySelectorAll('.pay-row').length >= 5) {
+                    showNotification('지급 단계는 최대 5개입니다.', 'error');
+                    return;
+                }
+                rows.insertAdjacentHTML('beforeend', paymentRowHtml({ label: '', percent: '', due: '' }));
+                updatePaymentSum(box);
+            }
+
+            async function savePaymentSchedule(projectId, reset) {
+                const id = Number(projectId);
+                const box = document.getElementById(`payment-box-${id}`);
+                const body = reset ? { reset: true } : { payment_schedule: readPaymentRows(box) };
+                try {
+                    const res = await authFetch(`/api/admin/projects/${id}/payment-schedule`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        showNotification(data.message || '지급 일정을 저장하지 못했습니다.', 'error');
+                        if (res.status === 409 && PAYMENT_SCHEDULES[id]) {
+                            PAYMENT_SCHEDULES[id].locked = true;
+                            renderPaymentBox(id);
+                        }
+                        return;
+                    }
+                    PAYMENT_SCHEDULES[id] = { ...(PAYMENT_SCHEDULES[id] || {}), schedule: data.payment_schedule, locked: false };
+                    renderPaymentBox(id);
+                    showNotification('지급 일정을 저장했습니다.', 'success');
+                } catch (error) {
+                    console.error('지급 일정 저장 실패:', error);
+                    showNotification('지급 일정을 저장하지 못했습니다.', 'error');
+                }
+            }
+
             // ===== 제안서 열람 (관리자 — 열람 사실은 서버가 기록한다) =====
             async function viewProposal(projectId) {
                 const id = Number(projectId);
@@ -2646,6 +2747,12 @@
                                 : escapeHtml(consultantName.charAt(0) || '?');
                             const statusText = p.status === 'contracted' ? '계약 완료' : p.status === 'proposal_submitted' ? '제안 완료' : p.status;
                             const statusClass = /^[a-z_]+$/.test(String(p.status || '')) ? `status-${p.status}` : '';
+                            // 지급 일정 편집기가 읽는 값 (서명이 시작되면 잠김)
+                            PAYMENT_SCHEDULES[Number(p.project_id)] = {
+                                schedule: Array.isArray(p.payment_schedule) ? p.payment_schedule : [],
+                                locked: Boolean(p.payment_schedule_locked),
+                                price: Number(p.proposal_price) || 0
+                            };
 
                             return `
                             <div class="consultant-item">
@@ -2664,9 +2771,11 @@
                                 <div class="hm-ci-actions">
                                     <button type="button" class="btn btn-secondary btn-sm" onclick="viewConsultantDetails(${Number(p.consultant_id)})">프로필</button>
                                     ${p.has_proposal ? `<button type="button" class="btn btn-secondary btn-sm" onclick="viewProposal(${Number(p.project_id)})">제안서 보기</button>` : ''}
+                                    <button type="button" class="btn btn-secondary btn-sm" onclick="togglePaymentSchedule(${Number(p.project_id)})">지급 일정</button>
                                     ${p.proposal_price ? `<span class="hm-ci-proposal">제안 ${escapeHtml(Number(p.proposal_price).toLocaleString())}원</span>` : ''}
                                 </div>
                                 <div id="proposal-box-${Number(p.project_id)}" class="detail-description hm-pre-line hidden" style="margin-top: 12px;"></div>
+                                <div id="payment-box-${Number(p.project_id)}" class="detail-description hidden" style="margin-top: 12px;"></div>
                             </div>
                         `;
                         }).join('') : '<p class="hm-empty-note">매칭된 컨설턴트 데이터가 없습니다.</p>'
