@@ -1272,7 +1272,7 @@
                             </div>
                             ${project.negotiation_data ? `
                             <div class="hm-note-box">
-                                ${project.negotiation_data.requested_price ? `<p><strong>희망 금액:</strong> ${project.negotiation_data.requested_price.toLocaleString()}원</p>` : ''}
+                                ${project.negotiation_data.requested_price ? `<p><strong>희망 금액:</strong> ${escapeHtml(Number.isFinite(Number(project.negotiation_data.requested_price)) ? Number(project.negotiation_data.requested_price).toLocaleString() : project.negotiation_data.requested_price)}원</p>` : ''}
                                 ${project.negotiation_data.requested_duration ? `<p><strong>희망 기간:</strong> ${escapeHtml(project.negotiation_data.requested_duration)}</p>` : ''}
                                 ${project.negotiation_data.company_message ? `<p>"${escapeHtml(project.negotiation_data.company_message)}"</p>` : ''}
                             </div>
