@@ -1115,3 +1115,566 @@ a.hm-help-item:hover .go { transform: translateX(3px) rotate(-45deg); }
   .hm-table-scroll table, .hm-legal .table-scroll table { font-size: 14px; }
   .hm-table-scroll th, .hm-table-scroll td, .hm-legal .table-scroll th, .hm-legal .table-scroll td { padding: 10px 12px; }
 }
+
+/* =========================================================
+   15. APP SHELL / DASHBOARD — 로그인 후 화면(dashboard.html)에서 추가.
+   1~14 의 규칙은 바꾸지 않는다. 여기 규칙은 전부 body.hm-app 아래로 범위를 묶어,
+   hm-app 을 쓰지 않는 기존 B안 페이지(로그인·컨설턴트·콘텐츠 묶음)에는 닿지 않는다.
+   스크립트가 그리는 HTML 이 예전 style.css 클래스 이름(btn·card·modal·status-badge …)을 쓰므로,
+   그 이름을 B안 모양으로 다시 정의한다(이름은 스크립트 계약이라 바꾸지 않는다).
+     15-1 앱 토큰·셸(헤더 알림·사용자)     15-2 버튼(.btn 계열)
+     15-3 페이지 머리·탭·카드·빈 상태       15-4 견적 요청 카드(단계·응답·제안·계약)
+     15-5 안내 띠(.hm-note)                 15-6 모달 공통·폼
+     15-7 모달 내용(프로필·계약·메시지·별점·확인창) 15-8 프로젝트 상세 패널
+     15-9 알림 드롭다운·토스트              15-10 RESPONSIVE (15 전용)
+   ========================================================= */
+
+/* 15-1 앱 토큰 · 셸 */
+.hm-app {
+  /* style.css 시절 변수 이름 중 brand.css :root 에 없던 것 — 스크립트가 그리는 인라인 style 이 참조한다 */
+  --bg-card: var(--white);
+  --bg-card-hover: var(--surface);
+  --border-hover: #C2C5B9;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: var(--r-lg);
+  --transition-fast: .15s var(--ease);
+  --warn-soft: #FFF5D9;
+  --warn-line: #EBD08A;
+  --warn-ink: #5A4100;        /* on #FFF5D9 ≈ 9:1 */
+}
+.hm-app [data-lucide] { width: 16px; height: 16px; }
+.hm-app svg.lucide { flex-shrink: 0; }
+.hm-app .spin, .hm-app svg.spin { animation: hm-spin .9s linear infinite; }
+.hm-app .fade-in-up { animation: hm-pop .45s var(--ease) both; }
+.hm-app .hm-ink-link { color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+
+.hm-icon-btn {
+  position: relative; width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+  display: inline-grid; place-items: center; padding: 0;
+  background: var(--white); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line);
+  transition: box-shadow .2s, background-color .2s;
+}
+.hm-icon-btn:hover { box-shadow: inset 0 0 0 1px var(--ink); }
+.hm-icon-btn svg { width: 18px; height: 18px; }
+.hm-icon-btn.is-plain { box-shadow: none; background: transparent; }
+.hm-icon-btn.is-plain:hover { background: var(--surface); }
+.hm-app .hm-header-actions { gap: 8px; }
+.hm-app .hm-acc-user { max-width: 12em; overflow: hidden; text-overflow: ellipsis; }
+.hm-app .hm-mnav-user:empty { display: none; }
+
+/* 15-2 버튼 (.btn 계열 — 스크립트가 그리는 버튼과 정적 버튼이 같은 모양) */
+.hm-app .btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 46px; padding: 0 20px; border-radius: var(--pill); border: 0;
+  font-size: 15px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; white-space: nowrap;
+  background: var(--white); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--line);
+  cursor: pointer; text-decoration: none;
+  transition: background-color .2s var(--ease), box-shadow .2s, color .2s, opacity .2s;
+}
+.hm-app .btn svg { width: 16px; height: 16px; }
+.hm-app .btn:hover { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.hm-app .btn.btn-primary { background: var(--lime); box-shadow: none; }
+.hm-app .btn.btn-primary:hover { background: var(--lime-deep); }
+.hm-app .btn.btn-secondary { background: var(--surface); box-shadow: none; }
+.hm-app .btn.btn-secondary:hover { background: #E4E6DC; }
+.hm-app .btn.btn-outline { background: var(--white); }
+.hm-app .btn.btn-ghost { background: transparent; box-shadow: none; color: var(--char); }
+.hm-app .btn.btn-ghost:hover { background: var(--surface); color: var(--ink); }
+.hm-app .btn.btn-ink { background: var(--ink); color: #fff; box-shadow: none; }
+.hm-app .btn.btn-ink:hover { background: var(--char); }
+.hm-app .btn.btn-danger { background: var(--error); color: #fff; box-shadow: none; }
+.hm-app .btn.btn-danger:hover { background: #A92C21; }
+.hm-app .btn.btn-ghost.is-danger { color: #A92C21; }
+.hm-app .btn.btn-ghost.is-danger:hover { background: var(--error-soft); }
+.hm-app .btn.btn-sm { min-height: 38px; padding: 0 14px; gap: 6px; font-size: 14px; }
+.hm-app .btn.btn-sm svg { width: 14px; height: 14px; }
+.hm-app .btn:disabled { opacity: .45; cursor: not-allowed; }
+.hm-app .btn .loading-spinner { width: 14px; height: 14px; }
+
+/* 15-3 페이지 머리 · 탭 · 카드 · 빈 상태 */
+.hm-dash { padding-top: 40px; padding-bottom: 24px; min-height: calc(100vh - var(--header-h) - 360px); }
+.hm-dash-head { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px 32px; margin-bottom: 32px; }
+.hm-dash-head h1 { margin-top: 12px; font-weight: 800; font-size: clamp(30px, 3.4vw, 44px); line-height: 1.15; letter-spacing: -.035em; }
+.hm-dash-head p { margin-top: 10px; font-size: 16.5px; color: var(--muted); line-height: 1.6; max-width: 40em; }
+.hm-dash-head .hm-btn .hm-arrow svg { width: 16px; height: 16px; }
+
+.hm-app .consultant-tabs {
+  display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 24px;
+  border-radius: var(--pill); background: var(--surface);
+}
+.hm-app .consultant-tabs.hidden { display: none !important; }
+.hm-app .consultant-tabs .tab-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 0 20px; border-radius: var(--pill);
+  font-size: 15px; font-weight: 700; color: var(--muted); white-space: nowrap;
+  transition: background-color .2s, color .2s;
+}
+.hm-app .consultant-tabs .tab-btn svg { width: 16px; height: 16px; }
+.hm-app .consultant-tabs .tab-btn:hover { color: var(--ink); background: rgba(255, 255, 255, .7); }
+.hm-app .consultant-tabs .tab-btn.active { background: var(--ink); color: #fff; }
+.hm-app .consultant-tabs .tab-btn.active svg { color: var(--lime); }
+
+.hm-app .card, .hm-dash-card {
+  background: var(--white); border: 1px solid var(--line); border-radius: var(--r-lg); color: var(--ink);
+}
+.hm-dash-card { padding: 32px; }
+.hm-dash-card > h2 { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; font-size: clamp(22px, 2.2vw, 28px); font-weight: 800; letter-spacing: -.03em; }
+.hm-dash-card > h2 svg { width: 24px; height: 24px; }
+.hm-dash-card .hm-state { padding: 56px 16px; }
+.hm-dash-empty { text-align: center; padding: 64px 24px; }
+.hm-dash-empty-ic { width: 72px; height: 72px; margin: 0 auto 20px; border-radius: 50%; display: grid; place-items: center; background: var(--lime); color: var(--ink); }
+.hm-dash-empty-ic svg { width: 30px; height: 30px; }
+.hm-dash-empty h3 { font-size: 22px; font-weight: 800; letter-spacing: -.025em; }
+.hm-dash-empty p { margin: 8px auto 24px; max-width: 30em; font-size: 15.5px; color: var(--muted); }
+.hm-dash-error { text-align: center; padding: 48px 24px; color: var(--muted); }
+.hm-dash-error .hm-state-icon { margin-bottom: 14px; }
+
+/* 내 프로필 (컨설턴트) */
+.hm-verified { margin-bottom: 28px; padding: 24px; border-radius: var(--r-md); background: var(--lime-soft); box-shadow: inset 0 0 0 1px rgba(14, 15, 12, .12); }
+.hm-verified-head { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; font-size: 17px; font-weight: 800; letter-spacing: -.02em; }
+.hm-verified-head svg { width: 20px; height: 20px; }
+.hm-kv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.hm-kv + .hm-kv, .hm-kv-grid + .hm-kv { margin-top: 18px; }
+.hm-kv-label { display: block; font-size: 13px; font-weight: 600; color: var(--char); }
+.hm-kv-value { margin-top: 4px; font-size: 16px; font-weight: 700; color: var(--ink); }
+.hm-kv-text { margin-top: 4px; font-size: 14.5px; color: var(--char); line-height: 1.6; white-space: pre-line; }
+.hm-kv-chips { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; }
+.hm-kv-chips .hm-chip-tag svg { width: 13px; height: 13px; }
+.hm-kv-empty { font-size: 14px; color: var(--muted); }
+.hm-profile-photo { display: flex; align-items: center; gap: 24px; margin-bottom: 28px; padding-bottom: 28px; border-bottom: 1px solid var(--line); }
+.hm-app #profile-avatar {
+  width: 96px; height: 96px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+  display: grid; place-items: center; background: var(--lime); color: var(--ink);
+  font-family: var(--font-en); font-size: 36px; font-weight: 800;
+}
+.hm-app #profile-avatar span { font-size: 36px !important; }
+.hm-app #profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.hm-file-input { display: block; width: 100%; max-width: 420px; font-size: 14px; color: var(--char); }
+.hm-file-input::file-selector-button {
+  margin-right: 12px; min-height: 40px; padding: 0 16px; border: 0; border-radius: var(--pill);
+  background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer;
+}
+.hm-file-input::file-selector-button:hover { background: #E4E6DC; }
+.hm-form-sub { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 15px; font-weight: 700; color: var(--char); }
+.hm-form-sub svg { width: 16px; height: 16px; }
+.hm-form-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; margin-top: 8px; padding-top: 24px; border-top: 1px solid var(--line); }
+
+/* 도움말·계정 관리 */
+.hm-dash-support { margin-top: 48px; }
+.hm-dash-support h3 { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; letter-spacing: -.025em; }
+.hm-dash-support h3 svg { width: 20px; height: 20px; }
+.hm-dash-support > .hm-dash-card > p { margin-top: 6px; font-size: 15px; color: var(--muted); }
+.hm-dash-support-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.hm-dash-account { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--line); }
+.hm-dash-account h4 { font-size: 15.5px; font-weight: 700; }
+.hm-dash-account p { margin-top: 2px; font-size: 14px; color: var(--muted); }
+.hm-app .hm-mini-foot { margin-top: 56px; }
+
+/* 15-4 견적 요청 카드 */
+.hm-app .quote-request-card {
+  position: relative; margin-bottom: 20px; overflow: hidden;
+  background: var(--white); border: 1px solid var(--line); border-radius: var(--r-lg);
+}
+.hm-app .quote-request-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px 16px; padding: 28px 32px 20px; }
+.hm-app .quote-request-header > div:first-child { min-width: 0; flex: 1 1 280px; }
+.hm-app .quote-request-title { font-size: 22px; font-weight: 800; letter-spacing: -.03em; line-height: 1.3; overflow-wrap: anywhere; }
+.hm-app .quote-request-meta { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 14px; font-weight: 500; color: var(--muted); }
+.hm-app .quote-request-meta span { display: inline-flex; align-items: center; gap: 6px; }
+.hm-app .quote-request-meta svg { width: 14px; height: 14px; }
+.hm-card-body { padding: 4px 32px 28px; }
+.hm-card-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.hm-request-summary { margin-bottom: 16px; padding: 16px 18px; border-radius: var(--r-sm); background: var(--surface); }
+.hm-request-summary .lbl { font-size: 13px; font-weight: 600; color: var(--char); }
+.hm-request-summary .txt { margin-top: 4px; font-size: 15px; color: var(--ink); line-height: 1.65; white-space: pre-line; }
+
+/* 상태 알약 (그룹 머리 .status-badge.status-<상태> · 응답 카드 .response-status.<상태>) */
+.hm-app .status-badge, .hm-app .response-status, .hm-app .proposal-status-badge, .hm-app .schedule-status-badge {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  padding: 5px 12px 5px 10px; border-radius: var(--pill);
+  font-size: 13px; font-weight: 700; line-height: 1.4; white-space: nowrap;
+  background: var(--surface); color: var(--char);
+}
+.hm-app .status-badge::before, .hm-app .response-status::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50%; background: #A9AC9F; flex-shrink: 0;
+}
+.hm-app .status-proposal_submitted, .hm-app .status-reviewing, .hm-app .status-negotiating,
+.hm-app .status-pending_contract, .hm-app .status-awaiting_signature,
+.hm-app .response-status.submitted { background: var(--lime); color: var(--ink); }
+.hm-app .status-proposal_submitted::before, .hm-app .status-reviewing::before, .hm-app .status-negotiating::before,
+.hm-app .status-pending_contract::before, .hm-app .status-awaiting_signature::before,
+.hm-app .response-status.submitted::before { background: var(--ink); }
+.hm-app .status-contracted, .hm-app .status-in_progress, .hm-app .response-status.contracted { background: var(--ink); color: #fff; }
+.hm-app .status-contracted::before, .hm-app .status-in_progress::before, .hm-app .response-status.contracted::before { background: var(--lime); }
+.hm-app .status-completed { background: var(--lime-soft); color: var(--ink); box-shadow: inset 0 0 0 1px rgba(14, 15, 12, .14); }
+.hm-app .status-completed::before { background: var(--success); }
+.hm-app .status-cancelled_by_company, .hm-app .response-status.cancelled { background: var(--error-soft); color: #8E2318; }
+.hm-app .status-cancelled_by_company::before, .hm-app .response-status.cancelled::before { background: var(--error); }
+
+/* 단계 표시 (메인 진단 .hm-steps 와 같은 알약 언어) */
+.hm-app .stage-indicator { display: flex; align-items: center; gap: 8px; padding: 0 32px 22px; flex-wrap: wrap; }
+.hm-app .stage-step {
+  display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border-radius: var(--pill);
+  background: var(--surface); font-size: 14px; font-weight: 600; color: var(--muted); white-space: nowrap;
+}
+.hm-app .stage-dot {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center;
+  background: var(--white); box-shadow: inset 0 0 0 1px var(--line);
+  font-family: var(--font-en); font-size: 13px; font-weight: 700; color: var(--muted);
+}
+.hm-app .stage-dot svg { width: 14px; height: 14px; }
+.hm-app .stage-step.completed { background: var(--lime-soft); color: var(--char); }
+.hm-app .stage-step.completed .stage-dot { background: var(--ink); color: var(--lime); box-shadow: none; }
+.hm-app .stage-step.active { background: var(--ink); color: #fff; }
+.hm-app .stage-step.active .stage-dot { background: var(--lime); color: var(--ink); box-shadow: none; }
+.hm-app .stage-line { flex: 0 1 40px; min-width: 12px; height: 2px; border-radius: 2px; background: var(--line); }
+.hm-app .stage-line.completed { background: var(--ink); }
+
+/* 전문가 응답 */
+.hm-app .consultant-responses { padding: 22px 32px 28px; border-top: 1px solid var(--line); }
+.hm-app .response-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.hm-app .response-header h4 { font-size: 16px !important; font-weight: 800; letter-spacing: -.02em; }
+.hm-app .response-count { font-size: 14px; font-weight: 600; color: var(--muted); }
+.hm-app .response-count strong { color: var(--ink); font-family: var(--font-en); font-weight: 800; }
+.hm-app .consultant-response-card {
+  padding: 20px 22px; border-radius: var(--r-md); background: var(--bg); border: 1px solid var(--line);
+  transition: border-color .2s;
+}
+.hm-app .consultant-response-card + .consultant-response-card { margin-top: 12px; }
+.hm-app .consultant-response-card:hover { border-color: var(--border-hover); }
+.hm-app .consultant-response-card.selected { background: var(--white); border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.hm-app .response-card-header { display: flex; align-items: flex-start; gap: 16px; }
+.hm-app .consultant-avatar-large {
+  width: 56px; height: 56px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+  display: grid; place-items: center; background: var(--lime); color: var(--ink);
+  font-family: var(--font-en); font-size: 21px; font-weight: 800;
+}
+.hm-app .consultant-avatar-large img { width: 100%; height: 100%; object-fit: cover; }
+.hm-app .consultant-info-main { flex: 1; min-width: 0; }
+.hm-app .consultant-name-row { display: flex; align-items: center; gap: 6px; }
+.hm-app .consultant-name-row h4 { font-size: 17px; font-weight: 800; letter-spacing: -.02em; }
+.hm-app .verified-badge-small { width: 18px; height: 18px; color: var(--ink); }
+.hm-app .consultant-specialty { margin-top: 2px; font-size: 14px; color: var(--muted); }
+.hm-app .consultant-stats { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13.5px; font-weight: 600; color: var(--char); }
+.hm-app .consultant-stats span { display: inline-flex; align-items: center; gap: 5px; }
+.hm-app .consultant-stats svg { width: 14px; height: 14px; color: var(--muted); }
+.hm-app .proposal-preview { margin-top: 16px; padding: 4px 18px; border-radius: var(--r-sm); background: var(--white); border: 1px solid var(--line); }
+.hm-app .proposal-preview-row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.hm-app .proposal-preview-row:last-child { border-bottom: 0; }
+.hm-app .proposal-label { flex-shrink: 0; font-size: 14px; color: var(--muted); }
+.hm-app .proposal-value { font-size: 15px; font-weight: 700; color: var(--ink); text-align: right; overflow-wrap: anywhere; }
+.hm-app .proposal-value.highlight { font-family: var(--font-en); font-size: 17px; font-weight: 800; letter-spacing: -.01em; }
+.hm-app a.proposal-value.highlight { font-family: inherit; font-size: 14px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.hm-app .proposal-value.not-submitted { color: var(--muted); font-weight: 500; }
+.hm-app .proposal-preview-row.is-stack { flex-direction: column; align-items: flex-start; gap: 4px; }
+.hm-app .proposal-preview-row.is-stack .proposal-value { text-align: left; font-size: 14.5px; font-weight: 500; color: var(--char); line-height: 1.6; }
+.hm-app .response-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+
+.hm-app .contract-section {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 16px;
+  padding: 18px 32px; background: var(--lime-soft); border-top: 1px solid var(--success-line);
+}
+.hm-app .contract-info { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--ink); }
+.hm-app .contract-info svg { width: 18px; height: 18px; }
+.hm-app .project-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding: 16px 32px; border-top: 1px solid var(--line); }
+
+/* 15-5 안내 띠 (상태별 안내 · 협의 요청 · 취소 사유) */
+.hm-note {
+  margin-bottom: 16px; padding: 14px 18px; border-radius: var(--r-sm);
+  background: var(--surface); color: var(--char); border: 1px solid transparent;
+  font-size: 14.5px; line-height: 1.6;
+}
+.hm-note.is-line { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.hm-note > svg, .hm-note-title svg { width: 18px; height: 18px; flex-shrink: 0; }
+.hm-note-title { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 15px; font-weight: 700; color: inherit; }
+.hm-note p + p { margin-top: 6px; }
+.hm-note small, .hm-note .sub { display: block; margin-top: 6px; font-size: 13px; opacity: .85; }
+.hm-note-box { margin: 10px 0 12px; padding: 12px 14px; border-radius: 12px; background: var(--white); color: var(--ink); }
+.hm-note-box p { font-size: 14.5px; }
+.hm-note-box p + p { margin-top: 4px; }
+.hm-note-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.hm-note.is-ok { background: var(--lime-soft); border-color: var(--success-line); color: #1F4D15; }
+.hm-note.is-warn { background: var(--warn-soft); border-color: var(--warn-line); color: var(--warn-ink); }
+.hm-note.is-info { background: var(--white); border-color: var(--ink); color: var(--ink); }
+.hm-note.is-error { background: var(--error-soft); border-color: var(--error-line); color: #8E2318; }
+.hm-note.is-error strong, .hm-note.is-warn strong { color: inherit; }
+.hm-note.is-inline { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 7px 12px; border-radius: var(--pill); font-size: 13.5px; font-weight: 600; }
+.hm-note.is-inline svg { width: 14px; height: 14px; }
+.hm-note ul { margin-top: 6px; padding-left: 1.2em; list-style: disc; }
+.hm-note li + li { margin-top: 2px; }
+
+/* 15-6 모달 공통 · 폼 (열림/닫힘은 스크립트가 .hidden 으로 제어) */
+.hm-app .modal { padding: 24px; }
+.hm-app .modal-overlay { background: rgba(14, 15, 12, .55); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+.hm-app .modal-content {
+  width: 100%; max-width: 520px; max-height: calc(100vh - 48px); overflow-y: auto; overscroll-behavior: contain;
+  padding: 28px 30px; border-radius: var(--r-lg); background: var(--white); border: 0;
+  box-shadow: 0 30px 80px -20px rgba(14, 15, 12, .45); animation: hm-pop .25s var(--ease);
+}
+.hm-app .modal-content.is-sm { max-width: 460px; }
+.hm-app .modal-content.is-lg { max-width: 620px; }
+.hm-app .modal-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px; }
+.hm-app .modal-header h3 { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 22px; font-weight: 800; letter-spacing: -.03em; line-height: 1.3; }
+.hm-app .modal-header h3 svg { width: 20px; height: 20px; }
+.hm-app .modal-header.is-danger h3 { color: #A92C21; }
+.hm-modal-lead { margin: -8px 0 20px; font-size: 15px; color: var(--muted); line-height: 1.6; }
+.hm-modal-foot { display: flex; gap: 10px; margin-top: 24px; }
+.hm-modal-foot > .btn { flex: 1; }
+.hm-modal-foot.is-end { justify-content: flex-end; }
+.hm-modal-foot.is-end > .btn { flex: 0 0 auto; }
+.hm-modal-form { display: grid; gap: 16px; }
+.hm-app .modal .hm-field input, .hm-app .modal .hm-field select { min-height: 50px; }
+.hm-app .modal .hm-field textarea { min-height: 96px; }
+.hm-app .proposal-form .form-group { display: flex; flex-direction: column; gap: 8px; }
+.hm-app .price-input-wrapper { position: relative; }
+.hm-app .price-input-wrapper input { padding-right: 48px; }
+.hm-app .price-input-wrapper::after { content: '원'; position: absolute; right: 18px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 600; pointer-events: none; }
+.hm-app #proposal-file-info { font-size: 13.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.hm-app #proposal-file-info:empty { display: none; }
+.hm-app #proposal-file-info svg { width: 14px; height: 14px; }
+
+/* 취소 사유 라디오 카드 */
+.hm-reason-list { display: grid; gap: 8px; }
+.hm-app .reason-option {
+  display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-radius: var(--r-sm); cursor: pointer;
+  border: 1.5px solid var(--line); background: var(--white); font-size: 15px; font-weight: 600; color: var(--char);
+  transition: border-color .15s, background-color .15s;
+}
+.hm-app .reason-option:hover { border-color: #BFC2B6; }
+.hm-app .reason-option input { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--ink); }
+.hm-app .reason-option:has(input:checked) { border-color: var(--ink); background: var(--lime-soft); color: var(--ink); }
+.hm-app #direct-reason-container { margin-top: 12px; }
+
+/* 15-7 모달 내용 */
+.hm-profile-head { text-align: center; margin-bottom: 22px; }
+.hm-profile-head .consultant-avatar-large { width: 80px; height: 80px; margin: 0 auto 14px; font-size: 30px; }
+.hm-profile-head h3 { font-size: 22px; font-weight: 800; letter-spacing: -.03em; }
+.hm-profile-head p { margin-top: 2px; font-size: 15px; color: var(--muted); }
+.hm-stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 22px; }
+.hm-stat { padding: 16px 10px; border-radius: var(--r-sm); background: var(--surface); text-align: center; }
+.hm-stat b { display: block; font-family: var(--font-en); font-size: 22px; font-weight: 800; letter-spacing: -.02em; line-height: 1.2; color: var(--ink); overflow-wrap: anywhere; }
+.hm-stat span { display: block; margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.hm-modal-section + .hm-modal-section { margin-top: 18px; }
+.hm-modal-section h4 { margin-bottom: 8px; font-size: 15px; font-weight: 700; }
+.hm-modal-section > p { font-size: 15px; color: var(--char); line-height: 1.6; }
+.hm-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.hm-modal-intro { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.hm-modal-intro .ic { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--lime); color: var(--ink); flex-shrink: 0; }
+.hm-modal-intro .ic svg { width: 20px; height: 20px; }
+.hm-modal-intro h3 { font-size: 21px; font-weight: 800; letter-spacing: -.03em; }
+.hm-scroll-list { max-height: 400px; overflow-y: auto; padding-right: 4px; }
+.hm-app .add-consultant-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 16px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--white);
+}
+.hm-app .add-consultant-item + .add-consultant-item { margin-top: 10px; }
+.hm-app .add-consultant-item .consultant-avatar-large { width: 48px; height: 48px; font-size: 18px; }
+.hm-add-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.hm-add-name { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-weight: 800; }
+.hm-add-sub { font-size: 14px; color: var(--muted); }
+.hm-add-reason { margin: 4px 0; font-size: 13px; color: var(--char); }
+.hm-add-stats { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--char); }
+.hm-app .hm-chip-tag.is-xs { padding: 2px 9px; font-size: 12px; }
+
+.hm-app .milestone-schedule-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 15px; font-weight: 600; }
+.hm-app .milestone-schedule-item:last-child { border-bottom: 0; }
+.hm-app .milestone-schedule-item input[type="date"] { min-height: 44px; padding: 0 12px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--white); color: var(--ink); font-size: 15px; }
+.hm-app .milestone-schedule-item input[type="date"]:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 4px var(--lime); }
+.hm-app .milestone-schedule-item > span:last-child:not(:first-child) { font-family: var(--font-en); font-weight: 700; color: var(--ink); }
+.hm-app #schedule-form-body:empty::before, .hm-app #schedule-review-body:empty::before { content: '등록된 일정 항목이 없습니다.'; display: block; padding: 20px; border-radius: var(--r-sm); background: var(--surface); color: var(--muted); font-size: 14.5px; text-align: center; }
+
+.hm-kv-box { padding: 16px 18px; border-radius: var(--r-sm); background: var(--surface); }
+.hm-kv-box > div { display: flex; justify-content: space-between; gap: 12px; font-size: 14.5px; }
+.hm-kv-box > div + div { margin-top: 8px; }
+.hm-kv-box span:first-child { color: var(--muted); }
+.hm-kv-box span:last-child { font-weight: 700; color: var(--ink); }
+
+.hm-contract-doc { padding: 22px 24px; border-radius: var(--r-sm); background: var(--surface); font-size: 14.5px; line-height: 1.8; color: var(--char); }
+.hm-contract-doc strong { color: var(--ink); }
+.hm-contract-doc p + p { margin-top: 2px; }
+.hm-sign-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.hm-sign { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border-radius: var(--r-sm); background: var(--surface); font-size: 14px; font-weight: 700; color: var(--muted); }
+.hm-sign svg { width: 18px; height: 18px; }
+.hm-sign.is-done { background: var(--lime-soft); color: #1F4D15; box-shadow: inset 0 0 0 1px var(--success-line); }
+
+/* 메시지 */
+.hm-app .modal-content.hm-modal-chat { display: flex; flex-direction: column; height: min(70vh, 640px); max-height: calc(100vh - 48px); }
+.hm-app #message-list { flex: 1; overflow-y: auto; margin-bottom: 14px; padding: 16px; border-radius: var(--r-md); background: var(--surface); display: flex; flex-direction: column; }
+.hm-app .message-bubble { max-width: 80%; padding: 10px 14px; border-radius: 18px; margin-bottom: 8px; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.hm-app .message-bubble.sent { align-self: flex-end; background: var(--ink); color: #fff; border-bottom-right-radius: 6px; }
+.hm-app .message-bubble.received { align-self: flex-start; background: var(--white); color: var(--ink); border: 1px solid var(--line); border-bottom-left-radius: 6px; }
+.hm-app .message-meta { margin-top: 4px; font-size: 12px; color: var(--muted); text-align: right; }
+.hm-app .message-bubble.sent .message-meta { color: var(--d-muted); }
+.hm-app .message-bubble.received .message-meta { text-align: left; }
+.hm-app .message-sender { margin-bottom: 2px; font-size: 12.5px; font-weight: 700; color: var(--char); }
+.hm-app .message-empty, .hm-chat-empty { margin: auto; padding: 32px 16px; text-align: center; color: var(--muted); font-size: 14.5px; }
+.hm-chat-empty svg { width: 40px; height: 40px; margin: 0 auto 10px; }
+.hm-chat-input { display: flex; gap: 8px; flex-shrink: 0; }
+.hm-chat-input input {
+  flex: 1; min-width: 0; min-height: 50px; padding: 0 18px; border-radius: var(--pill);
+  border: 1.5px solid var(--line); background: var(--white); color: var(--ink); font-size: 15.5px;
+}
+.hm-chat-input input:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 4px var(--lime); }
+.hm-chat-input .btn { width: 50px; min-height: 50px; padding: 0; border-radius: 50%; }
+
+/* 별점 (lucide star 에 클래스가 복사된다) */
+.hm-stars { display: flex; gap: 6px; }
+.hm-stars button { padding: 2px; line-height: 0; border-radius: 8px; }
+.hm-app .hm-star { width: 32px; height: 32px; color: #A9AC9F; transition: color .15s, fill .15s; }
+.hm-app .hm-star.is-on { color: var(--ink); fill: var(--lime); }
+.hm-app #review-rating-label { margin-top: 8px; font-size: 14px; font-weight: 600; color: var(--char); }
+.hm-app #review-modal-subtitle { margin: -8px 0 20px; font-size: 15px; color: var(--muted); }
+.hm-app #review-modal-subtitle strong { color: var(--ink); }
+.hm-app #review-modal-error, .hm-app #withdraw-error { margin-top: 14px; }
+
+/* 삭제·완료 확인창 (#custom-confirm-modal — 스크립트가 만들고 지운다) */
+.hm-confirm-overlay {
+  position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(14, 15, 12, .55); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+}
+.hm-confirm { width: 100%; max-width: 420px; padding: 28px; border-radius: var(--r-lg); background: var(--white); box-shadow: 0 30px 80px -20px rgba(14, 15, 12, .45); animation: hm-pop .25s var(--ease); }
+.hm-confirm h3 { font-size: 21px; font-weight: 800; letter-spacing: -.03em; }
+.hm-confirm p { margin-top: 10px; font-size: 15px; color: var(--char); line-height: 1.65; }
+.hm-confirm .hm-modal-foot { margin-top: 24px; justify-content: flex-end; }
+.hm-confirm .hm-modal-foot > .btn { flex: 0 0 auto; }
+
+/* 15-8 프로젝트 상세 패널 (오른쪽에서 밀려 나온다 — 스크립트가 .open 을 붙이고 뗀다) */
+.hm-app .project-detail-panel-overlay {
+  position: fixed; inset: 0; z-index: 9998; background: rgba(14, 15, 12, .45);
+  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  opacity: 0; visibility: hidden; transition: opacity .3s var(--ease), visibility .3s;
+}
+.hm-app .project-detail-panel-overlay.open { opacity: 1; visibility: visible; }
+.hm-app .project-detail-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 9999; width: 520px; max-width: 100vw;
+  display: flex; flex-direction: column; background: var(--bg); box-shadow: -24px 0 60px -20px rgba(14, 15, 12, .35);
+  transform: translateX(100%); visibility: hidden; transition: transform .35s var(--ease), visibility .35s;
+}
+.hm-app .project-detail-panel.open { transform: none; visibility: visible; }
+.hm-app .project-detail-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 22px 24px; background: var(--d-bg); color: var(--d-text); }
+.hm-app .project-detail-header h3 { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 19px; font-weight: 800; letter-spacing: -.025em; line-height: 1.35; }
+.hm-app .project-detail-header h3 svg { width: 20px; height: 20px; color: var(--lime); }
+.hm-app .project-detail-header .hm-icon-btn { background: transparent; color: var(--d-text); box-shadow: inset 0 0 0 1px var(--d-line); }
+.hm-app .project-detail-header .hm-icon-btn:hover { box-shadow: inset 0 0 0 1px var(--lime); }
+.hm-app .project-detail-header .hm-icon-btn:focus-visible { outline-color: var(--lime); }
+.hm-app .project-detail-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 24px; }
+.hm-app .detail-section { margin-bottom: 26px; }
+.hm-app .detail-section.is-cancelled { padding: 16px 18px; border-radius: var(--r-md); background: var(--error-soft); border: 1px solid var(--error-line); color: #8E2318; }
+.hm-app .detail-section.is-cancelled .detail-section-title { color: #8E2318; }
+.hm-app .detail-section-title { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; font-weight: 700; letter-spacing: .02em; color: var(--muted); }
+.hm-app .detail-section-title svg { width: 16px; height: 16px; }
+.hm-app .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.hm-app .detail-item { min-width: 0; padding: 14px 16px; border-radius: var(--r-sm); background: var(--white); border: 1px solid var(--line); }
+.hm-app .detail-item.full-width { grid-column: 1 / -1; margin-bottom: 10px; }
+.hm-app .detail-item-label { font-size: 13px; color: var(--muted); }
+.hm-app .detail-item-value { margin-top: 2px; font-size: 15px; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.hm-app .detail-item-value.highlight { box-shadow: inset 0 -.4em 0 var(--lime); display: inline; }
+.hm-app .detail-item-value.is-risk-high { color: #A92C21; }
+.hm-app .detail-item-value.is-risk-medium { color: var(--warn-ink); }
+.hm-app .detail-item-value.is-risk-low { color: var(--success); }
+.hm-app .detail-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.hm-app .detail-tag {
+  display: inline-flex; align-items: center; padding: 5px 12px; border-radius: var(--pill);
+  background: var(--lime-soft); box-shadow: inset 0 0 0 1px rgba(14, 15, 12, .14);
+  font-size: 13.5px; font-weight: 600; color: var(--ink);
+}
+.hm-app .detail-tag.is-issue { background: var(--error-soft); box-shadow: inset 0 0 0 1px var(--error-line); color: #8E2318; }
+.hm-app .detail-tag.is-reason { background: var(--white); box-shadow: inset 0 0 0 1px var(--line); }
+.hm-app .detail-description { padding: 16px 18px; border-radius: var(--r-sm); background: var(--white); border: 1px solid var(--line); font-size: 15px; line-height: 1.65; color: var(--char); }
+.hm-app .detail-description.is-warn { background: var(--warn-soft); border-color: var(--warn-line); color: var(--warn-ink); }
+.hm-app .project-detail-footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; padding: 16px 24px; background: var(--white); border-top: 1px solid var(--line); }
+
+/* 15-9 알림 드롭다운 · 토스트 */
+.hm-app .notification-dropdown { position: relative; }
+.hm-app .notification-badge {
+  position: absolute; top: -3px; right: -3px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: var(--pill);
+  display: grid; place-items: center; background: var(--lime); color: var(--ink); box-shadow: 0 0 0 2px var(--bg);
+  font-family: var(--font-en); font-size: 11px; font-weight: 800; line-height: 1;
+}
+.hm-app .notification-panel {
+  position: absolute; top: calc(100% + 10px); right: 0; z-index: 70; width: 360px; max-height: 440px;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--white); border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: 0 24px 60px -20px rgba(14, 15, 12, .35);
+}
+.hm-app .notification-panel.hidden { display: none !important; }
+.hm-app .notification-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px 12px 18px; border-bottom: 1px solid var(--line); }
+.hm-app .notification-header > span { font-size: 15px; font-weight: 800; }
+.hm-app .notification-list { overflow-y: auto; overscroll-behavior: contain; }
+.hm-app .notification-item { position: relative; padding: 13px 18px; border-bottom: 1px solid var(--line); cursor: pointer; transition: background-color .15s; }
+.hm-app .notification-item:last-child { border-bottom: 0; }
+.hm-app .notification-item:hover { background: var(--surface); }
+.hm-app .notification-item.unread { background: var(--lime-soft); box-shadow: inset 4px 0 0 var(--ink); }
+.hm-app .notification-item.unread:hover { background: #E2F8C4; }
+.hm-app .notification-item .title { font-size: 14.5px; font-weight: 700; color: var(--ink); line-height: 1.45; }
+/* brand.css 7절의 .message(폼 메시지 칸)와 이름이 겹친다 — 알림 항목 안에서는 평범한 글줄로 되돌린다 */
+.hm-app .notification-item .message {
+  display: block; position: static; margin-top: 2px; padding: 0; border: 0; border-radius: 0; background: none; animation: none;
+  font-size: 13.5px; font-weight: 500; color: var(--char); line-height: 1.5;
+}
+.hm-app .notification-item .message::before { content: none; }
+.hm-app .notification-item .time { margin-top: 4px; font-family: var(--font-en); font-size: 12px; font-weight: 600; color: var(--muted); }
+.hm-app .notification-empty { padding: 36px 16px; text-align: center; font-size: 14.5px; color: var(--muted); }
+.hm-app .notification-info::before { background: #FFFFFF; }
+
+/* 15-10 RESPONSIVE (15 전용) */
+@media (max-width: 1023px) {
+  .hm-app .quote-request-header { padding: 24px 24px 18px; }
+  .hm-app .stage-indicator { padding: 0 24px 20px; }
+  .hm-app .consultant-responses, .hm-card-body { padding-left: 24px; padding-right: 24px; }
+  .hm-app .contract-section, .hm-app .project-actions { padding-left: 24px; padding-right: 24px; }
+}
+@media (max-width: 767px) {
+  .hm-app .hm-header-actions { gap: 6px; }
+  .hm-app .hm-acc-logout { display: none; }
+  .hm-dash { padding-top: 24px; }
+  .hm-dash-head { margin-bottom: 22px; gap: 16px; }
+  .hm-dash-head .hm-btn { width: 100%; justify-content: space-between; }
+  .hm-dash-card { padding: 22px 18px; border-radius: var(--r-md); }
+  .hm-app .consultant-tabs { display: flex; }
+  .hm-app .consultant-tabs .tab-btn { flex: 1; padding: 0 12px; }
+  .hm-kv-grid { grid-template-columns: minmax(0, 1fr); }
+  .hm-profile-photo { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .hm-form-actions .btn { flex: 1 1 auto; }
+
+  .hm-app .quote-request-card { border-radius: var(--r-md); margin-bottom: 14px; }
+  .hm-app .quote-request-header { padding: 20px 18px 14px; }
+  .hm-app .quote-request-title { font-size: 19px; }
+  .hm-app .stage-indicator { padding: 0 18px 16px; gap: 6px; }
+  .hm-app .stage-step { padding: 5px; gap: 0; }
+  .hm-app .stage-step span { display: none; }
+  .hm-app .stage-step.active { padding-right: 12px; gap: 8px; }
+  .hm-app .stage-step.active span { display: inline; }
+  .hm-app .stage-line { flex-basis: 16px; }
+  .hm-app .consultant-responses { padding: 18px 18px 20px; }
+  .hm-card-body { padding: 0 18px 20px; }
+  .hm-card-actions { justify-content: stretch; }
+  .hm-card-actions .btn { flex: 1 1 auto; }
+  .hm-app .consultant-response-card { padding: 16px; }
+  /* 아바타 | 이름·통계 를 2열로 두고, 상태 알약은 이름 아래 줄로 내린다(좁은 화면에서 글줄이 눌리지 않게) */
+  .hm-app .response-card-header { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 8px 14px; }
+  .hm-app .response-card-header .response-status { grid-column: 2; justify-self: start; }
+  .hm-app .consultant-avatar-large { width: 48px; height: 48px; font-size: 18px; }
+  .hm-app .proposal-preview { padding: 2px 14px; }
+  .hm-app .response-actions .btn { flex: 1 1 auto; }
+  .hm-app .contract-section { padding: 16px 18px; }
+  .hm-app .contract-section .btn { width: 100%; }
+  .hm-app .project-actions { padding: 14px 18px; }
+
+  .hm-app .modal { padding: 12px; align-items: flex-end; }
+  .hm-app .modal-content { max-height: calc(100vh - 24px); padding: 22px 18px; border-radius: var(--r-md); }
+  .hm-app .modal-content.hm-modal-chat { height: calc(100vh - 80px); }
+  .hm-app .modal-header h3 { font-size: 19px; }
+  .hm-stat-grid { gap: 8px; }
+  .hm-stat b { font-size: 18px; }
+  .hm-app .add-consultant-item { flex-direction: column; align-items: stretch; }
+  .hm-app .add-consultant-item .btn { width: 100%; }
+  .hm-app .milestone-schedule-item { flex-direction: column; align-items: stretch; gap: 8px; }
+  .hm-confirm { padding: 22px 18px; border-radius: var(--r-md); }
+  .hm-app .detail-grid { grid-template-columns: minmax(0, 1fr); }
+  .hm-app .project-detail-body { padding: 18px; }
+  .hm-app .project-detail-footer { padding: 14px 18px; }
+  .hm-app .project-detail-footer .btn { flex: 1 1 auto; }
+
+  .hm-app .notification-panel { position: fixed; top: calc(var(--header-h) + 6px); left: 16px; right: 16px; width: auto; max-height: calc(100vh - var(--header-h) - 24px); }
+}
