@@ -4,229 +4,164 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
     <title>블로그 상세 - InsightMatch</title>
 
-    <!-- Fonts -->
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="images/logo2.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="images/logo2.png">
+    <link rel="apple-touch-icon" href="images/logo2.png">
+
+    <!-- B안은 라이트 전용. 예전 테마 토글이 남긴 localStorage.theme='dark' 가 있어도 어둡게 열지 않는다. -->
+    <script>
+        document.documentElement.classList.remove('dark');
+    </script>
+
+    <!-- Fonts: Pretendard + DM Sans (메인페이지와 동일) -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap"
-        rel="stylesheet">
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,500;9..40,600;9..40,700;9..40,800&display=swap">
 
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- 본문 HTML 정화 (버전 고정 — 바꾸지 말 것) -->
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.3/dist/purify.min.js"></script>
 
-    <!-- Styles -->
-    <link rel="stylesheet" href="style.css">
-    <style>
-        .post-container {
-            padding-top: 120px;
-            padding-bottom: 80px;
-            max-width: 800px;
-            margin: 0 auto;
-        }
-
-        .post-header {
-            text-align: center;
-            margin-bottom: 48px;
-        }
-
-        .post-tags {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 24px;
-            flex-wrap: wrap;
-        }
-
-        .post-title {
-            font-size: clamp(2rem, 5vw, 3rem);
-            margin-bottom: 24px;
-            line-height: 1.3;
-        }
-
-        .post-meta {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 24px;
-            color: var(--text-muted);
-            font-size: 0.95rem;
-        }
-
-        .post-meta span {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .post-image {
-            width: 100%;
-            aspect-ratio: 16/9;
-            object-fit: cover;
-            border-radius: var(--radius-lg);
-            margin-bottom: 48px;
-            border: 1px solid var(--border);
-        }
-
-        .post-content {
-            font-size: 1.1rem;
-            line-height: 1.9;
-            color: var(--text-secondary);
-        }
-
-        .post-content p {
-            margin-bottom: 24px;
-        }
-
-        .post-content h2,
-        .post-content h3 {
-            color: var(--text-primary);
-            margin-top: 48px;
-            margin-bottom: 16px;
-        }
-
-        .share-section {
-            margin-top: 60px;
-            padding-top: 40px;
-            border-top: 1px solid var(--border);
-            text-align: center;
-        }
-
-        .share-buttons {
-            display: flex;
-            justify-content: center;
-            gap: 12px;
-            margin-top: 20px;
-        }
-
-        /* Responsive Styles */
-        @media (max-width: 768px) {
-            .post-container {
-                padding-top: 80px;
-                padding-bottom: 40px;
-            }
-
-            .post-header {
-                margin-bottom: 32px;
-            }
-
-            .post-title {
-                font-size: clamp(1.5rem, 5vw, 2rem);
-            }
-
-            .post-meta {
-                flex-direction: column;
-                gap: 12px;
-            }
-
-            .post-image {
-                margin-bottom: 32px;
-                border-radius: var(--radius-md);
-            }
-
-            .post-content {
-                font-size: 1rem;
-            }
-
-            .share-section {
-                margin-top: 40px;
-                padding-top: 32px;
-            }
-
-            .share-buttons {
-                flex-direction: column;
-                align-items: center;
-            }
-
-            .share-buttons .btn {
-                width: 100%;
-                max-width: 300px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .post-title {
-                font-size: 1.25rem;
-            }
-
-            .post-tags {
-                gap: 6px;
-            }
-        }
-    </style>
+    <!-- B안 공통 스타일(14절: 글 상세·본문 타이포). style.css·lucide 는 로드하지 않는다(아이콘은 인라인 SVG). -->
+    <link rel="stylesheet" href="brand.css?v=3">
 </head>
 
-<body>
-    <!-- Background Effects -->
-    <div class="bg-gradient"></div>
-    <div class="bg-grid"></div>
+<body class="hm-body">
+    <a class="hm-skip" href="#main">본문으로 건너뛰기</a>
 
-    <!-- Navigation -->
-    <nav class="navbar" id="navbar">
-        <div class="container nav-content">
-            <a href="index.html" class="logo">
-                <div class="logo-icon">
-                    <i data-lucide="shield-check" style="width: 20px; height: 20px;"></i>
+    <!-- Header (#navbar: 스크롤하면 스크립트가 .scrolled 를 붙인다) -->
+    <header class="hm-header hm-header-wide" id="navbar">
+        <div class="hm-wrap">
+            <div class="hm-header-row">
+                <a class="hm-logo" href="index.html" aria-label="InsightMatch 메인으로">Insight<span class="hm-logo-dot" aria-hidden="true"></span>Match</a>
+                <nav class="hm-nav" aria-label="주요 메뉴">
+                    <a href="index.html#diagnosis">ISO 진단</a>
+                    <a href="index.html#how-it-works">작동 방식</a>
+                    <a href="index.html#verify">검증 기준</a>
+                    <a href="index.html#faq">FAQ</a>
+                    <a href="blog.html" aria-current="page">블로그</a>
+                    <a href="contact.html">문의하기</a>
+                </nav>
+                <div class="hm-header-actions">
+                    <!-- 로그인 상태면 아래 스크립트(updateNavigation)가 내용을 바꾼다 -->
+                    <div class="hm-nav-actions" id="nav-actions">
+                        <a class="hm-acc" href="login.html">로그인</a>
+                        <a class="hm-acc hm-acc-outline" href="consultant_register.html">컨설턴트 등록</a>
+                    </div>
+                    <a class="hm-btn hm-btn-lime hm-header-cta" href="index.html#diagnosis">무료 매칭 시작<span class="hm-arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+                    <!-- Mobile Menu Button (.active 토글 계약) -->
+                    <button class="hm-menu-btn" id="mobile-menu-btn" type="button" aria-controls="mobile-nav" aria-label="메뉴 열기"><span></span></button>
                 </div>
-                <div class="logo-text">
-                    <span>InsightMatch</span>
-                    <span>by OpenBrain</span>
-                </div>
-            </a>
-
-            <div class="nav-links">
-                <a href="index.html">홈</a>
-                <a href="blog.html">블로그</a>
             </div>
+        </div>
+    </header>
 
-            <div class="nav-actions" id="nav-actions">
-                <!-- Will be populated by JavaScript based on login status -->
-                <a href="login.html" class="btn btn-ghost">로그인</a>
-                <a href="index.html#diagnosis" class="btn btn-primary">무료 상담 신청</a>
+    <!-- Mobile Navigation (열림 = .active, 아래 스크립트가 토글) -->
+    <nav class="hm-mnav" id="mobile-nav" aria-label="모바일 메뉴">
+        <div class="hm-mnav-inner">
+            <a href="index.html#diagnosis" onclick="closeMobileMenu()">ISO 진단</a>
+            <a href="index.html#how-it-works" onclick="closeMobileMenu()">작동 방식</a>
+            <a href="index.html#verify" onclick="closeMobileMenu()">검증 기준</a>
+            <a href="index.html#faq" onclick="closeMobileMenu()">FAQ</a>
+            <a href="blog.html" onclick="closeMobileMenu()" aria-current="page">블로그</a>
+            <a href="contact.html" onclick="closeMobileMenu()">문의하기</a>
+            <div class="hm-mnav-actions" id="mobile-nav-actions">
+                <a href="login.html">로그인</a>
+                <a href="index.html#diagnosis" class="is-primary" onclick="closeMobileMenu()">무료 매칭 시작</a>
             </div>
-
-            <!-- Mobile Menu Button -->
-            <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="메뉴 열기">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
+            <button class="hm-mnav-close" type="button" onclick="closeMobileMenu()">메뉴 닫기</button>
         </div>
     </nav>
 
-    <!-- Mobile Navigation -->
-    <div class="mobile-nav" id="mobile-nav">
-        <a href="index.html" onclick="closeMobileMenu()">홈</a>
-        <a href="blog.html" onclick="closeMobileMenu()">블로그</a>
-        <div class="nav-divider"></div>
-        <div id="mobile-nav-actions">
-            <a href="login.html" class="btn btn-secondary">로그인</a>
-            <a href="index.html#diagnosis" class="btn btn-primary" onclick="closeMobileMenu()">무료 상담 신청</a>
-        </div>
-    </div>
-
-    <!-- Post Container -->
-    <div class="container post-container" id="post-container">
-        <div style="text-align: center; padding: 60px;">
-            <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
-            <p style="color: var(--text-muted);">게시글을 불러오는 중...</p>
-        </div>
-    </div>
-
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-bottom" style="border-top: none; margin-top: 0; padding-top: 0;">
-                <span>© 2025 OpenBrain Limited. All rights reserved.</span>
-                <span>InsightMatch - AI-Powered ISO Consultant Matching</span>
+    <main id="main">
+        <!-- Post Container (스크립트가 글·오류 상태로 채운다) -->
+        <div class="hm-wrap hm-article" id="post-container">
+            <div class="hm-state">
+                <span class="loading-spinner" aria-hidden="true"></span>
+                <p>게시글을 불러오는 중...</p>
             </div>
+        </div>
+
+        <!-- CTA: 무료 진단 -->
+        <section class="hm-wrap" aria-labelledby="cta-title" style="margin-top: 96px;">
+            <div class="hm-cta-band hm-on-dark">
+                <div class="hm-auth-deco" aria-hidden="true"><div class="hm-blob"></div><div class="hm-circle"></div><div class="hm-circle r2"></div></div>
+                <div>
+                    <span class="hm-eyebrow">FREE DIAGNOSIS</span>
+                    <h2 id="cta-title">우리 회사에 맞는 컨설턴트, 직접 비교해 보세요.</h2>
+                    <p>인증 규격·업종·지역만 고르면 검증된 컨설턴트와 추천 근거를 한 화면에서 확인할 수 있습니다. 가입 없이 무료로 시작합니다.</p>
+                </div>
+                <div class="hm-cta-band-actions">
+                    <a href="index.html#diagnosis" class="hm-btn hm-btn-lime hm-btn-lg">무료 진단 시작<span class="hm-arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+                    <a href="blog.html" class="hm-btn hm-btn-lg hm-btn-line-dark">블로그 목록</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer (메인과 같은 다크 푸터) -->
+    <footer class="hm-footer hm-on-dark is-spaced">
+        <div class="hm-wrap">
+            <div class="hm-foot-top">
+                <div>
+                    <div class="hm-foot-brand">Insight<span class="hm-logo-dot" aria-hidden="true"></span>Match<small>by OpenBrain</small></div>
+                    <p>InsightMatch는 ISO 인증을 준비하는 기업과 검증된 컨설턴트를 연결하는 매칭 플랫폼입니다. 심사는 인정받은 인증기관이 수행합니다.</p>
+                </div>
+                <div>
+                    <h4>SERVICE</h4>
+                    <ul>
+                        <li><a href="index.html#diagnosis">컨설턴트 소개</a></li>
+                        <li><a href="index.html#how-it-works">프로세스 안내</a></li>
+                        <li><a href="index.html#verify">검증 기준</a></li>
+                        <li><a href="index.html#iso-catalog">규격</a></li>
+                        <li><a href="ai-manual.html">AI 매뉴얼</a></li>
+                        <li><a href="consultant_register.html">컨설턴트 등록</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>SUPPORT</h4>
+                    <ul>
+                        <li><a href="index.html#faq">자주 묻는 질문</a></li>
+                        <li><a href="consultant-faq.html">전문가 FAQ</a></li>
+                        <li><a href="blog.html">블로그</a></li>
+                        <li><a href="contact.html">문의하기</a></li>
+                        <li><a href="login.html">로그인</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>LEGAL</h4>
+                    <ul>
+                        <li><a href="terms.html">이용약관</a></li>
+                        <li><a href="privacy.html">개인정보처리방침</a></li>
+                        <li><a href="partner-agreement.html">컨설턴트 협력계약</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="hm-wordmark" aria-hidden="true">Insight<span class="hm-logo-dot"></span>Match</div>
+            <div class="hm-foot-bottom"><span>© 2026 OpenBrain Limited. All rights reserved.</span><span>InsightMatch - ISO Consultant Matching Platform</span></div>
         </div>
     </footer>
 
     <script>
-        lucide.createIcons();
+        // 인라인 SVG 아이콘 (lucide 의존 제거)
+        const ICON_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+        const ICONS = {
+            dashboard: `<svg ${ICON_ATTRS}><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>`,
+            logout: `<svg ${ICON_ATTRS}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>`,
+            user: `<svg ${ICON_ATTRS}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+            calendar: `<svg ${ICON_ATTRS}><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>`,
+            link: `<svg ${ICON_ATTRS}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`,
+            arrowLeft: `<svg ${ICON_ATTRS}><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>`,
+            fileX: `<svg ${ICON_ATTRS}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m14.5 12.5-5 5"/><path d="m9.5 12.5 5 5"/></svg>`,
+            arrow: '<svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        };
 
         // Mobile Menu Toggle
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
@@ -246,52 +181,43 @@
 
         mobileMenuBtn.addEventListener('click', toggleMobileMenu);
 
+        // 햄버거가 보이는 폭이 1180px 이하로 바뀌어(brand.css 13절) 닫는 기준도 맞췄다 (예전 768px)
         window.addEventListener('resize', () => {
-            if (window.innerWidth > 768) {
+            if (window.innerWidth > 1180) {
                 closeMobileMenu();
             }
         });
 
         // Check login status and update navigation
         function updateNavigation() {
-            const user = JSON.parse(localStorage.getItem('user'));
+            let user = null;
+            try { user = JSON.parse(localStorage.getItem('user')); } catch (e) { user = null; }
             const token = localStorage.getItem('token');
             const navActions = document.getElementById('nav-actions');
             const mobileNavActions = document.getElementById('mobile-nav-actions');
 
             if (user && token) {
-                // User is logged in
+                // User is logged in (이름은 저장소 값이므로 이스케이프해서 넣는다)
+                const userName = escapeHtml(user.name);
                 navActions.innerHTML = `
-                    <a href="dashboard.html" class="btn btn-ghost">
-                        <i data-lucide="layout-dashboard" style="width: 18px; height: 18px;"></i>
-                        대시보드
-                    </a>
-                    <span style="color: var(--primary); font-weight: 500;">${user.name}님</span>
-                    <button onclick="logout()" class="btn btn-ghost">
-                        <i data-lucide="log-out" style="width: 18px; height: 18px;"></i>
-                        로그아웃
-                    </button>
+                    <a href="dashboard.html" class="hm-acc">${ICONS.dashboard}대시보드</a>
+                    ${userName ? `<span class="hm-acc-user">${userName}님</span>` : ''}
+                    <button type="button" onclick="logout()" class="hm-acc hm-acc-outline">${ICONS.logout}로그아웃</button>
                 `;
                 mobileNavActions.innerHTML = `
-                    <a href="dashboard.html" class="btn btn-secondary" onclick="closeMobileMenu()">
-                        <i data-lucide="layout-dashboard" style="width: 18px; height: 18px;"></i>
-                        대시보드
-                    </a>
-                    <button onclick="logout(); closeMobileMenu();" class="btn btn-ghost" style="width: 100%;">
-                        <i data-lucide="log-out" style="width: 18px; height: 18px;"></i>
-                        로그아웃
-                    </button>
+                    ${userName ? `<p class="hm-mnav-user">${userName}님으로 로그인됨</p>` : ''}
+                    <a href="dashboard.html" onclick="closeMobileMenu()">${ICONS.dashboard} 대시보드</a>
+                    <button type="button" onclick="logout(); closeMobileMenu();">${ICONS.logout} 로그아웃</button>
                 `;
-                lucide.createIcons();
             } else {
                 // User is not logged in
                 navActions.innerHTML = `
-                    <a href="login.html" class="btn btn-ghost">로그인</a>
-                    <a href="index.html#diagnosis" class="btn btn-primary">무료 상담 신청</a>
+                    <a class="hm-acc" href="login.html">로그인</a>
+                    <a class="hm-acc hm-acc-outline" href="consultant_register.html">컨설턴트 등록</a>
                 `;
                 mobileNavActions.innerHTML = `
-                    <a href="login.html" class="btn btn-secondary">로그인</a>
-                    <a href="index.html#diagnosis" class="btn btn-primary" onclick="closeMobileMenu()">무료 상담 신청</a>
+                    <a href="login.html">로그인</a>
+                    <a href="index.html#diagnosis" class="is-primary" onclick="closeMobileMenu()">무료 매칭 시작</a>
                 `;
             }
         }
@@ -300,6 +226,17 @@
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             updateNavigation();
+        }
+
+        // XSS 방어: 값을 텍스트로만 표시할 때 사용
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
 
         // Initialize navigation on page load
@@ -345,30 +282,19 @@
 
         function showError() {
             document.getElementById('post-container').innerHTML = `
-                <div style="text-align: center; padding: 60px;">
-                    <i data-lucide="file-x" style="width: 64px; height: 64px; color: var(--text-muted); margin-bottom: 24px;"></i>
-                    <h3 style="margin-bottom: 12px;">게시글을 찾을 수 없습니다</h3>
-                    <p style="color: var(--text-muted); margin-bottom: 24px;">요청하신 게시글이 존재하지 않거나 삭제되었습니다.</p>
-                    <a href="blog.html" class="btn btn-primary">블로그 목록으로</a>
+                <div class="hm-state" role="alert">
+                    <div class="hm-state-icon is-neutral">${ICONS.fileX}</div>
+                    <h2>게시글을 찾을 수 없습니다</h2>
+                    <p>요청하신 게시글이 존재하지 않거나 삭제되었습니다.</p>
+                    <a href="blog.html" class="hm-btn hm-btn-ink">블로그 목록으로<span class="hm-arrow" aria-hidden="true">${ICONS.arrow}</span></a>
                 </div>
             `;
-            lucide.createIcons();
-        }
-
-        // XSS 방어: 값을 텍스트로만 표시할 때 사용
-        function escapeHtml(value) {
-            if (value === null || value === undefined) return '';
-            return String(value)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
         }
 
         function renderPost(post) {
             const container = document.getElementById('post-container');
-            const tagsHtml = (post.tags || []).map(tag => `<span class="blog-tag">#${escapeHtml(String(tag).trim())}</span>`).join('');
+            const tags = (post.tags || []).map(tag => String(tag).trim()).filter(Boolean);
+            const tagsHtml = tags.map((tag, i) => `<span class="hm-chip-tag${i === 0 ? ' is-lime' : ''}">#${escapeHtml(tag)}</span>`).join('');
 
             // 본문은 의도적으로 HTML 서식을 허용하므로, 이스케이프 대신 살균(sanitize)한다.
             // DOMPurify 미로드 시에는 안전하게 이스케이프로 폴백.
@@ -376,51 +302,60 @@
                 ? DOMPurify.sanitize(post.content || '', { USE_PROFILES: { html: true } })
                 : escapeHtml(post.content || '');
 
+            // 대표 이미지는 있을 때만 보여 준다 (예전 외부 스톡 이미지 대체는 쓰지 않는다)
+            const coverHtml = post.image_url
+                ? `<figure class="hm-article-cover"><img src="${escapeHtml(post.image_url)}" alt="${escapeHtml(post.title)}"></figure>`
+                : '';
+
             container.innerHTML = `
-                <article class="fade-in-up">
-                    <div class="post-header">
-                        <div class="post-tags">${tagsHtml}</div>
-                        <h1 class="post-title">${escapeHtml(post.title)}</h1>
-                        <div class="post-meta">
-                            <span>
-                                <i data-lucide="user" style="width: 16px; height: 16px;"></i>
-                                ${escapeHtml(post.author)}
-                            </span>
-                            <span>
-                                <i data-lucide="calendar" style="width: 16px; height: 16px;"></i>
-                                ${escapeHtml(post.created_at)}
-                            </span>
-                        </div>
-                    </div>
-                    
-                    <img src="${escapeHtml(post.image_url || 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=1000')}"
-                         alt="${escapeHtml(post.title)}"
-                         class="post-image"
-                         onerror="this.src='https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=1000'">
-                    
-                    <div class="post-content">
-                        ${contentHtml}
+                <article>
+                    <div class="hm-article-col">
+                        <a class="hm-back-link" href="blog.html">${ICONS.arrowLeft}블로그 목록</a>
+                        <header class="hm-article-head">
+                            ${tagsHtml ? `<div class="hm-post-tags">${tagsHtml}</div>` : ''}
+                            <h1 class="hm-article-title">${escapeHtml(post.title)}</h1>
+                            <div class="hm-article-meta">
+                                <span>${ICONS.calendar}${escapeHtml(post.created_at)}</span>
+                                <span>${ICONS.user}${escapeHtml(post.author)}</span>
+                            </div>
+                        </header>
                     </div>
 
-                    <div class="share-section">
-                        <h3 style="margin-bottom: 8px;">이 글이 도움이 되셨나요?</h3>
-                        <p style="color: var(--text-muted);">공유하여 더 많은 분들과 나눠보세요.</p>
-                        <div class="share-buttons">
-                            <button class="btn btn-secondary btn-sm" onclick="copyLink()">
-                                <i data-lucide="link" style="width: 16px; height: 16px;"></i>
-                                링크 복사
-                            </button>
-                            <a href="blog.html" class="btn btn-ghost btn-sm">
-                                <i data-lucide="arrow-left" style="width: 16px; height: 16px;"></i>
-                                목록으로
-                            </a>
+                    ${coverHtml}
+
+                    <div class="hm-article-col hm-article-body">
+                        <div class="hm-prose">
+                            ${contentHtml}
                         </div>
+
+                        <section class="hm-article-foot" aria-labelledby="share-title">
+                            <div>
+                                <h2 id="share-title">이 글이 도움이 되셨나요?</h2>
+                                <p>공유하여 더 많은 분들과 나눠보세요.</p>
+                            </div>
+                            <div class="hm-article-foot-actions">
+                                <button type="button" class="hm-btn hm-btn-ghost hm-btn-sm" onclick="copyLink()">${ICONS.link}링크 복사</button>
+                                <a href="blog.html" class="hm-btn hm-btn-ghost hm-btn-sm">${ICONS.arrowLeft}목록으로</a>
+                            </div>
+                        </section>
                     </div>
                 </article>
             `;
 
+            // 넓은 표는 가로 스크롤 상자로 감싼다 (정화가 끝난 DOM 에 래퍼만 추가)
+            container.querySelectorAll('.hm-prose table').forEach(table => {
+                const wrap = document.createElement('div');
+                wrap.className = 'hm-table-scroll';
+                table.parentNode.insertBefore(wrap, table);
+                wrap.appendChild(table);
+            });
+
+            const cover = container.querySelector('.hm-article-cover img');
+            if (cover) {
+                cover.addEventListener('error', () => cover.parentElement.remove(), { once: true });
+            }
+
             document.title = `${post.title} - InsightMatch`;
-            lucide.createIcons();
         }
 
         function copyLink() {
@@ -429,20 +364,11 @@
             });
         }
 
+        // 알림 토스트: brand.css .notification (메인과 같은 다크 토스트)
         function showNotification(message, type) {
             const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed;
-                top: 100px;
-                right: 24px;
-                padding: 16px 24px;
-                background: rgba(16, 185, 129, 0.9);
-                color: white;
-                border-radius: 12px;
-                z-index: 10000;
-                animation: slideIn 0.3s ease;
-                backdrop-filter: blur(10px);
-            `;
+            notification.className = `notification notification-${type === 'error' ? 'error' : 'success'}`;
+            notification.setAttribute('role', 'status');
             notification.textContent = message;
             document.body.appendChild(notification);
             setTimeout(() => notification.remove(), 3000);

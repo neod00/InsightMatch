@@ -799,3 +799,319 @@ input::-ms-reveal, input::-ms-clear { display: none; }
   .hm-nav-actions .hm-acc svg { display: none; }
   .hm-nav-actions .hm-acc { padding: 7px 8px; }
 }
+
+/* =========================================================
+   14. CONTENT PAGES — 콘텐츠·안내 묶음 6개(blog, blog_detail, contact, terms, privacy, partner-agreement)에서 추가.
+   1~13 의 규칙은 그대로 두고 새 클래스만 정의한다(이미 B안인 8개 페이지는 이 클래스를 쓰지 않는다).
+     14-1 다크 CTA 띠 · 푸터 간격       14-2 블로그 카드 그리드
+     14-3 글 상세(머리·본문 타이포)      14-4 표(본문·법률 공용)
+     14-5 문의 페이지                    14-6 법률 문서(머리·안내·목차·본문)
+     14-7 RESPONSIVE (14 전용)
+   ========================================================= */
+
+/* 14-1 다크 CTA 띠 (메인 마무리 카드·전문가 FAQ CTA 와 같은 언어) */
+.hm-cta-band {
+  position: relative; overflow: hidden; isolation: isolate;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px 48px; align-items: end;
+  padding: 64px; border-radius: var(--r-xl); background: var(--d-bg); color: var(--d-text);
+}
+.hm-cta-band .hm-eyebrow { color: var(--d-muted); }
+.hm-cta-band h2 { margin-top: 14px; font-size: clamp(28px, 3.4vw, 46px); font-weight: 800; line-height: 1.15; letter-spacing: -.035em; }
+.hm-cta-band p { margin-top: 12px; font-size: 17px; color: var(--d-muted); line-height: 1.65; max-width: 36em; }
+.hm-cta-band-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.hm-btn-line-dark { background: transparent; color: var(--d-text); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .35); padding: 0 24px; }
+.hm-btn-line-dark:hover { box-shadow: inset 0 0 0 1.5px var(--lime); }
+.hm-footer.is-spaced { margin-top: 96px; }
+/* 콘텐츠 묶음 헤더(.hm-header-wide): 메뉴 6개 + 로그인 상태 + 주 CTA 가 1181~1320px 에서 넘치지 않게 이름 칸만 숨긴다 */
+.hm-header-wide .hm-acc-user { max-width: 9em; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 1320px) { .hm-header-wide .hm-acc-user { display: none; } }
+
+/* 14-2 블로그 카드 그리드 (#blog-grid). 카드 전체가 클릭 영역이고, 제목 링크가 키보드 초점을 받는다. */
+.hm-post-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.hm-post-grid > .hm-state { grid-column: 1 / -1; }
+.hm-post-card {
+  position: relative; display: flex; flex-direction: column; min-width: 0; cursor: pointer;
+  background: var(--white); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden;
+  transition: border-color .2s, transform .25s var(--ease), box-shadow .25s var(--ease);
+}
+.hm-post-card:hover { border-color: var(--ink); transform: translateY(-3px); box-shadow: 0 18px 40px -24px rgba(14, 15, 12, .35); }
+.hm-post-card:has(.hm-post-title a:focus-visible) { outline: 3px solid var(--ink); outline-offset: 3px; }
+.hm-post-thumb { position: relative; aspect-ratio: 16 / 10; background: var(--surface); overflow: hidden; }
+.hm-post-thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s var(--ease); }
+.hm-post-card:hover .hm-post-thumb img { transform: scale(1.04); }
+/* 대표 이미지가 없거나 깨졌을 때의 브랜드 자리표시 (라임·오프블랙·서피스 3종을 번갈아 쓴다) */
+.hm-post-ph { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; isolation: isolate; background: var(--lime); }
+.hm-post-ph::before, .hm-post-ph::after { content: ""; position: absolute; z-index: -1; border-radius: 50%; border: 1.5px solid rgba(14, 15, 12, .14); }
+.hm-post-ph::before { width: 120%; aspect-ratio: 1; right: -45%; top: -70%; }
+.hm-post-ph::after { width: 75%; aspect-ratio: 1; right: -20%; top: -40%; }
+.hm-post-ph .hm-logo-dot { width: 44px; height: 44px; margin: 0; transform: none; background: var(--ink); box-shadow: none; }
+.hm-post-ph.v2 { background: var(--d-bg); }
+.hm-post-ph.v2::before, .hm-post-ph.v2::after { border-color: rgba(255, 255, 255, .1); }
+.hm-post-ph.v2 .hm-logo-dot { background: var(--lime); }
+.hm-post-ph.v3 { background: var(--surface); }
+.hm-post-ph.v3 .hm-logo-dot { background: var(--lime); box-shadow: inset 0 0 0 2px var(--ink); }
+.hm-post-body { flex: 1; display: flex; flex-direction: column; gap: 12px; padding: 22px 24px 20px; }
+.hm-post-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.hm-post-title { font-size: 20px; font-weight: 800; letter-spacing: -.025em; line-height: 1.4; color: var(--ink); }
+.hm-post-title a { color: inherit; }
+.hm-post-title a:focus-visible { outline: none; }
+.hm-post-title a::after { content: ""; position: absolute; inset: 0; }
+.hm-post-excerpt {
+  font-size: 15px; color: var(--muted); line-height: 1.65;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.hm-post-meta {
+  margin-top: auto; padding-top: 16px; border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; font-weight: 600; color: var(--muted);
+}
+.hm-post-meta > span { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.hm-post-meta svg { width: 14px; height: 14px; flex-shrink: 0; }
+.hm-state-icon.is-neutral { background: var(--surface); color: var(--ink); }
+
+/* 14-3 글 상세 (#post-container) */
+.hm-article { padding-top: 32px; }
+.hm-article-col { max-width: 720px; margin: 0 auto; }
+.hm-back-link { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: var(--char); padding: 8px 14px 8px 10px; margin-left: -10px; border-radius: var(--pill); transition: background-color .2s; }
+.hm-back-link:hover { background: var(--surface); color: var(--ink); }
+.hm-back-link svg { width: 16px; height: 16px; }
+.hm-article-head { padding-top: 20px; }
+.hm-article-head .hm-post-tags { margin-bottom: 18px; }
+.hm-article-title { font-weight: 800; font-size: clamp(30px, 3.8vw, 48px); line-height: 1.2; letter-spacing: -.035em; color: var(--ink); }
+.hm-article-meta { margin-top: 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; font-size: 14.5px; font-weight: 600; color: var(--muted); }
+.hm-article-meta > span { display: inline-flex; align-items: center; gap: 6px; }
+.hm-article-meta svg { width: 16px; height: 16px; }
+.hm-article-cover { max-width: 960px; margin: 40px auto 0; border-radius: var(--r-lg); overflow: hidden; background: var(--surface); }
+.hm-article-cover img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.hm-article-body { margin-top: 48px; }
+.hm-article-foot {
+  margin-top: 64px; padding: 28px 32px; border-radius: var(--r-md); background: var(--surface);
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px;
+}
+.hm-article-foot h2 { font-size: 18px; font-weight: 800; letter-spacing: -.02em; line-height: 1.4; }
+.hm-article-foot p { margin-top: 2px; font-size: 14.5px; color: var(--muted); }
+.hm-article-foot-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.hm-article-foot-actions .hm-btn svg { width: 16px; height: 16px; }
+
+/* 읽기용 본문 타이포 (DOMPurify 로 정화된 HTML 이 들어온다 — 요소 선택자만 쓴다) */
+.hm-prose { font-size: 17px; line-height: 1.78; color: var(--char); overflow-wrap: break-word; word-break: keep-all; }
+.hm-prose > * + * { margin-top: 1.1em; }
+.hm-prose h1, .hm-prose h2, .hm-prose h3, .hm-prose h4, .hm-prose h5, .hm-prose h6 { color: var(--ink); font-weight: 800; letter-spacing: -.025em; line-height: 1.35; }
+.hm-prose h1, .hm-prose h2 { margin-top: 2.1em; font-size: 26px; }
+.hm-prose h3 { margin-top: 1.8em; font-size: 21px; }
+.hm-prose h4, .hm-prose h5, .hm-prose h6 { margin-top: 1.6em; font-size: 18px; letter-spacing: -.015em; }
+.hm-prose > :first-child { margin-top: 0; }
+.hm-prose h1 + *, .hm-prose h2 + *, .hm-prose h3 + *, .hm-prose h4 + * { margin-top: .6em; }
+.hm-prose a { color: var(--ink); font-weight: 600; text-decoration: underline; text-decoration-color: #A9AC9F; text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
+.hm-prose a:hover { text-decoration-color: var(--ink); }
+.hm-prose strong, .hm-prose b { color: var(--ink); }
+.hm-prose ul, .hm-prose ol { padding-left: 1.45em; }
+.hm-prose ul { list-style: disc; }
+.hm-prose ol { list-style: decimal; }
+.hm-prose li + li, .hm-prose li > ul, .hm-prose li > ol { margin-top: .4em; }
+.hm-prose li::marker { color: var(--muted); }
+.hm-prose blockquote { padding: 18px 24px; border-radius: 0 var(--r-sm) var(--r-sm) 0; background: var(--surface); border-left: 4px solid var(--ink); color: var(--ink); font-weight: 500; }
+.hm-prose blockquote > * + * { margin-top: .6em; }
+.hm-prose code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .86em; padding: .12em .42em; border-radius: 6px; background: var(--surface); color: var(--ink); word-break: break-word; }
+.hm-prose pre { padding: 18px 20px; border-radius: var(--r-sm); background: var(--d-bg); color: var(--d-text); overflow-x: auto; font-size: 14.5px; line-height: 1.65; }
+.hm-prose pre code { padding: 0; background: none; color: inherit; font-size: inherit; word-break: normal; }
+.hm-prose img { border-radius: var(--r-sm); margin-left: auto; margin-right: auto; }
+.hm-prose figure figcaption { margin-top: 8px; font-size: 14px; color: var(--muted); text-align: center; }
+.hm-prose hr { border-top: 1px solid var(--line); margin: 2.4em 0; }
+
+/* 14-4 표 — 글 본문(스크립트가 .hm-table-scroll 로 감싼다)과 법률 문서(.table-scroll) 공용 */
+.hm-table-scroll, .hm-legal .table-scroll {
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--white);
+}
+.hm-table-scroll table, .hm-legal .table-scroll table { width: 100%; border-collapse: collapse; font-size: 14.5px; line-height: 1.6; }
+.hm-table-scroll th, .hm-table-scroll td,
+.hm-legal .table-scroll th, .hm-legal .table-scroll td { padding: 12px 16px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+.hm-table-scroll tr > * + *, .hm-legal .table-scroll tr > * + * { border-left: 1px solid var(--line); }
+.hm-table-scroll tr:last-child > *, .hm-legal .table-scroll tr:last-child > * { border-bottom: 0; }
+.hm-table-scroll th, .hm-legal .table-scroll th { background: var(--surface); font-weight: 700; color: var(--ink); }
+.hm-table-scroll thead th, .hm-legal .table-scroll thead th { font-size: 13.5px; white-space: nowrap; }
+.hm-legal .table-scroll table { min-width: 480px; }
+.hm-legal .table-scroll th { white-space: nowrap; }
+.hm-legal .table-scroll td { color: var(--char); }
+
+/* 14-5 문의 페이지 (왼쪽 안내 + 오른쪽 폼 카드) */
+.hm-contact { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; align-items: start; padding-top: 48px; }
+.hm-contact-intro { position: sticky; top: calc(var(--header-h) + 32px); }
+.hm-contact-intro .hm-h1 { margin-top: 14px; }
+.hm-contact-intro .hm-lead { margin-top: 14px; max-width: 30em; }
+.hm-help-list { margin-top: 32px; display: grid; gap: 10px; }
+.hm-help-note { margin-top: 32px; }
+.hm-help-note + .hm-help-list { margin-top: 12px; }
+.hm-help-item {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 2px 14px; align-items: center;
+  padding: 16px 16px 16px 18px; border-radius: 20px; background: var(--white); border: 1px solid var(--line);
+  transition: border-color .2s;
+}
+a.hm-help-item:hover { border-color: var(--ink); }
+.hm-help-item .ic { grid-row: 1 / span 2; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--lime); color: var(--ink); }
+.hm-help-item .ic svg { width: 18px; height: 18px; }
+.hm-help-item b { font-size: 15.5px; font-weight: 700; line-height: 1.4; color: var(--ink); }
+.hm-help-item .sub { font-size: 14px; color: var(--muted); line-height: 1.5; }
+.hm-help-item .go { grid-row: 1 / span 2; grid-column: 3; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); transition: transform .25s var(--ease); }
+.hm-help-item .go svg { width: 14px; height: 14px; }
+a.hm-help-item:hover .go { transform: translateX(3px) rotate(-45deg); }
+.hm-field-count { margin-top: -2px; text-align: right; font-family: var(--font-en); font-size: 13px; font-weight: 600; color: var(--muted); }
+.hm-form-note { font-size: 13.5px; color: var(--muted); line-height: 1.65; }
+.hm-form-note a { color: var(--char); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.hm-form-note a:hover { color: var(--ink); }
+
+/* 14-6 법률 문서 — 머리(제목·버전·시행일) · 안내 · 왼쪽 고정 목차 + 오른쪽 본문 */
+.hm-doc-head { padding-top: 48px; padding-bottom: 8px; }
+.hm-doc-head .hm-h1 { margin-top: 14px; }
+.hm-doc-meta { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 8px; }
+.hm-doc-meta > span {
+  display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; padding: 6px 14px; border-radius: var(--pill);
+  background: var(--white); border: 1px solid var(--line); font-size: 14px; font-weight: 600; color: var(--muted); line-height: 1.5;
+}
+.hm-doc-meta strong { color: var(--ink); font-weight: 700; }
+/* 미확정 값 표시 (확인 필요). 길게 이어지는 문구도 줄바꿈되도록 inline + 줄마다 테두리 복제 */
+.hm-doc .ph, .hm-doc-head .ph {
+  display: inline; padding: 1px 7px; border-radius: 6px;
+  background: var(--lime-soft); border: 1.5px dashed var(--ink);
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  font-size: .9em; font-weight: 600; color: var(--ink); line-height: 1.9;
+}
+
+.hm-doc { display: grid; grid-template-columns: 252px minmax(0, 1fr); gap: 64px; align-items: start; padding-top: 32px; }
+.hm-doc-main { min-width: 0; max-width: 780px; }
+
+.hm-doc-notices { display: grid; gap: 12px; margin-bottom: 48px; }
+.hm-doc-notice {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 4px 16px;
+  padding: 20px 24px; border-radius: var(--r-md); background: var(--surface);
+}
+.hm-doc-notice-ic { grid-row: 1 / span 2; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--white); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+.hm-doc-notice-ic svg { width: 18px; height: 18px; }
+.hm-doc-notice.is-warn .hm-doc-notice-ic { background: var(--ink); color: var(--lime); box-shadow: none; }
+.hm-doc-notice.is-ok { background: var(--lime-soft); }
+.hm-doc-notice > p { font-size: 15px; color: var(--char); line-height: 1.7; }
+.hm-doc-notice > p.hm-doc-notice-title { font-size: 16px; font-weight: 700; color: var(--ink); line-height: 1.5; padding-top: 8px; }
+.hm-doc-notice strong { color: var(--ink); }
+
+/* 목차: 데스크톱은 왼쪽에 붙어 따라오고, 1023px 이하는 헤더 아래 접히는 띠가 된다 */
+.hm-doc-toc { position: sticky; top: calc(var(--header-h) + 24px); max-height: calc(100vh - var(--header-h) - 48px); overflow-y: auto; overscroll-behavior: contain; }
+.hm-doc-toc-title { font-family: var(--font-en); font-size: 13px; font-weight: 700; letter-spacing: .06em; color: var(--muted); padding: 0 14px 10px; }
+.hm-doc-toc-toggle { display: none; }
+.hm-doc-toc ol { display: grid; gap: 2px; }
+.hm-doc-toc a {
+  display: block; padding: 8px 14px; border-radius: 12px;
+  font-size: 14.5px; font-weight: 600; color: var(--muted); line-height: 1.45;
+  transition: background-color .2s, color .2s;
+}
+.hm-doc-toc a:hover { background: var(--surface); color: var(--ink); }
+.hm-doc-toc a[aria-current="true"] { background: var(--ink); color: #fff; }
+
+/* 본문 (article.legal.hm-legal — 조항 마크업은 원문 그대로, 모양만 입힌다) */
+.hm-legal { min-width: 0; font-size: 16px; line-height: 1.8; color: var(--char); }
+.hm-legal > * + * { margin-top: 14px; }
+.hm-legal h2 {
+  margin-top: 72px; padding-top: 36px; border-top: 1px solid var(--line);
+  font-size: clamp(22px, 2.2vw, 28px); font-weight: 800; letter-spacing: -.03em; line-height: 1.3; color: var(--ink);
+  scroll-margin-top: calc(var(--header-h) + 24px);
+}
+.hm-legal > h2:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.hm-legal h3 { margin-top: 36px; font-size: 18px; font-weight: 700; letter-spacing: -.02em; line-height: 1.5; color: var(--ink); scroll-margin-top: calc(var(--header-h) + 24px); }
+.hm-legal h2 + h3, .hm-legal h2 + div, .hm-legal h2 + p, .hm-legal h2 + ol { margin-top: 22px; }
+.hm-legal h3 + * { margin-top: 10px; }
+.hm-legal ol { list-style: decimal; padding-left: 1.6em; }
+.hm-legal ul { list-style: disc; padding-left: 1.4em; }
+.hm-legal li + li { margin-top: 8px; }
+.hm-legal li > ul, .hm-legal li > ol { margin-top: 8px; }
+.hm-legal li > ul > li + li { margin-top: 4px; }
+.hm-legal li::marker { color: var(--muted); font-family: var(--font-en); font-weight: 700; }
+.hm-legal strong { color: var(--ink); font-weight: 700; }
+.hm-legal a { color: var(--ink); font-weight: 600; text-decoration: underline; text-decoration-color: #A9AC9F; text-underline-offset: 3px; text-decoration-thickness: 1.5px; overflow-wrap: anywhere; }
+.hm-legal a:hover { text-decoration-color: var(--ink); }
+.hm-legal .is-small { font-size: 14.5px; color: var(--muted); line-height: 1.75; }
+.hm-legal .is-small strong { color: var(--char); }
+.hm-legal-callout { padding: 20px 24px; border-radius: var(--r-md); background: var(--lime-soft); box-shadow: inset 0 0 0 1px rgba(14, 15, 12, .12); }
+.hm-legal-callout p { font-size: 15.5px; color: var(--ink); line-height: 1.75; }
+.hm-legal .clause { padding: 22px 26px; border-radius: var(--r-md); background: var(--white); border: 1px solid var(--line); }
+.hm-legal .clause + .clause { margin-top: 10px; }
+.hm-legal .clause > h3 { margin-top: 0; }
+.hm-legal .clause > h3 + p { margin-top: 6px; }
+.hm-legal-foot { margin-top: 72px; padding: 28px 32px; border-radius: var(--r-md); background: var(--surface); }
+.hm-legal-foot > h3 { margin-top: 0; }
+.hm-legal-foot > * + * { margin-top: 8px; }
+
+/* =========================================================
+   14-7. RESPONSIVE (14 전용)
+   ========================================================= */
+@media (max-width: 1100px) {
+  .hm-post-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hm-cta-band { grid-template-columns: minmax(0, 1fr); padding: 56px 48px; }
+  .hm-doc { grid-template-columns: 216px minmax(0, 1fr); gap: 40px; }
+  .hm-contact { gap: 40px; }
+}
+@media (max-width: 1023px) {
+  .hm-contact { grid-template-columns: minmax(0, 1fr); gap: 28px; padding-top: 32px; }
+  .hm-contact-intro { position: static; }
+  .hm-help-note { margin-top: 24px; }
+  .hm-help-list { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+
+  .hm-doc { grid-template-columns: minmax(0, 1fr); gap: 0; padding-top: 20px; }
+  .hm-doc-main { max-width: none; }
+  .hm-doc-toc {
+    top: var(--header-h); z-index: 40; max-height: none; overflow: visible;
+    margin: 0 calc(-1 * var(--gutter)) 28px; padding: 8px var(--gutter);
+    background: rgba(250, 250, 247, .94); -webkit-backdrop-filter: saturate(160%) blur(14px); backdrop-filter: saturate(160%) blur(14px);
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  }
+  .hm-doc-toc-title { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .hm-doc-toc-toggle {
+    display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 14px 0 16px;
+    border-radius: var(--pill); background: var(--white); box-shadow: inset 0 0 0 1px var(--line);
+    font-size: 15px; font-weight: 700; color: var(--ink); text-align: left;
+  }
+  .hm-doc-toc-toggle .lbl { flex-shrink: 0; font-family: var(--font-en); font-size: 12px; letter-spacing: .06em; color: var(--muted); }
+  .hm-doc-toc-toggle .cur { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hm-doc-toc-toggle svg { width: 18px; height: 18px; flex-shrink: 0; transition: transform .2s var(--ease); }
+  .hm-doc-toc-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+  .hm-doc-toc ol { display: none; }
+  .hm-doc-toc.is-open ol { display: grid; margin-top: 8px; max-height: min(60vh, 520px); overflow-y: auto; overscroll-behavior: contain; padding: 6px; border-radius: 18px; background: var(--white); box-shadow: inset 0 0 0 1px var(--line); }
+  .hm-legal h2, .hm-legal h3 { scroll-margin-top: calc(var(--header-h) + 76px); }
+}
+@media (max-width: 767px) {
+  .hm-post-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .hm-post-body { padding: 18px 18px 16px; }
+  .hm-post-title { font-size: 18.5px; }
+  .hm-cta-band { padding: 40px 22px; border-radius: var(--r-lg); }
+  .hm-cta-band p { font-size: 16px; }
+  .hm-cta-band-actions, .hm-cta-band-actions .hm-btn { width: 100%; }
+  .hm-cta-band-actions .hm-btn { justify-content: space-between; }
+  .hm-cta-band-actions .hm-btn-line-dark { justify-content: center; }
+  .hm-footer.is-spaced { margin-top: 64px; }
+
+  .hm-article { padding-top: 16px; }
+  .hm-article-cover { margin-top: 28px; border-radius: var(--r-md); }
+  .hm-article-body { margin-top: 32px; }
+  .hm-prose { font-size: 16.5px; line-height: 1.75; }
+  .hm-prose h1, .hm-prose h2 { font-size: 22px; }
+  .hm-prose h3 { font-size: 19px; }
+  .hm-article-foot { margin-top: 48px; padding: 22px 20px; }
+  .hm-article-foot-actions, .hm-article-foot-actions .hm-btn { width: 100%; }
+  .hm-article-foot-actions .hm-btn { justify-content: center; }
+
+  .hm-contact { padding-top: 24px; }
+  .hm-help-list { grid-template-columns: minmax(0, 1fr); }
+
+  .hm-doc-head { padding-top: 28px; }
+  .hm-doc-notices { margin-bottom: 36px; }
+  .hm-doc-notice { grid-template-columns: minmax(0, 1fr); padding: 18px; }
+  .hm-doc-notice-ic { display: none; }
+  .hm-doc-notice > p.hm-doc-notice-title { padding-top: 0; }
+  .hm-legal { font-size: 15.5px; line-height: 1.78; }
+  .hm-legal h2 { margin-top: 56px; padding-top: 28px; }
+  .hm-legal h3 { font-size: 17px; }
+  .hm-legal ol { padding-left: 1.4em; }
+  .hm-legal .clause { padding: 18px; }
+  .hm-legal-callout { padding: 18px; }
+  .hm-legal-foot { margin-top: 56px; padding: 22px 20px; }
+  .hm-table-scroll table, .hm-legal .table-scroll table { font-size: 14px; }
+  .hm-table-scroll th, .hm-table-scroll td, .hm-legal .table-scroll th, .hm-legal .table-scroll td { padding: 10px 12px; }
+}
