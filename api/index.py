@@ -2606,7 +2606,7 @@ def handle_projects():
         db.session.add(new_project)
         db.session.commit()
         
-        defaults = ["Kick-off Meeting", "Gap Analysis", "Documentation", "Internal Audit", "Final Certification"]
+        defaults = DEFAULT_MILESTONE_TITLES
         for title in defaults:
             m = Milestone(project_id=new_project.id, title=title)
             db.session.add(m)
@@ -2706,7 +2706,7 @@ def sign_contract(project_id):
     
     # 계약 후 마일스톤이 없으면 생성
     if not project.milestones:
-        defaults = ["Kick-off Meeting", "Gap Analysis", "Documentation", "Internal Audit", "Final Certification"]
+        defaults = DEFAULT_MILESTONE_TITLES
         for title in defaults:
             m = Milestone(project_id=project.id, title=title)
             db.session.add(m)
@@ -2932,7 +2932,7 @@ def sign_contract_step(project_id):
         
         # 마일스톤 생성
         if not project.milestones:
-            defaults = ["Kick-off Meeting", "Gap Analysis", "Documentation", "Internal Audit", "Final Certification"]
+            defaults = DEFAULT_MILESTONE_TITLES
             for title in defaults:
                 m = Milestone(project_id=project.id, title=title)
                 db.session.add(m)
@@ -3507,6 +3507,15 @@ PROJECT_COMPLETABLE_STATUSES = ('contracted', 'in_progress')
 
 # 마일스톤에 허용되는 상태 (models.Milestone.status 주석과 동일)
 MILESTONE_STATUSES = ('pending', 'in_progress', 'completed')
+# 계약 시 자동으로 만드는 진행 단계 (PRD 5.6 '프로젝트 진행 – 라이트 버전'의 단계).
+# 예전 영어 기본값으로 만들어진 프로젝트는 models.Milestone.to_dict 가 한국어로 바꿔 보여 준다.
+DEFAULT_MILESTONE_TITLES = (
+    '진단·갭 분석',
+    '문서·절차 구축',
+    '법규·리스크 평가',
+    '내부심사·시정조치',
+    '경영검토·인증심사 준비',
+)
 
 
 @app.route('/api/projects/<int:project_id>/complete', methods=['POST'])

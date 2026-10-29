@@ -422,11 +422,20 @@ class Milestone(db.Model):
     title = db.Column(db.String(200), nullable=False)
     status = db.Column(db.String(50), default='pending') # pending, in_progress, completed
     due_date = db.Column(db.DateTime)
-    
+
+    # 2026-10 이전에 계약된 프로젝트는 영어 기본 단계명으로 저장돼 있다. DB 는 그대로 두고 보여 줄 때만 바꾼다.
+    LEGACY_TITLE_KO = {
+        'Kick-off Meeting': '착수 회의',
+        'Gap Analysis': '진단·갭 분석',
+        'Documentation': '문서·절차 구축',
+        'Internal Audit': '내부심사·시정조치',
+        'Final Certification': '인증심사',
+    }
+
     def to_dict(self):
         return {
             'id': self.id,
-            'title': self.title,
+            'title': self.LEGACY_TITLE_KO.get(self.title, self.title),
             'status': self.status,
             'due_date': self.due_date.isoformat() if self.due_date else None
         }
