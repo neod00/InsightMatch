@@ -421,6 +421,35 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertEqual(response.mimetype, 'application/pdf')
         self.assertEqual([log.action for log in AdminActionLog.query.all()], ['proposal_summary_view'])
 
+    def test_summary_pdf_embeds_korean_font(self):
+        """요약 제안서 PDF 는 저장소의 나눔고딕을 넣어 만든다.
+
+        예전에는 Windows 의 맑은 고딕만 찾아서 운영 서버(리눅스)에서는 Helvetica 로 찍혀 한글이 ■ 로 깨졌다.
+        """
+        self.project.proposal_message = '한글 메시지 ' * 40  # 폭 기준 줄바꿈도 함께 확인
+        db.session.commit()
+        response = self.client.get(
+            f'/api/projects/{self.project.id}/proposal/download',
+            headers=auth_headers(self.company),
+        )
+        self.assertEqual(response.status_code, 200)
+        pdf = response.get_data()
+        self.assertIn(b'NanumGothic', pdf)
+        self.assertNotIn(b'/BaseFont /Helvetica', pdf)
+
+    def test_summary_pdf_wraps_korean_text_within_page_width(self):
+        from reportlab.lib.pagesizes import letter
+        from reportlab.pdfbase import pdfmetrics
+        from services.proposal_service import ProposalService, BODY_FONT, _register_fonts
+
+        _register_fonts()
+        max_width = letter[0] - 120
+        lines = ProposalService()._wrap_text('가나다라마바사아자차카타파하' * 20 + '\n\n짧은 줄', max_width, BODY_FONT, 11)
+        self.assertGreater(len(lines), 3)
+        self.assertEqual(lines[-2:], ['', '짧은 줄'])
+        for line in lines:
+            self.assertLessEqual(pdfmetrics.stringWidth(line, BODY_FONT, 11), max_width)
+
     def test_proposal_signed_url_failure_returns_502_without_leaking_details(self):
         self._set_proposal_file()
 

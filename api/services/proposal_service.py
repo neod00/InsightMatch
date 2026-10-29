@@ -5,26 +5,36 @@ from reportlab.pdfbase.ttfonts import TTFont
 import os
 import io
 
+# 저장소에 함께 둔 나눔고딕(OFL, api/fonts/OFL.txt). 예전에는 Windows 의 맑은 고딕만 찾아서
+# 운영 서버(Vercel·리눅스)에서는 한글이 없는 Helvetica 로 찍혀 글자가 전부 ■ 로 깨졌다.
+FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'fonts')
+BODY_FONT = 'NanumGothic'
+TITLE_FONT = 'NanumGothic-Bold'
+
+
+def _register_fonts():
+    registered = pdfmetrics.getRegisteredFontNames()
+    for name, filename in ((BODY_FONT, 'NanumGothic-Regular.ttf'), (TITLE_FONT, 'NanumGothic-Bold.ttf')):
+        if name not in registered:
+            pdfmetrics.registerFont(TTFont(name, os.path.join(FONT_DIR, filename)))
+
+
 class ProposalService:
     def __init__(self):
-        # Register Korean font for Windows environment
-        self.font_name = "Helvetica"
-        font_path = r"C:\Windows\Fonts\malgun.ttf"
-        if os.path.exists(font_path):
-            try:
-                pdfmetrics.registerFont(TTFont('MalgunGothic', font_path))
-                self.font_name = "MalgunGothic"
-            except Exception as e:
-                print(f"Font registration error: {e}")
+        self.font_name = BODY_FONT
 
     def generate_proposal(self, project, consultant, company_name):
+        # 글꼴은 PDF 를 만들 때 등록한다. 앱 시작 시 등록하면 글꼴 파일이 빠졌을 때 API 전체가 뜨지 않는다.
+        # 파일이 없으면 깨진 PDF 를 조용히 내보내는 대신 이 요청만 오류로 드러난다.
+        _register_fonts()
         buffer = io.BytesIO()
-        c = canvas.Canvas(buffer, pagesize=letter)
+        # 기본 글꼴도 나눔고딕으로 둬서 한글이 없는 Helvetica 가 PDF 에 섞이지 않게 한다.
+        c = canvas.Canvas(buffer, pagesize=letter, initialFontName=BODY_FONT, initialFontSize=11)
         width, height = letter
 
         # Font setup
-        title_font = self.font_name + "-Bold" if self.font_name == "Helvetica" else self.font_name
-        body_font = self.font_name
+        title_font = TITLE_FONT
+        body_font = BODY_FONT
 
         # Header Section
         c.setFont(title_font, 24)
@@ -62,7 +72,7 @@ class ProposalService:
         
         # Text wrapping for message
         message = project.proposal_message or "제안 메시지가 없습니다."
-        msg_lines = self._wrap_text(message, 80)
+        msg_lines = self._wrap_text(message, width - 120, body_font, 11)
         for line in msg_lines:
             if y < 150: # Check for page break (simplified)
                 c.showPage()
@@ -96,17 +106,22 @@ class ProposalService:
         buffer.seek(0)
         return buffer
 
-    def _wrap_text(self, text, char_limit):
+    def _wrap_text(self, text, max_width, font_name, font_size):
+        """글자 수가 아니라 실제 폭으로 줄을 나눈다. 한글은 영문보다 넓어 글자 수 기준이면 종이 밖으로 넘친다."""
         lines = []
         if not text: return lines
         for p in text.split('\n'):
             if not p:
                 lines.append("")
                 continue
-            while len(p) > char_limit:
-                lines.append(p[:char_limit])
-                p = p[char_limit:]
-            lines.append(p)
+            line = ''
+            for ch in p:
+                if line and pdfmetrics.stringWidth(line + ch, font_name, font_size) > max_width:
+                    lines.append(line)
+                    line = ch
+                else:
+                    line += ch
+            lines.append(line)
         return lines
 
 
