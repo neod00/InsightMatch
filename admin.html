@@ -31,7 +31,7 @@
     <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
 
     <!-- B안 공통 스타일(15절 앱 셸 + 16절 관리자). style.css 는 로드하지 않는다. -->
-    <link rel="stylesheet" href="brand.css?v=5">
+    <link rel="stylesheet" href="brand.css?v=6">
 </head>
 
 <body class="hm-body hm-app hm-admin">
@@ -668,7 +668,9 @@
                 };
                 const response = await fetch(url, { ...options, headers });
                 if (response.status === 401) {
+                    // token 만 지우면 user 가 남아 로그인 상태로 오인되므로 둘 다 지운다 (대시보드와 같은 처리)
                     localStorage.removeItem('token');
+                    localStorage.removeItem('user');
                     window.location.href = 'login.html?redirect=admin.html';
                 } else if (response.status === 403) {
                     showNotification('관리자 권한이 필요합니다.', 'error');
@@ -1806,6 +1808,10 @@
                         statusClass = 'rejected';
                         statusText = '검증취소';
                         card.classList.add('is-rejected');
+                    } else if (status === 'withdrawn') {
+                        statusClass = 'rejected';
+                        statusText = '탈퇴';
+                        card.classList.add('is-rejected');
                     }
 
                     // Parse ISO experience
@@ -1840,7 +1846,15 @@
 
                     // Action buttons based on status
                     let actionButtons = '';
-                    if (status === 'rejected') {
+                    if (status === 'withdrawn') {
+                        // 탈퇴한 계정은 복구·승인 대상이 아니다. 기록만 볼 수 있게 한다.
+                        actionButtons = `
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="viewConsultantDetails(${cid})">
+                                <i data-lucide="eye"></i>
+                                상세 보기
+                            </button>
+                        `;
+                    } else if (status === 'rejected' || status === 'revoked') {
                         actionButtons = `
                             <button type="button" class="btn btn-secondary btn-sm" onclick="viewConsultantDetails(${cid})">
                                 <i data-lucide="eye"></i>
@@ -2270,6 +2284,16 @@
                     ? `<img src="${escapeAttr(safeProfileImage)}" alt="">`
                     : consultantInitial;
                 const cid = Number(consultant.id);
+                // 카드 목록과 같은 기준으로 상태를 정한다. verified 만 보면 거부·검증취소·탈퇴가 모두 '승인 대기'로 보인다.
+                const panelStatus = consultant.status || (consultant.verified ? 'verified' : 'pending');
+                const PANEL_STATUS = {
+                    verified: ['verified', '검증됨'],
+                    pending: ['pending', '승인 대기'],
+                    rejected: ['rejected', '거부됨'],
+                    revoked: ['rejected', '검증취소'],
+                    withdrawn: ['rejected', '탈퇴']
+                };
+                const [panelStatusClass, panelStatusText] = PANEL_STATUS[panelStatus] || PANEL_STATUS.pending;
                 // 값이 없으면 지어내지 않는다(예전: 신뢰 점수 50, 평점 0, 리뷰 0개로 채움)
                 const trustText = consultant.trustScore ? escapeHtml(String(consultant.trustScore)) : '—';
                 const ratingText = consultant.rating ? escapeHtml(String(consultant.rating)) : '—';
@@ -2283,8 +2307,8 @@
                         <p>${consultantSpecialty} 전문 · 경력 ${consultantExperience}</p>
                         ${consultantCompany ? `<p class="hm-panel-company"><i data-lucide="building-2"></i>${consultantCompany}</p>` : ''}
                     </div>
-                    <span class="consultant-approval-status ${consultant.verified ? 'verified' : 'pending'}">
-                        ${consultant.verified ? '검증됨' : '승인 대기'}
+                    <span class="consultant-approval-status ${panelStatusClass}">
+                        ${panelStatusText}
                     </span>
                 </div>
 
@@ -2405,16 +2429,21 @@
                     메일 보내기
                 </a>
                 ` : ''}
-                ${!consultant.verified ? `
+                ${panelStatus === 'pending' ? `
                     <button type="button" class="btn btn-primary is-grow" onclick="approveConsultant(${cid}); closeSidePanel();">
                         <i data-lucide="check-circle"></i>
                         검증 승인하기
                     </button>
-                ` : `
+                ` : panelStatus === 'verified' ? `
                     <button type="button" class="btn btn-danger-soft" onclick="revokeVerification(${cid}); closeSidePanel();">
                         검증 취소
                     </button>
-                `}
+                ` : panelStatus === 'rejected' || panelStatus === 'revoked' ? `
+                    <button type="button" class="btn btn-outline is-grow" onclick="restoreConsultant(${cid}); closeSidePanel();">
+                        <i data-lucide="rotate-ccw"></i>
+                        승인 대기로 복구
+                    </button>
+                ` : ''}
             `;
                 document.getElementById('panel-footer').innerHTML = footerHtml;
 
@@ -2519,7 +2548,7 @@
                                 </div>
                                 <div class="hm-ci-actions">
                                     <button type="button" class="btn btn-secondary btn-sm" onclick="viewConsultantDetails(${Number(p.consultant_id)})">프로필</button>
-                                    <button type="button" class="btn btn-secondary btn-sm">제안서</button>
+                                    ${p.proposal_price ? `<span class="hm-ci-proposal">제안 ${escapeHtml(Number(p.proposal_price).toLocaleString())}원</span>` : ''}
                                 </div>
                             </div>
                         `;

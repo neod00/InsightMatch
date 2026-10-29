@@ -2145,3 +2145,6 @@ a.hm-help-item:hover .go { transform: translateX(3px) rotate(-45deg); }
   .hm-admin .side-panel-footer .btn { flex: 1 1 auto; }
   .hm-admin .hm-panel-two, .hm-admin .hm-history-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* 16-11 매칭 요청 패널: 컨설턴트별 제안 금액 표시(버튼이 아니라 읽기 전용 값) */
+.hm-admin .hm-ci-actions .hm-ci-proposal { margin-left: auto; align-self: center; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary, #4a4b45); white-space: nowrap; }
