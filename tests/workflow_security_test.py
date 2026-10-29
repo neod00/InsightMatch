@@ -1189,6 +1189,36 @@ class TestWorkflowSecurity(unittest.TestCase):
         consultant.status = 'verified'
         db.session.commit()
 
+    def test_unlisted_consultant_detail_visible_to_project_company_admin_and_self_only(self):
+        """검증 전·취소된 컨설턴트도 견적을 주고받은 기업은 프로필을 볼 수 있어야 한다.
+
+        (대시보드 '프로필 보기'가 '컨설턴트 정보를 불러올 수 없습니다'로 실패하던 문제)
+        공개 목록 밖이므로 익명·무관한 기업·다른 컨설턴트에게는 계속 404.
+        """
+        self.consultant.verified = False
+        self.consultant.status = 'revoked'
+        outsider = User(email='outsider-c2@example.com', password_hash='x', role='consultant', name='Outsider')
+        db.session.add(outsider)
+        db.session.commit()
+        path = f'/api/consultants/{self.consultant.id}'
+
+        for headers, expected in (
+            ({}, 404),
+            (auth_headers(self.other_company), 404),
+            (auth_headers(outsider), 404),
+            (auth_headers(self.company), 200),          # self.project 의 기업
+            (auth_headers(self.admin_user), 200),
+            (auth_headers(self.consultant_user), 200),  # 본인
+        ):
+            response = self.client.get(path, headers=headers)
+            self.assertEqual(response.status_code, expected, headers)
+
+        # 프로젝트를 지운(soft delete) 기업은 더 이상 볼 수 없다
+        for p in (self.project, self.other_candidate):
+            p.deleted_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        db.session.commit()
+        self.assertEqual(self.client.get(path, headers=auth_headers(self.company)).status_code, 404)
+
     def test_consultant_detail_survives_plaintext_profile_fields(self):
         """등록 폼과 같은 '평문 여러 줄'로 등록해도 상세 조회가 200 이어야 한다.
 

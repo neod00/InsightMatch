@@ -1808,6 +1808,8 @@
                     }
                 `;
 
+                // 같은 모달을 '진행 현황'과 함께 쓰므로 제목을 매번 맞춘다.
+                setModalTitle('컨설턴트 프로필');
                 document.getElementById('consultant-modal').classList.remove('hidden');
                 lucide.createIcons();
 
@@ -1819,6 +1821,11 @@
 
         function closeModal() {
             document.getElementById('consultant-modal').classList.add('hidden');
+        }
+
+        function setModalTitle(text) {
+            document.querySelector('#consultant-modal .modal-header h3').textContent = text;
+            document.querySelector('#consultant-modal .modal-content').setAttribute('aria-label', text);
         }
 
         // 제안서 열기/내려받기. 파일 주소는 로그인 정보가 있어야 받을 수 있어(주소 이동만으로는 인증 헤더가 안 붙는다)
@@ -2161,9 +2168,102 @@
             }
         }
 
-        function viewProjectProgress(projectId) {
-            // TODO: 프로젝트 상세 페이지로 이동
-            showNotification('프로젝트 상세 페이지는 준비 중입니다.', 'info');
+        // --- 진행 현황 (계약 후 마일스톤) ---
+        // 기업·컨설턴트 모두 마일스톤 상태를 바꿀 수 있다(서버 권한: 프로젝트 당사자 양측, 계약 이후).
+        const MILESTONE_STATUS_TEXT = { pending: '대기', in_progress: '진행 중', completed: '완료' };
+        const SCHEDULE_STATUS_TEXT = { pending: '일정 미정', proposed: '일정 제안됨 (확인 대기)', confirmed: '일정 확정' };
+        let progressProjectId = null;
+
+        function renderProjectProgress(project) {
+            const milestones = Array.isArray(project.milestones) ? project.milestones : [];
+            const done = milestones.filter(m => m.status === 'completed').length;
+            const percent = milestones.length ? Math.round((done / milestones.length) * 100) : 0;
+            const editable = ['contracted', 'in_progress', 'completed'].includes(project.status);
+            const counterpart = user.role === 'consultant'
+                ? (project.company_name || '기업 고객')
+                : (project.consultant_name || '컨설턴트');
+
+            const rows = milestones.map(m => {
+                const status = MILESTONE_STATUS_TEXT[m.status] ? m.status : 'pending';
+                const due = m.due_date ? new Date(m.due_date).toLocaleDateString('ko-KR') : '날짜 미정';
+                const options = Object.entries(MILESTONE_STATUS_TEXT).map(([value, label]) =>
+                    `<option value="${value}" ${value === status ? 'selected' : ''}>${label}</option>`).join('');
+                return `
+                    <div class="milestone-schedule-item">
+                        <span>
+                            ${escapeHtml(m.title)}
+                            <small style="display:block;margin-top:2px;font-weight:400;color:var(--muted);">${escapeHtml(due)}</small>
+                        </span>
+                        <select aria-label="${escapeAttr(m.title)} 상태" ${editable ? '' : 'disabled'}
+                            onchange="updateMilestoneStatus(${Number(project.id)}, ${Number(m.id)}, this.value)"
+                            style="min-height:40px;padding:0 10px;border:1.5px solid var(--line);border-radius:12px;background:var(--white);font-size:14px;">
+                            ${options}
+                        </select>
+                    </div>`;
+            }).join('');
+
+            document.getElementById('modal-body').innerHTML = `
+                <div style="margin-bottom:20px;">
+                    <h4 style="margin:0 0 4px;font-size:18px;">${escapeHtml(project.title)}</h4>
+                    <p style="margin:0;color:var(--muted);font-size:14px;">${escapeHtml(counterpart)} · ${escapeHtml(SCHEDULE_STATUS_TEXT[project.schedule_status] || SCHEDULE_STATUS_TEXT.pending)}</p>
+                </div>
+                <div style="margin-bottom:20px;">
+                    <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:8px;">
+                        <span>진행률</span><strong>${percent}% (${done}/${milestones.length})</strong>
+                    </div>
+                    <div role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"
+                        style="height:10px;border-radius:999px;background:var(--line);overflow:hidden;">
+                        <div style="width:${percent}%;height:100%;background:var(--lime);"></div>
+                    </div>
+                </div>
+                ${milestones.length
+                    ? `<div>${rows}</div>
+                       <p style="margin:16px 0 0;font-size:13px;color:var(--muted);">단계를 시작하거나 마치면 상태를 바꿔 주세요. 상대방 화면에도 바로 반영됩니다.</p>`
+                    : '<p class="hm-empty-note">아직 마일스톤이 없습니다. 계약이 체결되면 기본 단계가 만들어집니다.</p>'}
+            `;
+        }
+
+        async function viewProjectProgress(projectId) {
+            progressProjectId = Number(projectId);
+            let project = (typeof allProjects !== 'undefined' ? allProjects : []).find(p => p.id === progressProjectId);
+            if (!project) {
+                try {
+                    const res = await authFetch(`${API_BASE_URL}/api/projects?user_id=${user.id}`);
+                    if (res.ok) project = (await res.json()).find(p => p.id === progressProjectId);
+                } catch (e) { /* 아래에서 안내 */ }
+            }
+            if (!project) {
+                showNotification('프로젝트 정보를 불러올 수 없습니다.', 'error');
+                return;
+            }
+            renderProjectProgress(project);
+            setModalTitle('진행 현황');
+            document.getElementById('consultant-modal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        async function updateMilestoneStatus(projectId, milestoneId, status) {
+            try {
+                const res = await authFetch(`${API_BASE_URL}/api/projects/${Number(projectId)}/milestones/${Number(milestoneId)}/status`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    showNotification(data.message || '상태를 바꾸지 못했습니다.', 'error');
+                } else {
+                    showNotification('진행 상태를 저장했습니다.', 'success');
+                }
+            } catch (error) {
+                showNotification('서버 연결에 실패했습니다.', 'error');
+            }
+            // 카드와 모달을 서버 값으로 다시 그린다(실패했으면 원래 값으로 되돌아간다).
+            await fetchProjects();
+            if (progressProjectId === Number(projectId)) {
+                const project = allProjects.find(p => p.id === Number(projectId));
+                if (project) renderProjectProgress(project);
+            }
         }
 
         function logout() {
@@ -2958,7 +3058,8 @@
 
         // 프로젝트 방 입장 (계약 후)
         window.enterProjectRoom = function (projectId) {
-            showNotification('프로젝트 관리 페이지는 준비 중입니다.', 'info');
+            // 컨설턴트의 '프로젝트 관리'도 같은 진행 현황(마일스톤) 화면을 연다.
+            viewProjectProgress(projectId);
         };
 
         // 내 제안 보기

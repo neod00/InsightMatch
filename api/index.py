@@ -4921,10 +4921,28 @@ def restore_consultant(consultant_id):
     return jsonify({'message': 'Consultant restored to pending', 'status': consultant.status})
 
 # --- Consultant Detail Endpoint ---
+def can_view_unlisted_consultant(consultant):
+    """공개 목록에 없는(검증 전·취소 등) 컨설턴트를 볼 수 있는 사람: 관리자, 본인,
+    그 컨설턴트와 프로젝트를 진행한(삭제되지 않은) 기업. 견적을 받은 기업이 상대 프로필을 못 보던 문제를 막는다."""
+    user = getattr(g, 'current_user', None)
+    if not user:
+        return False
+    if user.role == 'admin' or _same_id(consultant.user_id, user.id):
+        return True
+    if user.role != 'company':
+        return False
+    return db.session.query(Project.id).filter(
+        Project.consultant_id == consultant.id,
+        Project.company_id == user.id,
+        Project.deleted_at.is_(None),
+    ).first() is not None
+
+
 @app.route('/api/consultants/<int:consultant_id>', methods=['GET'])
+@token_optional
 def get_consultant_detail(consultant_id):
     consultant = Consultant.query.get_or_404(consultant_id)
-    if not (consultant.verified or consultant.status == 'verified'):
+    if not (consultant.verified or consultant.status == 'verified') and not can_view_unlisted_consultant(consultant):
         return jsonify({'message': 'Consultant not found'}), 404
     
     return jsonify({
