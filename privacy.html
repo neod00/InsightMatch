@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
     <title>개인정보처리방침 - InsightMatch</title>
     <meta name="description" content="InsightMatch가 처리하는 개인정보 항목, 이용 목적, 보유 기간, 위탁·국외 이전, 정보주체의 권리를 안내합니다.">
     <meta name="robots" content="noindex">
@@ -13,219 +14,121 @@
     <link rel="icon" type="image/png" sizes="16x16" href="images/logo2.png">
     <link rel="apple-touch-icon" href="images/logo2.png">
 
-    <!-- Google Fonts: Noto Serif KR & Noto Sans KR -->
+    <!-- B안은 라이트 전용. 예전 테마 토글이 남긴 localStorage.theme='dark' 가 있어도 어둡게 열지 않는다. -->
+    <script>
+        document.documentElement.classList.remove('dark');
+    </script>
+
+    <!-- Fonts: Pretendard + DM Sans (메인페이지와 동일) -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@400;600;700&display=swap"
-        rel="stylesheet">
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,500;9..40,600;9..40,700;9..40,800&display=swap">
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        serif: ['"Noto Serif KR"', 'serif'],
-                        sans: ['"Noto Sans KR"', 'sans-serif'],
-                    },
-                    colors: {
-                        brand: {
-                            paper: '#Fdfcf7',
-                            ink: '#1A1A1A',
-                            navy: '#112233',
-                            gold: '#C5A880',
-                            stone: '#EAE6DF',
-                            darkBg: '#0F0F11',
-                            darkSurface: '#161619',
-                            darkText: '#E0E0E0',
-                            darkMuted: '#9CA3AF',
-                            darkBorder: '#27272A'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style type="text/tailwindcss">
-        .texture-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            opacity: 0.03;
-            pointer-events: none;
-            z-index: 50;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-        }
-        .dark .texture-overlay { opacity: 0.015; }
-
-        .editorial-border-t { @apply border-t border-brand-stone; }
-        .editorial-border-b { @apply border-b border-brand-stone; }
-        .dark .editorial-border-t { @apply border-brand-darkBorder; }
-        .dark .editorial-border-b { @apply border-brand-darkBorder; }
-
-        body { margin: 0; padding: 0; }
-
-        .desktop-only { display: none; }
-        @media (min-width: 768px) {
-            .desktop-only { display: flex !important; }
-        }
-
-        /* ── 법률 문서 본문 타이포그래피 ── */
-        .legal h2 { @apply font-serif text-2xl md:text-3xl font-bold mt-16 mb-6 pt-8 editorial-border-t; }
-        .legal h2:first-child { @apply mt-0 pt-0 border-t-0; }
-        .legal h3 { @apply font-serif text-lg md:text-xl font-bold mt-10 mb-3; }
-        .legal p { @apply text-[0.95rem] leading-[1.9] font-light text-brand-ink/80 dark:text-brand-darkMuted mb-4; }
-        .legal ul, .legal ol { @apply mb-5 pl-6 space-y-2; }
-        .legal li { @apply text-[0.95rem] leading-[1.9] font-light text-brand-ink/80 dark:text-brand-darkMuted; }
-        .legal ol { list-style: decimal; }
-        .legal ul { list-style: disc; }
-        .legal strong { @apply font-bold text-brand-ink dark:text-brand-darkText; }
-        .legal a { @apply text-brand-gold underline underline-offset-2 hover:opacity-70 transition-opacity; }
-        .legal table { @apply w-full text-sm border-collapse my-6; min-width: 520px; }
-        .legal th, .legal td { @apply border border-brand-stone dark:border-brand-darkBorder px-3 py-2.5 text-left align-top font-light leading-relaxed text-brand-ink/80 dark:text-brand-darkMuted; }
-        .legal th { @apply bg-brand-stone/40 dark:bg-brand-darkSurface font-bold text-brand-ink dark:text-brand-darkText whitespace-nowrap; }
-        .legal .table-scroll { @apply overflow-x-auto -mx-6 px-6 md:mx-0 md:px-0; }
-
-        /* 확인이 필요한 미확정 값 */
-        .ph {
-            @apply inline-block bg-amber-200 text-amber-950 dark:bg-amber-500/25 dark:text-amber-200
-                   px-1.5 py-0.5 rounded text-[0.85em] font-medium not-italic;
-        }
-    </style>
-
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-
-    <!-- Legacy Styles (kept for compatibility) -->
-    <link rel="stylesheet" href="style.css">
+    <!-- B안 공통 스타일(14절: 법률 문서 레이아웃). Tailwind CDN·style.css·lucide 는 로드하지 않는다(아이콘은 인라인 SVG). -->
+    <link rel="stylesheet" href="brand.css?v=3">
 </head>
 
-<body
-    class="font-sans antialiased bg-brand-paper text-brand-ink dark:bg-brand-darkBg dark:text-brand-darkText transition-colors duration-400 break-keep">
+<body class="hm-body">
+    <a class="hm-skip" href="#main">본문으로 건너뛰기</a>
 
-    <div class="texture-overlay"></div>
-
-    <!-- Editorial Header -->
-    <header
-        class="w-full px-6 py-6 md:px-12 flex justify-between items-center editorial-border-b sticky top-0 bg-brand-paper/90 dark:bg-brand-darkBg/90 backdrop-blur-sm z-40 transition-colors duration-400">
-        <a href="index.html"
-            class="font-serif text-xl md:text-2xl font-bold tracking-tight hover:text-brand-gold transition-colors">InsightMatch.</a>
-        <nav class="desktop-only space-x-10 text-sm font-medium text-brand-ink/80 dark:text-brand-darkMuted">
-            <a href="index.html" class="hover:text-brand-ink dark:hover:text-white transition-colors">홈</a>
-            <a href="index.html#how-it-works"
-                class="hover:text-brand-ink dark:hover:text-white transition-colors">프로세스</a>
-            <a href="index.html#diagnosis" class="hover:text-brand-ink dark:hover:text-white transition-colors">무료
-                상담</a>
-            <a href="blog.html" class="hover:text-brand-ink dark:hover:text-white transition-colors">블로그</a>
-            <a href="index.html#faq" class="hover:text-brand-ink dark:hover:text-white transition-colors">FAQ</a>
-        </nav>
-        <div class="flex items-center gap-4">
-            <!-- Theme Toggle Button -->
-            <button id="theme-toggle" class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-                aria-label="Toggle Dark Mode">
-                <svg id="theme-toggle-light-icon" class="hidden w-5 h-5 text-yellow-500" fill="currentColor"
-                    viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                    <path fill-rule="evenodd"
-                        d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 3.22a1 1 0 011.415 0l.708.707a1 1 0 01-1.414 1.414l-.708-.707a1 1 0 010-1.414zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zm-3.22 4.22a1 1 0 010 1.415l-.707.708a1 1 0 01-1.414-1.414l.707-.708a1 1 0 011.415 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.22-3.22a1 1 0 01-1.415 0l-.708-.707a1 1 0 011.414-1.414l.708.707a1 1 0 010 1.414zM2 10a1 1 0 011-1h1a1 1 0 110 2H3a1 1 0 01-1-1zm3.22-4.22a1 1 0 010-1.415l.707-.708a1 1 0 011.414 1.414l-.707.708a1 1 0 01-1.415 0zM10 6a4 4 0 100 8 4 4 0 000-8z"
-                        clip-rule="evenodd"></path>
-                </svg>
-                <svg id="theme-toggle-dark-icon" class="w-5 h-5 text-gray-700" fill="currentColor" viewBox="0 0 20 20"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
-                </svg>
-            </button>
-            <div id="nav-actions" class="desktop-only gap-3">
-                <a href="login.html"
-                    class="text-sm font-medium px-4 py-2 hover:text-brand-gold transition-colors dark:text-brand-darkMuted dark:hover:text-white">로그인</a>
-                <a href="index.html#diagnosis"
-                    class="text-sm font-bold px-6 py-2 border border-brand-ink dark:border-brand-darkBorder dark:text-brand-darkText hover:bg-brand-ink hover:text-brand-paper dark:hover:bg-brand-darkBorder dark:hover:text-white transition-all">도입
-                    문의</a>
+    <!-- Header -->
+    <header class="hm-header hm-header-wide">
+        <div class="hm-wrap">
+            <div class="hm-header-row">
+                <a class="hm-logo" href="index.html" aria-label="InsightMatch 메인으로">Insight<span class="hm-logo-dot" aria-hidden="true"></span>Match</a>
+                <nav class="hm-nav" aria-label="주요 메뉴">
+                    <a href="index.html#diagnosis">ISO 진단</a>
+                    <a href="index.html#how-it-works">작동 방식</a>
+                    <a href="index.html#verify">검증 기준</a>
+                    <a href="index.html#faq">FAQ</a>
+                    <a href="blog.html">블로그</a>
+                    <a href="contact.html">문의하기</a>
+                </nav>
+                <div class="hm-header-actions">
+                    <!-- 로그인 상태면 아래 스크립트(updateNavigation)가 내용을 바꾼다 -->
+                    <div id="nav-actions" class="hm-nav-actions">
+                        <a class="hm-acc" href="login.html">로그인</a>
+                        <a class="hm-acc hm-acc-outline" href="consultant_register.html">컨설턴트 등록</a>
+                    </div>
+                    <a class="hm-btn hm-btn-lime hm-header-cta" href="index.html#diagnosis">무료 매칭 시작<span class="hm-arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+                    <button class="hm-menu-btn" id="mobile-menu-btn" type="button" aria-controls="mobile-nav" aria-label="메뉴 열기"><span></span></button>
+                </div>
             </div>
-
-            <!-- Mobile Menu Button -->
-            <button class="md:hidden p-2 text-brand-ink dark:text-brand-darkText" id="mobile-menu-btn"
-                aria-label="메뉴 열기">
-                <i data-lucide="menu"></i>
-            </button>
         </div>
     </header>
 
-    <!-- Mobile Navigation Overlay -->
-    <div class="fixed inset-0 bg-brand-paper/95 dark:bg-brand-darkBg/95 backdrop-blur-md z-50 flex flex-col justify-center items-center gap-8 text-xl font-medium opacity-0 pointer-events-none transition-opacity duration-300"
-        id="mobile-nav">
-        <button class="absolute top-6 right-6 p-2 text-brand-ink dark:text-white" id="close-mobile-nav">
-            <i data-lucide="x"></i>
-        </button>
-        <a href="index.html" class="mobile-nav-link hover:text-brand-gold transition-colors dark:text-white">홈</a>
-        <a href="index.html#how-it-works"
-            class="mobile-nav-link hover:text-brand-gold transition-colors dark:text-white">프로세스</a>
-        <a href="index.html#diagnosis"
-            class="mobile-nav-link hover:text-brand-gold transition-colors dark:text-white">무료 상담</a>
-        <a href="blog.html" class="mobile-nav-link hover:text-brand-gold transition-colors dark:text-white">블로그</a>
-        <a href="index.html#faq" class="mobile-nav-link hover:text-brand-gold transition-colors dark:text-white">FAQ</a>
-        <div class="h-px w-32 bg-brand-stone dark:bg-brand-darkBorder my-4"></div>
-        <div class="flex flex-col w-full max-w-xs gap-4" id="mobile-nav-actions">
-            <a href="login.html"
-                class="text-center py-3 border border-brand-stone dark:border-brand-darkBorder hover:bg-black/5 dark:hover:bg-white/5 transition-colors dark:text-white">로그인</a>
-            <a href="index.html#diagnosis"
-                class="text-center py-3 bg-brand-ink text-brand-paper dark:bg-white dark:text-brand-darkBg font-bold">도입
-                문의</a>
+    <!-- 모바일 메뉴 (닫힘 = opacity-0 + pointer-events-none, 아래 스크립트가 토글) -->
+    <nav class="hm-mnav hm-mnav-fade opacity-0 pointer-events-none" id="mobile-nav" aria-label="모바일 메뉴">
+        <div class="hm-mnav-inner">
+            <a href="index.html#diagnosis" class="mobile-nav-link">ISO 진단</a>
+            <a href="index.html#how-it-works" class="mobile-nav-link">작동 방식</a>
+            <a href="index.html#verify" class="mobile-nav-link">검증 기준</a>
+            <a href="index.html#faq" class="mobile-nav-link">FAQ</a>
+            <a href="blog.html" class="mobile-nav-link">블로그</a>
+            <a href="contact.html" class="mobile-nav-link">문의하기</a>
+            <div class="hm-mnav-actions" id="mobile-nav-actions">
+                <a href="login.html">로그인</a>
+                <a href="index.html#diagnosis" class="is-primary">무료 매칭 시작</a>
+            </div>
+            <button class="hm-mnav-close" id="close-mobile-nav" type="button">메뉴 닫기</button>
         </div>
-    </div>
+    </nav>
 
-    <!-- Page Header -->
-    <section class="w-full px-6 md:px-12 pt-16 md:pt-24 pb-8 max-w-[860px] mx-auto">
-        <p class="text-sm font-bold text-brand-gold tracking-wide mb-4">LEGAL</p>
-        <h1 class="font-serif text-4xl md:text-5xl font-bold tracking-tight mb-6">개인정보처리방침</h1>
-        <div class="flex flex-wrap gap-x-6 gap-y-2 text-sm text-brand-ink/50 dark:text-brand-darkMuted font-light">
-            <span>버전 <strong class="font-medium text-brand-ink/70 dark:text-brand-darkText">1.0 (초안)</strong></span>
-            <span>시행일 <span class="ph">시행일 — 확인 필요</span></span>
-        </div>
-    </section>
+    <main id="main">
+        <!-- 문서 머리: 제목 · 버전 · 시행일 (문구는 원문 그대로) -->
+        <section class="hm-wrap hm-doc-head" aria-labelledby="doc-title">
+            <span class="hm-eyebrow">LEGAL</span>
+            <h1 class="hm-h1" id="doc-title">개인정보처리방침</h1>
+            <div class="hm-doc-meta">
+                <span>버전 <strong>1.0 (초안)</strong></span>
+                <span>시행일 <span class="ph">시행일 — 확인 필요</span></span>
+            </div>
+        </section>
 
-    <!-- Draft Notice -->
-    <section class="w-full px-6 md:px-12 max-w-[860px] mx-auto">
-        <div
-            class="border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-500/10 px-5 py-4 md:px-6 md:py-5 rounded-r-md">
-            <p class="flex items-start gap-2.5 font-bold text-amber-900 dark:text-amber-300 mb-2 text-[0.95rem]">
-                <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0 mt-0.5"></i>
-                <span>법률 전문가 검토 전 초안입니다</span>
-            </p>
-            <p class="text-sm leading-relaxed font-light text-amber-900/80 dark:text-amber-200/80">
-                이 문서는 변호사의 검토를 받지 않은 <strong class="font-bold">내부 초안</strong>입니다.
-                기재된 처리 내용은 <strong class="font-bold">2026년 8월 기준 실제 서비스 코드를 확인하여 작성</strong>하였으나,
+        <div class="hm-wrap">
+            <div class="hm-doc">
+                <!-- 목차: 데스크톱은 왼쪽 고정, 1023px 이하는 헤더 아래 접히는 띠 -->
+                <nav class="hm-doc-toc" id="doc-toc" aria-labelledby="toc-title">
+                    <button class="hm-doc-toc-toggle" id="toc-toggle" type="button" aria-expanded="false" aria-controls="toc-list"><span class="lbl" aria-hidden="true">목차</span><span class="cur" id="toc-current">1. 처리하는 개인정보 항목과 수집 방법</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+                    <h2 class="hm-doc-toc-title" id="toc-title">목차</h2>
+                    <ol id="toc-list">
+                        <li><a href="#items">1. 처리하는 개인정보 항목과 수집 방법</a></li>
+                        <li><a href="#purpose">2. 개인정보의 처리 목적</a></li>
+                        <li><a href="#retention">3. 처리 및 보유 기간</a></li>
+                        <li><a href="#thirdparty">4. 개인정보의 제3자 제공</a></li>
+                        <li><a href="#entrust">5. 개인정보 처리업무의 위탁</a></li>
+                        <li><a href="#overseas">6. 개인정보의 국외 이전</a></li>
+                        <li><a href="#destroy">7. 개인정보의 파기</a></li>
+                        <li><a href="#rights">8. 정보주체의 권리와 행사 방법</a></li>
+                        <li><a href="#security">9. 안전성 확보 조치</a></li>
+                        <li><a href="#cookies">10. 자동 수집 장치(쿠키)</a></li>
+                        <li><a href="#officer">11. 개인정보 보호책임자</a></li>
+                        <li><a href="#remedy">12. 권익침해 구제 방법</a></li>
+                        <li><a href="#change">13. 처리방침의 변경</a></li>
+                    </ol>
+                </nav>
+
+                <div class="hm-doc-main">
+                    <!-- 검토 전 초안 안내 (문구는 원문 그대로) -->
+                    <div class="hm-doc-notices">
+                    <div class="hm-doc-notice is-warn">
+                        <span class="hm-doc-notice-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>
+                        <p class="hm-doc-notice-title"><span>법률 전문가 검토 전 초안입니다</span></p>
+                        <p>
+                이 문서는 변호사의 검토를 받지 않은 <strong>내부 초안</strong>입니다.
+                기재된 처리 내용은 <strong>2026년 8월 기준 실제 서비스 코드를 확인하여 작성</strong>하였으나,
                 법령상 요구되는 형식·문구의 적합성은 검토를 거쳐 확정됩니다.
                 <span class="ph">이렇게 표시된 부분</span>은 아직 확인되지 않은 값으로, 게시 전에 반드시 채워야 합니다.
             </p>
-        </div>
-    </section>
+                    </div>
+                    </div>
 
-    <!-- Table of Contents -->
-    <section class="w-full px-6 md:px-12 pt-10 max-w-[860px] mx-auto">
-        <nav class="border border-brand-stone dark:border-brand-darkBorder p-6 md:p-7">
-            <h2 class="font-serif text-base font-bold mb-4">목차</h2>
-            <ol class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm font-light">
-                <li><a href="#items" class="hover:text-brand-gold transition-colors">1. 처리하는 개인정보 항목과 수집 방법</a></li>
-                <li><a href="#purpose" class="hover:text-brand-gold transition-colors">2. 개인정보의 처리 목적</a></li>
-                <li><a href="#retention" class="hover:text-brand-gold transition-colors">3. 처리 및 보유 기간</a></li>
-                <li><a href="#thirdparty" class="hover:text-brand-gold transition-colors">4. 개인정보의 제3자 제공</a></li>
-                <li><a href="#entrust" class="hover:text-brand-gold transition-colors">5. 개인정보 처리업무의 위탁</a></li>
-                <li><a href="#overseas" class="hover:text-brand-gold transition-colors">6. 개인정보의 국외 이전</a></li>
-                <li><a href="#destroy" class="hover:text-brand-gold transition-colors">7. 개인정보의 파기</a></li>
-                <li><a href="#rights" class="hover:text-brand-gold transition-colors">8. 정보주체의 권리와 행사 방법</a></li>
-                <li><a href="#security" class="hover:text-brand-gold transition-colors">9. 안전성 확보 조치</a></li>
-                <li><a href="#cookies" class="hover:text-brand-gold transition-colors">10. 자동 수집 장치(쿠키)</a></li>
-                <li><a href="#officer" class="hover:text-brand-gold transition-colors">11. 개인정보 보호책임자</a></li>
-                <li><a href="#remedy" class="hover:text-brand-gold transition-colors">12. 권익침해 구제 방법</a></li>
-                <li><a href="#change" class="hover:text-brand-gold transition-colors">13. 처리방침의 변경</a></li>
-            </ol>
-        </nav>
-    </section>
-
-    <!-- Body -->
-    <article class="legal w-full px-6 md:px-12 py-12 md:py-16 max-w-[860px] mx-auto">
+                    <!-- Body: 조항 마크업·문구는 원문 그대로, class 만 B안으로 바꿨다 -->
+                    <article class="legal hm-legal">
 
         <p>
             <span class="ph">NGB컨설팅 정식 법인명 — 확인 필요</span>(이하 "회사")는 ISO 인증 컨설턴트 매칭 플랫폼
@@ -264,7 +167,7 @@
                 </tbody>
             </table>
         </div>
-        <p class="!text-sm">
+        <p class="is-small">
             휴대폰 번호는 <strong>아이디(이메일) 찾기</strong> 기능에 사용됩니다.
         </p>
 
@@ -303,7 +206,7 @@
                 </tbody>
             </table>
         </div>
-        <p class="!text-sm">
+        <p class="is-small">
             <strong>계좌번호와 사업자등록번호</strong>는 프로젝트 완료 후 용역 대금을 지급하고 세금계산서를 처리하기 위해 수집하며,
             서비스의 공개 화면과 공개 API 응답에는 <strong>노출되지 않습니다</strong>(계좌번호는 뒤 4자리를 제외하고 가려서 표시).
         </p>
@@ -385,7 +288,7 @@
                 </tbody>
             </table>
         </div>
-        <p class="!text-sm">
+        <p class="is-small">
             오류 기록에는 <strong>요청 본문·헤더·쿠키·쿼리스트링을 저장하지 않습니다.</strong>
             비밀번호나 인증 토큰이 로그에 남지 않도록 설계상 제외하고 있습니다.
         </p>
@@ -523,7 +426,7 @@
                 </tbody>
             </table>
         </div>
-        <p class="!text-sm">
+        <p class="is-small">
             <span class="ph">컨설턴트회원에 대한 정보 이전을 "처리위탁"으로 볼지 "제3자 제공"으로 볼지는 법률 검토 후 확정 필요 — 계약 구조상 위탁으로 기재하였음</span>
         </p>
         <p>
@@ -565,7 +468,7 @@
                 </tbody>
             </table>
         </div>
-        <p class="!text-sm">
+        <p class="is-small">
             이전받는 자의 개인정보 보호책임자 연락처 등 「개인정보 보호법」 제28조의8이 요구하는 세부 고지사항은
             <span class="ph">국외 이전 고지 항목 보완 — 법률 검토 필요</span>.
         </p>
@@ -573,8 +476,8 @@
             정보주체는 국외 이전을 거부할 수 있습니다. 다만 거부하는 경우 해당 기능(특히 ISO 매뉴얼 생성)이나
             서비스 전부를 이용할 수 없습니다.
         </p>
-        <p class="!text-sm">
-            <strong>참고:</strong> 서비스 화면은 글꼴(Google Fonts), 아이콘·스타일 라이브러리(unpkg, Tailwind CDN),
+        <p class="is-small">
+            <strong>참고:</strong> 서비스 화면은 글꼴(Google Fonts, jsDelivr), 아이콘·스타일·보안 라이브러리(jsDelivr, unpkg, Tailwind CDN),
             일부 이미지(Unsplash)를 외부 서버에서 불러옵니다. 이 경우 이용자의 브라우저가 해당 서버에 직접 접속하므로
             IP 주소와 브라우저 정보가 그 사업자에게 전달될 수 있습니다. 회사는 이 과정에서 어떠한 정보도 수집하지 않습니다.
         </p>
@@ -596,9 +499,12 @@
             <li>회원은 로그인 후 프로필 화면에서 자신의 정보 중 일부를 직접 확인·수정할 수 있습니다.
                 컨설턴트회원의 주요 프로필 항목은 회사의 검토를 거쳐 반영됩니다.</li>
             <li>
-                <strong>회원 탈퇴 및 계정 삭제는 현재 서비스 화면에서 직접 처리할 수 없습니다.</strong>
-                탈퇴 또는 계정·개인정보의 삭제를 원하시는 경우
-                가입하신 이메일 주소로 <a href="mailto:openbrain.main@gmail.com">openbrain.main@gmail.com</a>에 요청해 주시기 바랍니다.
+                <strong>회원은 로그인 후 대시보드의 회원 탈퇴 메뉴에서 비밀번호를 다시 입력하여 직접 탈퇴할 수 있습니다.</strong>
+                진행 중인 프로젝트가 있으면 해당 프로젝트를 완료하거나 취소한 뒤 탈퇴할 수 있습니다.
+                탈퇴하면 계정의 이름·이메일·연락처는 즉시 익명 처리되고, 컨설턴트회원의 프로필 정보와 정산 계좌 정보는 삭제됩니다.
+                다만 상대방의 거래 기록을 유지하기 위해 회사명(법인명)은 남을 수 있습니다.
+                화면에서 탈퇴하기 어렵거나 계정·개인정보의 삭제를 따로 요청하려는 경우
+                가입하신 이메일 주소로 <a href="mailto:openbrain.main@gmail.com">openbrain.main@gmail.com</a>에 요청하실 수 있으며,
                 회사는 본인 확인 후 처리하고 그 결과를 통지합니다.
             </li>
             <li>로그인 없이 제출한 <strong>매칭 설문의 삭제</strong>도 같은 이메일 주소로 요청하실 수 있습니다.
@@ -623,7 +529,7 @@
             <li><strong>업로드 제한</strong> — 제안서 파일은 PDF·DOC·DOCX 형식으로, 업로드 용량은 파일당 50MB로 제한합니다.</li>
             <li><strong>전송 구간 암호화</strong> — 서비스는 HTTPS를 통해 제공되어 전송 구간이 암호화됩니다.</li>
         </ol>
-        <p class="!text-sm">
+        <p class="is-small">
             <strong>안내:</strong> 프로필 이미지와 제안서 파일은 외부 저장소의 공개 경로에 보관되므로,
             해당 파일의 주소(URL)를 알고 있는 사람은 로그인 없이도 파일에 접근할 수 있습니다.
             제안서에 불필요한 개인정보를 포함하지 않도록 유의하여 주시기 바랍니다.
@@ -634,8 +540,9 @@
             <li><strong>회사는 서비스 운영을 위한 쿠키를 사용하지 않습니다.</strong></li>
             <li>회사는 구글 애널리틱스 등 <strong>제3자 행태정보 분석·광고 도구를 사용하지 않으며</strong>,
                 이용자의 행태정보를 수집하여 맞춤형 광고에 활용하지 않습니다.</li>
-            <li>로그인 상태 유지와 화면 테마(밝게·어둡게) 설정을 위해 이용자의 브라우저 저장 공간(localStorage)에
-                인증 토큰, 회원 표시 정보, 테마 설정값, 최근 매칭 결과를 저장합니다.
+            <li>로그인 상태 유지와 최근 매칭 결과 다시 보기를 위해 이용자의 브라우저 저장 공간(localStorage)에
+                인증 토큰, 회원 표시 정보, 최근 매칭 결과와 그 조회 시각을 저장합니다.
+                컨설턴트 초대 링크로 접속한 경우에는 등록을 마칠 때까지 초대 코드를 브라우저 세션 저장 공간(sessionStorage)에 임시로 보관합니다.
                 이 정보는 이용자의 기기에만 저장되며, 브라우저의 사이트 데이터 삭제 기능으로 언제든지 지울 수 있습니다.
                 삭제하면 로그인이 해제됩니다.</li>
         </ol>
@@ -726,95 +633,75 @@
             <li>회사는 이전 버전의 처리방침을 별도로 보존하여, 어느 시점에 어떤 내용이 적용되었는지 확인할 수 있도록 합니다.</li>
         </ol>
 
-        <div class="mt-16 pt-8 editorial-border-t">
-            <h3 class="!mt-0">문의</h3>
+        <div class="hm-legal-foot">
+            <h3>문의</h3>
             <p>
                 개인정보 처리에 관한 문의는 <a href="mailto:openbrain.main@gmail.com">openbrain.main@gmail.com</a>으로 보내주시기 바랍니다.
             </p>
-            <p class="!text-sm">
+            <p class="is-small">
                 관련 문서:
                 <a href="terms.html" target="_blank" rel="noopener">이용약관</a> ·
                 <a href="partner-agreement.html" target="_blank" rel="noopener">컨설턴트 기본 협력계약 v1.0</a>
             </p>
         </div>
     </article>
-
-    <!-- Editorial Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <div class="logo">
-                        <img src="images/logo2.png" alt="InsightMatch" class="logo-image"
-                            style="width:32px; height:32px;">
-                        <div class="logo-text">
-                            <span>InsightMatch</span>
-                            <span>by OpenBrain</span>
-                        </div>
-                    </div>
-                    <p>기업 맞춤형 ISO 컨설턴트 소개 플랫폼. 복잡한 인증 준비를 쉽고 빠르게.</p>
-                </div>
-
-                <div class="footer-links">
-                    <div class="footer-column">
-                        <h4>서비스</h4>
-                        <a href="index.html#diagnosis">컨설턴트 소개</a>
-                        <a href="index.html#how-it-works">프로세스 안내</a>
-                        <a href="consultant_register.html">컨설턴트 등록</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>지원</h4>
-                        <a href="index.html#faq">자주 묻는 질문</a>
-                        <a href="blog.html">블로그</a>
-                        <a href="mailto:openbrain.main@gmail.com">문의하기</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>법적 고지</h4>
-                        <a href="terms.html">이용약관</a>
-                        <a href="privacy.html">개인정보처리방침</a>
-                        <a href="partner-agreement.html">컨설턴트 협력계약</a>
-                    </div>
                 </div>
             </div>
+        </div>
+    </main>
 
-            <div class="footer-bottom">
-                <span>© 2025 OpenBrain Limited. All rights reserved.</span>
-                <span>InsightMatch - ISO Consultant Matching Platform</span>
+    <!-- Footer (메인과 같은 다크 푸터) -->
+    <footer class="hm-footer hm-on-dark is-spaced">
+        <div class="hm-wrap">
+            <div class="hm-foot-top">
+                <div>
+                    <div class="hm-foot-brand">Insight<span class="hm-logo-dot" aria-hidden="true"></span>Match<small>by OpenBrain</small></div>
+                    <p>InsightMatch는 ISO 인증을 준비하는 기업과 검증된 컨설턴트를 연결하는 매칭 플랫폼입니다. 심사는 인정받은 인증기관이 수행합니다.</p>
+                </div>
+                <div>
+                    <h4>SERVICE</h4>
+                    <ul>
+                        <li><a href="index.html#diagnosis">컨설턴트 소개</a></li>
+                        <li><a href="index.html#how-it-works">프로세스 안내</a></li>
+                        <li><a href="index.html#verify">검증 기준</a></li>
+                        <li><a href="index.html#iso-catalog">규격</a></li>
+                        <li><a href="ai-manual.html">AI 매뉴얼</a></li>
+                        <li><a href="consultant_register.html">컨설턴트 등록</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>SUPPORT</h4>
+                    <ul>
+                        <li><a href="index.html#faq">자주 묻는 질문</a></li>
+                        <li><a href="consultant-faq.html">전문가 FAQ</a></li>
+                        <li><a href="blog.html">블로그</a></li>
+                        <li><a href="contact.html">문의하기</a></li>
+                        <li><a href="login.html">로그인</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>LEGAL</h4>
+                    <ul>
+                        <li><a href="terms.html">이용약관</a></li>
+                        <li><a href="privacy.html">개인정보처리방침</a></li>
+                        <li><a href="partner-agreement.html">컨설턴트 협력계약</a></li>
+                    </ul>
+                </div>
             </div>
+            <div class="hm-wordmark" aria-hidden="true">Insight<span class="hm-logo-dot"></span>Match</div>
+            <div class="hm-foot-bottom"><span>© 2026 OpenBrain Limited. All rights reserved.</span><span>InsightMatch - ISO Consultant Matching Platform</span></div>
         </div>
     </footer>
 
     <script>
-        lucide.createIcons();
+        // 테마(다크) 토글은 B안이 라이트 전용이라 제거했다. (head 에서 .dark 를 항상 걷어 낸다)
 
-        // -----------------------------------------------------------
-        // Theme Toggle (Dark/Light Mode)
-        // -----------------------------------------------------------
-        const themeToggleBtn = document.getElementById('theme-toggle');
-        const lightIcon = document.getElementById('theme-toggle-light-icon');
-        const darkIcon = document.getElementById('theme-toggle-dark-icon');
-
-        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-            darkIcon.classList.add('hidden');
-            lightIcon.classList.remove('hidden');
-        } else {
-            document.documentElement.classList.remove('dark');
-            lightIcon.classList.add('hidden');
-            darkIcon.classList.remove('hidden');
-        }
-
-        themeToggleBtn.addEventListener('click', function () {
-            darkIcon.classList.toggle('hidden');
-            lightIcon.classList.toggle('hidden');
-            if (document.documentElement.classList.contains('dark')) {
-                document.documentElement.classList.remove('dark');
-                localStorage.theme = 'light';
-            } else {
-                document.documentElement.classList.add('dark');
-                localStorage.theme = 'dark';
-            }
-        });
+        // 인라인 SVG 아이콘 (lucide 의존 제거)
+        const ICON_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+        const ICONS = {
+            dashboard: `<svg ${ICON_ATTRS}><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>`,
+            logout: `<svg ${ICON_ATTRS}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>`
+        };
 
         // -----------------------------------------------------------
         // Mobile Navigation
@@ -837,15 +724,17 @@
         closeMobileNavBtn.addEventListener('click', closeMobileMenu);
         mobileNavLinks.forEach(link => link.addEventListener('click', closeMobileMenu));
 
+        // 햄버거가 보이는 폭이 1180px 이하로 바뀌어(brand.css 13절) 닫는 기준도 맞췄다 (예전 768px)
         window.addEventListener('resize', () => {
-            if (window.innerWidth >= 768) closeMobileMenu();
+            if (window.innerWidth > 1180) closeMobileMenu();
         });
 
         // -----------------------------------------------------------
         // Check login status and update navigation
         // -----------------------------------------------------------
         function updateNavigation() {
-            const user = JSON.parse(localStorage.getItem('user'));
+            let user = null;
+            try { user = JSON.parse(localStorage.getItem('user')); } catch (e) { user = null; }
             const token = localStorage.getItem('token');
             const navActions = document.getElementById('nav-actions');
             const mobileNavActions = document.getElementById('mobile-nav-actions');
@@ -855,34 +744,27 @@
                 const dashboardText = user.role === 'admin' ? '관리자 대시보드' : '대시보드';
                 if (navActions) {
                     navActions.innerHTML = `
-                        <a href="${dashboardLink}" class="text-sm font-medium px-4 py-2 hover:text-brand-gold transition-colors dark:text-brand-darkMuted dark:hover:text-white">${dashboardText}</a>
-                        <button onclick="logout()" class="text-sm font-bold px-6 py-2 border border-brand-ink dark:border-brand-darkBorder dark:text-brand-darkText hover:bg-brand-ink hover:text-brand-paper dark:hover:bg-brand-darkBorder dark:hover:text-white transition-all">
-                            로그아웃
-                        </button>
+                        <a href="${dashboardLink}" class="hm-acc">${ICONS.dashboard}${dashboardText}</a>
+                        <button type="button" onclick="logout()" class="hm-acc hm-acc-outline">${ICONS.logout}로그아웃</button>
                     `;
                 }
                 if (mobileNavActions) {
                     mobileNavActions.innerHTML = `
-                        <a href="${dashboardLink}" class="flex justify-center items-center text-center py-3 border border-brand-stone dark:border-brand-darkBorder hover:bg-black/5 dark:hover:bg-white/5 transition-colors dark:text-white" onclick="closeMobileMenu()">
-                            <i data-lucide="layout-dashboard" class="w-4 h-4 mr-2"></i> ${dashboardText}
-                        </a>
-                        <button onclick="logout(); closeMobileMenu();" class="flex justify-center items-center text-center py-3 bg-brand-ink text-brand-paper dark:bg-white dark:text-brand-darkBg font-bold transition-colors">
-                            <i data-lucide="log-out" class="w-4 h-4 mr-2"></i> 로그아웃
-                        </button>
+                        <a href="${dashboardLink}" onclick="closeMobileMenu()">${ICONS.dashboard} ${dashboardText}</a>
+                        <button type="button" onclick="logout(); closeMobileMenu();">${ICONS.logout} 로그아웃</button>
                     `;
                 }
-                if (window.lucide) { lucide.createIcons(); }
             } else {
                 if (navActions) {
                     navActions.innerHTML = `
-                        <a href="login.html" class="text-sm font-medium px-4 py-2 hover:text-brand-gold transition-colors dark:text-brand-darkMuted dark:hover:text-white">로그인</a>
-                        <a href="index.html#diagnosis" class="text-sm font-bold px-6 py-2 border border-brand-ink dark:border-brand-darkBorder dark:text-brand-darkText hover:bg-brand-ink hover:text-brand-paper dark:hover:bg-brand-darkBorder dark:hover:text-white transition-all">도입 문의</a>
+                        <a class="hm-acc" href="login.html">로그인</a>
+                        <a class="hm-acc hm-acc-outline" href="consultant_register.html">컨설턴트 등록</a>
                     `;
                 }
                 if (mobileNavActions) {
                     mobileNavActions.innerHTML = `
-                        <a href="login.html" class="text-center py-3 border border-brand-stone dark:border-brand-darkBorder hover:bg-black/5 dark:hover:bg-white/5 transition-colors dark:text-white" onclick="closeMobileMenu()">로그인</a>
-                        <a href="index.html#diagnosis" class="text-center py-3 bg-brand-ink text-brand-paper dark:bg-white dark:text-brand-darkBg font-bold transition-colors" onclick="closeMobileMenu()">도입 문의</a>
+                        <a href="login.html" onclick="closeMobileMenu()">로그인</a>
+                        <a href="index.html#diagnosis" class="is-primary" onclick="closeMobileMenu()">무료 매칭 시작</a>
                     `;
                 }
             }
@@ -895,6 +777,61 @@
         }
 
         updateNavigation();
+
+        // -----------------------------------------------------------
+        // 목차: 모바일 접기/펼치기 + 지금 읽는 장 표시
+        // -----------------------------------------------------------
+        (function () {
+            const toc = document.getElementById('doc-toc');
+            const toggle = document.getElementById('toc-toggle');
+            const current = document.getElementById('toc-current');
+            const links = Array.from(toc.querySelectorAll('ol a[href^="#"]'));
+            const targets = links.map(a => document.getElementById(a.getAttribute('href').slice(1))).filter(Boolean);
+
+            function setOpen(open) {
+                toc.classList.toggle('is-open', open);
+                toggle.setAttribute('aria-expanded', String(open));
+            }
+            toggle.addEventListener('click', () => setOpen(!toc.classList.contains('is-open')));
+            links.forEach(a => a.addEventListener('click', () => setOpen(false)));
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && toc.classList.contains('is-open')) { setOpen(false); toggle.focus(); }
+            });
+
+            function setActive(id) {
+                links.forEach(a => {
+                    if (a.getAttribute('href') === '#' + id) {
+                        a.setAttribute('aria-current', 'true');
+                        current.textContent = a.textContent;
+                    } else {
+                        a.removeAttribute('aria-current');
+                    }
+                });
+            }
+
+            let ticking = false;
+            function update() {
+                ticking = false;
+                if (!targets.length) return;
+                const line = toc.offsetHeight > 0 && getComputedStyle(toc).position === 'sticky' && innerWidth <= 1023
+                    ? document.querySelector('.hm-header').offsetHeight + toc.offsetHeight + 24
+                    : document.querySelector('.hm-header').offsetHeight + 96;
+                let active = targets[0];
+                for (const t of targets) {
+                    if (t.getBoundingClientRect().top - line <= 0) active = t; else break;
+                }
+                if (innerHeight + scrollY >= document.documentElement.scrollHeight - 4) {
+                    const last = targets[targets.length - 1];
+                    if (last.getBoundingClientRect().top < innerHeight) active = last;
+                }
+                setActive(active.id);
+            }
+            window.addEventListener('scroll', () => {
+                if (!ticking) { ticking = true; requestAnimationFrame(update); }
+            }, { passive: true });
+            window.addEventListener('resize', update);
+            update();
+        })();
     </script>
 </body>
 

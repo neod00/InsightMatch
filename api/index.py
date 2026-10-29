@@ -2894,6 +2894,10 @@ def handle_projects():
                 'start_date': p.start_date.isoformat() if p.start_date else None,
                 'created_at': p.created_at.isoformat() if p.created_at else None,
                 # BUG-029 Fix: 불필요한 getattr 제거
+                # 컨설턴트 카드의 '요청 사항'·'조건 협의' 상자가 읽는 값. 빠져 있어서 늘 기본 문구만 보였다.
+                'description': p.description,
+                'negotiation_status': p.negotiation_status,
+                'negotiation_data': json.loads(p.negotiation_data) if p.negotiation_data else None,
                 'proposal_price': p.proposal_price,
                 'proposal_duration': p.proposal_duration,
                 'proposal_message': p.proposal_message,
@@ -4671,7 +4675,8 @@ def get_available_consultants(title):
                 'rating': c_info['rating'],
                 'experience': c_info['experience'],
                 'verified': c_info['verified'],
-                'profileImageUrl': c_info.get('profileImageUrl') or c_info.get('avatar'),
+                # avatar 는 이니셜(예: '김')이라 이미지 주소로 쓰면 깨진 이미지가 된다.
+                'profileImageUrl': c_info.get('profileImageUrl'),
                 'matchReason': c_info.get('matchReason'),
                 'matchScore': c_info.get('matchScore')
             })
@@ -4701,7 +4706,8 @@ def get_available_consultants(title):
                 'verified': c.verified,
                 'profileImageUrl': c.profile_image_url,
                 'matchReason': "분야별 전문가 (추가 추천)",
-                'matchScore': 60
+                # 매칭 계산을 거치지 않은 보충 후보라 점수가 없다 (고정 60점을 '매칭 60%'로 보여주지 않는다).
+                'matchScore': None
             })
 
     return jsonify(results[:15]) # 상위 15명 반환
@@ -5922,6 +5928,25 @@ def create_notification(user_id, type, title, message=None, link=None):
 # ========================================
 # ① Consultant Profile APIs
 # ========================================
+
+@app.route('/api/consultants/me', methods=['GET'])
+@token_required
+def my_consultant_profile():
+    """로그인한 컨설턴트 본인의 프로필.
+
+    대시보드 '내 프로필' 탭은 공개 목록(GET /api/consultants)에서 user_id 로
+    자기 행을 찾았는데, 공개 목록은 user_id 를 내주지 않고 승인된 컨설턴트만
+    담아서 탭이 항상 "프로필을 찾을 수 없습니다"였다. 본인 행은 토큰으로 바로 찾는다.
+    """
+    user = g.current_user
+    consultant = Consultant.query.filter_by(user_id=user.id).first() if user.role == 'consultant' else None
+    if consultant is None:
+        return jsonify({'message': 'Consultant profile not found.'}), 404
+    # 승인된 행은 필드가 비어 있어도(이전 데이터) 그대로 보여준다.
+    approved = consultant.verified or consultant.status == 'verified'
+    if not approved and is_placeholder_consultant_profile(consultant):
+        return jsonify({'message': 'Consultant profile not submitted yet.', 'registered': False}), 404
+    return jsonify(consultant.to_dict())
 
 @app.route('/api/consultants/<int:consultant_id>/profile', methods=['GET', 'PUT'])
 @token_required

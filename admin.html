@@ -4,265 +4,153 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
     <title>관리자 대시보드 - InsightMatch</title>
 
-    <!-- Fonts -->
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="images/logo2.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="images/logo2.png">
+    <link rel="apple-touch-icon" href="images/logo2.png">
+
+    <!-- B안은 라이트 전용. 예전 테마 토글이 남긴 localStorage.theme='dark' 가 있어도 어둡게 열지 않는다. -->
+    <script>
+        document.documentElement.classList.remove('dark');
+    </script>
+
+    <!-- Fonts: Pretendard + DM Sans (메인페이지와 동일) -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Pretendard:wght@400;500;600;700&display=swap"
-        rel="stylesheet">
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,500;9..40,600;9..40,700;9..40,800&display=swap">
 
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- 아이콘: 스크립트가 그리는 HTML 이 data-lucide 를 쓰고 lucide.createIcons() 를 부르므로
+         lucide 는 남기되 메인·대시보드와 같은 고정 버전으로 로드한다(@latest 금지). -->
+    <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
 
-    <!-- Styles -->
-    <link rel="stylesheet" href="style.css?v=4">
-    <style>
-        /* Side Panel Styles */
-        .side-panel-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(4px);
-            z-index: 2000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-        }
-
-        .side-panel-overlay.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .side-panel {
-            position: fixed;
-            top: 0;
-            right: -600px;
-            width: 100%;
-            max-width: 600px;
-            height: 100%;
-            background: var(--bg-card);
-            backdrop-filter: blur(20px);
-            border-left: 1px solid var(--border);
-            z-index: 2001;
-            transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-            display: flex;
-            flex-direction: column;
-            box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
-        }
-
-        .side-panel.active {
-            right: 0;
-        }
-
-        .side-panel-header {
-            padding: 24px 32px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: var(--bg-secondary);
-        }
-
-        .close-panel-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            border: 1px solid var(--border);
-            background: var(--bg-card);
-            color: var(--text-muted);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            padding: 0;
-        }
-
-        .close-panel-btn:hover {
-            background: rgba(239, 68, 68, 0.1);
-            border-color: rgba(239, 68, 68, 0.3);
-            color: #ef4444;
-            transform: rotate(90deg);
-        }
-
-        .side-panel-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 24px;
-        }
-
-        .side-panel-footer {
-            padding: 24px;
-            border-top: 1px solid var(--border);
-            display: flex;
-            gap: 12px;
-            background: var(--bg-secondary);
-        }
-
-        .info-group {
-            margin-bottom: 24px;
-        }
-
-        .info-label {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            margin-bottom: 8px;
-            display: block;
-        }
-
-        .info-value {
-            font-weight: 500;
-            color: var(--text-primary);
-        }
-
-        .consultant-item {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 12px;
-            transition: transform 0.2s;
-        }
-
-        .consultant-item:hover {
-            transform: translateY(-2px);
-            background: var(--bg-secondary);
-        }
-    </style>
+    <!-- B안 공통 스타일(15절 앱 셸 + 16절 관리자). style.css 는 로드하지 않는다. -->
+    <link rel="stylesheet" href="brand.css?v=6">
 </head>
 
-<body>
-    <!-- Background Effects -->
-    <div class="bg-gradient"></div>
-    <div class="bg-grid"></div>
+<body class="hm-body hm-app hm-admin">
+    <a class="hm-skip" href="#main">본문으로 건너뛰기</a>
 
-    <!-- Navigation -->
-    <nav class="navbar">
-        <div class="container nav-content">
-            <a href="index.html" class="logo">
-                <div class="logo-icon" style="background: linear-gradient(135deg, #f59e0b, #ef4444);">
-                    <i data-lucide="shield" style="width: 20px; height: 20px;"></i>
+    <!-- Header -->
+    <header class="hm-header">
+        <div class="hm-wrap">
+            <div class="hm-header-row">
+                <a class="hm-logo" href="index.html" aria-label="InsightMatch 메인으로">Insight<span class="hm-logo-dot" aria-hidden="true"></span>Match</a>
+                <span class="hm-admin-badge"><i data-lucide="shield"></i>Admin</span>
+                <nav class="hm-nav" aria-label="주요 메뉴">
+                    <a href="index.html">메인 사이트</a>
+                    <a href="admin.html" aria-current="page">관리자 대시보드</a>
+                </nav>
+                <div class="hm-header-actions">
+                    <span class="hm-acc-user hm-admin-role"><i data-lucide="crown"></i>관리자</span>
+                    <button type="button" onclick="logout()" class="hm-acc hm-acc-outline hm-acc-logout">
+                        <i data-lucide="log-out"></i>
+                        로그아웃
+                    </button>
+
+                    <!-- Mobile Menu Button (스크립트가 시작할 때 이 id 에 click 을 건다 — 지우면 페이지 스크립트가 멈춘다) -->
+                    <button class="hm-menu-btn" id="mobile-menu-btn" type="button" aria-controls="mobile-nav"
+                        aria-expanded="false" aria-label="메뉴 열기"><span></span></button>
                 </div>
-                <div class="logo-text">
-                    <span>InsightMatch</span>
-                    <span style="color: var(--warning);">Admin Panel</span>
-                </div>
-            </a>
-
-            <div class="nav-links">
-                <a href="index.html">
-                    <i data-lucide="home" style="width: 16px; height: 16px;"></i>
-                    메인 사이트
-                </a>
             </div>
+        </div>
+    </header>
 
-            <div class="nav-actions">
-                <span style="display: flex; align-items: center; gap: 8px; color: var(--warning);">
-                    <i data-lucide="crown" style="width: 18px; height: 18px;"></i>
-                    관리자
-                </span>
+    <!-- 모바일 메뉴 (열림 = .active, 아래 스크립트가 토글) -->
+    <nav class="hm-mnav" id="mobile-nav" aria-label="모바일 메뉴">
+        <div class="hm-mnav-inner">
+            <a href="index.html" onclick="closeMobileMenu()">메인 사이트</a>
+            <a href="admin.html" aria-current="page" onclick="closeMobileMenu()">관리자 대시보드</a>
+            <div class="hm-mnav-actions">
+                <span class="hm-mnav-user">관리자 계정</span>
+                <button type="button" onclick="closeMobileMenu(); logout();">
+                    <i data-lucide="log-out"></i>
+                    로그아웃
+                </button>
             </div>
-
-            <!-- Mobile Menu Button -->
-            <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="메뉴 열기">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
+            <button class="hm-mnav-close" type="button" onclick="closeMobileMenu()">메뉴 닫기</button>
         </div>
     </nav>
 
-    <!-- Mobile Navigation -->
-    <div class="mobile-nav" id="mobile-nav">
-        <span style="display: flex; align-items: center; gap: 8px; color: var(--warning); justify-content: center;">
-            <i data-lucide="crown" style="width: 18px; height: 18px;"></i>
-            관리자
-        </span>
-        <div class="nav-divider"></div>
-        <a href="index.html" onclick="closeMobileMenu()">
-            <i data-lucide="home"
-                style="width: 16px; height: 16px; display: inline; vertical-align: middle; margin-right: 8px;"></i>
-            메인 사이트
-        </a>
-    </div>
-
-    <!-- Admin Container -->
-    <div class="container admin-container">
-        <div class="fade-in-up"
-            style="margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-end;">
+    <!-- Admin -->
+    <main id="main" class="hm-wrap hm-dash admin-container">
+        <div class="hm-dash-head fade-in-up">
             <div>
-                <h1 style="font-size: 2rem; margin-bottom: 8px;">관리자 대시보드</h1>
-                <p style="color: var(--text-muted);">업체의 컨설팅 매칭 요청과 컨설턴트를 관리하세요.</p>
+                <span class="hm-eyebrow">ADMIN</span>
+                <h1>관리자 대시보드</h1>
+                <p>업체의 컨설팅 매칭 요청과 컨설턴트를 관리하세요.</p>
             </div>
-            <button class="btn btn-secondary" onclick="refreshData()"
-                style="display: flex; align-items: center; gap: 8px;">
-                <i data-lucide="refresh-cw" style="width: 18px; height: 18px;"></i>
+            <button class="btn btn-ink" type="button" onclick="refreshData()">
+                <i data-lucide="refresh-cw"></i>
                 새로고침
             </button>
         </div>
 
-        <!-- Admin Tabs -->
-        <div class="admin-tabs fade-in-up">
-            <button class="admin-tab active" onclick="switchTab('analysis')">
-                <i data-lucide="handshake" style="width: 18px; height: 18px;"></i>
-                매칭 요청
-                <span class="badge-count" id="analysis-count">-</span>
-            </button>
-            <button class="admin-tab" onclick="switchTab('consultants')">
-                <i data-lucide="users" style="width: 18px; height: 18px;"></i>
-                컨설턴트 승인
-                <span class="badge-count" id="consultant-count">-</span>
-            </button>
-            <button class="admin-tab" onclick="switchTab('blog')">
-                <i data-lucide="file-text" style="width: 18px; height: 18px;"></i>
-                블로그 관리
-                <span class="badge-count" id="blog-count">-</span>
-            </button>
-            <button class="admin-tab" onclick="switchTab('funnel')">
-                <i data-lucide="filter" style="width: 18px; height: 18px;"></i>
-                전환 퍼널
-                <span class="badge-count" id="funnel-count">-</span>
-            </button>
-            <button class="admin-tab" onclick="switchTab('inquiries')">
-                <i data-lucide="message-square" style="width: 18px; height: 18px;"></i>
-                문의 접수
-                <span class="badge-count" id="inquiry-count">-</span>
-            </button>
-            <button class="admin-tab" onclick="switchTab('errors')">
-                <i data-lucide="alert-triangle" style="width: 18px; height: 18px;"></i>
-                에러 로그
-                <span class="badge-count" id="error-count">-</span>
-            </button>
+        <!-- Admin Tabs: switchTab() 이 onclick 글자 그대로(.admin-tab[onclick="switchTab('x')"]) 탭을 찾는다 — 글자를 바꾸지 말 것 -->
+        <div class="admin-tabs-scroll fade-in-up">
+            <div class="admin-tabs" aria-label="관리 메뉴">
+                <button type="button" class="admin-tab active" onclick="switchTab('analysis')">
+                    <i data-lucide="handshake"></i>
+                    매칭 요청
+                    <span class="badge-count" id="analysis-count">—</span>
+                </button>
+                <button type="button" class="admin-tab" onclick="switchTab('consultants')">
+                    <i data-lucide="users"></i>
+                    컨설턴트 승인
+                    <span class="badge-count" id="consultant-count">—</span>
+                </button>
+                <button type="button" class="admin-tab" onclick="switchTab('blog')">
+                    <i data-lucide="file-text"></i>
+                    블로그 관리
+                    <span class="badge-count" id="blog-count">—</span>
+                </button>
+                <button type="button" class="admin-tab" onclick="switchTab('funnel')">
+                    <i data-lucide="filter"></i>
+                    전환 퍼널
+                    <span class="badge-count" id="funnel-count">—</span>
+                </button>
+                <button type="button" class="admin-tab" onclick="switchTab('inquiries')">
+                    <i data-lucide="message-square"></i>
+                    문의 접수
+                    <span class="badge-count" id="inquiry-count">—</span>
+                </button>
+                <button type="button" class="admin-tab" onclick="switchTab('errors')">
+                    <i data-lucide="alert-triangle"></i>
+                    에러 로그
+                    <span class="badge-count" id="error-count">—</span>
+                </button>
+            </div>
         </div>
 
-        <!-- Stats Cards -->
-        <div class="features-grid fade-in-up" style="margin-bottom: 40px;" id="stats-cards">
-            <div class="feature-card" style="text-align: center;">
-                <div id="stat-total" style="font-size: 2.5rem; font-weight: 800; color: var(--primary);">-</div>
-                <p style="color: var(--text-muted);">전체 요청</p>
+        <!-- Stats Cards (매칭 요청 탭에서만 보인다 — 스크립트가 style.display 를 grid/none 으로 바꾼다) -->
+        <div class="hm-kpi-grid fade-in-up" id="stats-cards">
+            <div class="hm-kpi">
+                <p class="hm-kpi-label">전체 요청</p>
+                <div id="stat-total" class="hm-kpi-value">—</div>
             </div>
-            <div class="feature-card" style="text-align: center;">
-                <div id="stat-pending" style="font-size: 2.5rem; font-weight: 800; color: var(--warning);">-</div>
-                <p style="color: var(--text-muted);">대기 중</p>
+            <div class="hm-kpi is-warn">
+                <p class="hm-kpi-label">대기 중</p>
+                <div id="stat-pending" class="hm-kpi-value">—</div>
+                <p class="hm-kpi-note">계약 전 단계(견적·협의·서명 대기)</p>
             </div>
-            <div class="feature-card" style="text-align: center;">
-                <div id="stat-completed" style="font-size: 2.5rem; font-weight: 800; color: var(--success);">-</div>
-                <p style="color: var(--text-muted);">완료</p>
+            <div class="hm-kpi is-ok">
+                <p class="hm-kpi-label">완료</p>
+                <div id="stat-completed" class="hm-kpi-value">—</div>
             </div>
         </div>
 
         <!-- Analysis Tab Content -->
         <div id="analysis-tab" class="tab-content">
             <div id="job-list">
-                <div class="card" style="text-align: center; padding: 60px;">
-                    <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
-                    <p style="color: var(--text-muted);">분석 요청을 불러오는 중...</p>
+                <div class="card hm-admin-state">
+                    <div class="loading-spinner"></div>
+                    <p>분석 요청을 불러오는 중...</p>
                 </div>
             </div>
         </div>
@@ -270,87 +158,81 @@
         <!-- Consultants Tab Content -->
         <div id="consultants-tab" class="tab-content" style="display: none;">
             <!-- Consultant Stats -->
-            <div class="features-grid fade-in-up" style="margin-bottom: 32px;">
-                <div class="feature-card" style="text-align: center;">
-                    <div id="consultant-stat-total" style="font-size: 2.5rem; font-weight: 800; color: var(--primary);">
-                        -</div>
-                    <p style="color: var(--text-muted);">전체 컨설턴트</p>
+            <div class="hm-kpi-grid fade-in-up">
+                <div class="hm-kpi">
+                    <p class="hm-kpi-label">전체 컨설턴트</p>
+                    <div id="consultant-stat-total" class="hm-kpi-value">—</div>
                 </div>
-                <div class="feature-card" style="text-align: center;">
-                    <div id="consultant-stat-pending"
-                        style="font-size: 2.5rem; font-weight: 800; color: var(--warning);">-</div>
-                    <p style="color: var(--text-muted);">승인 대기</p>
+                <div class="hm-kpi is-warn">
+                    <p class="hm-kpi-label">승인 대기</p>
+                    <div id="consultant-stat-pending" class="hm-kpi-value">—</div>
                 </div>
-                <div class="feature-card" style="text-align: center;">
-                    <div id="consultant-stat-verified"
-                        style="font-size: 2.5rem; font-weight: 800; color: var(--success);">-</div>
-                    <p style="color: var(--text-muted);">검증됨</p>
+                <div class="hm-kpi is-ok">
+                    <p class="hm-kpi-label">검증됨</p>
+                    <div id="consultant-stat-verified" class="hm-kpi-value">—</div>
                 </div>
             </div>
 
             <!-- 컨설턴트 초대 -->
-            <div class="card-glass" style="padding: 20px; margin-bottom: 24px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                    <h3 style="margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
-                        <i data-lucide="link" style="width: 18px; height: 18px;"></i>
-                        컨설턴트 초대 링크
-                    </h3>
-                    <button class="btn btn-sm btn-ghost" onclick="loadInvites()">
-                        <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i> 새로고침
+            <section class="hm-admin-card" aria-labelledby="invite-title">
+                <div class="hm-admin-card-head">
+                    <h2 id="invite-title"><i data-lucide="link"></i>컨설턴트 초대 링크</h2>
+                    <button class="btn btn-sm btn-ghost" type="button" onclick="loadInvites()">
+                        <i data-lucide="refresh-cw"></i> 새로고침
                     </button>
                 </div>
-                <p style="color: var(--text-muted); font-size: 0.85rem; margin: 8px 0 16px;">
+                <p class="hm-admin-card-lead">
                     후보 컨설턴트에게 보낼 1회용 링크를 발급합니다. 링크를 받은 분이 직접 프로필·정산정보를 등록합니다. (유효기간 14일)
                 </p>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1.2fr auto; gap: 10px; align-items: end;">
-                    <div class="form-group" style="margin: 0;">
-                        <label style="font-size: 0.85rem;">이름 (선택)</label>
+                <div class="hm-invite-form">
+                    <div class="hm-field">
+                        <label for="invite-name">이름 <small>(선택)</small></label>
                         <input type="text" id="invite-name" placeholder="홍길동" maxlength="100">
                     </div>
-                    <div class="form-group" style="margin: 0;">
-                        <label style="font-size: 0.85rem;">이메일 (선택)</label>
+                    <div class="hm-field">
+                        <label for="invite-email">이메일 <small>(선택)</small></label>
                         <input type="email" id="invite-email" placeholder="name@example.com" maxlength="120">
                     </div>
-                    <div class="form-group" style="margin: 0;">
-                        <label style="font-size: 0.85rem;">메모 (선택)</label>
+                    <div class="hm-field">
+                        <label for="invite-memo">메모 <small>(선택)</small></label>
                         <input type="text" id="invite-memo" placeholder="예: 위원님 소개, 9001 전문" maxlength="200">
                     </div>
-                    <button class="btn btn-primary" onclick="createInvite()" id="btn-create-invite">
-                        <i data-lucide="plus" style="width: 16px; height: 16px;"></i> 링크 발급
+                    <button class="btn btn-primary" type="button" onclick="createInvite()" id="btn-create-invite">
+                        <i data-lucide="plus"></i> 링크 발급
                     </button>
                 </div>
-                <div id="invite-list" style="margin-top: 18px;"></div>
-            </div>
+                <div id="invite-list" class="hm-invite-list"></div>
+            </section>
 
-            <!-- Filter -->
-            <div class="card-glass"
-                style="padding: 16px; margin-bottom: 24px; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
-                <span style="color: var(--text-muted); font-size: 0.9rem;">필터:</span>
-                <button class="btn btn-sm consultant-filter-btn active" data-filter="all"
+            <!-- Filter (선택 상태 = .active 이면서 .btn-ghost 가 빠진 버튼 — filterConsultants 가 둘을 함께 바꾼다) -->
+            <div class="hm-toolbar" role="group" aria-label="컨설턴트 상태 필터">
+                <span class="hm-toolbar-label">필터</span>
+                <button type="button" class="btn btn-sm consultant-filter-btn active" data-filter="all"
                     onclick="filterConsultants('all')">
-                    전체 <span id="filter-count-all" style="opacity: 0.7;"></span>
+                    전체 <span id="filter-count-all" class="hm-filter-count"></span>
                 </button>
-                <button class="btn btn-sm btn-ghost consultant-filter-btn" data-filter="pending"
+                <button type="button" class="btn btn-sm btn-ghost consultant-filter-btn" data-filter="pending"
                     onclick="filterConsultants('pending')">
-                    <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
-                    승인 대기 <span id="filter-count-pending" style="opacity: 0.7;"></span>
+                    <i data-lucide="clock"></i>
+                    승인 대기 <span id="filter-count-pending" class="hm-filter-count"></span>
                 </button>
-                <button class="btn btn-sm btn-ghost consultant-filter-btn" data-filter="verified"
+                <button type="button" class="btn btn-sm btn-ghost consultant-filter-btn" data-filter="verified"
                     onclick="filterConsultants('verified')">
-                    <i data-lucide="badge-check" style="width: 14px; height: 14px;"></i>
-                    검증됨 <span id="filter-count-verified" style="opacity: 0.7;"></span>
+                    <i data-lucide="badge-check"></i>
+                    검증됨 <span id="filter-count-verified" class="hm-filter-count"></span>
                 </button>
-                <button class="btn btn-sm btn-ghost consultant-filter-btn" data-filter="rejected"
-                    onclick="filterConsultants('rejected')" style="color: var(--error);">
-                    <i data-lucide="user-x" style="width: 14px; height: 14px;"></i>
-                    거부됨 <span id="filter-count-rejected" style="opacity: 0.7;"></span>
+                <button type="button" class="btn btn-sm btn-ghost consultant-filter-btn is-danger" data-filter="rejected"
+                    onclick="filterConsultants('rejected')">
+                    <i data-lucide="user-x"></i>
+                    거부됨 <span id="filter-count-rejected" class="hm-filter-count"></span>
                 </button>
             </div>
 
+            <!-- 스크립트가 처음 그릴 때 이 목록 바로 앞에 검색·정렬·페이지 줄(#consultant-list-controls)을 끼워 넣는다 -->
             <div id="consultant-list-admin">
-                <div class="card" style="text-align: center; padding: 60px;">
-                    <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
-                    <p style="color: var(--text-muted);">컨설턴트 목록을 불러오는 중...</p>
+                <div class="card hm-admin-state">
+                    <div class="loading-spinner"></div>
+                    <p>컨설턴트 목록을 불러오는 중...</p>
                 </div>
             </div>
         </div>
@@ -358,102 +240,79 @@
         <!-- Blog Management Tab Content -->
         <div id="blog-tab" class="tab-content" style="display: none;">
             <!-- Blog Stats -->
-            <div class="features-grid fade-in-up" style="margin-bottom: 32px;">
-                <div class="feature-card" style="text-align: center;">
-                    <div id="blog-stat-total" style="font-size: 2.5rem; font-weight: 800; color: var(--primary);">-
-                    </div>
-                    <p style="color: var(--text-muted);">전체 게시글</p>
+            <div class="hm-kpi-grid fade-in-up">
+                <div class="hm-kpi">
+                    <p class="hm-kpi-label">전체 게시글</p>
+                    <div id="blog-stat-total" class="hm-kpi-value">—</div>
                 </div>
-                <div class="feature-card" style="text-align: center;">
-                    <div id="blog-stat-recent" style="font-size: 2.5rem; font-weight: 800; color: var(--accent);">-
-                    </div>
-                    <p style="color: var(--text-muted);">이번 달 작성</p>
+                <div class="hm-kpi is-info">
+                    <p class="hm-kpi-label">이번 달 작성</p>
+                    <div id="blog-stat-recent" class="hm-kpi-value">—</div>
                 </div>
-                <div class="feature-card" style="text-align: center; cursor: pointer;" onclick="showBlogEditor()">
-                    <div style="font-size: 2.5rem; font-weight: 800; color: var(--success);">+</div>
-                    <p style="color: var(--text-muted);">새 글 작성</p>
-                </div>
+                <button type="button" class="hm-kpi is-action" onclick="showBlogEditor()">
+                    <span class="hm-kpi-plus" aria-hidden="true"><i data-lucide="plus"></i></span>
+                    <span class="hm-kpi-label">새 글 작성</span>
+                </button>
             </div>
 
             <!-- Blog Editor (hidden by default) -->
-            <div id="blog-editor" class="card-glass fade-in-up"
-                style="display: none; padding: 32px; margin-bottom: 32px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-                    <h3 id="editor-title" style="display: flex; align-items: center; gap: 8px;"><i
-                            data-lucide="pen-line" style="width: 20px; height: 20px; color: var(--primary);"></i> 새 글 작성
-                    </h3>
-                    <button class="btn btn-ghost btn-sm" onclick="hideBlogEditor()" style="color: var(--text-muted);"><i
-                            data-lucide="x" style="width: 18px; height: 18px;"></i></button>
+            <section id="blog-editor" class="hm-admin-card fade-in-up" style="display: none;" aria-labelledby="editor-title">
+                <div class="hm-admin-card-head">
+                    <h2 id="editor-title"><i data-lucide="pen-line"></i> 새 글 작성</h2>
+                    <button class="hm-icon-btn is-plain" type="button" onclick="hideBlogEditor()" aria-label="편집기 닫기"><i
+                            data-lucide="x"></i></button>
                 </div>
                 <input type="hidden" id="blog-edit-id" value="">
-                <div style="display: flex; flex-direction: column; gap: 16px;">
-                    <div>
-                        <label
-                            style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">제목
-                            *</label>
-                        <input type="text" id="blog-input-title" placeholder="블로그 제목을 입력하세요"
-                            style="width: 100%; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 1rem;">
+                <div class="hm-form hm-blog-form">
+                    <div class="hm-field">
+                        <label for="blog-input-title">제목 <span class="hm-req">*</span></label>
+                        <input type="text" id="blog-input-title" placeholder="블로그 제목을 입력하세요">
                     </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                        <div>
-                            <label
-                                style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">작성자</label>
-                            <input type="text" id="blog-input-author" value="Admin" placeholder="작성자"
-                                style="width: 100%; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem;">
+                    <div class="hm-field-grid">
+                        <div class="hm-field">
+                            <label for="blog-input-author">작성자</label>
+                            <input type="text" id="blog-input-author" value="Admin" placeholder="작성자">
                         </div>
-                        <div>
-                            <label
-                                style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">태그
-                                (쉼표 구분)</label>
-                            <input type="text" id="blog-input-tags" placeholder="ISO 9001,품질경영,트렌드"
-                                style="width: 100%; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem;">
+                        <div class="hm-field">
+                            <label for="blog-input-tags">태그 <small>(쉼표 구분)</small></label>
+                            <input type="text" id="blog-input-tags" placeholder="ISO 9001,품질경영,트렌드">
                         </div>
                     </div>
-                    <div>
-                        <label
-                            style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">대표
-                            이미지 URL</label>
-                        <input type="text" id="blog-input-image" placeholder="https://images.unsplash.com/..."
-                            style="width: 100%; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem;">
+                    <div class="hm-field">
+                        <label for="blog-input-image">대표 이미지 URL</label>
+                        <input type="text" id="blog-input-image" placeholder="https://images.unsplash.com/...">
                     </div>
-                    <div>
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                            <label style="font-size: 0.85rem; color: var(--text-muted);">본문 (HTML 지원) *</label>
-                            <div style="display: flex; gap: 6px;">
-                                <button type="button" class="btn btn-ghost"
-                                    style="padding: 4px 10px; font-size: 0.75rem;"
+                    <div class="hm-field">
+                        <div class="hm-editor-label-row">
+                            <label for="blog-input-content" class="hm-label">본문 (HTML 지원) <span class="hm-req">*</span></label>
+                            <div class="hm-editor-tools" role="group" aria-label="HTML 넣기">
+                                <button type="button" class="btn btn-ghost btn-sm is-code"
                                     onclick="insertBlogTag('h2')">&lt;h2&gt;</button>
-                                <button type="button" class="btn btn-ghost"
-                                    style="padding: 4px 10px; font-size: 0.75rem;"
+                                <button type="button" class="btn btn-ghost btn-sm is-code"
                                     onclick="insertBlogTag('strong')">&lt;b&gt;</button>
-                                <button type="button" class="btn btn-ghost"
-                                    style="padding: 4px 10px; font-size: 0.75rem;"
+                                <button type="button" class="btn btn-ghost btn-sm"
                                     onclick="insertBlogTag('img')">이미지</button>
-                                <button type="button" class="btn btn-ghost"
-                                    style="padding: 4px 10px; font-size: 0.75rem;" onclick="insertBlogTag('tip')">팁
+                                <button type="button" class="btn btn-ghost btn-sm" onclick="insertBlogTag('tip')">팁
                                     박스</button>
                             </div>
                         </div>
-                        <textarea id="blog-input-content" rows="16" placeholder="블로그 본문 내용을 입력하세요..."
-                            style="width: 100%; padding: 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem; line-height: 1.7; resize: vertical; font-family: var(--font-sans);"></textarea>
+                        <textarea id="blog-input-content" rows="16" placeholder="블로그 본문 내용을 입력하세요..."></textarea>
                     </div>
-                    <div style="display: flex; gap: 12px; justify-content: flex-end; padding-top: 8px;">
-                        <button class="btn btn-secondary" onclick="hideBlogEditor()">취소</button>
-                        <button class="btn btn-primary" onclick="saveBlogPost()"
-                            style="display: flex; align-items: center; gap: 8px;">
-                            <i data-lucide="save" style="width: 16px; height: 16px;"></i>
+                    <div class="hm-form-actions">
+                        <button class="btn btn-secondary" type="button" onclick="hideBlogEditor()">취소</button>
+                        <button class="btn btn-primary" type="button" onclick="saveBlogPost()">
+                            <i data-lucide="save"></i>
                             <span id="blog-save-btn-text">발행하기</span>
                         </button>
                     </div>
                 </div>
-            </div>
+            </section>
 
             <!-- Blog List -->
             <div id="blog-list-admin">
-                <div class="card" style="text-align: center; padding: 60px;">
-                    <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
-                    <p style="color: var(--text-muted);">블로그 게시글을 불러오는 중...</p>
+                <div class="card hm-admin-state">
+                    <div class="loading-spinner"></div>
+                    <p>블로그 게시글을 불러오는 중...</p>
                 </div>
             </div>
         </div>
@@ -464,77 +323,65 @@
              이 한계를 화면에 적어 두지 않으면 전환율을 실제보다 좋게 오해한다. -->
         <div id="funnel-tab" class="tab-content" style="display: none;">
             <!-- Filter -->
-            <div class="card-glass"
-                style="padding: 16px; margin-bottom: 24px; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
-                <span style="color: var(--text-muted); font-size: 0.9rem;">집계 기간:</span>
-                <select id="funnel-days" onchange="loadFunnelStats()"
-                    style="padding: 8px 12px; border-radius: 8px; background: transparent; border: 1px solid var(--border); color: inherit;">
+            <div class="hm-toolbar">
+                <label class="hm-toolbar-label" for="funnel-days">집계 기간</label>
+                <select id="funnel-days" class="hm-select" onchange="loadFunnelStats()">
                     <option value="7">최근 7일</option>
                     <option value="30" selected>최근 30일</option>
                     <option value="90">최근 90일</option>
                     <option value="365">최근 1년</option>
                 </select>
-                <span id="funnel-overall" style="color: var(--text-muted); font-size: 0.85rem;"></span>
-                <button class="btn btn-sm btn-ghost" style="margin-left: auto;" onclick="loadFunnelStats()">
-                    <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i> 새로고침
+                <span id="funnel-overall" class="hm-toolbar-note"></span>
+                <button type="button" class="btn btn-sm btn-ghost hm-toolbar-end" onclick="loadFunnelStats()">
+                    <i data-lucide="refresh-cw"></i> 새로고침
                 </button>
             </div>
 
             <!-- 1구간: 설문 단위 -->
-            <div class="card-glass" style="padding: 20px; margin-bottom: 24px;">
-                <h3 style="margin: 0 0 4px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
-                    <i data-lucide="clipboard-list" style="width: 18px; height: 18px;"></i>
-                    1단계 — 설문 기준
-                </h3>
-                <p style="color: var(--text-muted); font-size: 0.85rem; margin: 8px 0 16px;">
+            <section class="hm-admin-card">
+                <div class="hm-admin-card-head">
+                    <h2><i data-lucide="clipboard-list"></i>1단계 — 설문 기준</h2>
+                </div>
+                <p class="hm-admin-card-lead">
                     설문 1건이 컨설턴트 여러 명에게 견적을 요청할 수 있으므로, 여기까지는 <strong>설문 건수</strong>가 단위입니다.
                 </p>
                 <div id="funnel-survey-list"></div>
-            </div>
+            </section>
 
             <!-- 2구간: 견적 요청 단위 -->
-            <div class="card-glass" style="padding: 20px; margin-bottom: 24px;">
-                <h3 style="margin: 0 0 4px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
-                    <i data-lucide="file-signature" style="width: 18px; height: 18px;"></i>
-                    2단계 — 견적 요청 기준
-                </h3>
-                <p style="color: var(--text-muted); font-size: 0.85rem; margin: 8px 0 16px;">
+            <section class="hm-admin-card">
+                <div class="hm-admin-card-head">
+                    <h2><i data-lucide="file-signature"></i>2단계 — 견적 요청 기준</h2>
+                </div>
+                <p class="hm-admin-card-lead">
                     여기서부터는 <strong>견적 요청(프로젝트) 건수</strong>가 단위입니다. 전환율이 낮은 구간이 병목입니다.
                 </p>
                 <div id="funnel-project-list"></div>
-            </div>
+            </section>
 
             <!-- 본류가 아닌 분기 -->
-            <div class="features-grid fade-in-up" style="margin-bottom: 24px;">
-                <div class="feature-card" style="text-align: center;">
-                    <div id="funnel-side-negotiation"
-                        style="font-size: 2.5rem; font-weight: 800; color: var(--warning);">-</div>
-                    <p style="color: var(--text-muted);">조건 협의 요청</p>
-                    <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">선택 단계 — 퍼널 단계로 세지 않습니다.</p>
+            <div class="hm-kpi-grid fade-in-up">
+                <div class="hm-kpi is-warn">
+                    <p class="hm-kpi-label">조건 협의 요청</p>
+                    <div id="funnel-side-negotiation" class="hm-kpi-value">—</div>
+                    <p class="hm-kpi-note">선택 단계 — 퍼널 단계로 세지 않습니다.</p>
                 </div>
-                <div class="feature-card" style="text-align: center;">
-                    <div id="funnel-side-cancelled"
-                        style="font-size: 2.5rem; font-weight: 800; color: var(--error);">-</div>
-                    <p style="color: var(--text-muted);">취소된 견적</p>
-                    <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">진행이 아니라 이탈입니다.</p>
+                <div class="hm-kpi is-error">
+                    <p class="hm-kpi-label">취소된 견적</p>
+                    <div id="funnel-side-cancelled" class="hm-kpi-value">—</div>
+                    <p class="hm-kpi-note">진행이 아니라 이탈입니다.</p>
                 </div>
-                <div class="feature-card" style="text-align: center;">
-                    <div id="funnel-side-result"
-                        style="font-size: 2.5rem; font-weight: 800; color: var(--text-muted);">-</div>
-                    <p style="color: var(--text-muted);">매칭 결과가 저장된 설문</p>
-                    <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">설문 완료와 매칭 실행은 같은 요청입니다.</p>
+                <div class="hm-kpi">
+                    <p class="hm-kpi-label">매칭 결과가 저장된 설문</p>
+                    <div id="funnel-side-result" class="hm-kpi-value">—</div>
+                    <p class="hm-kpi-note">설문 완료와 매칭 실행은 같은 요청입니다.</p>
                 </div>
             </div>
 
             <!-- 측정의 한계 (백엔드가 내려주는 문구를 그대로 표시) -->
-            <div class="card-glass" style="padding: 20px; border-left: 3px solid var(--warning);">
-                <h3 style="margin: 0 0 12px; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
-                    <i data-lucide="info" style="width: 16px; height: 16px;"></i>
-                    이 수치를 읽을 때 주의할 점
-                </h3>
-                <ul id="funnel-limitations"
-                    style="margin: 0; padding-left: 20px; color: var(--text-muted); font-size: 0.85rem; line-height: 1.8;">
-                </ul>
+            <div class="hm-note is-warn hm-admin-limits">
+                <p class="hm-note-title"><i data-lucide="info"></i>이 수치를 읽을 때 주의할 점</p>
+                <ul id="funnel-limitations"></ul>
             </div>
         </div>
 
@@ -542,305 +389,215 @@
         <!-- ⚠️ 문의 내용은 전부 외부(무인증) 입력이다. 렌더링은 반드시 escapeHtml 을 거친다. -->
         <div id="inquiries-tab" class="tab-content" style="display: none;">
             <!-- Inquiry Stats -->
-            <div class="features-grid fade-in-up" style="margin-bottom: 32px;">
-                <div class="feature-card" style="text-align: center;">
-                    <div id="inquiry-stat-received" style="font-size: 2.5rem; font-weight: 800; color: var(--warning);">
-                        -</div>
-                    <p style="color: var(--text-muted);">접수 (미처리)</p>
+            <div class="hm-kpi-grid fade-in-up">
+                <div class="hm-kpi is-warn">
+                    <p class="hm-kpi-label">접수 (미처리)</p>
+                    <div id="inquiry-stat-received" class="hm-kpi-value">—</div>
                 </div>
-                <div class="feature-card" style="text-align: center;">
-                    <div id="inquiry-stat-checked" style="font-size: 2.5rem; font-weight: 800; color: var(--primary);">-
-                    </div>
-                    <p style="color: var(--text-muted);">확인</p>
+                <div class="hm-kpi is-info">
+                    <p class="hm-kpi-label">확인</p>
+                    <div id="inquiry-stat-checked" class="hm-kpi-value">—</div>
                 </div>
-                <div class="feature-card" style="text-align: center;">
-                    <div id="inquiry-stat-done" style="font-size: 2.5rem; font-weight: 800; color: var(--success);">-
-                    </div>
-                    <p style="color: var(--text-muted);">완료</p>
+                <div class="hm-kpi is-ok">
+                    <p class="hm-kpi-label">완료</p>
+                    <div id="inquiry-stat-done" class="hm-kpi-value">—</div>
                 </div>
             </div>
 
             <!-- Filter -->
-            <div class="card-glass"
-                style="padding: 16px; margin-bottom: 24px; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
-                <span style="color: var(--text-muted); font-size: 0.9rem;">처리 상태:</span>
-                <select id="inquiry-status-filter" onchange="loadInquiries(1)"
-                    style="padding: 8px 12px; border-radius: 8px; background: transparent; border: 1px solid var(--border); color: inherit;">
+            <div class="hm-toolbar">
+                <label class="hm-toolbar-label" for="inquiry-status-filter">처리 상태</label>
+                <select id="inquiry-status-filter" class="hm-select" onchange="loadInquiries(1)">
                     <option value="">전체</option>
                     <option value="received" selected>접수</option>
                     <option value="checked">확인</option>
                     <option value="done">완료</option>
                 </select>
-                <button class="btn btn-sm btn-ghost" style="margin-left: auto;" onclick="loadInquiries(1)">
-                    <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i> 새로고침
+                <button type="button" class="btn btn-sm btn-ghost hm-toolbar-end" onclick="loadInquiries(1)">
+                    <i data-lucide="refresh-cw"></i> 새로고침
                 </button>
             </div>
 
-            <div class="card-glass" style="padding: 20px;">
+            <section class="hm-admin-card">
                 <div id="inquiry-list"></div>
-                <div id="inquiry-pagination"
-                    style="display: flex; gap: 8px; justify-content: center; align-items: center; margin-top: 18px;">
-                </div>
-            </div>
+                <div id="inquiry-pagination" class="hm-pager"></div>
+            </section>
         </div>
 
         <!-- Error Log Tab Content -->
         <div id="errors-tab" class="tab-content" style="display: none;">
             <!-- Error Stats -->
-            <div class="features-grid fade-in-up" style="margin-bottom: 32px;">
-                <div class="feature-card" style="text-align: center;">
-                    <div id="error-stat-total" style="font-size: 2.5rem; font-weight: 800; color: var(--error);">-
-                    </div>
-                    <p style="color: var(--text-muted);">기간 내 발생 건수</p>
+            <div class="hm-kpi-grid fade-in-up">
+                <div class="hm-kpi is-error">
+                    <p class="hm-kpi-label">기간 내 발생 건수</p>
+                    <div id="error-stat-total" class="hm-kpi-value">—</div>
                 </div>
-                <div class="feature-card" style="text-align: center;">
-                    <div id="error-stat-groups" style="font-size: 2.5rem; font-weight: 800; color: var(--warning);">-
-                    </div>
-                    <p style="color: var(--text-muted);">고유 에러 종류</p>
+                <div class="hm-kpi is-warn">
+                    <p class="hm-kpi-label">고유 에러 종류</p>
+                    <div id="error-stat-groups" class="hm-kpi-value">—</div>
                 </div>
-                <div class="feature-card" style="text-align: center;">
-                    <div id="error-stat-health" style="font-size: 2.5rem; font-weight: 800; color: var(--success);">-
-                    </div>
-                    <p style="color: var(--text-muted);">서비스 상태 (/api/health)</p>
+                <div class="hm-kpi">
+                    <p class="hm-kpi-label">서비스 상태 (/api/health)</p>
+                    <div id="error-stat-health" class="hm-kpi-value">—</div>
                 </div>
-                <div class="feature-card" style="text-align: center;">
-                    <div id="error-stat-email" style="font-size: 2.5rem; font-weight: 800; color: var(--text-muted);">-
-                    </div>
-                    <p style="color: var(--text-muted);">이메일 발송</p>
-                    <p id="error-stat-email-note" style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;"></p>
+                <div class="hm-kpi">
+                    <p class="hm-kpi-label">이메일 발송</p>
+                    <div id="error-stat-email" class="hm-kpi-value">—</div>
+                    <p id="error-stat-email-note" class="hm-kpi-note"></p>
                 </div>
                 <!-- 일일 배치(cron)가 조용히 멈추면 리마인더·정리·다이제스트가 전부 사라지는데,
                      "알림이 안 온다"는 사실은 아무도 신고하지 않는다. 여기서 드러내야 한다. -->
-                <div class="feature-card" style="text-align: center;">
-                    <div id="error-stat-cron" style="font-size: 2.5rem; font-weight: 800; color: var(--text-muted);">-
-                    </div>
-                    <p style="color: var(--text-muted);">일일 배치 (cron)</p>
-                    <p id="error-stat-cron-note" style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;"></p>
-                    <button class="btn btn-sm btn-ghost" style="margin-top: 8px;" onclick="runCronNow(this)">
-                        <i data-lucide="play" style="width: 14px; height: 14px;"></i> 지금 실행
+                <div class="hm-kpi">
+                    <p class="hm-kpi-label">일일 배치 (cron)</p>
+                    <div id="error-stat-cron" class="hm-kpi-value">—</div>
+                    <p id="error-stat-cron-note" class="hm-kpi-note"></p>
+                    <button type="button" class="btn btn-sm btn-outline" onclick="runCronNow(this)">
+                        <i data-lucide="play"></i> 지금 실행
                     </button>
                 </div>
             </div>
 
             <!-- Filter -->
-            <div class="card-glass"
-                style="padding: 16px; margin-bottom: 24px; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
-                <span style="color: var(--text-muted); font-size: 0.9rem;">조회 기간:</span>
-                <select id="error-hours" onchange="loadErrorLogs(1)"
-                    style="padding: 8px 12px; border-radius: 8px; background: transparent; border: 1px solid var(--border); color: inherit;">
+            <div class="hm-toolbar">
+                <label class="hm-toolbar-label" for="error-hours">조회 기간</label>
+                <select id="error-hours" class="hm-select" onchange="loadErrorLogs(1)">
                     <option value="24">최근 24시간</option>
                     <option value="168" selected>최근 7일</option>
                     <option value="720">최근 30일</option>
                 </select>
-                <span id="error-filter-note" style="color: var(--text-muted); font-size: 0.85rem;"></span>
-                <button class="btn btn-sm btn-ghost" style="margin-left: auto;" onclick="loadErrorLogs(1)">
-                    <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i> 새로고침
+                <span id="error-filter-note" class="hm-toolbar-note"></span>
+                <button type="button" class="btn btn-sm btn-ghost hm-toolbar-end" onclick="loadErrorLogs(1)">
+                    <i data-lucide="refresh-cw"></i> 새로고침
                 </button>
             </div>
 
             <!-- Fingerprint Group Summary -->
-            <div class="card-glass" style="padding: 20px; margin-bottom: 24px;">
-                <h3 style="margin: 0 0 4px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
-                    <i data-lucide="layers" style="width: 18px; height: 18px;"></i>
-                    에러 그룹 (발생 횟수순)
-                </h3>
-                <p style="color: var(--text-muted); font-size: 0.85rem; margin: 8px 0 16px;">
+            <section class="hm-admin-card">
+                <div class="hm-admin-card-head">
+                    <h2><i data-lucide="layers"></i>에러 그룹 (발생 횟수순)</h2>
+                </div>
+                <p class="hm-admin-card-lead">
                     같은 원인의 에러를 묶어 보여줍니다. 행을 클릭하면 해당 그룹만 아래 목록에 표시됩니다.
                 </p>
                 <div id="error-group-list"></div>
-            </div>
+            </section>
 
             <!-- Individual Occurrences -->
-            <div class="card-glass" style="padding: 20px;">
-                <h3 style="margin: 0 0 16px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
-                    <i data-lucide="list" style="width: 18px; height: 18px;"></i>
-                    개별 발생 기록
-                </h3>
+            <section class="hm-admin-card">
+                <div class="hm-admin-card-head">
+                    <h2><i data-lucide="list"></i>개별 발생 기록</h2>
+                </div>
                 <div id="error-log-list"></div>
-                <div id="error-pagination"
-                    style="display: flex; gap: 8px; justify-content: center; align-items: center; margin-top: 18px;">
-                </div>
-            </div>
+                <div id="error-pagination" class="hm-pager"></div>
+            </section>
         </div>
+    </main>
 
-        <!-- Side Panel for Details -->
-        <div class="side-panel-overlay" id="side-panel-overlay" onclick="closeSidePanel()"></div>
-        <div class="side-panel" id="side-panel">
-            <div class="side-panel-header">
-                <div>
-                    <h3 id="panel-company-name">업체 상세 정보</h3>
-                    <p id="panel-request-date" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">
-                    </p>
-                </div>
-                <button class="close-panel-btn" onclick="closeSidePanel()" title="닫기">
-                    <i data-lucide="x" style="width: 20px; height: 20px;"></i>
-                </button>
-            </div>
-            <div class="side-panel-body" id="panel-content">
-                <!-- Content will be injected by JS -->
-            </div>
-            <div class="side-panel-footer" id="panel-footer">
-                <button class="btn btn-secondary" onclick="closeSidePanel()">닫기</button>
-            </div>
+    <!-- Footer -->
+    <footer class="hm-mini-foot">
+        <div class="hm-wrap hm-mini-foot-row">
+            <span>© 2026 OpenBrain Limited. All rights reserved.</span>
+            <nav aria-label="약관 및 지원">
+                <a href="contact.html">문의하기</a>
+                <a href="terms.html">이용약관</a>
+                <a href="privacy.html">개인정보처리방침</a>
+            </nav>
         </div>
+    </footer>
 
-        <!-- Rejection Panel -->
-        <div class="side-panel-overlay" id="reject-panel-overlay" onclick="closeRejectPanel()"></div>
-        <div class="side-panel" id="reject-panel" style="max-width: 500px;">
-            <div class="side-panel-header"
-                style="background: rgba(239, 68, 68, 0.1); border-bottom: 1px solid rgba(239, 68, 68, 0.2);">
-                <div>
-                    <h3 style="color: #ef4444; display: flex; align-items: center; gap: 8px;">
-                        <i data-lucide="user-x" style="width: 22px; height: 22px;"></i>
-                        컨설턴트 등록 거부
-                    </h3>
-                    <p id="reject-consultant-name"
-                        style="font-size: 0.9rem; color: var(--text-muted); margin-top: 4px;"></p>
-                </div>
-                <button class="close-panel-btn" onclick="closeRejectPanel()" title="닫기">
-                    <i data-lucide="x" style="width: 20px; height: 20px;"></i>
-                </button>
+    <!-- Side Panel for Details (열림 = .active, openSidePanel/closeSidePanel) -->
+    <div class="side-panel-overlay" id="side-panel-overlay" onclick="closeSidePanel()"></div>
+    <div class="side-panel" id="side-panel" role="dialog" aria-labelledby="panel-company-name">
+        <div class="side-panel-header">
+            <div class="side-panel-heading">
+                <h3 id="panel-company-name">업체 상세 정보</h3>
+                <p id="panel-request-date"></p>
             </div>
-            <div class="side-panel-body" style="padding: 24px;">
-                <input type="hidden" id="reject-consultant-id" value="">
+            <button class="close-panel-btn" type="button" onclick="closeSidePanel()" title="닫기" aria-label="닫기">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="side-panel-body" id="panel-content">
+            <!-- Content will be injected by JS -->
+        </div>
+        <div class="side-panel-footer" id="panel-footer">
+            <button class="btn btn-secondary" onclick="closeSidePanel()">닫기</button>
+        </div>
+    </div>
 
-                <div style="margin-bottom: 24px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 16px; color: var(--text-primary);">
-                        거부 사유 선택
+    <!-- Rejection Panel (사유 value 문자열은 서버로 그대로 보내고 메일에도 들어간다 — 글자를 바꾸지 말 것) -->
+    <div class="side-panel-overlay" id="reject-panel-overlay" onclick="closeRejectPanel()"></div>
+    <div class="side-panel is-narrow" id="reject-panel" role="dialog" aria-labelledby="reject-panel-title">
+        <div class="side-panel-header is-danger">
+            <div class="side-panel-heading">
+                <h3 id="reject-panel-title">
+                    <i data-lucide="user-x"></i>
+                    컨설턴트 등록 거부
+                </h3>
+                <p id="reject-consultant-name"></p>
+            </div>
+            <button class="close-panel-btn" type="button" onclick="closeRejectPanel()" title="닫기" aria-label="닫기">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="side-panel-body">
+            <input type="hidden" id="reject-consultant-id" value="">
+
+            <fieldset class="hm-reject-fieldset">
+                <legend class="hm-reject-legend">거부 사유 선택</legend>
+
+                <div id="reject-reasons" class="hm-reason-list">
+                    <label class="reject-reason-option">
+                        <input type="radio" name="reject_reason" value="자격증/경력 증빙 서류 미제출">
+                        <span class="reason-radio"></span>
+                        <span class="reason-text">자격증/경력 증빙 서류 미제출</span>
                     </label>
-
-                    <div id="reject-reasons" style="display: flex; flex-direction: column; gap: 10px;">
-                        <label class="reject-reason-option">
-                            <input type="radio" name="reject_reason" value="자격증/경력 증빙 서류 미제출">
-                            <span class="reason-radio"></span>
-                            <span class="reason-text">자격증/경력 증빙 서류 미제출</span>
-                        </label>
-                        <label class="reject-reason-option">
-                            <input type="radio" name="reject_reason" value="ISO 전문 분야 미기재 또는 부정확">
-                            <span class="reason-radio"></span>
-                            <span class="reason-text">ISO 전문 분야 미기재 또는 부정확</span>
-                        </label>
-                        <label class="reject-reason-option">
-                            <input type="radio" name="reject_reason" value="연락처 정보 불완전 (이메일/전화번호)">
-                            <span class="reason-radio"></span>
-                            <span class="reason-text">연락처 정보 불완전 (이메일/전화번호)</span>
-                        </label>
-                        <label class="reject-reason-option">
-                            <input type="radio" name="reject_reason" value="프로필 정보 부족 (경력, 산업 경험 등)">
-                            <span class="reason-radio"></span>
-                            <span class="reason-text">프로필 정보 부족 (경력, 산업 경험 등)</span>
-                        </label>
-                        <label class="reject-reason-option">
-                            <input type="radio" name="reject_reason" value="등록 정책 위반">
-                            <span class="reason-radio"></span>
-                            <span class="reason-text">등록 정책 위반</span>
-                        </label>
-                        <label class="reject-reason-option">
-                            <input type="radio" name="reject_reason" value="custom" id="custom-reason-radio">
-                            <span class="reason-radio"></span>
-                            <span class="reason-text">기타 (직접 입력)</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div style="margin-bottom: 20px;">
-                    <label
-                        style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--text-muted); font-size: 0.9rem;">
-                        상세 사유 또는 추가 메모
+                    <label class="reject-reason-option">
+                        <input type="radio" name="reject_reason" value="ISO 전문 분야 미기재 또는 부정확">
+                        <span class="reason-radio"></span>
+                        <span class="reason-text">ISO 전문 분야 미기재 또는 부정확</span>
                     </label>
-                    <textarea id="reject-custom-reason" rows="4" placeholder="추가 설명을 입력하세요... (선택사항)"
-                        style="width: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 12px; color: var(--text-primary); font-size: 0.95rem; resize: vertical;"></textarea>
+                    <label class="reject-reason-option">
+                        <input type="radio" name="reject_reason" value="연락처 정보 불완전 (이메일/전화번호)">
+                        <span class="reason-radio"></span>
+                        <span class="reason-text">연락처 정보 불완전 (이메일/전화번호)</span>
+                    </label>
+                    <label class="reject-reason-option">
+                        <input type="radio" name="reject_reason" value="프로필 정보 부족 (경력, 산업 경험 등)">
+                        <span class="reason-radio"></span>
+                        <span class="reason-text">프로필 정보 부족 (경력, 산업 경험 등)</span>
+                    </label>
+                    <label class="reject-reason-option">
+                        <input type="radio" name="reject_reason" value="등록 정책 위반">
+                        <span class="reason-radio"></span>
+                        <span class="reason-text">등록 정책 위반</span>
+                    </label>
+                    <label class="reject-reason-option">
+                        <input type="radio" name="reject_reason" value="custom" id="custom-reason-radio">
+                        <span class="reason-radio"></span>
+                        <span class="reason-text">기타 (직접 입력)</span>
+                    </label>
                 </div>
+            </fieldset>
 
-                <div
-                    style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.15); border-radius: 8px; padding: 12px; display: flex; align-items: flex-start; gap: 10px;">
-                    <i data-lucide="info"
-                        style="width: 18px; height: 18px; color: #f97316; flex-shrink: 0; margin-top: 2px;"></i>
-                    <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; margin: 0;">
-                        거부 사유는 해당 컨설턴트에게 이메일로 전달됩니다. 구체적인 사유를 작성하면 재등록 시 도움이 됩니다.
-                    </p>
-                </div>
+            <div class="hm-field hm-reject-memo">
+                <label for="reject-custom-reason">상세 사유 또는 추가 메모</label>
+                <textarea id="reject-custom-reason" rows="4" placeholder="추가 설명을 입력하세요... (선택사항)"></textarea>
             </div>
-            <div class="side-panel-footer" style="border-top: 1px solid rgba(239, 68, 68, 0.2);">
-                <button class="btn btn-secondary" onclick="closeRejectPanel()">취소</button>
-                <button class="btn" id="confirm-reject-btn" onclick="confirmReject()"
-                    style="flex: 1; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <i data-lucide="user-x" style="width: 18px; height: 18px;"></i>
-                    거부 처리
-                </button>
+
+            <div class="hm-note is-warn hm-note-row">
+                <i data-lucide="info"></i>
+                <p>거부 사유는 해당 컨설턴트에게 이메일로 전달됩니다. 구체적인 사유를 작성하면 재등록 시 도움이 됩니다.</p>
             </div>
         </div>
-
-        <style>
-            /* Rejection Panel Styles */
-            .reject-reason-option {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                padding: 14px 16px;
-                background: var(--bg-card);
-                border: 1px solid var(--border);
-                border-radius: 10px;
-                cursor: pointer;
-                transition: all 0.2s ease;
-            }
-
-            .reject-reason-option:hover {
-                background: var(--bg-card-hover);
-                border-color: var(--border-hover);
-            }
-
-            .reject-reason-option:has(input:checked) {
-                background: rgba(239, 68, 68, 0.1);
-                border-color: rgba(239, 68, 68, 0.3);
-            }
-
-            .reject-reason-option input[type="radio"] {
-                display: none;
-            }
-
-            .reason-radio {
-                width: 20px;
-                height: 20px;
-                border: 2px solid var(--border);
-                border-radius: 50%;
-                position: relative;
-                flex-shrink: 0;
-                transition: all 0.2s ease;
-            }
-
-            .reject-reason-option:has(input:checked) .reason-radio {
-                border-color: #ef4444;
-            }
-
-            .reason-radio::after {
-                content: '';
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%) scale(0);
-                width: 10px;
-                height: 10px;
-                background: #ef4444;
-                border-radius: 50%;
-                transition: transform 0.2s ease;
-            }
-
-            .reject-reason-option:has(input:checked) .reason-radio::after {
-                transform: translate(-50%, -50%) scale(1);
-            }
-
-            .reason-text {
-                color: var(--text-primary);
-                font-size: 0.95rem;
-            }
-
-            #reject-custom-reason:focus {
-                outline: none;
-                border-color: rgba(239, 68, 68, 0.5);
-                box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
-            }
-        </style>
+        <div class="side-panel-footer">
+            <button class="btn btn-secondary" type="button" onclick="closeRejectPanel()">취소</button>
+            <button class="btn btn-danger is-grow" type="button" id="confirm-reject-btn" onclick="confirmReject()">
+                <i data-lucide="user-x"></i>
+                거부 처리
+            </button>
+        </div>
+    </div>
 
         <script>
             lucide.createIcons();
@@ -852,13 +609,22 @@
             function toggleMobileMenu() {
                 mobileMenuBtn.classList.toggle('active');
                 mobileNav.classList.toggle('active');
+                mobileMenuBtn.setAttribute('aria-expanded', mobileNav.classList.contains('active') ? 'true' : 'false');
                 document.body.style.overflow = mobileNav.classList.contains('active') ? 'hidden' : '';
             }
 
             function closeMobileMenu() {
                 mobileMenuBtn.classList.remove('active');
                 mobileNav.classList.remove('active');
+                mobileMenuBtn.setAttribute('aria-expanded', 'false');
                 document.body.style.overflow = '';
+            }
+
+            // 다른 B안 화면(대시보드)과 같은 로그아웃 — 예전 관리자 화면에는 로그아웃 버튼이 없었다.
+            function logout() {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = 'index.html';
             }
 
             mobileMenuBtn.addEventListener('click', toggleMobileMenu);
@@ -902,7 +668,9 @@
                 };
                 const response = await fetch(url, { ...options, headers });
                 if (response.status === 401) {
+                    // token 만 지우면 user 가 남아 로그인 상태로 오인되므로 둘 다 지운다 (대시보드와 같은 처리)
                     localStorage.removeItem('token');
+                    localStorage.removeItem('user');
                     window.location.href = 'login.html?redirect=admin.html';
                 } else if (response.status === 403) {
                     showNotification('관리자 권한이 필요합니다.', 'error');
@@ -982,44 +750,46 @@
                     if (!res.ok) return;
                     const invites = await res.json();
                     if (!Array.isArray(invites) || invites.length === 0) {
-                        box.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">발급된 초대 링크가 없습니다.</p>';
+                        box.innerHTML = '<p class="hm-admin-empty">발급된 초대 링크가 없습니다.</p>';
                         return;
                     }
                     const badge = (s) => ({
-                        usable: '<span style="color:#10B981;font-weight:600;">사용 가능</span>',
-                        used: '<span style="color:var(--text-muted);">사용 완료</span>',
-                        revoked: '<span style="color:#dc2626;">취소됨</span>',
-                        expired: '<span style="color:#dc2626;">만료됨</span>'
-                    }[s] || s);
+                        usable: '<span class="hm-pill is-ok">사용 가능</span>',
+                        used: '<span class="hm-pill">사용 완료</span>',
+                        revoked: '<span class="hm-pill is-error">취소됨</span>',
+                        expired: '<span class="hm-pill is-error">만료됨</span>'
+                    }[s] || `<span class="hm-pill">${escapeHtml(s)}</span>`);
 
                     box.innerHTML = `
-                        <table style="width:100%; font-size:0.85rem; border-collapse:collapse;">
+                        <div class="hm-table-wrap">
+                        <table class="hm-table">
                             <thead>
-                                <tr style="border-bottom:1px solid var(--border); text-align:left; color:var(--text-muted);">
-                                    <th style="padding:8px 6px;">이름</th>
-                                    <th style="padding:8px 6px;">메모</th>
-                                    <th style="padding:8px 6px;">상태</th>
-                                    <th style="padding:8px 6px;">만료</th>
-                                    <th style="padding:8px 6px; text-align:right;">동작</th>
+                                <tr>
+                                    <th>이름</th>
+                                    <th>메모</th>
+                                    <th>상태</th>
+                                    <th>만료</th>
+                                    <th class="is-actions">동작</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 ${invites.map(i => `
-                                    <tr style="border-bottom:1px solid var(--border);">
-                                        <td style="padding:8px 6px;">${escapeHtml(i.name || '-')}</td>
-                                        <td style="padding:8px 6px; color:var(--text-muted);">${escapeHtml(i.memo || '-')}</td>
-                                        <td style="padding:8px 6px;">${badge(i.status)}</td>
-                                        <td style="padding:8px 6px; color:var(--text-muted);">${escapeHtml((i.expires_at || '').slice(0, 10))}</td>
-                                        <td style="padding:8px 6px; text-align:right; white-space:nowrap;">
+                                    <tr>
+                                        <td>${escapeHtml(i.name || '-')}</td>
+                                        <td class="is-muted">${escapeHtml(i.memo || '-')}</td>
+                                        <td>${badge(i.status)}</td>
+                                        <td class="is-muted">${escapeHtml((i.expires_at || '').slice(0, 10))}</td>
+                                        <td class="is-actions">
                                             ${i.status === 'usable' ? `
-                                                <button class="btn btn-sm btn-ghost" onclick="copyInvite('${escapeAttr(i.invite_url)}')">복사</button>
-                                                <button class="btn btn-sm btn-ghost" style="color:#dc2626;" onclick="revokeInvite(${i.id})">취소</button>
+                                                <button type="button" class="btn btn-sm btn-ghost" onclick="copyInvite(${jsArg(i.invite_url)})">복사</button>
+                                                <button type="button" class="btn btn-sm btn-ghost is-danger" onclick="revokeInvite(${Number(i.id)})">취소</button>
                                             ` : '-'}
                                         </td>
                                     </tr>
                                 `).join('')}
                             </tbody>
-                        </table>`;
+                        </table>
+                        </div>`;
                 } catch (e) {
                     console.warn('[Invites] load failed', e);
                 }
@@ -1037,6 +807,24 @@
 
             function escapeAttr(value) {
                 return escapeHtml(value).replace(/`/g, '&#96;');
+            }
+
+            // 인라인 onclick="fn(…)" 안에 넣는 값. HTML 이스케이프만으로는 안 된다:
+            // 속성값의 &#39; 는 JS 가 읽기 전에 ' 로 되돌아가 문자열을 깨고 나온다.
+            // 그래서 먼저 JSON 문자열 리터럴로 만들고(따옴표·역슬래시 처리), 그다음 속성용으로 이스케이프한다.
+            // 사람이 입력한 이름 같은 값은 아예 넘기지 말고 id 만 넘겨 데이터에서 찾는다.
+            function jsArg(value) {
+                return escapeAttr(JSON.stringify(String(value ?? '')));
+            }
+
+            // 블로그 대표 이미지: http(s) 와 같은 사이트 상대경로만 허용(javascript: 등 차단)
+            function safeHttpUrl(url) {
+                try {
+                    const parsed = new URL(String(url || ''), window.location.origin);
+                    return (parsed.protocol === 'https:' || parsed.protocol === 'http:') ? parsed.href : '';
+                } catch (_) {
+                    return '';
+                }
             }
 
             function safeImageUrl(url) {
@@ -1098,10 +886,11 @@
             let inquiryCurrentPage = 1;
 
             const INQUIRY_STATUS_LABELS = { received: '접수', checked: '확인', done: '완료' };
-            const INQUIRY_STATUS_COLORS = {
-                received: 'var(--warning)',
-                checked: 'var(--primary)',
-                done: 'var(--success)'
+            // 상태 알약 색 (brand.css 16절 .hm-pill.is-*)
+            const INQUIRY_STATUS_TONES = {
+                received: 'is-warn',
+                checked: 'is-info',
+                done: 'is-ok'
             };
             let inquiryCategoryLabels = {};
 
@@ -1109,9 +898,9 @@
                 inquiryCurrentPage = page || 1;
                 const listBox = document.getElementById('inquiry-list');
                 listBox.innerHTML = `
-                    <div style="text-align: center; padding: 40px;">
-                        <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
-                        <p style="color: var(--text-muted);">문의를 불러오는 중...</p>
+                    <div class="hm-admin-loading">
+                        <div class="loading-spinner"></div>
+                        <p>문의를 불러오는 중...</p>
                     </div>`;
 
                 const params = new URLSearchParams({
@@ -1124,7 +913,7 @@
                 try {
                     const res = await authFetch(`/api/admin/inquiries?${params.toString()}`);
                     if (!res.ok) {
-                        listBox.innerHTML = '<p style="color: var(--text-muted);">문의를 불러오지 못했습니다.</p>';
+                        listBox.innerHTML = '<p class="hm-admin-empty">문의를 불러오지 못했습니다.</p>';
                         return;
                     }
                     const data = await res.json();
@@ -1141,48 +930,46 @@
                     renderInquiryPagination(data);
                     lucide.createIcons();
                 } catch (e) {
-                    listBox.innerHTML = '<p style="color: var(--text-muted);">서버 연결에 실패했습니다.</p>';
+                    listBox.innerHTML = '<p class="hm-admin-empty">서버 연결에 실패했습니다.</p>';
                 }
             }
 
             function renderInquiries(box, inquiries) {
                 if (inquiries.length === 0) {
-                    box.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">표시할 문의가 없습니다.</p>';
+                    box.innerHTML = '<p class="hm-admin-empty">표시할 문의가 없습니다.</p>';
                     return;
                 }
                 box.innerHTML = inquiries.map(item => {
-                    const statusColor = INQUIRY_STATUS_COLORS[item.status] || 'var(--text-muted)';
+                    const statusTone = INQUIRY_STATUS_TONES[item.status] || '';
                     const categoryLabel = inquiryCategoryLabels[item.category] || item.category || '기타';
                     const mailto = safeMailto(item.email);
                     return `
-                    <div style="border-bottom:1px solid var(--border); padding:16px 4px;">
-                        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
-                            <span style="font-size:0.75rem; font-weight:700; padding:3px 10px; border-radius:999px; border:1px solid ${statusColor}; color:${statusColor};">
+                    <article class="hm-inquiry">
+                        <div class="hm-inquiry-head">
+                            <span class="hm-pill ${statusTone}">
                                 ${escapeHtml(INQUIRY_STATUS_LABELS[item.status] || item.status || '-')}
                             </span>
-                            <span style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(categoryLabel)}</span>
-                            <strong style="font-size:0.95rem;">${escapeHtml(item.subject || '(제목 없음)')}</strong>
-                            <span style="font-size:0.8rem; color:var(--text-muted); margin-left:auto;">
+                            <span class="hm-inquiry-cat">${escapeHtml(categoryLabel)}</span>
+                            <strong class="hm-inquiry-subject">${escapeHtml(item.subject || '(제목 없음)')}</strong>
+                            <span class="hm-inquiry-time">
                                 ${escapeHtml(formatErrorTime(item.createdAt))}
                             </span>
                         </div>
-                        <div style="display:flex; gap:12px; flex-wrap:wrap; font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+                        <div class="hm-inquiry-who">
                             <span>${escapeHtml(item.name || '-')}</span>
                             <span>${mailto ? `<a href="${escapeAttr(mailto)}">${escapeHtml(item.email || '')}</a>` : escapeHtml(item.email || '')}</span>
                             <span>${item.userId ? `회원 #${escapeHtml(String(item.userId))}` : '비회원'}</span>
                         </div>
-                        <div style="font-size:0.88rem; line-height:1.8; white-space:pre-wrap; word-break:break-word; background:var(--bg-secondary); padding:12px; border-radius:8px;">${escapeHtml(item.content || '')}</div>
-                        <div style="margin-top:12px;">
-                            <textarea id="inquiry-memo-${Number(item.id)}" maxlength="2000" placeholder="관리자 메모 (문의자에게 노출되지 않습니다)"
-                                style="width:100%; min-height:56px; padding:10px; border-radius:8px; background:transparent; border:1px solid var(--border); color:inherit; font-size:0.85rem; resize:vertical;">${escapeHtml(item.adminMemo || '')}</textarea>
+                        <div class="hm-inquiry-body">${escapeHtml(item.content || '')}</div>
+                        <textarea id="inquiry-memo-${Number(item.id)}" class="hm-inquiry-memo" maxlength="2000" aria-label="관리자 메모"
+                            placeholder="관리자 메모 (문의자에게 노출되지 않습니다)">${escapeHtml(item.adminMemo || '')}</textarea>
+                        <div class="hm-inquiry-actions">
+                            <button type="button" class="btn btn-sm btn-outline" onclick="updateInquiry(${Number(item.id)}, 'received')">접수로</button>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="updateInquiry(${Number(item.id)}, 'checked')">확인함</button>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="updateInquiry(${Number(item.id)}, 'done')">완료</button>
+                            <button type="button" class="btn btn-sm btn-ghost is-end" onclick="updateInquiry(${Number(item.id)}, null)">메모만 저장</button>
                         </div>
-                        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
-                            <button class="btn btn-sm btn-ghost" onclick="updateInquiry(${Number(item.id)}, 'received')">접수로</button>
-                            <button class="btn btn-sm btn-ghost" onclick="updateInquiry(${Number(item.id)}, 'checked')">확인함</button>
-                            <button class="btn btn-sm btn-ghost" onclick="updateInquiry(${Number(item.id)}, 'done')">완료</button>
-                            <button class="btn btn-sm btn-ghost" style="margin-left:auto;" onclick="updateInquiry(${Number(item.id)}, null)">메모만 저장</button>
-                        </div>
-                    </div>`;
+                    </article>`;
                 }).join('');
             }
 
@@ -1216,9 +1003,9 @@
                 }
                 const page = data.page || 1;
                 box.innerHTML = `
-                    <button class="btn btn-sm btn-ghost" ${page <= 1 ? 'disabled' : ''} onclick="loadInquiries(${page - 1})">이전</button>
-                    <span style="color:var(--text-muted); font-size:0.85rem;">${page} / ${totalPages}</span>
-                    <button class="btn btn-sm btn-ghost" ${page >= totalPages ? 'disabled' : ''} onclick="loadInquiries(${page + 1})">다음</button>`;
+                    <button type="button" class="btn btn-sm btn-outline" ${page <= 1 ? 'disabled' : ''} onclick="loadInquiries(${Number(page) - 1})">이전</button>
+                    <span class="hm-pager-label">${Number(page)} / ${Number(totalPages)}</span>
+                    <button type="button" class="btn btn-sm btn-outline" ${page >= totalPages ? 'disabled' : ''} onclick="loadInquiries(${Number(page) + 1})">다음</button>`;
             }
 
             // ========================================
@@ -1228,14 +1015,14 @@
                 const days = document.getElementById('funnel-days').value || '30';
                 const surveyBox = document.getElementById('funnel-survey-list');
                 const projectBox = document.getElementById('funnel-project-list');
-                surveyBox.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">불러오는 중...</p>';
+                surveyBox.innerHTML = '<p class="hm-admin-empty">불러오는 중...</p>';
                 projectBox.innerHTML = '';
 
                 try {
                     const res = await authFetch(`/api/admin/funnel-stats?days=${encodeURIComponent(days)}`);
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok) {
-                        surveyBox.innerHTML = `<p style="color: var(--error); font-size: 0.85rem;">${escapeHtml(data.message || '퍼널 통계를 불러오지 못했습니다.')}</p>`;
+                        surveyBox.innerHTML = `<p class="hm-admin-empty is-error">${escapeHtml(data.message || '퍼널 통계를 불러오지 못했습니다.')}</p>`;
                         return;
                     }
 
@@ -1251,9 +1038,9 @@
                         : `견적 요청 → 완료 전체 전환율: ${data.overallRate}%`;
 
                     const side = data.side || {};
-                    document.getElementById('funnel-side-negotiation').textContent = side.negotiationRequested ?? '-';
-                    document.getElementById('funnel-side-cancelled').textContent = side.cancelled ?? '-';
-                    document.getElementById('funnel-side-result').textContent = side.surveysWithResult ?? '-';
+                    document.getElementById('funnel-side-negotiation').textContent = side.negotiationRequested ?? '—';
+                    document.getElementById('funnel-side-cancelled').textContent = side.cancelled ?? '—';
+                    document.getElementById('funnel-side-result').textContent = side.surveysWithResult ?? '—';
 
                     // 한계 문구는 백엔드가 유일한 출처다 (화면과 API 설명이 어긋나지 않도록)
                     document.getElementById('funnel-limitations').innerHTML =
@@ -1261,7 +1048,7 @@
 
                     lucide.createIcons();
                 } catch (e) {
-                    surveyBox.innerHTML = '<p style="color: var(--error); font-size: 0.85rem;">서버 연결에 실패했습니다.</p>';
+                    surveyBox.innerHTML = '<p class="hm-admin-empty is-error">서버 연결에 실패했습니다.</p>';
                 }
             }
 
@@ -1269,7 +1056,7 @@
             // 막대 길이는 첫 단계 대비 비율, 색은 직전 단계 대비 전환율로 칠한다.
             function renderFunnelStages(box, stages) {
                 if (!stages.length) {
-                    box.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">표시할 데이터가 없습니다.</p>';
+                    box.innerHTML = '<p class="hm-admin-empty">표시할 데이터가 없습니다.</p>';
                     return;
                 }
                 const base = stages[0].count || 0;
@@ -1278,29 +1065,29 @@
                     const width = base > 0 ? Math.max((stage.count / base) * 100, stage.count > 0 ? 2 : 0) : 0;
                     const rate = stage.rateFromPrev;
                     // 전환율 없음(첫 단계 또는 분모 0)과 낮은 전환율은 다르게 보여야 한다
-                    let rateColor = 'var(--text-muted)';
+                    let rateTone = '';
                     let rateText = idx === 0 ? '기준 단계' : '집계 불가';
                     if (typeof rate === 'number') {
                         rateText = `${rate}%`;
-                        if (rate >= 60) rateColor = 'var(--success)';
-                        else if (rate >= 30) rateColor = 'var(--warning)';
-                        else rateColor = 'var(--error)';
+                        if (rate >= 60) rateTone = 'is-ok';
+                        else if (rate >= 30) rateTone = 'is-warn';
+                        else rateTone = 'is-error';
                     }
                     const dropped = idx > 0 && typeof rate === 'number' && rate < 30;
 
                     return `
-                        <div style="margin-bottom:14px;">
-                            <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:6px;">
-                                <span style="font-weight:600; font-size:0.9rem;">${escapeHtml(stage.label)}</span>
-                                <span style="font-size:0.85rem; color:var(--text-muted);">
-                                    <strong style="color:inherit; font-size:1rem;">${escapeHtml(String(stage.count))}</strong>${escapeHtml(stage.unit || '')}
-                                    · 직전 대비 <strong style="color:${rateColor};">${escapeHtml(rateText)}</strong>
+                        <div class="hm-funnel-stage">
+                            <div class="hm-funnel-top">
+                                <span class="hm-funnel-name">${escapeHtml(stage.label)}</span>
+                                <span class="hm-funnel-num">
+                                    <strong>${escapeHtml(String(stage.count))}</strong>${escapeHtml(stage.unit || '')}
+                                    · 직전 대비 <strong class="hm-funnel-rate ${rateTone}">${escapeHtml(rateText)}</strong>
                                 </span>
                             </div>
-                            <div style="height:14px; border-radius:7px; background:rgba(127,127,127,0.15); overflow:hidden;">
-                                <div style="height:100%; width:${width}%; border-radius:7px; background:${dropped ? 'var(--error)' : 'var(--primary)'};"></div>
+                            <div class="hm-funnel-track">
+                                <div class="hm-funnel-fill ${dropped ? 'is-drop' : ''}" style="width:${Number(width) || 0}%;"></div>
                             </div>
-                            ${dropped ? `<div style="font-size:0.78rem; color:var(--error); margin-top:4px;">⚠️ 이 구간에서 대부분 이탈합니다.</div>` : ''}
+                            ${dropped ? `<p class="hm-funnel-drop"><i data-lucide="alert-triangle"></i>이 구간에서 대부분 이탈합니다.</p>` : ''}
                         </div>`;
                 }).join('');
             }
@@ -1397,7 +1184,7 @@
             async function runCronNow(button) {
                 const original = button.innerHTML;
                 button.disabled = true;
-                button.innerHTML = '<span class="loading-spinner" style="width:14px; height:14px; border-width:2px;"></span> 실행 중...';
+                button.innerHTML = '<span class="loading-spinner"></span> 실행 중...';
                 try {
                     const res = await authFetch('/api/cron/daily', { method: 'POST' });
                     const data = await res.json().catch(() => ({}));
@@ -1429,9 +1216,9 @@
                 const groupBox = document.getElementById('error-group-list');
                 const listBox = document.getElementById('error-log-list');
                 listBox.innerHTML = `
-                    <div style="text-align: center; padding: 40px;">
-                        <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
-                        <p style="color: var(--text-muted);">에러 로그를 불러오는 중...</p>
+                    <div class="hm-admin-loading">
+                        <div class="loading-spinner"></div>
+                        <p>에러 로그를 불러오는 중...</p>
                     </div>`;
 
                 const params = new URLSearchParams({
@@ -1444,7 +1231,7 @@
                 try {
                     const res = await authFetch(`/api/admin/error-logs?${params.toString()}`);
                     if (!res.ok) {
-                        listBox.innerHTML = '<p style="color: var(--text-muted);">에러 로그를 불러오지 못했습니다.</p>';
+                        listBox.innerHTML = '<p class="hm-admin-empty">에러 로그를 불러오지 못했습니다.</p>';
                         return;
                     }
                     const data = await res.json();
@@ -1459,61 +1246,63 @@
                     renderErrorPagination(data);
                     lucide.createIcons();
                 } catch (e) {
-                    listBox.innerHTML = '<p style="color: var(--text-muted);">서버 연결에 실패했습니다.</p>';
+                    listBox.innerHTML = '<p class="hm-admin-empty">서버 연결에 실패했습니다.</p>';
                 }
             }
 
             function renderErrorGroups(box, groups) {
                 if (groups.length === 0) {
-                    box.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">해당 기간에 기록된 에러가 없습니다. 👍</p>';
+                    box.innerHTML = '<p class="hm-admin-empty">해당 기간에 기록된 에러가 없습니다.</p>';
                     return;
                 }
                 box.innerHTML = `
-                    <table style="width:100%; font-size:0.85rem; border-collapse:collapse;">
+                    <div class="hm-table-wrap">
+                    <table class="hm-table">
                         <thead>
-                            <tr style="border-bottom:1px solid var(--border); text-align:left; color:var(--text-muted);">
-                                <th style="padding:8px 6px;">예외</th>
-                                <th style="padding:8px 6px;">메시지</th>
-                                <th style="padding:8px 6px;">경로</th>
-                                <th style="padding:8px 6px; text-align:right;">횟수</th>
-                                <th style="padding:8px 6px;">최근 발생</th>
+                            <tr>
+                                <th>예외</th>
+                                <th>메시지</th>
+                                <th>경로</th>
+                                <th class="is-num">횟수</th>
+                                <th>최근 발생</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${groups.map(gr => `
-                                <tr style="border-bottom:1px solid var(--border); cursor:pointer; ${gr.fingerprint === errorFingerprintFilter ? 'background: rgba(239,68,68,0.08);' : ''}"
-                                    onclick="filterErrorsByFingerprint('${escapeAttr(gr.fingerprint || '')}')">
-                                    <td style="padding:8px 6px; font-weight:600; color:var(--error);">${escapeHtml(gr.excType || '-')}</td>
-                                    <td style="padding:8px 6px; max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(gr.message || '-')}</td>
-                                    <td style="padding:8px 6px; color:var(--text-muted);">${escapeHtml(gr.path || '-')}</td>
-                                    <td style="padding:8px 6px; text-align:right; font-weight:700;">${escapeHtml(String(gr.count ?? 0))}</td>
-                                    <td style="padding:8px 6px; color:var(--text-muted);">${escapeHtml(formatErrorTime(gr.lastSeen))}</td>
+                                <tr class="is-clickable ${gr.fingerprint === errorFingerprintFilter ? 'is-selected' : ''}"
+                                    onclick="filterErrorsByFingerprint(${jsArg(gr.fingerprint || '')})">
+                                    <td class="is-exc">${escapeHtml(gr.excType || '-')}</td>
+                                    <td class="is-clip">${escapeHtml(gr.message || '-')}</td>
+                                    <td class="is-muted">${escapeHtml(gr.path || '-')}</td>
+                                    <td class="is-num">${escapeHtml(String(gr.count ?? 0))}</td>
+                                    <td class="is-muted">${escapeHtml(formatErrorTime(gr.lastSeen))}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
-                    </table>`;
+                    </table>
+                    </div>`;
             }
 
             function renderErrorLogs(box, logs) {
                 if (logs.length === 0) {
-                    box.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">표시할 기록이 없습니다.</p>';
+                    box.innerHTML = '<p class="hm-admin-empty">표시할 기록이 없습니다.</p>';
                     return;
                 }
                 box.innerHTML = logs.map(log => `
-                    <div style="border-bottom:1px solid var(--border); padding:12px 4px;">
-                        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-                            <span style="font-weight:600; color:var(--error);">${escapeHtml(log.excType || '-')}</span>
-                            <span style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(log.method || '')} ${escapeHtml(log.path || '')}</span>
-                            <span style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(formatErrorTime(log.createdAt))}</span>
-                            <span style="font-size:0.8rem; color:var(--text-muted);">HTTP ${escapeHtml(String(log.statusCode ?? '-'))}</span>
-                            <span style="font-size:0.8rem; color:var(--text-muted);">user #${escapeHtml(String(log.userId ?? '-'))}</span>
-                            <span style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(log.clientIp || '')}</span>
-                            <button class="btn btn-sm btn-ghost" style="margin-left:auto;" onclick="toggleErrorDetail(${Number(log.id)})">
+                    <div class="hm-errlog">
+                        <div class="hm-errlog-head">
+                            <span class="hm-errlog-type">${escapeHtml(log.excType || '-')}</span>
+                            <span>${escapeHtml(log.method || '')} ${escapeHtml(log.path || '')}</span>
+                            <span>${escapeHtml(formatErrorTime(log.createdAt))}</span>
+                            <span>HTTP ${escapeHtml(String(log.statusCode ?? '-'))}</span>
+                            <span>user #${escapeHtml(String(log.userId ?? '-'))}</span>
+                            <span>${escapeHtml(log.clientIp || '')}</span>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="toggleErrorDetail(${Number(log.id)})">
                                 상세
                             </button>
                         </div>
-                        <div style="font-size:0.85rem; margin-top:6px; word-break:break-word;">${escapeHtml(log.excMessage || '')}</div>
-                        <div id="error-detail-${Number(log.id)}" style="display:none; margin-top:10px;"></div>
+                        <div class="hm-errlog-msg">${escapeHtml(log.excMessage || '')}</div>
+                        <div id="error-detail-${Number(log.id)}" class="hm-errlog-detail" style="display:none;"></div>
                     </div>
                 `).join('');
             }
@@ -1527,9 +1316,9 @@
                 }
                 const page = data.page || 1;
                 box.innerHTML = `
-                    <button class="btn btn-sm btn-ghost" ${page <= 1 ? 'disabled' : ''} onclick="loadErrorLogs(${page - 1})">이전</button>
-                    <span style="color:var(--text-muted); font-size:0.85rem;">${page} / ${totalPages}</span>
-                    <button class="btn btn-sm btn-ghost" ${page >= totalPages ? 'disabled' : ''} onclick="loadErrorLogs(${page + 1})">다음</button>`;
+                    <button type="button" class="btn btn-sm btn-outline" ${page <= 1 ? 'disabled' : ''} onclick="loadErrorLogs(${Number(page) - 1})">이전</button>
+                    <span class="hm-pager-label">${Number(page)} / ${Number(totalPages)}</span>
+                    <button type="button" class="btn btn-sm btn-outline" ${page >= totalPages ? 'disabled' : ''} onclick="loadErrorLogs(${Number(page) + 1})">다음</button>`;
             }
 
             async function toggleErrorDetail(logId) {
@@ -1540,20 +1329,20 @@
                     return;
                 }
                 box.style.display = 'block';
-                box.innerHTML = '<p style="color: var(--text-muted); font-size:0.8rem;">불러오는 중...</p>';
+                box.innerHTML = '<p class="hm-admin-empty">불러오는 중...</p>';
                 try {
-                    const res = await authFetch(`/api/admin/error-logs/${logId}`);
+                    const res = await authFetch(`/api/admin/error-logs/${Number(logId)}`);
                     if (!res.ok) {
-                        box.innerHTML = '<p style="color: var(--text-muted); font-size:0.8rem;">상세를 불러오지 못했습니다.</p>';
+                        box.innerHTML = '<p class="hm-admin-empty">상세를 불러오지 못했습니다.</p>';
                         return;
                     }
                     const data = await res.json();
                     // 스택 트레이스에는 사용자 입력이 섞일 수 있으므로 반드시 이스케이프한다.
                     box.innerHTML = `
-                        <pre style="background: rgba(0,0,0,0.25); border:1px solid var(--border); border-radius:8px; padding:12px; font-size:0.75rem; line-height:1.5; overflow-x:auto; white-space:pre-wrap; word-break:break-word; margin:0;">${escapeHtml(data.traceback || '스택 트레이스가 없습니다.')}</pre>
-                        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">fingerprint: ${escapeHtml(data.fingerprint || '-')}</p>`;
+                        <pre class="hm-pre">${escapeHtml(data.traceback || '스택 트레이스가 없습니다.')}</pre>
+                        <p class="hm-pre-meta">fingerprint: ${escapeHtml(data.fingerprint || '-')}</p>`;
                 } catch (e) {
-                    box.innerHTML = '<p style="color: var(--text-muted); font-size:0.8rem;">서버 연결에 실패했습니다.</p>';
+                    box.innerHTML = '<p class="hm-admin-empty">서버 연결에 실패했습니다.</p>';
                 }
             }
 
@@ -1573,20 +1362,28 @@
                 } catch (error) {
                     console.error('Error fetching jobs:', error);
                     document.getElementById('job-list').innerHTML = `
-                    <div class="card" style="text-align: center; padding: 40px;">
-                        <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: var(--error); margin-bottom: 16px;"></i>
-                        <p style="color: var(--text-muted);">데이터를 불러오지 못했습니다.</p>
+                    <div class="card hm-admin-state is-error">
+                        <i data-lucide="alert-circle"></i>
+                        <p>데이터를 불러오지 못했습니다.</p>
                     </div>
                 `;
                     lucide.createIcons();
                 }
             }
 
+            // /api/admin/jobs 의 status 는 회사별로 묶은 프로젝트들 중 가장 앞선 '프로젝트 상태'다
+            // (api/index.py get_admin_jobs: status_priority, 모두 취소면 'archived').
+            // 예전 코드는 분석 작업 시절 값 'processing' 을 셌는데 이 API 는 그 값을 절대 주지 않아 항상 0 이었다.
+            // '대기 중' = 아직 계약 전(견적·협의·서명을 기다리는) 단계.
+            const JOB_WAITING_STATUSES = ['processing', 'planning', 'proposal_pending', 'proposal_submitted',
+                'negotiating', 'pending_contract', 'awaiting_signature'];
+
             function updateStats(jobs) {
+                const waiting = jobs.filter(j => JOB_WAITING_STATUSES.includes(j.status)).length;
                 document.getElementById('stat-total').textContent = jobs.length;
-                document.getElementById('stat-pending').textContent = jobs.filter(j => j.status === 'processing').length;
+                document.getElementById('stat-pending').textContent = waiting;
                 document.getElementById('stat-completed').textContent = jobs.filter(j => j.status === 'completed').length;
-                document.getElementById('analysis-count').textContent = jobs.filter(j => j.status === 'processing').length;
+                document.getElementById('analysis-count').textContent = waiting;
             }
 
             function renderJobs(jobs) {
@@ -1595,9 +1392,9 @@
 
                 if (jobs.length === 0) {
                     container.innerHTML = `
-                    <div class="card" style="text-align: center; padding: 60px;">
-                        <i data-lucide="inbox" style="width: 48px; height: 48px; color: var(--text-muted); margin-bottom: 16px;"></i>
-                        <p style="color: var(--text-muted);">매칭 요청이 없습니다.</p>
+                    <div class="card hm-admin-state">
+                        <i data-lucide="inbox"></i>
+                        <p>매칭 요청이 없습니다.</p>
                     </div>
                 `;
                     lucide.createIcons();
@@ -1611,24 +1408,30 @@
                     card.id = `job-card-${job.id}`;
 
                     const date = new Date(job.created_at).toLocaleString('ko-KR');
+                    // 회사 이름은 가입자가 직접 쓴 값이다 — HTML 에 넣을 때는 반드시 이스케이프,
+                    // 인라인 핸들러에는 이름을 넘기지 않고 id 만 넘긴다(deleteJob 이 데이터에서 이름을 찾는다).
+                    const companyName = escapeHtml(job.company_name);
+                    const jobIdArg = jsArg(job.id);
+                    const jobIdAttr = escapeAttr(job.id);
 
+                    // class: brand.css 15절(.status-<프로젝트 상태>) + 16절(failed/deleted/archived) 의 상태 알약 색
                     const statusConfig = {
-                        'processing': { text: '대기 중', class: 'status-planning', icon: 'clock' },
-                        'analyzing': { text: '진행 중', class: 'status-planning', icon: 'loader' },
+                        'processing': { text: '대기 중', class: 'status-processing', icon: 'clock' },
+                        'analyzing': { text: '진행 중', class: 'status-analyzing', icon: 'loader' },
                         'completed': { text: '완료', class: 'status-completed', icon: 'check-circle' },
-                        'failed': { text: '실패', class: '', icon: 'x-circle', style: 'background: rgba(239, 68, 68, 0.15); color: var(--error);' },
-                        'deleted': { text: '삭제됨', class: '', icon: 'trash-2', style: 'background: rgba(107, 114, 128, 0.15); color: var(--text-muted);' }
+                        'failed': { text: '실패', class: 'status-failed', icon: 'x-circle' },
+                        'deleted': { text: '삭제됨', class: 'status-deleted', icon: 'trash-2' }
                     };
                     Object.assign(statusConfig, {
                         'planning': { text: '기획 중', class: 'status-planning', icon: 'clock' },
-                        'proposal_pending': { text: '견적 대기', class: 'status-planning', icon: 'clock' },
-                        'proposal_submitted': { text: '제안 도착', class: 'status-completed', icon: 'file-check' },
-                        'negotiating': { text: '조건 협의', class: 'status-planning', icon: 'messages-square' },
-                        'pending_contract': { text: '계약 검토', class: 'status-planning', icon: 'file-signature' },
-                        'awaiting_signature': { text: '서명 대기', class: 'status-planning', icon: 'pen-line' },
-                        'contracted': { text: '계약 완료', class: 'status-completed', icon: 'check-circle' },
-                        'in_progress': { text: '진행 중', class: 'status-completed', icon: 'play-circle' },
-                        'archived': { text: '보관됨', class: '', icon: 'archive', style: 'background: rgba(107, 114, 128, 0.15); color: var(--text-muted);' }
+                        'proposal_pending': { text: '견적 대기', class: 'status-proposal_pending', icon: 'clock' },
+                        'proposal_submitted': { text: '제안 도착', class: 'status-proposal_submitted', icon: 'file-check' },
+                        'negotiating': { text: '조건 협의', class: 'status-negotiating', icon: 'messages-square' },
+                        'pending_contract': { text: '계약 검토', class: 'status-pending_contract', icon: 'file-signature' },
+                        'awaiting_signature': { text: '서명 대기', class: 'status-awaiting_signature', icon: 'pen-line' },
+                        'contracted': { text: '계약 완료', class: 'status-contracted', icon: 'check-circle' },
+                        'in_progress': { text: '진행 중', class: 'status-in_progress', icon: 'play-circle' },
+                        'archived': { text: '보관됨', class: 'status-archived', icon: 'archive' }
                     });
                     const status = statusConfig[job.status] || statusConfig['processing'];
 
@@ -1666,14 +1469,12 @@
                         sortedStandards.forEach(std => {
                             const stdProjects = groupedByStandard[std];
                             standardsHtml += `
-                            <div style="margin-bottom: 20px; background: var(--bg-card-hover); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
-                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
-                                    <span style="background: var(--primary); color: var(--bg-primary); padding: 2px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.5px;">
-                                        ${std}
-                                    </span>
-                                    <span style="color: var(--text-muted); font-size: 0.8rem;">(${stdProjects.length}명 매칭)</span>
+                            <div class="hm-std-group">
+                                <div class="hm-std-group-head">
+                                    <span class="hm-std-code">${escapeHtml(std)}</span>
+                                    <small>(${stdProjects.length}명 매칭)</small>
                                 </div>
-                                <ul style="list-style: none; padding: 0; margin: 0;">
+                                <ul>
                                     ${stdProjects.map(p => {
                                 const statusText = p.status === 'contracted' ? '계약 완료'
                                     : p.status === 'in_progress' ? '진행중'
@@ -1683,19 +1484,16 @@
                                                     : p.status === 'completed' ? '완료'
                                                         : p.status;
 
-                                const statusStyle = p.status === 'in_progress' || p.status === 'contracted'
-                                    ? 'color: var(--secondary); font-weight: 500;'
-                                    : 'color: var(--text-muted);';
+                                const statusClass = p.status === 'in_progress' || p.status === 'contracted' ? 'is-active' : '';
+                                const consultantName = String(p.consultant_name || '');
 
                                 return `
-                                            <li style="padding: 6px 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
-                                                <div style="display: flex; align-items: center; gap: 8px;">
-                                                    <div style="width: 24px; height: 24px; border-radius: 50%; background: var(--bg-secondary); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: var(--text-primary);">
-                                                        ${p.consultant_name.charAt(0)}
-                                                    </div>
-                                                    <span style="color: var(--text-primary); font-size: 0.9rem;">${p.consultant_name}</span>
-                                                </div>
-                                                <span style="font-size: 0.8rem; ${statusStyle}">[${statusText}]</span>
+                                            <li class="hm-std-row">
+                                                <span class="hm-std-who">
+                                                    <span class="hm-mini-avatar" aria-hidden="true">${escapeHtml(consultantName.charAt(0) || '?')}</span>
+                                                    <span>${escapeHtml(consultantName)}</span>
+                                                </span>
+                                                <span class="hm-std-status ${statusClass}">${escapeHtml(statusText)}</span>
                                             </li>
                                         `;
                             }).join('')}
@@ -1705,73 +1503,70 @@
                         });
 
                         consultantsHtml = `
-                        <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border);">
-                            <h5 style="font-size: 0.95rem; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; color: var(--text-primary);">
-                                <i data-lucide="layers" style="width: 18px; height: 18px; color: var(--primary);"></i>
-                                규격별 매칭 현황
-                            </h5>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
-                                ${standardsHtml}
-                            </div>
+                        <h4 class="hm-detail-h">
+                            <i data-lucide="layers"></i>
+                            규격별 매칭 현황
+                        </h4>
+                        <div class="hm-std-groups">
+                            ${standardsHtml}
                         </div>
                     `;
                     } else {
                         consultantsHtml = `
-                        <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);">
-                            <h5 style="font-size: 0.95rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--text-muted);">
-                                <i data-lucide="users" style="width: 16px; height: 16px;"></i>
-                                매칭된 컨설턴트: 0명
-                            </h5>
-                            <p style="color: var(--text-muted); font-size: 0.9rem;">아직 매칭된 컨설턴트가 없습니다.</p>
-                        </div>
+                        <h4 class="hm-detail-h is-muted">
+                            <i data-lucide="users"></i>
+                            매칭된 컨설턴트: 0명
+                        </h4>
+                        <p class="hm-admin-empty">아직 매칭된 컨설턴트가 없습니다.</p>
                     `;
                     }
 
+                    const jobMailto = safeMailto(intake.contact_email);
+                    const timelineText = intake.timeline === 'urgent' ? '긴급' : intake.timeline === 'flexible' ? '유연함' : intake.timeline || '신규 인증';
+
                     let detailHtml = `
-                    <div class="detail-view" id="detail-${job.id}">
+                    <div class="detail-view" id="detail-${jobIdAttr}">
                         <!-- 요청 정보 섹션 -->
-                        <div style="margin-bottom: 16px;">
-                            <h5 style="font-size: 0.95rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                                <i data-lucide="clipboard-list" style="width: 16px; height: 16px; color: var(--primary);"></i>
-                                요청 정보
-                            </h5>
-                            <ul style="list-style: none; padding: 0; margin: 0;">
-                                <li style="padding: 6px 0; display: flex; align-items: flex-start; gap: 8px;">
-                                    <span style="color: var(--text-muted); min-width: 80px;">• 희망 규격:</span>
-                                    <span style="color: var(--text-primary);">${standardsText}</span>
-                                </li>
-                                <li style="padding: 6px 0; display: flex; align-items: flex-start; gap: 8px;">
-                                    <span style="color: var(--text-muted); min-width: 80px;">• 업종:</span>
-                                    <span style="color: var(--text-primary);">${intake.industry || '미지정'}</span>
-                                </li>
-                                <li style="padding: 6px 0; display: flex; align-items: flex-start; gap: 8px;">
-                                    <span style="color: var(--text-muted); min-width: 80px;">• 직원 수:</span>
-                                    <span style="color: var(--text-primary);">${intake.employees || '미지정'}</span>
-                                </li>
-                                <li style="padding: 6px 0; display: flex; align-items: flex-start; gap: 8px;">
-                                    <span style="color: var(--text-muted); min-width: 80px;">• 프로젝트 유형:</span>
-                                    <span style="color: var(--text-primary);">${intake.timeline === 'urgent' ? '긴급' : intake.timeline === 'flexible' ? '유연함' : intake.timeline || '신규 인증'}</span>
-                                </li>
-                            </ul>
+                        <h4 class="hm-detail-h">
+                            <i data-lucide="clipboard-list"></i>
+                            요청 정보
+                        </h4>
+                        <div class="hm-detail-list">
+                            <div class="detail-item">
+                                <div class="detail-item-label">희망 규격</div>
+                                <div class="detail-item-value">${escapeHtml(standardsText)}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-item-label">업종</div>
+                                <div class="detail-item-value">${escapeHtml(intake.industry || '미지정')}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-item-label">직원 수</div>
+                                <div class="detail-item-value">${escapeHtml(intake.employees || '미지정')}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-item-label">프로젝트 유형</div>
+                                <div class="detail-item-value">${escapeHtml(timelineText)}</div>
+                            </div>
                         </div>
-                        
+
                         <!-- 매칭된 컨설턴트 섹션 -->
                         ${consultantsHtml}
-                        
+
                         <!-- 액션 버튼 -->
-                        <div style="display: flex; justify-content: flex-start; gap: 12px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);">
-                            <button class="btn btn-secondary btn-sm" onclick="viewJobDetails('${job.id}')">
-                                <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+                        <div class="hm-detail-actions">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="viewJobDetails(${jobIdArg})">
+                                <i data-lucide="eye"></i>
                                 상세 보기
                             </button>
-                            ${intake.contact_email ? `
-                                <a href="mailto:${intake.contact_email}" class="btn btn-secondary btn-sm">
-                                    <i data-lucide="mail" style="width: 16px; height: 16px;"></i>
+                            ${jobMailto ? `
+                                <a href="${escapeAttr(jobMailto)}" class="btn btn-secondary btn-sm">
+                                    <i data-lucide="mail"></i>
                                     이메일 발송
                                 </a>
                             ` : ''}
-                            <button class="btn btn-sm" style="background: rgba(239, 68, 68, 0.15); color: var(--error);" onclick="deleteJob('${job.id}', '${job.company_name}')">
-                                <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+                            <button type="button" class="btn btn-sm btn-danger-soft" onclick="deleteJob(${jobIdArg})">
+                                <i data-lucide="trash-2"></i>
                                 삭제
                             </button>
                         </div>
@@ -1779,24 +1574,24 @@
                 `;
 
                     card.innerHTML = `
-                    <div class="job-header" onclick="toggleDetail('${job.id}')">
+                    <div class="job-header" onclick="toggleDetail(${jobIdArg})">
                         <div class="job-info">
-                            <h3 style="display: flex; align-items: center; gap: 8px;">
-                                <i data-lucide="building-2" style="width: 18px; height: 18px; color: var(--primary);"></i>
-                                ${job.company_name}
-                                ${projectCount > 0 ? `<span style="font-size: 0.8rem; color: var(--success); font-weight: 500;">(컨설턴트 ${projectCount}명 매칭)</span>` : ''}
+                            <h3>
+                                <i data-lucide="building-2"></i>
+                                ${companyName}
+                                ${projectCount > 0 ? `<span class="hm-job-count">(컨설턴트 ${Number(projectCount)}명 매칭)</span>` : ''}
                             </h3>
-                            <div class="job-meta" style="margin-top: 4px;">
-                                ${intake.industry ? `<span style="margin-right: 16px;"><i data-lucide="briefcase" style="width: 12px; height: 12px; display: inline; vertical-align: middle;"></i> ${intake.industry}</span>` : ''}
-                                <span><i data-lucide="clock" style="width: 12px; height: 12px; display: inline; vertical-align: middle;"></i> ${date}</span>
+                            <div class="job-meta">
+                                ${intake.industry ? `<span><i data-lucide="briefcase"></i> ${escapeHtml(intake.industry)}</span>` : ''}
+                                <span><i data-lucide="clock"></i> ${escapeHtml(date)}</span>
                             </div>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <span class="status-badge ${status.class}" ${status.style ? `style="${status.style}"` : ''}>
-                                <i data-lucide="${status.icon}" style="width: 14px; height: 14px;"></i>
+                        <div class="hm-job-side">
+                            <span class="status-badge ${status.class}">
+                                <i data-lucide="${status.icon}"></i>
                                 ${status.text}
                             </span>
-                            <i data-lucide="chevron-down" style="width: 20px; height: 20px; color: var(--text-muted); transition: transform 0.3s;" id="chevron-${job.id}"></i>
+                            <i data-lucide="chevron-down" class="hm-job-chevron" id="chevron-${jobIdAttr}"></i>
                         </div>
                     </div>
                     ${detailHtml}
@@ -1838,9 +1633,9 @@
                 } catch (error) {
                     console.error('Error fetching consultants:', error);
                     document.getElementById('consultant-list-admin').innerHTML = `
-                    <div class="card" style="text-align: center; padding: 40px;">
-                        <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: var(--error); margin-bottom: 16px;"></i>
-                        <p style="color: var(--text-muted);">컨설턴트 목록을 불러오지 못했습니다.</p>
+                    <div class="card hm-admin-state is-error">
+                        <i data-lucide="alert-circle"></i>
+                        <p>컨설턴트 목록을 불러오지 못했습니다.</p>
                     </div>
                 `;
                     lucide.createIcons();
@@ -1890,18 +1685,17 @@
 
                 const controls = document.createElement('div');
                 controls.id = 'consultant-list-controls';
-                controls.style.cssText = 'display: flex; gap: 12px; align-items: center; margin: 0 0 16px; flex-wrap: wrap;';
+                controls.className = 'hm-list-controls';
                 controls.innerHTML = `
-                    <input id="consultant-search-input" type="search" placeholder="이름, ISO, 지역 검색"
-                        style="flex: 1; min-width: 220px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary);">
-                    <select id="consultant-sort-select"
-                        style="padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary);">
+                    <input id="consultant-search-input" class="hm-input" type="search" placeholder="이름, ISO, 지역 검색"
+                        aria-label="컨설턴트 검색">
+                    <select id="consultant-sort-select" class="hm-select" aria-label="정렬">
                         <option value="created_desc">최신순</option>
                         <option value="name_asc">이름순</option>
                         <option value="trust_desc">신뢰점수순</option>
                         <option value="status_asc">상태순</option>
                     </select>
-                    <div id="consultant-pagination" style="display: flex; gap: 8px; align-items: center;"></div>
+                    <div id="consultant-pagination" class="hm-pager is-inline"></div>
                 `;
                 container.parentNode.insertBefore(controls, container);
 
@@ -1950,9 +1744,9 @@
                 const totalPages = Math.max(1, Math.ceil(total / consultantPageSize));
                 consultantPage = Math.min(Math.max(1, consultantPage), totalPages);
                 pagination.innerHTML = `
-                    <button class="btn btn-sm btn-secondary" ${consultantPage <= 1 ? 'disabled' : ''} onclick="consultantPage--; renderConsultantsAdmin();">이전</button>
-                    <span style="font-size: 0.9rem; color: var(--text-muted);">${consultantPage} / ${totalPages}</span>
-                    <button class="btn btn-sm btn-secondary" ${consultantPage >= totalPages ? 'disabled' : ''} onclick="consultantPage++; renderConsultantsAdmin();">다음</button>
+                    <button type="button" class="btn btn-sm btn-outline" ${consultantPage <= 1 ? 'disabled' : ''} onclick="consultantPage--; renderConsultantsAdmin();">이전</button>
+                    <span class="hm-pager-label">${Number(consultantPage)} / ${Number(totalPages)}</span>
+                    <button type="button" class="btn btn-sm btn-outline" ${consultantPage >= totalPages ? 'disabled' : ''} onclick="consultantPage++; renderConsultantsAdmin();">다음</button>
                 `;
             }
 
@@ -1984,9 +1778,9 @@
 
                 if (consultantsToShow.length === 0) {
                     container.innerHTML = `
-                    <div class="card" style="text-align: center; padding: 60px;">
-                        <i data-lucide="users" style="width: 48px; height: 48px; color: var(--text-muted); margin-bottom: 16px;"></i>
-                        <p style="color: var(--text-muted);">해당 조건의 컨설턴트가 없습니다.</p>
+                    <div class="card hm-admin-state">
+                        <i data-lucide="users"></i>
+                        <p>해당 조건의 컨설턴트가 없습니다.</p>
                     </div>
                 `;
                     lucide.createIcons();
@@ -2009,13 +1803,15 @@
                     } else if (status === 'rejected') {
                         statusClass = 'rejected';
                         statusText = '거부됨';
-                        card.style.opacity = '0.7';
-                        card.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                        card.classList.add('is-rejected');  // 흐리게 + 빨간 테두리 (brand.css 16-6)
                     } else if (status === 'revoked') {
                         statusClass = 'rejected';
                         statusText = '검증취소';
-                        card.style.opacity = '0.7';
-                        card.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                        card.classList.add('is-rejected');
+                    } else if (status === 'withdrawn') {
+                        statusClass = 'rejected';
+                        statusText = '탈퇴';
+                        card.classList.add('is-rejected');
                     }
 
                     // Parse ISO experience
@@ -2034,63 +1830,77 @@
 
                     // Avatar logic
                     const avatarContent = safeProfileImage
-                        ? `<img src="${escapeAttr(safeProfileImage)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
+                        ? `<img src="${escapeAttr(safeProfileImage)}" alt="">`
                         : consultantInitial;
+                    // id 는 DB 정수 — 인라인 핸들러에는 Number() 로만 넣는다
+                    const cid = Number(consultant.id);
 
                     // Rejection info (for rejected consultants)
                     const rejectionInfo = status === 'rejected' ? `
-                        <div style="margin-top: 12px; padding: 10px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; border-left: 3px solid #ef4444;">
-                            <div style="font-size: 0.8rem; color: var(--error); font-weight: 500; margin-bottom: 4px;">거부 사유:</div>
-                            <div style="font-size: 0.85rem; color: var(--text-muted);">${escapeHtml(consultant.rejectionReason || '사유 미기재')}</div>
-                            ${consultant.rejectedAt ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">거부일: ${new Date(consultant.rejectedAt).toLocaleDateString('ko-KR')}</div>` : ''}
+                        <div class="hm-reject-info">
+                            <b>거부 사유:</b>
+                            <span>${escapeHtml(consultant.rejectionReason || '사유 미기재')}</span>
+                            ${consultant.rejectedAt ? `<small>거부일: ${escapeHtml(new Date(consultant.rejectedAt).toLocaleDateString('ko-KR'))}</small>` : ''}
                         </div>
                     ` : '';
 
                     // Action buttons based on status
                     let actionButtons = '';
-                    if (status === 'rejected') {
+                    if (status === 'withdrawn') {
+                        // 탈퇴한 계정은 복구·승인 대상이 아니다. 기록만 볼 수 있게 한다.
                         actionButtons = `
-                            <button class="btn btn-secondary btn-sm" onclick="viewConsultantDetails('${consultant.id}')">
-                                <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="viewConsultantDetails(${cid})">
+                                <i data-lucide="eye"></i>
                                 상세 보기
                             </button>
-                            <button class="btn btn-sm" style="background: rgba(16, 185, 129, 0.15); color: var(--primary);" onclick="restoreConsultant(${consultant.id})">
-                                <i data-lucide="rotate-ccw" style="width: 16px; height: 16px;"></i>
+                        `;
+                    } else if (status === 'rejected' || status === 'revoked') {
+                        actionButtons = `
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="viewConsultantDetails(${cid})">
+                                <i data-lucide="eye"></i>
+                                상세 보기
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="restoreConsultant(${cid})">
+                                <i data-lucide="rotate-ccw"></i>
                                 복구
                             </button>
                         `;
                     } else if (status === 'verified') {
                         actionButtons = `
-                            <button class="btn btn-secondary btn-sm" onclick="viewConsultantDetails('${consultant.id}')">
-                                <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="viewConsultantDetails(${cid})">
+                                <i data-lucide="eye"></i>
                                 상세 보기
                             </button>
-                            <button class="btn btn-ghost btn-sm" onclick="revokeVerification(${consultant.id})">
-                                <i data-lucide="shield-off" style="width: 16px; height: 16px;"></i>
+                            <button type="button" class="btn btn-ghost btn-sm" onclick="revokeVerification(${cid})">
+                                <i data-lucide="shield-off"></i>
                                 검증 취소
                             </button>
                         `;
                     } else {
                         actionButtons = `
-                            <button class="btn btn-secondary btn-sm" onclick="viewConsultantDetails('${consultant.id}')">
-                                <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="viewConsultantDetails(${cid})">
+                                <i data-lucide="eye"></i>
                                 상세 보기
                             </button>
-                            <button class="btn btn-approve btn-sm" onclick="approveConsultant(${consultant.id})">
-                                <i data-lucide="check" style="width: 16px; height: 16px;"></i>
+                            <button type="button" class="btn btn-approve btn-sm" onclick="approveConsultant(${cid})">
+                                <i data-lucide="check"></i>
                                 승인
                             </button>
-                            <button class="btn btn-reject btn-sm" onclick="rejectConsultant(${consultant.id})">
-                                <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+                            <button type="button" class="btn btn-reject btn-sm" onclick="rejectConsultant(${cid})">
+                                <i data-lucide="x"></i>
                                 거부
                             </button>
                         `;
                     }
 
+                    // 값이 없으면 지어내지 않고 — 로 둔다 (예전: 신뢰 점수 없으면 50점, 리뷰 없으면 0개로 표시)
+                    const trustText = consultant.trustScore ? `${escapeHtml(String(consultant.trustScore))}점` : '—';
+                    const reviewsText = typeof consultant.reviews === 'number' ? `${consultant.reviews}개` : '—';
+
                     card.innerHTML = `
                     <div class="consultant-approval-header">
                         <div class="consultant-approval-info">
-                            <div class="consultant-approval-avatar" ${status === 'rejected' ? 'style="filter: grayscale(50%);"' : ''}>${avatarContent}</div>
+                            <div class="consultant-approval-avatar ${status === 'rejected' ? 'is-dim' : ''}">${avatarContent}</div>
                             <div class="consultant-approval-details">
                                 <h3>${consultantName}</h3>
                                 <p>${consultantSpecialty} 전문 · 경력 ${consultantExperience}</p>
@@ -2098,7 +1908,7 @@
                         </div>
                         <span class="consultant-approval-status ${statusClass}">${statusText}</span>
                     </div>
-                    
+
                     <div class="consultant-approval-body">
                         <div class="approval-info-item">
                             <label>ISO 규격</label>
@@ -2110,11 +1920,11 @@
                         </div>
                         <div class="approval-info-item">
                             <label>신뢰 점수</label>
-                            <span style="color: var(--primary);">${consultant.trustScore || 50}점</span>
+                            <span>${trustText}</span>
                         </div>
                         <div class="approval-info-item">
                             <label>리뷰 수</label>
-                            <span>${consultant.reviews || 0}개</span>
+                            <span>${reviewsText}</span>
                         </div>
                         ${rejectionInfo}
                     </div>
@@ -2131,26 +1941,9 @@
             }
 
             // Consultant Approval Actions
-            async function approveConsultant(id) {
-                if (!confirm('이 컨설턴트를 승인하시겠습니까?')) return;
-
-                try {
-                    const response = await authFetch(`/api/admin/consultants/${id}/approve`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-
-                    if (response.ok) {
-                        showNotification('컨설턴트가 승인되었습니다.', 'success');
-                        fetchConsultantsAdmin();
-                    } else {
-                        showNotification('승인 처리 중 오류가 발생했습니다.', 'error');
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                    showNotification('서버 연결에 실패했습니다.', 'error');
-                }
-            }
+            // approveConsultant / revokeVerification 은 아래(restoreConsultant 다음)에 하나씩만 둔다.
+            // 예전에는 같은 이름의 함수가 두 번씩 선언돼 뒤의 것만 실제로 돌았다. 지운 앞쪽 것은
+            // 체크리스트·사유 없이 요청해 서버(validate_approval_checklist / get_required_reason)가 400 으로 거절하는 형태였다.
             // Rejection Panel Functions
             function rejectConsultant(id) {
                 const consultant = allConsultantsAdmin.find(c => c.id == id);
@@ -2208,7 +2001,7 @@
                 // Show loading state
                 const confirmBtn = document.getElementById('confirm-reject-btn');
                 const originalHTML = confirmBtn.innerHTML;
-                confirmBtn.innerHTML = '<div class="loading-spinner" style="width: 18px; height: 18px;"></div> 처리 중...';
+                confirmBtn.innerHTML = '<span class="loading-spinner"></span> 처리 중...';
                 confirmBtn.disabled = true;
 
                 try {
@@ -2232,27 +2025,6 @@
                     confirmBtn.innerHTML = originalHTML;
                     confirmBtn.disabled = false;
                     lucide.createIcons();
-                }
-            }
-
-            async function revokeVerification(id) {
-                if (!confirm('이 컨설턴트의 검증을 취소하시겠습니까?')) return;
-
-                try {
-                    const response = await authFetch(`/api/admin/consultants/${id}/revoke`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-
-                    if (response.ok) {
-                        showNotification('검증이 취소되었습니다.', 'success');
-                        fetchConsultantsAdmin();
-                    } else {
-                        showNotification('처리 중 오류가 발생했습니다.', 'error');
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                    showNotification('서버 연결에 실패했습니다.', 'error');
                 }
             }
 
@@ -2337,20 +2109,18 @@
                 if (!panel) return;
 
                 const historySection = document.createElement('div');
-                historySection.className = 'info-group';
-                historySection.style.marginTop = '32px';
+                historySection.className = 'detail-section hm-history';
                 historySection.innerHTML = `
-                    <h4 style="margin-bottom: 16px; color: var(--secondary); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
-                        심사 및 변경 이력
-                    </h4>
-                    <p style="color: var(--text-muted); font-size: 0.9rem;">이력을 불러오는 중...</p>
+                    <h4 class="detail-section-title"><i data-lucide="history"></i>심사 및 변경 이력</h4>
+                    <p class="hm-admin-empty">이력을 불러오는 중...</p>
                 `;
                 panel.appendChild(historySection);
+                lucide.createIcons();
 
                 try {
-                    const response = await authFetch(`/api/admin/consultants/${id}/history`);
+                    const response = await authFetch(`/api/admin/consultants/${Number(id)}/history`);
                     if (!response.ok) {
-                        historySection.innerHTML += `<p style="color: var(--error); font-size: 0.9rem;">이력을 불러오지 못했습니다.</p>`;
+                        historySection.innerHTML += `<p class="hm-admin-empty is-error">이력을 불러오지 못했습니다.</p>`;
                         return;
                     }
                     const history = await response.json();
@@ -2358,50 +2128,52 @@
                     const changes = history.changes || [];
                     const actionHtml = actions.length
                         ? actions.slice(0, 8).map(item => `
-                            <div style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.08);">
-                                <div style="font-weight: 600;">${escapeHtml(item.action)}</div>
-                                <div style="font-size: 0.85rem; color: var(--text-muted);">${escapeHtml(item.adminName || 'Unknown')} · ${escapeHtml(item.createdAt || '')}</div>
+                            <div class="hm-history-item">
+                                <b>${escapeHtml(item.action)}</b>
+                                <small>${escapeHtml(item.adminName || 'Unknown')} · ${escapeHtml(item.createdAt || '')}</small>
                             </div>
                         `).join('')
-                        : '<p style="color: var(--text-muted); font-size: 0.9rem;">심사 이력이 없습니다.</p>';
+                        : '<p class="hm-admin-empty">심사 이력이 없습니다.</p>';
                     const changeHtml = changes.length
                         ? changes.slice(0, 8).map(item => `
-                            <div style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.08);">
-                                <div style="font-weight: 600;">${escapeHtml(item.fieldName)}</div>
-                                <div style="font-size: 0.85rem; color: var(--text-muted);">${escapeHtml(item.changedByName || 'System')} · ${escapeHtml(item.changedAt || '')}</div>
+                            <div class="hm-history-item">
+                                <b>${escapeHtml(item.fieldName)}</b>
+                                <small>${escapeHtml(item.changedByName || 'System')} · ${escapeHtml(item.changedAt || '')}</small>
                             </div>
                         `).join('')
-                        : '<p style="color: var(--text-muted); font-size: 0.9rem;">프로필 변경 이력이 없습니다.</p>';
+                        : '<p class="hm-admin-empty">프로필 변경 이력이 없습니다.</p>';
 
                     historySection.innerHTML = `
-                        <h4 style="margin-bottom: 16px; color: var(--secondary); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
-                            심사 및 변경 이력
-                        </h4>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                            <div>
-                                <div style="font-weight: 700; margin-bottom: 8px;">심사 이력</div>
+                        <h4 class="detail-section-title"><i data-lucide="history"></i>심사 및 변경 이력</h4>
+                        <div class="hm-history-grid">
+                            <div class="hm-history-col">
+                                <div class="hm-history-h">심사 이력</div>
                                 ${actionHtml}
                             </div>
-                            <div>
-                                <div style="font-weight: 700; margin-bottom: 8px;">프로필 변경 이력</div>
+                            <div class="hm-history-col">
+                                <div class="hm-history-h">프로필 변경 이력</div>
                                 ${changeHtml}
                             </div>
                         </div>
                     `;
+                    lucide.createIcons();
                 } catch (error) {
                     console.error('History error:', error);
-                    historySection.innerHTML += `<p style="color: var(--error); font-size: 0.9rem;">이력을 불러오지 못했습니다.</p>`;
+                    historySection.innerHTML += `<p class="hm-admin-empty is-error">이력을 불러오지 못했습니다.</p>`;
                 }
             }
 
             // Delete Job (Matching Request)
-            async function deleteJob(jobId, companyName) {
+            async function deleteJob(jobId) {
+                // 회사 이름은 인라인 onclick 으로 받지 않고 불러온 데이터에서 찾는다(이름에 따옴표·태그가 있어도 안전)
+                const job = allJobsAdmin.find(j => j.id === jobId);
+                const companyName = job ? job.company_name : '';
                 // Custom confirmation
                 const confirmed = confirm(`"${companyName}" 매칭 요청을 삭제하시겠습니까?\n\n삭제된 요청은 복구할 수 없습니다.`);
                 if (!confirmed) return;
 
                 try {
-                    const response = await authFetch(`/api/admin/jobs/${jobId}`, {
+                    const response = await authFetch(`/api/admin/jobs/${encodeURIComponent(jobId)}`, {
                         method: 'DELETE',
                         headers: { 'Content-Type': 'application/json' }
                     });
@@ -2463,16 +2235,15 @@
                                     : role === 'Consultant' ? '컨설턴트'
                                         : role === 'Trainer' ? '교육강사'
                                             : role || '미지정';
-                            return `<span style="display: inline-flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.1); padding: 6px 12px; border-radius: 16px; font-size: 0.85rem; margin: 4px 4px 4px 0;">
-                            <span style="font-weight: 600; color: var(--primary);">ISO ${escapeHtml(code)}</span>
-                            <span style="color: var(--text-muted);">(${escapeHtml(roleText)})</span>
+                            return `<span class="detail-tag">
+                            <b>ISO ${escapeHtml(code)}</b>&nbsp;<span class="hm-tag-sub">(${escapeHtml(roleText)})</span>
                         </span>`;
                         }).join('');
                     } else {
-                        isoHtml = '<span style="color: var(--text-muted);">미지정</span>';
+                        isoHtml = '<span class="hm-kv-empty">미지정</span>';
                     }
                 } else {
-                    isoHtml = '<span style="color: var(--text-muted);">미지정</span>';
+                    isoHtml = '<span class="hm-kv-empty">미지정</span>';
                 }
 
                 // Parse other arrays
@@ -2484,8 +2255,8 @@
 
                 // Helper for tags
                 const renderTags = (items, emptyText = '미지정') => {
-                    if (!items || items.length === 0) return `<span style="color: var(--text-muted);">${emptyText}</span>`;
-                    return items.map(item => `<span style="display: inline-block; background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; margin: 3px 3px 3px 0; border: 1px solid rgba(255,255,255,0.1);">${escapeHtml(item)}</span>`).join('');
+                    if (!items || items.length === 0) return `<span class="hm-kv-empty">${escapeHtml(emptyText)}</span>`;
+                    return items.map(item => `<span class="detail-tag is-reason">${escapeHtml(item)}</span>`).join('');
                 };
 
                 // Translate project types
@@ -2510,126 +2281,137 @@
 
                 // Set Header with Avatar
                 const avatarContent = safeProfileImage
-                    ? `<img src="${escapeAttr(safeProfileImage)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">`
-                    : `<div class="consultant-approval-avatar" style="width: 80px; height: 80px; border-radius: 12px; font-size: 1.5rem;">${consultantInitial}</div>`;
+                    ? `<img src="${escapeAttr(safeProfileImage)}" alt="">`
+                    : consultantInitial;
+                const cid = Number(consultant.id);
+                // 카드 목록과 같은 기준으로 상태를 정한다. verified 만 보면 거부·검증취소·탈퇴가 모두 '승인 대기'로 보인다.
+                const panelStatus = consultant.status || (consultant.verified ? 'verified' : 'pending');
+                const PANEL_STATUS = {
+                    verified: ['verified', '검증됨'],
+                    pending: ['pending', '승인 대기'],
+                    rejected: ['rejected', '거부됨'],
+                    revoked: ['rejected', '검증취소'],
+                    withdrawn: ['rejected', '탈퇴']
+                };
+                const [panelStatusClass, panelStatusText] = PANEL_STATUS[panelStatus] || PANEL_STATUS.pending;
+                // 값이 없으면 지어내지 않는다(예전: 신뢰 점수 50, 평점 0, 리뷰 0개로 채움)
+                const trustText = consultant.trustScore ? escapeHtml(String(consultant.trustScore)) : '—';
+                const ratingText = consultant.rating ? escapeHtml(String(consultant.rating)) : '—';
+                const reviewsText = typeof consultant.reviews === 'number' ? `${consultant.reviews}개` : '—';
 
                 const contentHtml = `
-                <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 32px; padding: 20px; background: rgba(255,255,255,0.03); border-radius: 16px;">
-                    <div style="width: 80px; height: 80px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
-                        ${avatarContent} 
+                <div class="hm-panel-profile">
+                    <div class="consultant-approval-avatar is-lg">${avatarContent}</div>
+                    <div class="hm-panel-profile-main">
+                        <h2>${consultantName}</h2>
+                        <p>${consultantSpecialty} 전문 · 경력 ${consultantExperience}</p>
+                        ${consultantCompany ? `<p class="hm-panel-company"><i data-lucide="building-2"></i>${consultantCompany}</p>` : ''}
                     </div>
-                    <div style="flex: 1;">
-                        <h2 style="font-size: 1.5rem; margin-bottom: 4px;">${consultantName}</h2>
-                        <p style="color: var(--text-muted); font-size: 0.95rem;">${consultantSpecialty} 전문 · 경력 ${consultantExperience}</p>
-                        ${consultantCompany ? `<p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">🏢 ${consultantCompany}</p>` : ''}
-                    </div>
-                    <span class="consultant-approval-status ${consultant.verified ? 'verified' : 'pending'}" style="font-size: 0.9rem;">
-                        ${consultant.verified ? '✓ 검증됨' : '⏳ 승인 대기'}
+                    <span class="consultant-approval-status ${panelStatusClass}">
+                        ${panelStatusText}
                     </span>
                 </div>
 
                 <!-- 연락처 정보 -->
-                <div class="info-group">
-                    <h4 style="margin-bottom: 16px; color: var(--secondary); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-                        <i data-lucide="contact" style="width: 18px; height: 18px;"></i>
+                <div class="detail-section">
+                    <h4 class="detail-section-title">
+                        <i data-lucide="contact"></i>
                         연락처 정보
                     </h4>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                        <div>
-                            <label class="info-label">📧 이메일</label>
-                            <div class="info-value">${consultantEmail}</div>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-item-label">이메일</div>
+                            <div class="detail-item-value">${consultantEmail}</div>
                         </div>
-                        <div>
-                            <label class="info-label">📞 연락처</label>
-                            <div class="info-value">${consultantPhone}</div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">연락처</div>
+                            <div class="detail-item-value">${consultantPhone}</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- 전문 분야 (ISO) -->
-                <div class="info-group" style="margin-top: 24px;">
-                    <h4 style="margin-bottom: 16px; color: var(--primary); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-                        <i data-lucide="award" style="width: 18px; height: 18px;"></i>
+                <div class="detail-section">
+                    <h4 class="detail-section-title">
+                        <i data-lucide="award"></i>
                         전문 분야 (ISO 규격)
                     </h4>
-                    <div style="margin-bottom: 12px;">
+                    <div class="detail-tags">
                         ${isoHtml}
                     </div>
                 </div>
 
                 <!-- 활동 지역 -->
-                <div class="info-group" style="margin-top: 24px;">
-                    <h4 style="margin-bottom: 12px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-                        <i data-lucide="map-pin" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
+                <div class="detail-section">
+                    <h4 class="detail-section-title">
+                        <i data-lucide="map-pin"></i>
                         활동 가능 지역
                     </h4>
-                    <div>${renderTags(regions)}</div>
+                    <div class="detail-tags">${renderTags(regions)}</div>
                 </div>
 
                 <!-- 산업 경험 -->
-                <div class="info-group" style="margin-top: 24px;">
-                    <h4 style="margin-bottom: 12px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-                        <i data-lucide="factory" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
+                <div class="detail-section">
+                    <h4 class="detail-section-title">
+                        <i data-lucide="factory"></i>
                         경험 산업군
                     </h4>
-                    <div>${renderTags(industryList)}</div>
+                    <div class="detail-tags">${renderTags(industryList)}</div>
                 </div>
 
                 <!-- 프로젝트 유형/조직 규모 -->
-                <div class="info-group" style="margin-top: 24px;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-                        <div>
-                            <h4 style="margin-bottom: 12px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; font-size: 0.95rem;">
-                                <i data-lucide="folder-check" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
-                                프로젝트 유형
-                            </h4>
-                            <div>${renderTags(translatedProjectTypes)}</div>
-                        </div>
-                        <div>
-                            <h4 style="margin-bottom: 12px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; font-size: 0.95rem;">
-                                <i data-lucide="users" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
-                                조직 규모 경험
-                            </h4>
-                            <div>${renderTags(translatedOrgSizes)}</div>
-                        </div>
+                <div class="detail-section hm-panel-two">
+                    <div>
+                        <h4 class="detail-section-title">
+                            <i data-lucide="folder-check"></i>
+                            프로젝트 유형
+                        </h4>
+                        <div class="detail-tags">${renderTags(translatedProjectTypes)}</div>
+                    </div>
+                    <div>
+                        <h4 class="detail-section-title">
+                            <i data-lucide="users"></i>
+                            조직 규모 경험
+                        </h4>
+                        <div class="detail-tags">${renderTags(translatedOrgSizes)}</div>
                     </div>
                 </div>
 
                 <!-- 수행 가능 역할 -->
-                <div class="info-group" style="margin-top: 24px;">
-                    <h4 style="margin-bottom: 12px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-                        <i data-lucide="user-check" style="width: 16px; height: 16px; color: var(--text-muted);"></i>
+                <div class="detail-section">
+                    <h4 class="detail-section-title">
+                        <i data-lucide="user-check"></i>
                         수행 가능 역할
                     </h4>
-                    <div>${renderTags(translatedRoles)}</div>
+                    <div class="detail-tags">${renderTags(translatedRoles)}</div>
                 </div>
 
                 <!-- 한줄 소개 -->
-                <div class="info-group" style="margin-top: 24px;">
-                    <h4 style="margin-bottom: 12px; color: var(--text-primary);">💬 한줄 소개</h4>
-                    <div class="info-value" style="background: rgba(16, 185, 129, 0.05); padding: 16px; border-radius: 8px; font-size: 0.95rem; line-height: 1.6; border-left: 3px solid var(--primary);">
+                <div class="detail-section">
+                    <h4 class="detail-section-title"><i data-lucide="message-circle"></i>한줄 소개</h4>
+                    <div class="detail-description">
                         ${consultantIntro}
                     </div>
                 </div>
 
                 <!-- 성과 지표 -->
-                <div class="info-group" style="margin-top: 32px;">
-                    <h4 style="margin-bottom: 16px; color: var(--warning); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-                        <i data-lucide="bar-chart-3" style="width: 18px; height: 18px;"></i>
+                <div class="detail-section">
+                    <h4 class="detail-section-title">
+                        <i data-lucide="bar-chart-3"></i>
                         성과 및 지표
                     </h4>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; text-align: center;">
-                        <div style="background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px;">
-                            <div class="info-label" style="margin-bottom: 8px;">신뢰 점수</div>
-                            <div class="info-value" style="color: var(--primary); font-size: 1.5rem; font-weight: 700;">${consultant.trustScore || 50}</div>
+                    <div class="hm-stat-grid">
+                        <div class="hm-stat">
+                            <b>${trustText}</b>
+                            <span>신뢰 점수</span>
                         </div>
-                        <div style="background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px;">
-                            <div class="info-label" style="margin-bottom: 8px;">평점</div>
-                            <div class="info-value" style="font-size: 1.5rem; font-weight: 700;">⭐ ${consultant.rating || 0}</div>
+                        <div class="hm-stat">
+                            <b>${ratingText}</b>
+                            <span>평점</span>
                         </div>
-                        <div style="background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px;">
-                            <div class="info-label" style="margin-bottom: 8px;">리뷰</div>
-                            <div class="info-value" style="font-size: 1.5rem; font-weight: 700;">${consultant.reviews || 0}개</div>
+                        <div class="hm-stat">
+                            <b>${reviewsText}</b>
+                            <span>리뷰</span>
                         </div>
                     </div>
                 </div>
@@ -2640,23 +2422,28 @@
 
                 // Update Footer Buttons
                 let footerHtml = `
-                <button class="btn btn-secondary" onclick="closeSidePanel()">닫기</button>
+                <button type="button" class="btn btn-secondary" onclick="closeSidePanel()">닫기</button>
                 ${safeConsultantMailto ? `
-                <a href="${escapeAttr(safeConsultantMailto)}" class="btn btn-secondary" style="display: flex; align-items: center; gap: 8px;">
-                    <i data-lucide="mail" style="width: 18px; height: 18px;"></i>
+                <a href="${escapeAttr(safeConsultantMailto)}" class="btn btn-secondary">
+                    <i data-lucide="mail"></i>
                     메일 보내기
                 </a>
                 ` : ''}
-                ${!consultant.verified ? `
-                    <button class="btn btn-primary" style="flex: 1;" onclick="approveConsultant(${consultant.id}); closeSidePanel();">
-                        <i data-lucide="check-circle" style="width: 18px; height: 18px;"></i>
+                ${panelStatus === 'pending' ? `
+                    <button type="button" class="btn btn-primary is-grow" onclick="approveConsultant(${cid}); closeSidePanel();">
+                        <i data-lucide="check-circle"></i>
                         검증 승인하기
                     </button>
-                ` : `
-                    <button class="btn btn-sm" style="background: rgba(239, 68, 68, 0.15); color: var(--error);" onclick="revokeVerification(${consultant.id}); closeSidePanel();">
+                ` : panelStatus === 'verified' ? `
+                    <button type="button" class="btn btn-danger-soft" onclick="revokeVerification(${cid}); closeSidePanel();">
                         검증 취소
                     </button>
-                `}
+                ` : panelStatus === 'rejected' || panelStatus === 'revoked' ? `
+                    <button type="button" class="btn btn-outline is-grow" onclick="restoreConsultant(${cid}); closeSidePanel();">
+                        <i data-lucide="rotate-ccw"></i>
+                        승인 대기로 복구
+                    </button>
+                ` : ''}
             `;
                 document.getElementById('panel-footer').innerHTML = footerHtml;
 
@@ -2682,12 +2469,15 @@
             }
 
             // View Job Details - Navigate to dashboard or show side panel
+            // 이 패널의 값(회사 이름·요청 원문·컨설턴트 이름·제목)은 전부 가입자가 쓴 글이 섞인다 — 전부 이스케이프.
             function viewJobDetails(jobId) {
                 const job = allJobsAdmin.find(j => j.id === jobId);
                 if (!job) return;
 
                 const intake = job.intake_data || {};
                 const date = new Date(job.created_at).toLocaleString('ko-KR');
+                const jobIdArg = jsArg(job.id);
+                const jobMailto = safeMailto(intake.contact_email);
 
                 // Set Header
                 document.getElementById('panel-company-name').textContent = job.company_name;
@@ -2695,76 +2485,74 @@
 
                 // Build Body Content
                 let contentHtml = `
-                <div class="info-group">
-                    <h4 style="margin-bottom: 16px; color: var(--primary); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
-                        매칭 요청 원문
-                    </h4>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                        <div>
-                            <label class="info-label">희망 규격</label>
-                            <div class="info-value">${(intake.standards || []).join(', ') || '미지정'}</div>
+                <div class="detail-section">
+                    <h4 class="detail-section-title"><i data-lucide="clipboard-list"></i>매칭 요청 원문</h4>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-item-label">희망 규격</div>
+                            <div class="detail-item-value">${escapeHtml((intake.standards || []).join(', ') || '미지정')}</div>
                         </div>
-                        <div>
-                            <label class="info-label">업종</label>
-                            <div class="info-value">${intake.industry || '미지정'}</div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">업종</div>
+                            <div class="detail-item-value">${escapeHtml(intake.industry || '미지정')}</div>
                         </div>
-                        <div>
-                            <label class="info-label">직원 수</label>
-                            <div class="info-value">${intake.employees || '미지정'}</div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">직원 수</div>
+                            <div class="detail-item-value">${escapeHtml(intake.employees || '미지정')}</div>
                         </div>
-                        <div>
-                            <label class="info-label">희망 일정</label>
-                            <div class="info-value">${intake.timeline || '유연함'}</div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">희망 일정</div>
+                            <div class="detail-item-value">${escapeHtml(intake.timeline || '유연함')}</div>
                         </div>
-                        <div>
-                            <label class="info-label">예산</label>
-                            <div class="info-value">${intake.budget || '미정'}</div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">예산</div>
+                            <div class="detail-item-value">${escapeHtml(intake.budget || '미정')}</div>
                         </div>
-                        <div>
-                            <label class="info-label">지역</label>
-                            <div class="info-value">${intake.region || '전국'}</div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">지역</div>
+                            <div class="detail-item-value">${escapeHtml(intake.region || '전국')}</div>
                         </div>
                     </div>
                 </div>
 
-                <div class="info-group">
-                    <label class="info-label">이슈 및 요구사항</label>
-                    <div class="info-value" style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; font-size: 0.9rem;">
-                        ${(intake.issues || []).join('\n') || '특별한 요구사항 없음'}
-                    </div>
+                <div class="detail-section">
+                    <h4 class="detail-section-title"><i data-lucide="list-checks"></i>이슈 및 요구사항</h4>
+                    <div class="detail-description hm-pre-line">${escapeHtml((intake.issues || []).join('\n') || '특별한 요구사항 없음')}</div>
                 </div>
 
-                <div class="info-group" style="margin-top: 32px;">
-                    <h4 style="margin-bottom: 16px; color: var(--success); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
-                        매칭된 컨설턴트 상세
-                    </h4>
+                <div class="detail-section">
+                    <h4 class="detail-section-title"><i data-lucide="users"></i>매칭된 컨설턴트 상세</h4>
                     ${job.related_projects && job.related_projects.length > 0 ?
                         job.related_projects.map(p => {
-                            const avatarContent = p.profile_image_url
-                                ? `<img src="${p.profile_image_url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
-                                : (p.consultant_name?.charAt(0) || '?');
+                            const consultantName = String(p.consultant_name || '');
+                            const profileImage = safeImageUrl(p.profile_image_url);
+                            const avatarContent = profileImage
+                                ? `<img src="${escapeAttr(profileImage)}" alt="">`
+                                : escapeHtml(consultantName.charAt(0) || '?');
+                            const statusText = p.status === 'contracted' ? '계약 완료' : p.status === 'proposal_submitted' ? '제안 완료' : p.status;
+                            const statusClass = /^[a-z_]+$/.test(String(p.status || '')) ? `status-${p.status}` : '';
 
                             return `
-                            <div class="consultant-item" style="padding: 16px;">
-                                <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 12px;">
-                                    <div class="consultant-approval-avatar" style="width: 40px; height: 40px; font-size: 1rem; flex-shrink: 0;">${avatarContent}</div>
-                                    <div style="flex: 1;">
-                                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                                            <span style="font-weight: 600; font-size: 1.05rem;">${p.consultant_name}</span>
-                                            <span class="status-badge status-completed" style="font-size: 0.7rem; padding: 2px 8px;">
-                                                ${p.status === 'contracted' ? '계약 완료' : p.status === 'proposal_submitted' ? '제안 완료' : p.status}
+                            <div class="consultant-item">
+                                <div class="hm-ci-head">
+                                    <div class="consultant-approval-avatar is-sm">${avatarContent}</div>
+                                    <div class="hm-ci-main">
+                                        <div class="hm-ci-row">
+                                            <span class="hm-ci-name">${escapeHtml(consultantName)}</span>
+                                            <span class="status-badge ${statusClass}">
+                                                ${escapeHtml(statusText)}
                                             </span>
                                         </div>
-                                        <div style="font-size: 0.8rem; color: var(--text-muted);">${p.title}</div>
+                                        <div class="hm-ci-title">${escapeHtml(p.title)}</div>
                                     </div>
                                 </div>
-                                <div style="display: flex; gap: 8px;">
-                                    <button class="btn btn-secondary btn-sm" style="flex: 1; padding: 6px; font-size: 0.75rem;" onclick="viewConsultantDetails('${p.consultant_id}')">프로필</button>
-                                    <button class="btn btn-secondary btn-sm" style="flex: 1; padding: 6px; font-size: 0.75rem;">제안서</button>
+                                <div class="hm-ci-actions">
+                                    <button type="button" class="btn btn-secondary btn-sm" onclick="viewConsultantDetails(${Number(p.consultant_id)})">프로필</button>
+                                    ${p.proposal_price ? `<span class="hm-ci-proposal">제안 ${escapeHtml(Number(p.proposal_price).toLocaleString())}원</span>` : ''}
                                 </div>
                             </div>
                         `;
-                        }).join('') : '<p style="color: var(--text-muted); text-align: center; padding: 20px;">매칭된 컨설턴트 데이터가 없습니다.</p>'
+                        }).join('') : '<p class="hm-empty-note">매칭된 컨설턴트 데이터가 없습니다.</p>'
                     }
                 </div>
             `;
@@ -2773,14 +2561,14 @@
 
                 // Update Footer Buttons
                 let footerHtml = `
-                <button class="btn btn-secondary" onclick="closeSidePanel()">닫기</button>
-                ${intake.contact_email ? `
-                    <a href="mailto:${intake.contact_email}" class="btn btn-primary" style="flex: 1; display: flex; justify-content: center; align-items: center; gap: 8px;">
-                        <i data-lucide="mail" style="width: 18px; height: 18px;"></i>
+                <button type="button" class="btn btn-secondary" onclick="closeSidePanel()">닫기</button>
+                ${jobMailto ? `
+                    <a href="${escapeAttr(jobMailto)}" class="btn btn-primary is-grow">
+                        <i data-lucide="mail"></i>
                         업체에 메일 보내기
                     </a>
                 ` : ''}
-                <button class="btn btn-sm" style="background: rgba(239, 68, 68, 0.15); color: var(--error);" onclick="deleteJob('${job.id}', '${job.company_name}'); closeSidePanel();">
+                <button type="button" class="btn btn-danger-soft" onclick="deleteJob(${jobIdArg}); closeSidePanel();">
                     삭제
                 </button>
             `;
@@ -2794,31 +2582,23 @@
             }
 
             // Notification
+            // 예전 코드는 class 없이 인라인 cssText 만 줘서 아래 querySelector('.notification') 가 기존 토스트를 못 찾았다
+            // → 토스트가 계속 쌓였다. 이제 brand.css 의 .notification(+ -success|-error) 클래스를 붙여 한 번에 하나만 뜬다.
+            let notificationTimer = null;
             function showNotification(message, type) {
-                const existing = document.querySelector('.notification');
-                if (existing) existing.remove();
+                document.querySelectorAll('.notification').forEach(n => n.remove());
+                if (notificationTimer) clearTimeout(notificationTimer);
 
                 const notification = document.createElement('div');
-                const bgColor = type === 'success' ? 'rgba(16, 185, 129, 0.9)' : 'rgba(239, 68, 68, 0.9)';
-
-                notification.style.cssText = `
-                position: fixed;
-                top: 100px;
-                right: 24px;
-                padding: 16px 24px;
-                background: ${bgColor};
-                color: white;
-                border-radius: 12px;
-                z-index: 10000;
-                animation: slideIn 0.3s ease;
-                backdrop-filter: blur(10px);
-                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-                max-width: 400px;
-            `;
+                notification.className = `notification notification-${type === 'success' ? 'success' : 'error'}`;
+                notification.setAttribute('role', type === 'success' ? 'status' : 'alert');
                 notification.textContent = message;
                 document.body.appendChild(notification);
 
-                setTimeout(() => notification.remove(), 4000);
+                notificationTimer = setTimeout(() => {
+                    notification.remove();
+                    notificationTimer = null;
+                }, 4000);
             }
 
             // Manual Refresh Function
@@ -2854,9 +2634,9 @@
                 } catch (error) {
                     console.error('Error fetching blog posts:', error);
                     document.getElementById('blog-list-admin').innerHTML = `
-                        <div class="card" style="text-align: center; padding: 40px;">
-                            <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: var(--error); margin-bottom: 16px;"></i>
-                            <p style="color: var(--text-muted);">블로그 데이터를 불러오지 못했습니다.</p>
+                        <div class="card hm-admin-state is-error">
+                            <i data-lucide="alert-circle"></i>
+                            <p>블로그 데이터를 불러오지 못했습니다.</p>
                         </div>
                     `;
                     lucide.createIcons();
@@ -2866,8 +2646,10 @@
             function updateBlogStats() {
                 document.getElementById('blog-stat-total').textContent = allBlogPosts.length;
                 document.getElementById('blog-count').textContent = allBlogPosts.length;
+                // created_at 은 서버가 UTC 날짜 'YYYY-MM-DD' 로 준다 → 같은 기준(UTC)의 'YYYY-MM' 과 비교.
+                // (예전 코드는 thisMonth.substring(0, 4) 로 '연도'만 비교해 올해 쓴 글을 전부 셌다)
                 const thisMonth = new Date().toISOString().substring(0, 7);
-                const recentCount = allBlogPosts.filter(p => p.created_at && p.created_at.startsWith(thisMonth.substring(0, 4))).length;
+                const recentCount = allBlogPosts.filter(p => p.created_at && String(p.created_at).startsWith(thisMonth)).length;
                 document.getElementById('blog-stat-recent').textContent = recentCount;
             }
 
@@ -2877,10 +2659,10 @@
 
                 if (allBlogPosts.length === 0) {
                     container.innerHTML = `
-                        <div class="card" style="text-align: center; padding: 60px;">
-                            <i data-lucide="file-text" style="width: 48px; height: 48px; color: var(--text-muted); margin-bottom: 16px;"></i>
-                            <p style="color: var(--text-muted); margin-bottom: 16px;">아직 작성된 블로그 글이 없습니다.</p>
-                            <button class="btn btn-primary" onclick="showBlogEditor()">첫 글 작성하기</button>
+                        <div class="card hm-admin-state">
+                            <i data-lucide="file-text"></i>
+                            <p>아직 작성된 블로그 글이 없습니다.</p>
+                            <button type="button" class="btn btn-primary" onclick="showBlogEditor()">첫 글 작성하기</button>
                         </div>
                     `;
                     lucide.createIcons();
@@ -2889,33 +2671,32 @@
 
                 allBlogPosts.forEach((post, index) => {
                     const card = document.createElement('div');
-                    card.className = 'job-card fade-in-up';
+                    card.className = 'hm-blog-row fade-in-up';
                     card.style.animationDelay = `${index * 0.05}s`;
 
-                    const tagsHtml = (post.tags || []).map(t => `<span class="blog-tag">#${t.trim()}</span>`).join(' ');
+                    // 제목·작성자·태그·이미지 주소는 전부 이스케이프(다른 관리자 계정·시드 데이터도 믿지 않는다)
+                    const postId = Number(post.id);
+                    const tagsHtml = (post.tags || []).map(t => `<span class="blog-tag">#${escapeHtml(String(t).trim())}</span>`).join(' ');
                     const excerptRaw = (post.content || '').replace(/<[^>]*>?/gm, '').replace(/\n/g, ' ').trim();
                     const excerpt = excerptRaw.length > 100 ? excerptRaw.substring(0, 100) + '...' : excerptRaw;
+                    const imageUrl = safeHttpUrl(post.image_url);
 
                     card.innerHTML = `
-                        <div style="display: flex; gap: 20px; align-items: flex-start; padding: 20px;">
-                            ${post.image_url ? `<img src="${post.image_url}" alt="" style="width: 120px; height: 80px; object-fit: cover; border-radius: 8px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.1);" onerror="this.style.display='none'">` : ''}
-                            <div style="flex: 1; min-width: 0;">
-                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                                    <h4 style="font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${post.title}</h4>
-                                </div>
-                                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 8px; line-height: 1.5;">${excerpt}</p>
-                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                                    <span style="font-size: 0.8rem; color: var(--text-muted);">${tagsHtml}</span>
-                                    <span style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px;"><i data-lucide="user" style="width: 12px; height: 12px;"></i> ${post.author}</span>
-                                    <span style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px;"><i data-lucide="calendar" style="width: 12px; height: 12px;"></i> ${post.created_at}</span>
+                            ${imageUrl ? `<img class="hm-blog-thumb" src="${escapeAttr(imageUrl)}" alt="" onerror="this.style.display='none'">` : ''}
+                            <div class="hm-blog-main">
+                                <h4>${escapeHtml(post.title)}</h4>
+                                <p class="hm-blog-excerpt">${escapeHtml(excerpt)}</p>
+                                <div class="hm-blog-meta">
+                                    <span class="hm-blog-tags">${tagsHtml}</span>
+                                    <span><i data-lucide="user"></i> ${escapeHtml(post.author)}</span>
+                                    <span><i data-lucide="calendar"></i> ${escapeHtml(post.created_at)}</span>
                                 </div>
                             </div>
-                            <div style="display: flex; gap: 8px; flex-shrink: 0; align-items: center;">
-                                <a href="blog_detail.html?id=${post.id}" target="_blank" class="btn btn-ghost btn-sm" title="미리보기" style="padding: 8px;"><i data-lucide="external-link" style="width: 16px; height: 16px;"></i></a>
-                                <button class="btn btn-secondary btn-sm" onclick="editBlogPost(${post.id})" title="수정" style="padding: 8px;"><i data-lucide="pencil" style="width: 16px; height: 16px;"></i></button>
-                                <button class="btn btn-sm" onclick="deleteBlogPost(${post.id}, '${post.title.replace(/'/g, "\\'").substring(0, 30)}')" title="삭제" style="padding: 8px; background: rgba(239,68,68,0.15); color: var(--error);"><i data-lucide="trash-2" style="width: 16px; height: 16px;"></i></button>
+                            <div class="hm-blog-actions">
+                                <a href="blog_detail.html?id=${postId}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" title="미리보기" aria-label="미리보기"><i data-lucide="external-link"></i></a>
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="editBlogPost(${postId})" title="수정" aria-label="수정"><i data-lucide="pencil"></i></button>
+                                <button type="button" class="btn btn-sm btn-danger-soft" onclick="deleteBlogPost(${postId})" title="삭제" aria-label="삭제"><i data-lucide="trash-2"></i></button>
                             </div>
-                        </div>
                     `;
                     container.appendChild(card);
                 });
@@ -2926,7 +2707,7 @@
             function showBlogEditor(post = null) {
                 document.getElementById('blog-editor').style.display = 'block';
                 if (post) {
-                    document.getElementById('editor-title').innerHTML = '<i data-lucide="pencil" style="width: 20px; height: 20px; color: var(--accent);"></i> 글 수정';
+                    document.getElementById('editor-title').innerHTML = '<i data-lucide="pencil"></i> 글 수정';
                     document.getElementById('blog-edit-id').value = post.id;
                     document.getElementById('blog-input-title').value = post.title;
                     document.getElementById('blog-input-author').value = post.author || 'Admin';
@@ -2935,7 +2716,7 @@
                     document.getElementById('blog-input-content').value = post.content || '';
                     document.getElementById('blog-save-btn-text').textContent = '수정 저장';
                 } else {
-                    document.getElementById('editor-title').innerHTML = '<i data-lucide="pen-line" style="width: 20px; height: 20px; color: var(--primary);"></i> 새 글 작성';
+                    document.getElementById('editor-title').innerHTML = '<i data-lucide="pen-line"></i> 새 글 작성';
                     document.getElementById('blog-edit-id').value = '';
                     document.getElementById('blog-input-title').value = '';
                     document.getElementById('blog-input-author').value = 'Admin';
@@ -3004,11 +2785,14 @@
                 }
             }
 
-            async function deleteBlogPost(id, title) {
+            async function deleteBlogPost(id) {
+                // 제목은 인라인 onclick 으로 받지 않고(따옴표·태그가 섞이면 깨진다) 불러온 목록에서 찾는다
+                const post = allBlogPosts.find(p => Number(p.id) === Number(id));
+                const title = String((post && post.title) || '').substring(0, 30);
                 if (!confirm(`"${title}..." 글을 정말 삭제하시겠습니까?`)) return;
 
                 try {
-                    const response = await authFetch(`/api/posts/${id}`, { method: 'DELETE' });
+                    const response = await authFetch(`/api/posts/${Number(id)}`, { method: 'DELETE' });
                     if (!response.ok) throw new Error('Failed to delete');
                     showNotification('게시글이 삭제되었습니다.', 'success');
                     fetchBlogPostsAdmin();
