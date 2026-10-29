@@ -283,6 +283,34 @@ class AdminActionLog(db.Model):
             'createdAt': self.created_at.isoformat() if self.created_at else None
         }
 
+class ContractSignature(db.Model):
+    """계약서 서명 증거 (추가만 하고 고치거나 지우지 않는다).
+
+    서명 시각만 남기던 때에는 '무엇에 서명했는지'를 입증할 수 없었다(계약서 문구는 화면이 그때그때 만들었다).
+    서명 순간의 계약서 원문·버전·해시와 서명자·접속 정보를 그대로 남긴다.
+    두 번째 서명자는 첫 서명자와 같은 원문(같은 해시)에만 서명할 수 있다.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id'), nullable=False, index=True)
+    signer_role = db.Column(db.String(20), nullable=False)        # 'company' | 'consultant'
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    signer_name = db.Column(db.String(100))                        # 서명 당시 이름 (나중에 바뀌어도 남는다)
+    contract_version = db.Column(db.String(40), nullable=False)
+    contract_hash = db.Column(db.String(64), nullable=False)       # 원문 SHA-256
+    contract_text = db.Column(db.Text, nullable=False)             # 서명한 원문 그대로
+    ip_address = db.Column(db.String(64))
+    user_agent = db.Column(db.String(300))
+    signed_at = db.Column(db.DateTime, default=utc_now, nullable=False)
+
+    def to_dict(self):
+        return {
+            'signer_role': self.signer_role,
+            'signer_name': self.signer_name,
+            'contract_version': self.contract_version,
+            'contract_hash': self.contract_hash,
+            'signed_at': self.signed_at.isoformat() if self.signed_at else None,
+        }
+
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)

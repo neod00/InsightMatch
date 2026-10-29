@@ -1951,6 +1951,8 @@
         // 계약서 관련 함수
         // ========================================
 
+        let currentContractHash = '';
+
         async function openContractModal(projectId) {
             document.getElementById('contract-project-id').value = projectId;
             document.getElementById('contract-modal').classList.remove('hidden');
@@ -1959,43 +1961,16 @@
                 const response = await authFetch(`${API_BASE_URL}/api/projects/${projectId}/contract/preview`);
                 const data = await response.json();
 
-                // 계약서 미리보기 렌더링
-                document.getElementById('contract-preview').innerHTML = `
-                    <div style="text-align: center; margin-bottom: 20px;">
-                        <strong style="font-size: 1.1rem;">ISO 인증 컨설팅 용역 계약서</strong>
-                    </div>
-                    
-                    <p><strong>제1조 (계약 당사자)</strong></p>
-                    <p style="margin-left: 16px;">
-                        갑(의뢰인): <strong>${escapeHtml(data.company_name)}</strong> ${data.company_company_name ? `(${escapeHtml(data.company_company_name)})` : ''}<br>
-                        을(수행자): <strong>${escapeHtml(data.consultant_name)}</strong> ${data.consultant_company_name ? `(${escapeHtml(data.consultant_company_name)})` : ''}
-                    </p>
-                    
-                    <p><strong>제2조 (용역 내용)</strong></p>
-                    <p style="margin-left: 16px;">
-                        본 계약의 대상 용역은 <strong>${escapeHtml(data.title)}</strong>으로 한다.
-                    </p>
-                    
-                    <p><strong>제3조 (계약 금액)</strong></p>
-                    <p style="margin-left: 16px;">
-                        본 용역의 총 계약금액은 <strong>${data.proposal_price ? data.proposal_price.toLocaleString() + '원' : '별도 협의'}</strong>으로 한다.
-                    </p>
-                    
-                    <p><strong>제4조 (수행 기간)</strong></p>
-                    <p style="margin-left: 16px;">
-                        본 용역의 수행 기간은 계약 체결일로부터 <strong>${escapeHtml(data.proposal_duration || '별도 협의 기간')}</strong>으로 한다.
-                    </p>
-                    
-                    <p><strong>제5조 (비밀 유지)</strong></p>
-                    <p style="margin-left: 16px;">
-                        갑과 을은 본 계약의 수행 과정에서 취득한 상대방의 비밀 정보를 제3자에게 누설하거나 본 계약 외의 목적으로 사용하지 않는다.
-                    </p>
-                    
-                    ${data.special_terms ? `
-                    <p><strong>특약 사항</strong></p>
-                    <p style="margin-left: 16px; white-space: pre-wrap;">${escapeHtml(data.special_terms)}</p>
-                    ` : ''}
-                `;
+                // 계약서 미리보기 렌더링 — 서버가 만든 원문을 그대로 보여 준다(서명 시 이 원문의 해시를 보내 같은 내용임을 확인).
+                currentContractHash = data.contract_hash || '';
+                const contractLines = String(data.contract_text || '').split('\n');
+                document.getElementById('contract-preview').innerHTML = contractLines.map((line, index) => {
+                    if (index === 0) return `<div style="text-align: center; margin-bottom: 20px;"><strong style="font-size: 1.1rem;">${escapeHtml(line)}</strong></div>`;
+                    if (!line.trim()) return '';
+                    if (/^(제\d+조 |특약 사항)/.test(line)) return `<p><strong>${escapeHtml(line)}</strong></p>`;
+                    if (/^\(계약서 문안 버전/.test(line)) return `<p style="margin-top: 16px; font-size: 12px; color: var(--muted);">${escapeHtml(line)}</p>`;
+                    return `<p style="margin-left: 16px; white-space: pre-wrap;">${escapeHtml(line)}</p>`;
+                }).join('');
 
                 // 서명 상태 표시
                 const companySigned = data.company_signed_at;
@@ -2012,7 +1987,7 @@
                         </div>
                         <div class="hm-sign ${consultantSigned ? 'is-done' : ''}">
                             <i data-lucide="${consultantSigned ? 'check-circle' : 'circle'}"></i>
-                            <div>전문가 서명 ${consultantSigned ? '완료' : '대기'}</div>
+                            <div>컨설턴트 서명 ${consultantSigned ? '완료' : '대기'}</div>
                         </div>
                     </div>
                 `;
@@ -2020,8 +1995,9 @@
                 // 이미 내가 서명한 경우 버튼 비활성화
                 const signBtn = document.getElementById('contract-sign-btn');
                 if (mySignStatus) {
+                    // 누를 수 있는 버튼처럼 보이지 않도록 상태 문구로 바꾼다.
                     signBtn.disabled = true;
-                    signBtn.textContent = '서명 완료';
+                    signBtn.textContent = otherSignStatus ? '양측 서명 완료' : '내 서명 완료 · 상대 서명 대기';
                     signBtn.style.opacity = '0.5';
                 } else {
                     signBtn.disabled = false;
@@ -2051,7 +2027,8 @@
                 const response = await authFetch(`${API_BASE_URL}/api/projects/${projectId}/contract/sign`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ signer })
+                    // 화면에 보인 원문의 해시. 그사이 내용이 바뀌었으면 서버가 409 로 알려 준다.
+                    body: JSON.stringify({ signer, contract_hash: currentContractHash })
                 });
 
                 const data = await response.json();
@@ -2060,6 +2037,9 @@
                     showNotification(data.message, 'success');
                     closeContractModal();
                     fetchProjects();
+                } else if (response.status === 409) {
+                    showNotification(data.message || '계약서 내용이 바뀌었습니다. 다시 확인해 주세요.', 'error');
+                    openContractModal(projectId);
                 } else {
                     showNotification(data.message || '서명에 실패했습니다.', 'error');
                 }

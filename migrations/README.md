@@ -420,3 +420,29 @@ WHERE table_schema = 'public' AND table_name = 'user'
 -- 되돌리기
 -- ALTER TABLE public."user" DROP COLUMN IF EXISTS biz_reg_no, DROP COLUMN IF EXISTS biz_status, DROP COLUMN IF EXISTS biz_checked_at;
 ```
+
+## 2026-10-29 — 계약서 서명 증거 (`contract_signature` 신규 테이블)
+
+서명 순간의 계약서 원문·버전·SHA-256·서명자·IP·User-Agent 를 남긴다(추가만, 수정·삭제 없음).
+create_all 이 첫 요청 때 테이블을 만들지만 **RLS 는 직접 켜야 하므로** 배포 전에 아래를 실행한다.
+
+```sql
+CREATE TABLE IF NOT EXISTS public.contract_signature (
+    id               SERIAL PRIMARY KEY,
+    project_id       INTEGER      NOT NULL REFERENCES public.project(id),
+    signer_role      VARCHAR(20)  NOT NULL,          -- company | consultant
+    user_id          INTEGER      NOT NULL REFERENCES public."user"(id),
+    signer_name      VARCHAR(100) NULL,
+    contract_version VARCHAR(40)  NOT NULL,
+    contract_hash    VARCHAR(64)  NOT NULL,          -- 원문 SHA-256
+    contract_text    TEXT         NOT NULL,          -- 서명한 원문 그대로
+    ip_address       VARCHAR(64)  NULL,
+    user_agent       VARCHAR(300) NULL,
+    signed_at        TIMESTAMP    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_contract_signature_project_id ON public.contract_signature (project_id);
+ALTER TABLE IF EXISTS public.contract_signature ENABLE ROW LEVEL SECURITY;
+
+-- 확인: rowsecurity = true
+SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public' AND tablename = 'contract_signature';
+```

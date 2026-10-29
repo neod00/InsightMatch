@@ -24,7 +24,7 @@ from sqlalchemy import and_, case, func, text
 from sqlalchemy.exc import IntegrityError
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, CronRun, ErrorLog, Inquiry, Review, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry, parse_text_or_json_list
+from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, CronRun, ErrorLog, Inquiry, Review, User, Project, Milestone, Post, Company, Notification, ContractSignature, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry, parse_text_or_json_list
 from services import MatchingService, ProposalService, EmailService
 from services.iso_manual_service import generate_iso_manual_stream
 from services.business_check import (
@@ -2907,7 +2907,7 @@ def create_contract_draft(project_id):
 @app.route('/api/projects/<int:project_id>/contract/sign', methods=['POST'])
 @token_required
 def sign_contract_step(project_id):
-    """계약서 서명 (기업 또는 전문가)"""
+    """계약서 서명 (기업 또는 컨설턴트). 서명 순간의 원문·해시·접속 정보를 ContractSignature 에 남긴다."""
     project = get_active_project_or_404(project_id)
     if not is_project_participant(project):
         return jsonify({'message': '해당 프로젝트의 당사자만 계약서에 서명할 수 있습니다.'}), 403
@@ -2916,13 +2916,37 @@ def sign_contract_step(project_id):
         return jsonify({'message': '계약서가 준비된 프로젝트만 서명할 수 있습니다.'}), 400
     
     signer = 'company' if is_project_company(project) else 'consultant'
-    
+
+    # 이미 서명했으면 시각을 덮어쓰지 않는다(서명 기록은 한 번만).
+    if (project.company_signed_at if signer == 'company' else project.consultant_signed_at):
+        return jsonify({'code': 'ALREADY_SIGNED', 'message': '이미 서명했습니다.'}), 400
+
+    # 화면에 보여 준 원문과 지금 서명할 원문이 같아야 한다. (보고 있는 사이 내용이 바뀌었으면 다시 확인)
+    text, version = contract_text_for_signing(project)
+    expected_hash = contract_hash(text)
+    if (request.json or {}).get('contract_hash') != expected_hash:
+        return jsonify({'code': 'CONTRACT_CHANGED',
+                        'message': '계약서 내용이 바뀌었습니다. 다시 확인한 뒤 서명해 주세요.'}), 409
+
     now = datetime.datetime.now(datetime.timezone.utc)
-    
+
     if signer == 'company':
         project.company_signed_at = now
     else:
         project.consultant_signed_at = now
+
+    db.session.add(ContractSignature(
+        project_id=project.id,
+        signer_role=signer,
+        user_id=g.current_user.id,
+        signer_name=g.current_user.name,
+        contract_version=version,
+        contract_hash=expected_hash,
+        contract_text=text,
+        ip_address=_client_ip(),
+        user_agent=(request.headers.get('User-Agent') or '')[:300],
+        signed_at=now.replace(tzinfo=None),
+    ))
     
     # 양측 모두 서명 완료 시
     if project.company_signed_at and project.consultant_signed_at:
@@ -2965,7 +2989,7 @@ def sign_contract_step(project_id):
             print(f"[Notification] Contract signed notification failed: {e}")
     else:
         project.status = 'awaiting_signature'
-        other_party = '전문가' if signer == 'company' else '기업'
+        other_party = '컨설턴트' if signer == 'company' else '기업'
         message = f'서명이 완료되었습니다. {other_party}의 서명을 기다리고 있습니다.'
     
     db.session.commit()
@@ -2977,6 +3001,71 @@ def sign_contract_step(project_id):
         'consultant_signed': project.consultant_signed_at is not None
     })
 
+# --- 계약서 본문 (서버가 만들고, 서명 순간의 원문을 증거로 남긴다) ---
+# 본문은 A안(기업 ↔ NGB) 구조로 다시 써야 한다(변호사 검토 예정). 그 전까지의 임시 문안 버전.
+CONTRACT_TEMPLATE_VERSION = '0.1-draft'
+
+
+def _format_biz_no(value):
+    d = normalize_business_number(value)
+    return f'{d[:3]}-{d[3:5]}-{d[5:]}' if len(d) == 10 else d
+
+
+def build_contract_text(project):
+    """계약서 원문(평문). 화면 표시·해시·증거 보관에 같은 문자열을 쓴다."""
+    company_user = User.query.get(project.company_id)
+    company_row = Company.query.filter_by(user_id=project.company_id).first() if project.company_id else None
+    consultant = Consultant.query.get(project.consultant_id)
+
+    company_label = ((company_user.company_name if company_user else '') or (company_row.name if company_row else '')
+                     or '기업')
+    party_a = company_label
+    if company_user and company_user.biz_reg_no:
+        party_a += f' (사업자등록번호 {_format_biz_no(company_user.biz_reg_no)})'
+    if company_user and company_user.name:
+        party_a += f', 담당자 {company_user.name}'
+    party_b = consultant.name if consultant else '컨설턴트'
+    if consultant and consultant.company_name:
+        party_b += f' ({consultant.company_name})'
+    price = f'{project.proposal_price:,}원' if project.proposal_price else '별도 협의'
+    duration = project.proposal_duration or '별도 협의 기간'
+
+    lines = [
+        'ISO 인증 컨설팅 용역 계약서',
+        '',
+        '제1조 (계약 당사자)',
+        f'갑(의뢰인): {party_a}',
+        f'을(컨설턴트): {party_b}',
+        '갑의 담당자는 갑을 대리하여 이 계약에 서명한다.',
+        '제2조 (용역 내용)',
+        f'본 계약의 대상 용역은 「{project.title}」으로 한다.',
+        '제3조 (계약 금액)',
+        f'본 용역의 총 계약금액은 {price}으로 한다.',
+        '제4조 (수행 기간)',
+        f'본 용역의 수행 기간은 계약 체결일로부터 {duration}으로 한다.',
+        '제5조 (비밀 유지)',
+        '갑과 을은 본 계약의 수행 과정에서 취득한 상대방의 비밀 정보를 제3자에게 누설하거나 본 계약 외의 목적으로 사용하지 않는다.',
+        '제6조 (전자 서명)',
+        '갑과 을은 InsightMatch 서비스에서 「서명하기」를 눌러 이 계약에 서명하며, 서비스는 서명 시각과 서명한 계약서 원문을 보관한다.',
+    ]
+    if project.contract_special_terms:
+        lines += ['특약 사항', project.contract_special_terms.strip()]
+    lines += ['', f'(계약서 문안 버전 {CONTRACT_TEMPLATE_VERSION})']
+    return '\n'.join(lines)
+
+
+def contract_text_for_signing(project):
+    """서명할 원문: 첫 서명이 있으면 그 원문을 그대로(두 사람이 같은 내용에 서명), 없으면 지금 내용으로 만든다."""
+    first = ContractSignature.query.filter_by(project_id=project.id).order_by(ContractSignature.id).first()
+    if first:
+        return first.contract_text, first.contract_version
+    return build_contract_text(project), CONTRACT_TEMPLATE_VERSION
+
+
+def contract_hash(text):
+    return hashlib.sha256(text.encode('utf-8')).hexdigest()
+
+
 @app.route('/api/projects/<int:project_id>/contract/preview', methods=['GET'])
 @token_required
 def get_contract_preview(project_id):
@@ -2985,23 +3074,30 @@ def get_contract_preview(project_id):
     forbidden = require_project_participant(project)
     if forbidden:
         return forbidden
-    
+
     company_user = User.query.get(project.company_id)
     consultant = Consultant.query.get(project.consultant_id)
-    
+    text, version = contract_text_for_signing(project)
+    signatures = ContractSignature.query.filter_by(project_id=project.id).order_by(ContractSignature.id).all()
+
     return jsonify({
         'project_id': project.id,
         'title': project.title,
         'company_name': company_user.name if company_user else '기업',
         'company_company_name': company_user.company_name if company_user else '',
-        'consultant_name': consultant.name if consultant else '전문가',
+        'consultant_name': consultant.name if consultant else '컨설턴트',
         'consultant_company_name': consultant.company_name if consultant else '',
         'proposal_price': project.proposal_price,
         'proposal_duration': project.proposal_duration,
         'special_terms': project.contract_special_terms,
         'company_signed_at': project.company_signed_at.isoformat() if project.company_signed_at else None,
         'consultant_signed_at': project.consultant_signed_at.isoformat() if project.consultant_signed_at else None,
-        'status': project.status
+        'status': project.status,
+        # 화면은 이 원문을 그대로 보여 주고, 서명할 때 contract_hash 를 돌려보낸다.
+        'contract_text': text,
+        'contract_version': version,
+        'contract_hash': contract_hash(text),
+        'signatures': [s.to_dict() for s in signatures],
     })
 
 # ========================================
