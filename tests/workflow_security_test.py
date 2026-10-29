@@ -321,6 +321,190 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.get_json()['message'], 'Invalid proposal file URL')
 
+    # --- 제안서 파일: 비공개 버킷 + 서명 URL, 관리자 열람 기록 ---------------------------
+
+    SUPABASE_TEST_URL = 'https://proj.supabase.co'
+
+    def _set_proposal_file(self, name=None):
+        name = name or f'{self.project.id}_{self.consultant_user.id}_1700000000.pdf'
+        self.project.proposal_file_url = f'{self.SUPABASE_TEST_URL}/storage/v1/object/public/proposals/{name}'
+        db.session.commit()
+        return name
+
+    def _signing_env(self, service_key='service-test-key'):
+        env = {'SUPABASE_URL': self.SUPABASE_TEST_URL, 'SUPABASE_SERVICE_ROLE_KEY': service_key}
+        return patch.dict(os.environ, env)
+
+    def _fake_sign_response(self, signed_path='/object/sign/proposals/x.pdf?token=abc'):
+        class FakeResponse:
+            status_code = 200
+            def json(self_inner):
+                return {'signedURL': signed_path}
+        return FakeResponse()
+
+    def test_proposal_download_returns_signed_url_to_participants(self):
+        name = self._set_proposal_file()
+        for user in (self.company, self.consultant_user):
+            with self._signing_env(), patch('requests.post', return_value=self._fake_sign_response(
+                    f'/object/sign/proposals/{name}?token=abc')) as mock_post:
+                response = self.client.get(
+                    f'/api/projects/{self.project.id}/proposal/download?format=json',
+                    headers=auth_headers(user),
+                )
+            self.assertEqual(response.status_code, 200, response.get_data(as_text=True))
+            data = response.get_json()
+            self.assertEqual(data['url'], f'{self.SUPABASE_TEST_URL}/storage/v1/object/sign/proposals/{name}?token=abc')
+            self.assertNotIn('/public/', data['url'])
+            # 서명은 서비스 키로, 객체 이름 그대로 요청한다
+            args, kwargs = mock_post.call_args
+            self.assertTrue(args[0].endswith(f'/object/sign/proposals/{name}'))
+            self.assertEqual(kwargs['headers']['Authorization'], 'Bearer service-test-key')
+        self.assertEqual(AdminActionLog.query.count(), 0)  # 당사자 열람은 관리자 기록 대상이 아니다
+
+    def test_proposal_download_redirects_without_json_format(self):
+        name = self._set_proposal_file()
+        with self._signing_env(), patch('requests.post', return_value=self._fake_sign_response(
+                f'/object/sign/proposals/{name}?token=abc')):
+            response = self.client.get(
+                f'/api/projects/{self.project.id}/proposal/download',
+                headers=auth_headers(self.company),
+            )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/object/sign/proposals/', response.headers['Location'])
+
+    def test_proposal_download_rejects_outsiders(self):
+        self._set_proposal_file()
+        outsider_consultant_user = User(email='outsider-c@example.com', password_hash='x',
+                                        role='consultant', name='Outsider Consultant')
+        db.session.add(outsider_consultant_user)
+        db.session.commit()
+        with self._signing_env(), patch('requests.post') as mock_post:
+            for user in (self.other_company, outsider_consultant_user):
+                response = self.client.get(
+                    f'/api/projects/{self.project.id}/proposal/download?format=json',
+                    headers=auth_headers(user),
+                )
+                self.assertEqual(response.status_code, 403)
+            response = self.client.get(f'/api/projects/{self.project.id}/proposal/download?format=json')
+            self.assertEqual(response.status_code, 401)
+        mock_post.assert_not_called()
+
+    def test_admin_can_open_proposal_and_every_view_is_logged(self):
+        name = self._set_proposal_file()
+        with self._signing_env(), patch('requests.post', return_value=self._fake_sign_response(
+                f'/object/sign/proposals/{name}?token=abc')):
+            file_response = self.client.get(
+                f'/api/projects/{self.project.id}/proposal/download?format=json',
+                headers=auth_headers(self.admin_user),
+            )
+        detail_response = self.client.get(
+            f'/api/projects/{self.project.id}/proposal',
+            headers=auth_headers(self.admin_user),
+        )
+
+        self.assertEqual(file_response.status_code, 200)
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertEqual(detail_response.get_json()['proposal_price'], 5000000)
+        actions = {log.action: log for log in AdminActionLog.query.all()}
+        self.assertEqual(set(actions), {'proposal_file_view', 'proposal_view'})
+        for log in actions.values():
+            self.assertEqual(log.admin_user_id, self.admin_user.id)
+            self.assertEqual(log.target_type, 'project')
+            self.assertEqual(log.target_id, str(self.project.id))
+
+    def test_admin_summary_pdf_view_is_logged_when_no_file_uploaded(self):
+        response = self.client.get(
+            f'/api/projects/{self.project.id}/proposal/download',
+            headers=auth_headers(self.admin_user),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, 'application/pdf')
+        self.assertEqual([log.action for log in AdminActionLog.query.all()], ['proposal_summary_view'])
+
+    def test_proposal_signed_url_failure_returns_502_without_leaking_details(self):
+        self._set_proposal_file()
+
+        class FailedResponse:
+            status_code = 400
+            text = 'secret internal detail'
+            def json(self_inner):
+                return {}
+
+        with self._signing_env(), patch('requests.post', return_value=FailedResponse()):
+            response = self.client.get(
+                f'/api/projects/{self.project.id}/proposal/download?format=json',
+                headers=auth_headers(self.company),
+            )
+        self.assertEqual(response.status_code, 502)
+        self.assertNotIn('secret', response.get_data(as_text=True))
+
+    def test_proposal_download_without_service_key_keeps_working_while_bucket_is_public(self):
+        """서비스 키를 넣기 전(버킷이 아직 공개)에도 배포가 안전해야 한다."""
+        name = self._set_proposal_file()
+        with patch.dict(os.environ, {'SUPABASE_URL': self.SUPABASE_TEST_URL, 'SUPABASE_SERVICE_ROLE_KEY': ''}), \
+                patch('requests.post') as mock_post:
+            response = self.client.get(
+                f'/api/projects/{self.project.id}/proposal/download?format=json',
+                headers=auth_headers(self.company),
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()['url'],
+                         f'{self.SUPABASE_TEST_URL}/storage/v1/object/public/proposals/{name}')
+        mock_post.assert_not_called()
+
+    def test_proposal_object_name_rejects_other_projects_and_path_tricks(self):
+        """서비스 키로 서명하므로 남의 프로젝트 파일·상위 경로를 가리키는 URL 은 거부한다."""
+        from index import proposal_object_name
+
+        base = f'{self.SUPABASE_TEST_URL}/storage/v1/object/public/proposals/'
+        pid = self.project.id
+        with patch.dict(os.environ, {'SUPABASE_URL': self.SUPABASE_TEST_URL}):
+            self.assertEqual(proposal_object_name(f'{base}{pid}_7_1700000000.pdf', pid), f'{pid}_7_1700000000.pdf')
+            self.assertIsNone(proposal_object_name(f'{base}{pid + 1}_7_1700000000.pdf', pid))   # 다른 프로젝트
+            self.assertIsNone(proposal_object_name(f'{base}{pid}_../profiles/a.png', pid))       # 상위 경로
+            self.assertIsNone(proposal_object_name(f'{base}{pid}_7/other.pdf', pid))             # 하위 경로
+            self.assertIsNone(proposal_object_name(f'{base}{pid}_7_1%2e%2e%2fother.pdf', pid))   # 인코딩된 경로
+            self.assertIsNone(proposal_object_name('', pid))
+            self.assertIsNone(proposal_object_name(f'https://evil.example/storage/v1/object/public/proposals/{pid}_7_1.pdf', pid))
+
+    def test_submit_proposal_rejects_file_of_another_project(self):
+        base = f'{self.SUPABASE_TEST_URL}/storage/v1/object/public/proposals/'
+        with patch.dict(os.environ, {'SUPABASE_URL': self.SUPABASE_TEST_URL}):
+            rejected = self.client.post(
+                f'/api/projects/{self.project.id}/submit-proposal',
+                json={'proposal_price': 7000000, 'proposal_duration': '2 months',
+                      'proposal_file_url': f'{base}{self.other_candidate.id}_9_1700000000.pdf'},
+                headers=auth_headers(self.consultant_user),
+            )
+            accepted = self.client.post(
+                f'/api/projects/{self.project.id}/submit-proposal',
+                json={'proposal_price': 7000000, 'proposal_duration': '2 months',
+                      'proposal_file_url': f'{base}{self.project.id}_{self.consultant_user.id}_1700000000.pdf'},
+                headers=auth_headers(self.consultant_user),
+            )
+        self.assertEqual(rejected.status_code, 400)
+        self.assertEqual(accepted.status_code, 200, accepted.get_data(as_text=True))
+
+    def test_admin_job_list_flags_projects_with_a_submitted_proposal(self):
+        # 같은 컨설턴트·규격의 프로젝트는 목록에서 하나로 합쳐지므로 하나만 남기고 확인한다.
+        db.session.delete(self.other_candidate)
+        self.project.proposal_submitted_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        db.session.commit()
+
+        def related_projects():
+            response = self.client.get('/api/admin/jobs', headers=auth_headers(self.admin_user))
+            self.assertEqual(response.status_code, 200)
+            return [p for job in response.get_json() for p in job.get('related_projects', [])]
+
+        related = related_projects()
+        self.assertEqual([p['project_id'] for p in related], [self.project.id])
+        self.assertTrue(related[0]['has_proposal'])
+        self.assertNotIn('proposal_file_url', related[0])
+
+        self.project.proposal_submitted_at = None
+        db.session.commit()
+        self.assertFalse(related_projects()[0]['has_proposal'])
+
     def test_proposal_upload_requires_assigned_consultant(self):
         data = {
             'project_id': str(self.project.id),

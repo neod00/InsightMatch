@@ -944,8 +944,64 @@ def is_allowed_proposal_file_url(file_url):
     return (
         parsed_file_url.scheme == 'https'
         and parsed_file_url.netloc == parsed_supabase_url.netloc
-        and parsed_file_url.path.startswith('/storage/v1/object/public/proposals/')
+        and parsed_file_url.path.startswith(PROPOSAL_PUBLIC_PREFIX)
     )
+
+# 제안서 파일은 비공개 버킷에 두고, 열람할 때마다 짧게 유효한 서명 URL 을 발급한다.
+# DB 에는 업로드 때 만든 공개 형식 URL 이 그대로 저장돼 있어, 객체 이름만 꺼내 서명한다
+# (버킷을 비공개로 바꿔도 DB 이전이 필요 없다).
+PROPOSAL_PUBLIC_PREFIX = '/storage/v1/object/public/proposals/'
+PROPOSAL_SIGNED_URL_TTL = 300  # 초
+_PROPOSAL_OBJECT_NAME_RE = re.compile(r'^[A-Za-z0-9_.-]+$')
+
+def proposal_object_name(file_url, project_id):
+    """저장된 제안서 URL 에서 버킷 안의 객체 이름을 꺼낸다. 이 프로젝트의 파일이 아니면 None.
+
+    서명은 서비스 키로 하므로, 다른 프로젝트의 파일이나 `../` 같은 경로를 가리키는 URL 로
+    남의 제안서를 열람하지 못하도록 이름 형식과 프로젝트 번호 접두어(`{project_id}_`)를 검사한다.
+    """
+    if not file_url or not is_allowed_proposal_file_url(file_url):
+        return None
+    name = urlparse(file_url).path[len(PROPOSAL_PUBLIC_PREFIX):]
+    if not _PROPOSAL_OBJECT_NAME_RE.match(name) or '..' in name:
+        return None
+    if not name.startswith(f'{project_id}_'):
+        return None
+    return name
+
+def create_proposal_signed_url(object_name):
+    """제안서 파일을 잠깐 열 수 있는 URL 을 만든다.
+
+    SUPABASE_SERVICE_ROLE_KEY 가 없으면 공개 URL 을 돌려준다(버킷이 아직 공개인 동안만 열린다).
+    키가 있으면 서명 URL 을 발급하며, 실패하면 예외를 던진다.
+    """
+    import requests
+
+    supabase_url = get_supabase_url()
+    service_key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '').strip()
+    if not service_key:
+        return f"{supabase_url}{PROPOSAL_PUBLIC_PREFIX}{object_name}"
+
+    response = requests.post(
+        f"{supabase_url}/storage/v1/object/sign/proposals/{object_name}",
+        headers={
+            'Authorization': f'Bearer {service_key}',
+            'apikey': service_key,
+            'Content-Type': 'application/json',
+        },
+        json={'expiresIn': PROPOSAL_SIGNED_URL_TTL},
+        timeout=10,
+    )
+    if response.status_code != 200:
+        raise RuntimeError(f'signed url request failed: {response.status_code}')
+    signed = (response.json() or {}).get('signedURL')
+    if not signed:
+        raise RuntimeError('signed url missing in response')
+    if signed.startswith('http'):
+        return signed
+    if signed.startswith('/storage/v1'):
+        return f"{supabase_url}{signed}"
+    return f"{supabase_url}/storage/v1{signed}"
 
 def is_allowed_profile_image_url(file_url):
     if not file_url:
@@ -2499,20 +2555,44 @@ def delete_project(project_id):
 @token_required
 def download_proposal(project_id):
     project = get_active_project_or_404(project_id)
-    forbidden = require_project_participant(project)
-    if forbidden:
-        return forbidden
-    
-    # 1. 컨설턴트가 직접 업로드한 원본 파일이 있는 경우 해당 파일로 리다이렉트
-    if project.proposal_file_url and is_allowed_proposal_file_url(project.proposal_file_url):
+    # 프로젝트 당사자와 관리자만 열람할 수 있다. 관리자 열람은 매번 기록한다(약관·방침에 고지).
+    is_admin = g.current_user.role == 'admin'
+    if not is_admin:
+        forbidden = require_project_participant(project)
+        if forbidden:
+            return forbidden
+
+    # 1. 컨설턴트가 직접 업로드한 원본 파일이 있는 경우: 잠깐 유효한 주소로 보낸다.
+    #    ?format=json 이면 주소만 JSON 으로 준다(인증 헤더가 필요해 화면이 fetch 로 호출한다).
+    object_name = proposal_object_name(project.proposal_file_url, project.id)
+    if object_name:
+        try:
+            file_url = create_proposal_signed_url(object_name)
+        except Exception as e:
+            print(f"[Proposal] signed url failed for project {project.id}: {e}")
+            return jsonify({'message': '제안서 파일을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'}), 502
+        if is_admin:
+            log_admin_action('proposal_file_view', 'project', project.id, {
+                'consultant_id': project.consultant_id,
+                'company_id': project.company_id,
+            })
+            db.session.commit()
+        if request.args.get('format') == 'json':
+            return jsonify({'url': file_url, 'expires_in': PROPOSAL_SIGNED_URL_TTL})
         from flask import redirect
-        return redirect(project.proposal_file_url)
-    
+        return redirect(file_url)
+
     # 2. 업로드된 파일이 없는 경우 시스템 요약 제안서 생성
+    if is_admin:
+        log_admin_action('proposal_summary_view', 'project', project.id, {
+            'consultant_id': project.consultant_id,
+            'company_id': project.company_id,
+        })
+        db.session.commit()
     consultant = Consultant.query.get(project.consultant_id)
     company_user = User.query.get(project.company_id)
     company_name = company_user.name if company_user else "Client"
-    
+
     pdf_buffer = proposal_service.generate_proposal(project, consultant, company_name)
     
     return send_file(
@@ -2872,6 +2952,9 @@ def submit_proposal(project_id):
     proposal_file_url = data.get('proposal_file_url', '')
     if not is_allowed_proposal_file_url(proposal_file_url):
         return jsonify({'message': 'Invalid proposal file URL'}), 400
+    # 서명 URL 은 서비스 키로 발급하므로, 이 프로젝트에 올린 파일만 연결할 수 있다.
+    if proposal_file_url and not proposal_object_name(proposal_file_url, project.id):
+        return jsonify({'message': 'Invalid proposal file URL'}), 400
 
     proposal_duration = (data.get('proposal_duration') or '').strip()
     proposal_message = (data.get('proposal_message') or '').strip()
@@ -2942,11 +3025,19 @@ def submit_proposal(project_id):
 def get_proposal(project_id):
     """특정 프로젝트의 제안서 상세 조회"""
     project = get_active_project_or_404(project_id)
-    forbidden = require_project_participant(project)
-    if forbidden:
-        return forbidden
+    if g.current_user.role == 'admin':
+        # 관리자 열람은 기록한다(약관·방침에 고지).
+        log_admin_action('proposal_view', 'project', project.id, {
+            'consultant_id': project.consultant_id,
+            'company_id': project.company_id,
+        })
+        db.session.commit()
+    else:
+        forbidden = require_project_participant(project)
+        if forbidden:
+            return forbidden
     consultant = Consultant.query.get(project.consultant_id)
-    
+
     return jsonify({
         'project_id': project.id,
         'consultant_id': project.consultant_id,
@@ -4324,7 +4415,9 @@ def get_admin_jobs():
                     'consultant_name': consultant.name if consultant else 'Unknown',
                     'created_at': p.created_at.isoformat() if p.created_at else None,
                     'proposal_price': p.proposal_price,
-                    'proposal_submitted_at': p.proposal_submitted_at.isoformat() if p.proposal_submitted_at else None
+                    'proposal_submitted_at': p.proposal_submitted_at.isoformat() if p.proposal_submitted_at else None,
+                    # 관리자 화면의 "제안서 보기" 버튼 표시용. 파일 주소는 내려주지 않는다.
+                    'has_proposal': bool(p.proposal_submitted_at),
                 })
             
             # Sort related projects by created_at descending

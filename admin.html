@@ -2206,6 +2206,68 @@
             }
 
             // View Consultant Details - Show in side panel
+            // ===== 제안서 열람 (관리자 — 열람 사실은 서버가 기록한다) =====
+            async function viewProposal(projectId) {
+                const id = Number(projectId);
+                const box = document.getElementById(`proposal-box-${id}`);
+                if (!box) return;
+                if (!box.classList.contains('hidden')) { box.classList.add('hidden'); return; }
+                box.classList.remove('hidden');
+                box.textContent = '불러오는 중...';
+                try {
+                    const res = await authFetch(`/api/projects/${id}/proposal`);
+                    if (!res.ok) { box.textContent = '제안서를 불러오지 못했습니다.'; return; }
+                    const data = await res.json();
+                    const lines = [
+                        `제안 금액: ${data.proposal_price ? Number(data.proposal_price).toLocaleString() + '원' : '—'}`,
+                        `수행 기간: ${data.proposal_duration || '—'}`,
+                        `제출 시각: ${data.proposal_submitted_at ? new Date(data.proposal_submitted_at).toLocaleString('ko-KR') : '—'}`,
+                        `메시지:\n${data.proposal_message || '(없음)'}`
+                    ];
+                    box.textContent = lines.join('\n');
+                    if (data.proposal_file_url) {
+                        const fileBtn = document.createElement('button');
+                        fileBtn.type = 'button';
+                        fileBtn.className = 'btn btn-secondary btn-sm';
+                        fileBtn.style.marginTop = '12px';
+                        fileBtn.textContent = '첨부 파일 열기';
+                        fileBtn.addEventListener('click', () => openProposalFile(id));
+                        box.appendChild(document.createElement('br'));
+                        box.appendChild(fileBtn);
+                    }
+                } catch (error) {
+                    console.error('제안서 열람 실패:', error);
+                    box.textContent = '제안서를 불러오지 못했습니다.';
+                }
+            }
+
+            async function openProposalFile(projectId) {
+                // 팝업 차단을 피하려면 클릭 직후에 창을 먼저 열어 둔다.
+                const popup = window.open('', '_blank');
+                if (popup) popup.opener = null;
+                try {
+                    const res = await authFetch(`/api/projects/${Number(projectId)}/proposal/download?format=json`);
+                    if (!res.ok) {
+                        if (popup) popup.close();
+                        showNotification('제안서 파일을 불러오지 못했습니다.', 'error');
+                        return;
+                    }
+                    if ((res.headers.get('content-type') || '').includes('application/json')) {
+                        const data = await res.json();
+                        if (popup) popup.location.href = data.url; else window.location.href = data.url;
+                        return;
+                    }
+                    // 업로드된 파일이 없으면 서버가 요약 제안서(PDF)를 만들어 준다.
+                    const blobUrl = URL.createObjectURL(await res.blob());
+                    if (popup) popup.location.href = blobUrl; else window.location.href = blobUrl;
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+                } catch (error) {
+                    if (popup) popup.close();
+                    console.error('제안서 파일 열기 실패:', error);
+                    showNotification('제안서 파일을 불러오지 못했습니다.', 'error');
+                }
+            }
+
             function viewConsultantDetails(consultantId) {
                 const consultant = allConsultantsAdmin.find(c => c.id == consultantId);
                 if (!consultant) return;
@@ -2548,8 +2610,10 @@
                                 </div>
                                 <div class="hm-ci-actions">
                                     <button type="button" class="btn btn-secondary btn-sm" onclick="viewConsultantDetails(${Number(p.consultant_id)})">프로필</button>
+                                    ${p.has_proposal ? `<button type="button" class="btn btn-secondary btn-sm" onclick="viewProposal(${Number(p.project_id)})">제안서 보기</button>` : ''}
                                     ${p.proposal_price ? `<span class="hm-ci-proposal">제안 ${escapeHtml(Number(p.proposal_price).toLocaleString())}원</span>` : ''}
                                 </div>
+                                <div id="proposal-box-${Number(p.project_id)}" class="detail-description hm-pre-line hidden" style="margin-top: 12px;"></div>
                             </div>
                         `;
                         }).join('') : '<p class="hm-empty-note">매칭된 컨설턴트 데이터가 없습니다.</p>'
