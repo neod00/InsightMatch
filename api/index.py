@@ -5442,6 +5442,25 @@ def create_notification(user_id, type, title, message=None, link=None):
 # ① Consultant Profile APIs
 # ========================================
 
+@app.route('/api/consultants/me', methods=['GET'])
+@token_required
+def my_consultant_profile():
+    """로그인한 컨설턴트 본인의 프로필.
+
+    대시보드 '내 프로필' 탭은 공개 목록(GET /api/consultants)에서 user_id 로
+    자기 행을 찾았는데, 공개 목록은 user_id 를 내주지 않고 승인된 컨설턴트만
+    담아서 탭이 항상 "프로필을 찾을 수 없습니다"였다. 본인 행은 토큰으로 바로 찾는다.
+    """
+    user = g.current_user
+    consultant = Consultant.query.filter_by(user_id=user.id).first() if user.role == 'consultant' else None
+    if consultant is None:
+        return jsonify({'message': 'Consultant profile not found.'}), 404
+    # 승인된 행은 필드가 비어 있어도(이전 데이터) 그대로 보여준다.
+    approved = consultant.verified or consultant.status == 'verified'
+    if not approved and is_placeholder_consultant_profile(consultant):
+        return jsonify({'message': 'Consultant profile not submitted yet.', 'registered': False}), 404
+    return jsonify(consultant.to_dict())
+
 @app.route('/api/consultants/<int:consultant_id>/profile', methods=['GET', 'PUT'])
 @token_required
 def consultant_profile(consultant_id):
