@@ -1081,6 +1081,8 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertEqual(created.biz_reg_no, '1234567891')
         self.assertEqual(created.bank_name, '신한은행')
         self.assertIsNotNone(created.partner_agreed_at)
+        # 기본 지급률 80%·건별 발주를 담은 1.1 에 동의한 것으로 기록된다
+        self.assertEqual(created.partner_agreement_version, '1.1')
         # 계좌번호 마스킹 확인 (뒤 4자리만 노출)
         self.assertTrue(created.masked_account().endswith('6789'))
         self.assertIn('*', created.masked_account())
