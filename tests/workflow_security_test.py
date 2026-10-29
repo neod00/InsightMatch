@@ -49,6 +49,9 @@ class TestWorkflowSecurity(unittest.TestCase):
             role='company',
             name='Company User',
             company_name='Buyer Co',
+            # 견적 요청·AI 매뉴얼은 사업자등록번호가 있어야 한다. other_company 는 일부러 비워 둔다.
+            biz_reg_no='1234567891',
+            biz_status='verified',
         )
         self.other_company = User(
             email='other@example.com',
@@ -1720,6 +1723,9 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertEqual(blocked.get_json().get('code'), 'DAILY_LIMIT_EXCEEDED')
 
         # 한도는 사용자별 — 다른 기업은 영향받지 않는다
+        self.other_company.biz_reg_no = '2208112341'
+        self.other_company.biz_status = 'verified'
+        db.session.commit()
         other = self.client.post(
             '/api/iso-manual/session',
             json=self._manual_payload(),
@@ -2399,6 +2405,130 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertEqual(kwargs['consultant_email'], extra_user.email)
         self.assertEqual(kwargs['standards'], ['ISO 9001'])
         self.assertEqual(kwargs['industry'], 'Manufacturing')
+
+    # --- 기업 사업자등록번호 (가입 선택, 견적 요청·AI 매뉴얼 전 필수, 국세청 상태조회) -------------
+
+    def _nts(self, code=None, status_code=200, error=None):
+        """국세청 상태조회 응답 흉내. code: '01' 계속 / '02' 휴업 / '03' 폐업 / '' 미등록."""
+        class FakeResponse:
+            def __init__(self):
+                self.status_code = status_code
+            def json(self_inner):
+                return {'data': [{'b_no': '1234567891', 'b_stt_cd': code}]}
+        if error:
+            return patch('services.business_check.requests.post', side_effect=error)
+        return patch('services.business_check.requests.post', return_value=FakeResponse())
+
+    def test_business_status_interpretation_matches_nts_codes(self):
+        from services.business_check import check_business_status
+        with patch.dict(os.environ, {'NTS_BUSINESS_API_KEY': 'k'}):
+            for code, expected in (('01', 'active'), ('02', 'suspended'), ('03', 'closed'), ('', 'not_found')):
+                with self._nts(code):
+                    self.assertEqual(check_business_status('123-45-67891'), expected, code)
+            with self._nts(status_code=500):
+                self.assertEqual(check_business_status('1234567891'), 'unavailable')
+            with self._nts(error=TimeoutError('slow')):
+                self.assertEqual(check_business_status('1234567891'), 'unavailable')
+        with patch.dict(os.environ, {'NTS_BUSINESS_API_KEY': ''}), self._nts('01') as mock_post:
+            self.assertEqual(check_business_status('1234567891'), 'unavailable')
+            mock_post.assert_not_called()
+
+    def test_quote_request_and_manual_require_business_number(self):
+        for path, payload in (
+            ('/api/quotes/request', {'consultant_ids': [self.consultant.id], 'analysis_context': {}}),
+            ('/api/projects/add-consultant', {'consultant_id': self.consultant.id, 'title': 'ISO 9001 Project'}),
+            ('/api/iso-manual/session', self._manual_payload()),
+        ):
+            response = self.client.post(path, json=payload, headers=auth_headers(self.other_company))
+            self.assertEqual(response.status_code, 400, path)
+            self.assertEqual(response.get_json()['code'], 'BUSINESS_NUMBER_REQUIRED', path)
+
+    def test_admin_manual_generation_does_not_need_business_number(self):
+        response = self.client.post('/api/iso-manual/session', json=self._manual_payload(),
+                                    headers=auth_headers(self.admin_user))
+        self.assertEqual(response.status_code, 201)
+
+    def test_company_registers_business_number_after_nts_check(self):
+        with patch.dict(os.environ, {'NTS_BUSINESS_API_KEY': 'k'}), self._nts('01') as mock_post:
+            response = self.client.put('/api/me/business-number', json={'biz_reg_no': '220-81-12341'},
+                                       headers=auth_headers(self.other_company))
+        self.assertEqual(response.status_code, 200, response.get_json())
+        self.assertEqual(response.get_json()['biz_status'], 'verified')
+        user = User.query.get(self.other_company.id)
+        self.assertEqual(user.biz_reg_no, '2208112341')
+        # 국세청에는 번호만 보낸다
+        self.assertEqual(mock_post.call_args.kwargs['json'], {'b_no': ['2208112341']})
+
+        # 등록 후에는 AI 매뉴얼을 쓸 수 있다
+        ok = self.client.post('/api/iso-manual/session', json=self._manual_payload(),
+                              headers=auth_headers(self.other_company))
+        self.assertEqual(ok.status_code, 201)
+
+    def test_business_number_rejections(self):
+        headers = auth_headers(self.other_company)
+        bad = self.client.put('/api/me/business-number', json={'biz_reg_no': '1234567890'}, headers=headers)
+        self.assertEqual(bad.get_json()['code'], 'BUSINESS_NUMBER_INVALID')
+        with patch.dict(os.environ, {'NTS_BUSINESS_API_KEY': 'k'}):
+            for code, expected in (('', 'BUSINESS_NOT_FOUND'), ('03', 'BUSINESS_CLOSED'), ('02', 'BUSINESS_SUSPENDED')):
+                with self._nts(code):
+                    response = self.client.put('/api/me/business-number', json={'biz_reg_no': '2208112341'},
+                                               headers=headers)
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.get_json()['code'], expected)
+        self.assertIsNone(User.query.get(self.other_company.id).biz_reg_no)
+
+    def test_business_number_saved_as_unchecked_when_nts_is_down(self):
+        with patch.dict(os.environ, {'NTS_BUSINESS_API_KEY': 'k'}), self._nts(status_code=503):
+            response = self.client.put('/api/me/business-number', json={'biz_reg_no': '2208112341'},
+                                       headers=auth_headers(self.other_company))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()['biz_status'], 'unchecked')
+
+    def test_only_company_users_have_business_number(self):
+        response = self.client.put('/api/me/business-number', json={'biz_reg_no': '2208112341'},
+                                   headers=auth_headers(self.consultant_user))
+        self.assertEqual(response.status_code, 403)
+
+    def test_signup_business_number_is_optional_but_checked_when_given(self):
+        base = {'password': 'password123', 'name': '담당자', 'company_name': '새회사', 'role': 'company'}
+        without = self.client.post('/api/auth/signup', json={**base, 'email': 'nobiz@example.com'})
+        self.assertEqual(without.status_code, 201)
+        with patch.dict(os.environ, {'NTS_BUSINESS_API_KEY': 'k'}):
+            with self._nts('03'):
+                closed = self.client.post('/api/auth/signup', json={**base, 'email': 'closed@example.com',
+                                                                    'biz_reg_no': '2208112341'})
+            with self._nts('01'):
+                good = self.client.post('/api/auth/signup', json={**base, 'email': 'good@example.com',
+                                                                  'biz_reg_no': '2208112341'})
+        self.assertEqual(closed.status_code, 400)
+        self.assertIsNone(User.query.filter_by(email='closed@example.com').first())
+        self.assertEqual(good.status_code, 201)
+        self.assertEqual(User.query.filter_by(email='good@example.com').first().biz_status, 'verified')
+
+    def test_login_payload_and_consultant_view_expose_business_status(self):
+        from werkzeug.security import generate_password_hash
+        self.company.password_hash = generate_password_hash('password123')
+        db.session.commit()
+        login = self.client.post('/api/auth/login', json={'email': self.company.email, 'password': 'password123'})
+        self.assertEqual(login.get_json()['user']['biz_status'], 'verified')
+        projects = self.client.get('/api/projects', headers=auth_headers(self.consultant_user)).get_json()
+        self.assertTrue(all(p['company_business_verified'] for p in projects))
+        self.assertNotIn('biz_reg_no', json.dumps(projects))  # 컨설턴트에게 번호는 안 보낸다
+
+    def test_admin_can_recheck_or_manually_confirm_business_number(self):
+        url = f'/api/admin/users/{self.other_company.id}/business-number'
+        manual = self.client.post(url, json={'mode': 'manual', 'biz_reg_no': '1018100001'},
+                                  headers=auth_headers(self.admin_user))
+        self.assertEqual(manual.status_code, 200)
+        self.assertEqual(manual.get_json()['biz_status'], 'manual')
+        with patch.dict(os.environ, {'NTS_BUSINESS_API_KEY': 'k'}), self._nts('01'):
+            recheck = self.client.post(url, json={'mode': 'recheck'}, headers=auth_headers(self.admin_user))
+        self.assertEqual(recheck.get_json()['biz_status'], 'verified')
+        self.assertEqual([log.action for log in AdminActionLog.query.order_by(AdminActionLog.id).all()],
+                         ['business_number_manual', 'business_number_recheck'])
+        forbidden = self.client.post(url, json={'mode': 'manual', 'biz_reg_no': '1018100001'},
+                                     headers=auth_headers(self.company))
+        self.assertEqual(forbidden.status_code, 403)
 
     def test_quote_request_email_links_to_frontend_base_url(self):
         """견적 요청 메일의 대시보드 링크가 메서드 기본값(www.insightmatch.com)으로 빠지면 안 된다.

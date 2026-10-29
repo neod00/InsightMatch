@@ -1398,7 +1398,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const response = await authFetch('/api/quotes/request', {
+            const sendQuoteRequest = () => authFetch('/api/quotes/request', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1407,6 +1407,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     session_id: currentSessionId  // Include session ID for grouping
                 })
             });
+            let response = await sendQuoteRequest();
+            // 사업자등록번호가 없으면 입력 창을 띄우고, 확인되면 같은 요청을 다시 보낸다.
+            if (window.InsightBiz && await window.InsightBiz.handle(response)) {
+                response = await sendQuoteRequest();
+            }
 
             if (response.ok) {
                 const result = await response.json();
