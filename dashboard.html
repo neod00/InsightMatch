@@ -1620,7 +1620,7 @@
                         ${proposalFileUrl ? `
                         <div class="proposal-preview-row">
                             <span class="proposal-label">첨부 파일</span>
-                            <a href="${proposalFileUrl}" target="_blank" rel="noopener noreferrer" class="proposal-value highlight">첨부된 파일 보기</a>
+                            <a href="#" onclick="downloadProposal(${Number(project.id)}); return false;" class="proposal-value highlight">첨부된 파일 보기</a>
                         </div>
                         ` : ''}
                     </div>
@@ -1772,8 +1772,41 @@
             document.getElementById('consultant-modal').classList.add('hidden');
         }
 
+        // 제안서 열기/내려받기. 파일 주소는 로그인 정보가 있어야 받을 수 있어(주소 이동만으로는 인증 헤더가 안 붙는다)
+        // fetch 로 요청한 뒤, 잠깐 유효한 주소(JSON)나 요약 PDF(파일)를 연다.
         async function downloadProposal(projectId) {
-            window.location.href = `${API_BASE_URL}/api/projects/${projectId}/proposal/download`;
+            // 팝업 차단을 피하려면 클릭 직후에 창을 먼저 열어 둬야 한다.
+            const popup = window.open('', '_blank');
+            if (popup) popup.opener = null;
+            try {
+                const res = await authFetch(`${API_BASE_URL}/api/projects/${Number(projectId)}/proposal/download?format=json`);
+                if (!res.ok) {
+                    let message = '제안서를 불러오지 못했습니다.';
+                    try { message = (await res.json()).message || message; } catch (e) { /* 본문 없음 */ }
+                    if (popup) popup.close();
+                    showNotification(message, 'error');
+                    return;
+                }
+                if ((res.headers.get('content-type') || '').includes('application/json')) {
+                    const data = await res.json();
+                    if (popup) popup.location.href = data.url; else window.location.href = data.url;
+                    return;
+                }
+                const blob = await res.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = `proposal_${Number(projectId)}.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+                if (popup) popup.close();
+            } catch (error) {
+                if (popup) popup.close();
+                console.error('제안서 열기 실패:', error);
+                showNotification('제안서를 불러오지 못했습니다.', 'error');
+            }
         }
 
         async function selectConsultant(projectId) {
