@@ -956,7 +956,8 @@
                         window.location.href = `signup.html?role=consultant&redirect=${returnTo}`;
                     }, 2200);
                 } else {
-                    showNotification('전문가 등록은 로그인이 필요합니다. 로그인 페이지로 이동합니다.', 'error');
+                    // 로그인 화면은 이 주소로 돌아올 때 컨설턴트 탭과 '컨설턴트 회원가입' 링크를 보여 준다.
+                    showNotification('전문가 등록은 컨설턴트 계정으로 로그인해야 합니다. 계정이 없으면 로그인 화면에서 회원가입을 눌러 주세요.', 'error');
                     setTimeout(() => {
                         window.location.href = `login.html?redirect=${returnTo}`;
                     }, 2000);

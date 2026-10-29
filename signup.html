@@ -314,7 +314,10 @@
         if (afterSignupRedirect.includes('consultant_register.html')) {
             const notice = document.createElement('div');
             notice.className = 'hm-alert hm-alert-info hm-auth-notice';
-            notice.innerHTML = '<strong>초대 링크로 오셨습니다.</strong><br>컨설턴트 계정을 만든 뒤 프로필 등록으로 이동합니다.';
+            // 초대 링크(…?invite=)로 온 경우와 로그인 화면의 컨설턴트 가입 링크로 온 경우를 구분한다.
+            notice.innerHTML = afterSignupRedirect.includes('invite=')
+                ? '<strong>초대 링크로 오셨습니다.</strong><br>컨설턴트 계정을 만든 뒤 프로필 등록으로 이동합니다.'
+                : '<strong>컨설턴트 가입</strong><br>계정을 만들고 로그인하면 전문가 프로필 등록으로 이어집니다.';
             const form = document.getElementById('signup-form');
             form.parentNode.insertBefore(notice, form);
         }
