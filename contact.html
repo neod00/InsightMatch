@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
     <title>문의하기 - InsightMatch</title>
     <meta name="description" content="InsightMatch 서비스 이용, 컨설턴트 매칭, 전문가 등록에 대해 문의해 주세요. 접수 후 이메일로 답변드립니다.">
 
@@ -12,176 +13,113 @@
     <link rel="icon" type="image/png" sizes="16x16" href="images/logo2.png">
     <link rel="apple-touch-icon" href="images/logo2.png">
 
-    <!-- Google Fonts: Noto Serif KR & Noto Sans KR -->
+    <!-- B안은 라이트 전용. 예전 테마 토글이 남긴 localStorage.theme='dark' 가 있어도 어둡게 열지 않는다. -->
+    <script>
+        document.documentElement.classList.remove('dark');
+    </script>
+
+    <!-- Fonts: Pretendard + DM Sans (메인페이지와 동일) -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@400;600;700&display=swap"
-        rel="stylesheet">
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,500;9..40,600;9..40,700;9..40,800&display=swap">
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        serif: ['"Noto Serif KR"', 'serif'],
-                        sans: ['"Noto Sans KR"', 'sans-serif'],
-                    },
-                    colors: {
-                        brand: {
-                            paper: '#Fdfcf7',
-                            ink: '#1A1A1A',
-                            navy: '#112233',
-                            gold: '#C5A880',
-                            stone: '#EAE6DF',
-                            darkBg: '#0F0F11',
-                            darkSurface: '#161619',
-                            darkText: '#E0E0E0',
-                            darkMuted: '#9CA3AF',
-                            darkBorder: '#27272A'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style type="text/tailwindcss">
-        .texture-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            opacity: 0.03;
-            pointer-events: none;
-            z-index: 50;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-        }
-        .dark .texture-overlay { opacity: 0.015; }
-
-        .editorial-border-b { @apply border-b border-brand-stone; }
-        .dark .editorial-border-b { @apply border-brand-darkBorder; }
-
-        body { margin: 0; padding: 0; }
-
-        .desktop-only { display: none; }
-        @media (min-width: 768px) {
-            .desktop-only { display: flex !important; }
-        }
-
-        /* 문의 폼 — style.css 의 .form-group 토큰을 그대로 쓰되
-           editorial 레이아웃에 맞춰 여백만 조정한다. */
-        .inquiry-form .form-group { margin-bottom: 20px; }
-        .inquiry-form textarea { min-height: 180px; resize: vertical; }
-        .inquiry-form .required-mark { color: #dc2626; margin-left: 2px; }
-    </style>
-
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-
-    <!-- Legacy Styles (kept for compatibility) -->
-    <link rel="stylesheet" href="style.css">
+    <!-- B안 공통 스타일(14절: 문의 페이지). Tailwind CDN·style.css·lucide 는 로드하지 않는다(아이콘은 인라인 SVG). -->
+    <link rel="stylesheet" href="brand.css?v=3">
 </head>
 
-<body
-    class="font-sans antialiased bg-brand-paper text-brand-ink dark:bg-brand-darkBg dark:text-brand-darkText transition-colors duration-400 break-keep">
+<body class="hm-body">
+    <a class="hm-skip" href="#inquiry-form">문의 폼으로 건너뛰기</a>
 
-    <div class="texture-overlay"></div>
-
-    <!-- Editorial Header -->
-    <header
-        class="w-full px-6 py-6 md:px-12 flex justify-between items-center editorial-border-b sticky top-0 bg-brand-paper/90 dark:bg-brand-darkBg/90 backdrop-blur-sm z-40 transition-colors duration-400">
-        <a href="index.html"
-            class="font-serif text-xl md:text-2xl font-bold tracking-tight hover:text-brand-gold transition-colors">InsightMatch.</a>
-        <nav class="desktop-only space-x-10 text-sm font-medium text-brand-ink/80 dark:text-brand-darkMuted">
-            <a href="index.html" class="hover:text-brand-ink dark:hover:text-white transition-colors">홈</a>
-            <a href="index.html#how-it-works"
-                class="hover:text-brand-ink dark:hover:text-white transition-colors">프로세스</a>
-            <a href="index.html#diagnosis" class="hover:text-brand-ink dark:hover:text-white transition-colors">무료
-                상담</a>
-            <a href="blog.html" class="hover:text-brand-ink dark:hover:text-white transition-colors">블로그</a>
-            <a href="index.html#faq" class="hover:text-brand-ink dark:hover:text-white transition-colors">FAQ</a>
-        </nav>
-        <div class="flex items-center gap-4">
-            <!-- Theme Toggle Button -->
-            <button id="theme-toggle" class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-                aria-label="Toggle Dark Mode">
-                <svg id="theme-toggle-light-icon" class="hidden w-5 h-5 text-yellow-500" fill="currentColor"
-                    viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                    <path fill-rule="evenodd"
-                        d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 3.22a1 1 0 011.415 0l.708.707a1 1 0 01-1.414 1.414l-.708-.707a1 1 0 010-1.414zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zm-3.22 4.22a1 1 0 010 1.415l-.707.708a1 1 0 01-1.414-1.414l.707-.708a1 1 0 011.415 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.22-3.22a1 1 0 01-1.415 0l-.708-.707a1 1 0 011.414-1.414l.708.707a1 1 0 010 1.414zM2 10a1 1 0 011-1h1a1 1 0 110 2H3a1 1 0 01-1-1zm3.22-4.22a1 1 0 010-1.415l.707-.708a1 1 0 011.414 1.414l-.707.708a1 1 0 01-1.415 0zM10 6a4 4 0 100 8 4 4 0 000-8z"
-                        clip-rule="evenodd"></path>
-                </svg>
-                <svg id="theme-toggle-dark-icon" class="w-5 h-5 text-gray-700" fill="currentColor" viewBox="0 0 20 20"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
-                </svg>
-            </button>
-            <div id="nav-actions" class="desktop-only gap-3">
-                <a href="login.html"
-                    class="text-sm font-medium px-4 py-2 hover:text-brand-gold transition-colors dark:text-brand-darkMuted dark:hover:text-white">로그인</a>
-                <a href="index.html#diagnosis"
-                    class="text-sm font-bold px-6 py-2 border border-brand-ink dark:border-brand-darkBorder dark:text-brand-darkText hover:bg-brand-ink hover:text-brand-paper dark:hover:bg-brand-darkBorder dark:hover:text-white transition-all">도입
-                    문의</a>
+    <!-- Header -->
+    <header class="hm-header hm-header-wide">
+        <div class="hm-wrap">
+            <div class="hm-header-row">
+                <a class="hm-logo" href="index.html" aria-label="InsightMatch 메인으로">Insight<span class="hm-logo-dot" aria-hidden="true"></span>Match</a>
+                <nav class="hm-nav" aria-label="주요 메뉴">
+                    <a href="index.html#diagnosis">ISO 진단</a>
+                    <a href="index.html#how-it-works">작동 방식</a>
+                    <a href="index.html#verify">검증 기준</a>
+                    <a href="index.html#faq">FAQ</a>
+                    <a href="blog.html">블로그</a>
+                    <a href="contact.html" aria-current="page">문의하기</a>
+                </nav>
+                <div class="hm-header-actions">
+                    <!-- 로그인 상태면 아래 스크립트가 내용을 대시보드 링크로 바꾼다 -->
+                    <div id="nav-actions" class="hm-nav-actions">
+                        <a class="hm-acc" href="login.html">로그인</a>
+                        <a class="hm-acc hm-acc-outline" href="consultant_register.html">컨설턴트 등록</a>
+                    </div>
+                    <a class="hm-btn hm-btn-lime hm-header-cta" href="index.html#diagnosis">무료 매칭 시작<span class="hm-arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+                    <button class="hm-menu-btn" id="mobile-menu-btn" type="button" aria-controls="mobile-nav" aria-label="메뉴 열기"><span></span></button>
+                </div>
             </div>
-
-            <!-- Mobile Menu Button -->
-            <button class="md:hidden p-2 text-brand-ink dark:text-brand-darkText" id="mobile-menu-btn"
-                aria-label="메뉴 열기">
-                <i data-lucide="menu"></i>
-            </button>
         </div>
     </header>
 
-    <!-- Mobile Navigation Overlay -->
-    <div class="fixed inset-0 bg-brand-paper/95 dark:bg-brand-darkBg/95 backdrop-blur-md z-50 flex flex-col justify-center items-center gap-8 text-xl font-medium opacity-0 pointer-events-none transition-opacity duration-300"
-        id="mobile-nav">
-        <button class="absolute top-6 right-6 p-2 text-brand-ink dark:text-white" id="close-mobile-nav">
-            <i data-lucide="x"></i>
-        </button>
-        <a href="index.html" class="mobile-nav-link hover:text-brand-gold transition-colors dark:text-white">홈</a>
-        <a href="index.html#how-it-works"
-            class="mobile-nav-link hover:text-brand-gold transition-colors dark:text-white">프로세스</a>
-        <a href="index.html#diagnosis"
-            class="mobile-nav-link hover:text-brand-gold transition-colors dark:text-white">무료 상담</a>
-        <a href="blog.html" class="mobile-nav-link hover:text-brand-gold transition-colors dark:text-white">블로그</a>
-        <a href="index.html#faq" class="mobile-nav-link hover:text-brand-gold transition-colors dark:text-white">FAQ</a>
-        <div class="h-px w-32 bg-brand-stone dark:bg-brand-darkBorder my-4"></div>
-        <div class="flex flex-col w-full max-w-xs gap-4" id="mobile-nav-actions">
-            <a href="login.html"
-                class="text-center py-3 border border-brand-stone dark:border-brand-darkBorder hover:bg-black/5 dark:hover:bg-white/5 transition-colors dark:text-white">로그인</a>
-            <a href="index.html#diagnosis"
-                class="text-center py-3 bg-brand-ink text-brand-paper dark:bg-white dark:text-brand-darkBg font-bold">도입
-                문의</a>
+    <!-- 모바일 메뉴 (닫힘 = opacity-0 + pointer-events-none, 아래 스크립트가 토글) -->
+    <nav class="hm-mnav hm-mnav-fade opacity-0 pointer-events-none" id="mobile-nav" aria-label="모바일 메뉴">
+        <div class="hm-mnav-inner">
+            <a href="index.html#diagnosis" class="mobile-nav-link">ISO 진단</a>
+            <a href="index.html#how-it-works" class="mobile-nav-link">작동 방식</a>
+            <a href="index.html#verify" class="mobile-nav-link">검증 기준</a>
+            <a href="index.html#faq" class="mobile-nav-link">FAQ</a>
+            <a href="blog.html" class="mobile-nav-link">블로그</a>
+            <a href="contact.html" class="mobile-nav-link" aria-current="page">문의하기</a>
+            <div class="hm-mnav-actions" id="mobile-nav-actions">
+                <a href="login.html">로그인</a>
+                <a href="index.html#diagnosis" class="is-primary">무료 매칭 시작</a>
+            </div>
+            <button class="hm-mnav-close" id="close-mobile-nav" type="button">메뉴 닫기</button>
         </div>
-    </div>
+    </nav>
 
-    <!-- Page Header -->
-    <section class="w-full px-6 md:px-12 pt-16 pb-8 md:pt-24 max-w-3xl mx-auto text-center">
-        <p class="text-sm font-bold text-brand-gold tracking-wide mb-4">CONTACT</p>
-        <h1 class="font-serif text-4xl md:text-5xl font-bold tracking-tight mb-6">문의하기</h1>
-        <p class="text-brand-ink/60 dark:text-brand-darkMuted text-lg font-light leading-relaxed">
-            서비스 이용, 컨설턴트 매칭, 전문가 등록 등 궁금한 점을 남겨주세요.<br>
-            영업일 기준 1~2일 내에 입력하신 이메일로 답변드립니다.
-        </p>
-        <p class="text-brand-ink/50 dark:text-brand-darkMuted text-sm mt-6">
-            자주 묻는 질문은 <a href="index.html#faq" class="underline hover:text-brand-gold">기업용 FAQ</a> ·
-            <a href="consultant-faq.html" class="underline hover:text-brand-gold">전문가용 FAQ</a>에서 먼저 확인하실 수 있습니다.
-        </p>
-    </section>
+    <main id="main" class="hm-wrap hm-contact">
+        <!-- 안내 -->
+        <section class="hm-contact-intro" aria-labelledby="contact-title">
+            <span class="hm-eyebrow">CONTACT</span>
+            <h1 class="hm-h1" id="contact-title">문의하기</h1>
+            <p class="hm-lead">
+                서비스 이용, 컨설턴트 매칭, 전문가 등록 등 궁금한 점을 남겨주세요.
+                확인 후 입력하신 이메일로 답변드립니다.
+            </p>
 
-    <!-- Inquiry Form -->
-    <section class="w-full px-6 md:px-12 pb-24 max-w-2xl mx-auto">
-        <div class="card" style="padding: 32px;">
+            <p class="hm-form-note hm-help-note">자주 묻는 질문은 FAQ에서 먼저 확인하실 수 있습니다.</p>
+            <div class="hm-help-list">
+                <a class="hm-help-item" href="index.html#faq">
+                    <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg></span>
+                    <b>기업용 FAQ</b>
+                    <span class="sub">ISO 인증을 준비하는 기업 회원을 위한 질문</span>
+                    <span class="go" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                </a>
+                <a class="hm-help-item" href="consultant-faq.html">
+                    <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg></span>
+                    <b>전문가용 FAQ</b>
+                    <span class="sub">등록·심사·정산 등 컨설턴트 회원을 위한 질문</span>
+                    <span class="go" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                </a>
+            </div>
+        </section>
+
+        <!-- Inquiry Form -->
+        <section class="hm-form-card" aria-labelledby="form-title">
+            <div class="hm-form-head">
+                <span class="hm-form-kicker">INQUIRY</span>
+                <h2 id="form-title">문의 남기기</h2>
+                <p><span class="hm-req" aria-hidden="true">*</span> 표시는 필수 항목입니다.</p>
+            </div>
+
             <!-- 로그인 상태 안내 (로그인했을 때만 노출) -->
-            <div id="logged-in-note" class="hidden"
-                style="padding: 12px 16px; margin-bottom: 24px; border-radius: 8px; background: rgba(197,168,128,0.12); font-size: 0.9rem;">
+            <div id="logged-in-note" class="hm-alert hm-alert-info hm-auth-notice hidden">
                 <span id="logged-in-text"></span>
             </div>
 
-            <form id="inquiry-form" class="inquiry-form" novalidate>
-                <div class="form-group">
-                    <label for="inquiry-category">문의 유형<span class="required-mark">*</span></label>
+            <form id="inquiry-form" class="inquiry-form hm-form" novalidate>
+                <div class="form-group hm-field">
+                    <label for="inquiry-category">문의 유형 <span class="hm-req" aria-hidden="true">*</span></label>
                     <select id="inquiry-category" name="category" required>
                         <option value="service">서비스 이용 문의</option>
                         <option value="matching">컨설턴트 매칭 문의</option>
@@ -193,98 +131,92 @@
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label for="inquiry-name">이름<span class="required-mark">*</span></label>
-                    <input type="text" id="inquiry-name" name="name" maxlength="100" placeholder="홍길동" required>
+                <div class="hm-field-grid">
+                    <div class="form-group hm-field">
+                        <label for="inquiry-name">이름 <span class="hm-req" aria-hidden="true">*</span></label>
+                        <input type="text" id="inquiry-name" name="name" maxlength="100" placeholder="홍길동" autocomplete="name" required>
+                    </div>
+
+                    <div class="form-group hm-field">
+                        <label for="inquiry-email">답변받을 이메일 <span class="hm-req" aria-hidden="true">*</span></label>
+                        <input type="email" id="inquiry-email" name="email" maxlength="120"
+                            placeholder="you@example.com" autocomplete="email" required>
+                    </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="inquiry-email">답변받을 이메일<span class="required-mark">*</span></label>
-                    <input type="email" id="inquiry-email" name="email" maxlength="120"
-                        placeholder="you@example.com" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="inquiry-subject">제목<span class="required-mark">*</span></label>
+                <div class="form-group hm-field">
+                    <label for="inquiry-subject">제목 <span class="hm-req" aria-hidden="true">*</span></label>
                     <input type="text" id="inquiry-subject" name="subject" maxlength="200"
                         placeholder="문의 내용을 한 줄로 요약해 주세요" required>
                 </div>
 
-                <div class="form-group">
-                    <label for="inquiry-content">문의 내용<span class="required-mark">*</span></label>
-                    <textarea id="inquiry-content" name="content" maxlength="4000"
+                <div class="form-group hm-field">
+                    <label for="inquiry-content">문의 내용 <span class="hm-req" aria-hidden="true">*</span></label>
+                    <textarea id="inquiry-content" name="content" maxlength="4000" rows="7"
                         placeholder="상황을 자세히 적어주실수록 정확한 답변이 가능합니다."
-                        required></textarea>
-                    <p style="text-align: right; font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">
+                        aria-describedby="content-count-row" required></textarea>
+                    <p class="hm-field-count" id="content-count-row">
                         <span id="content-count">0</span> / 4000
                     </p>
                 </div>
 
-                <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.7; margin-bottom: 20px;">
+                <p class="hm-form-note">
                     입력하신 이름·이메일은 문의 답변 목적으로만 이용되며,
-                    <a href="privacy.html" style="text-decoration: underline;">개인정보처리방침</a>에 따라 처리됩니다.
+                    <a href="privacy.html">개인정보처리방침</a>에 따라 처리됩니다.
                 </p>
 
-                <div id="inquiry-alert" class="hidden"
-                    style="padding: 14px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9rem;"></div>
+                <!-- 접수 결과 (스크립트가 class·문구를 채운다) -->
+                <div id="inquiry-alert" class="hidden" role="status" aria-live="polite"></div>
 
-                <button type="submit" id="inquiry-submit" class="btn btn-primary btn-lg" style="width: 100%;">
-                    <i data-lucide="send" style="width: 18px; height: 18px;"></i>
-                    문의 보내기
-                </button>
+                <button type="submit" id="inquiry-submit" class="hm-btn hm-btn-lime hm-btn-lg hm-btn-submit">문의 보내기</button>
             </form>
-        </div>
-    </section>
+        </section>
+    </main>
 
-    <!-- Editorial Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <div class="logo">
-                        <img src="images/logo2.png" alt="InsightMatch" class="logo-image"
-                            style="width:32px; height:32px;">
-                        <div class="logo-text">
-                            <span>InsightMatch</span>
-                            <span>by OpenBrain</span>
-                        </div>
-                    </div>
-                    <p>기업 맞춤형 ISO 컨설턴트 소개 플랫폼. 복잡한 인증 준비를 쉽고 빠르게.</p>
+    <!-- Footer (메인과 같은 다크 푸터) -->
+    <footer class="hm-footer hm-on-dark is-spaced">
+        <div class="hm-wrap">
+            <div class="hm-foot-top">
+                <div>
+                    <div class="hm-foot-brand">Insight<span class="hm-logo-dot" aria-hidden="true"></span>Match<small>by OpenBrain</small></div>
+                    <p>InsightMatch는 ISO 인증을 준비하는 기업과 검증된 컨설턴트를 연결하는 매칭 플랫폼입니다. 심사는 인정받은 인증기관이 수행합니다.</p>
                 </div>
-
-                <div class="footer-links">
-                    <div class="footer-column">
-                        <h4>서비스</h4>
-                        <a href="index.html#diagnosis">컨설턴트 소개</a>
-                        <a href="index.html#how-it-works">프로세스 안내</a>
-                        <a href="consultant_register.html">컨설턴트 등록</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>지원</h4>
-                        <a href="index.html#faq">자주 묻는 질문</a>
-                        <a href="consultant-faq.html">전문가 FAQ</a>
-                        <a href="blog.html">블로그</a>
-                        <a href="contact.html">문의하기</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>법적 고지</h4>
-                        <a href="terms.html">이용약관</a>
-                        <a href="privacy.html">개인정보처리방침</a>
-                        <a href="partner-agreement.html">컨설턴트 협력계약</a>
-                    </div>
+                <div>
+                    <h4>SERVICE</h4>
+                    <ul>
+                        <li><a href="index.html#diagnosis">컨설턴트 소개</a></li>
+                        <li><a href="index.html#how-it-works">프로세스 안내</a></li>
+                        <li><a href="index.html#verify">검증 기준</a></li>
+                        <li><a href="index.html#iso-catalog">규격</a></li>
+                        <li><a href="ai-manual.html">AI 매뉴얼</a></li>
+                        <li><a href="consultant_register.html">컨설턴트 등록</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>SUPPORT</h4>
+                    <ul>
+                        <li><a href="index.html#faq">자주 묻는 질문</a></li>
+                        <li><a href="consultant-faq.html">전문가 FAQ</a></li>
+                        <li><a href="blog.html">블로그</a></li>
+                        <li><a href="contact.html">문의하기</a></li>
+                        <li><a href="login.html">로그인</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>LEGAL</h4>
+                    <ul>
+                        <li><a href="terms.html">이용약관</a></li>
+                        <li><a href="privacy.html">개인정보처리방침</a></li>
+                        <li><a href="partner-agreement.html">컨설턴트 협력계약</a></li>
+                    </ul>
                 </div>
             </div>
-
-            <div class="footer-bottom">
-                <span>© 2025 OpenBrain Limited. All rights reserved.</span>
-                <span>InsightMatch - ISO Consultant Matching Platform</span>
-            </div>
+            <div class="hm-wordmark" aria-hidden="true">Insight<span class="hm-logo-dot"></span>Match</div>
+            <div class="hm-foot-bottom"><span>© 2026 OpenBrain Limited. All rights reserved.</span><span>InsightMatch - ISO Consultant Matching Platform</span></div>
         </div>
     </footer>
 
     <script>
-        lucide.createIcons();
-
         const API_BASE_URL = (() => {
             if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                 return 'http://localhost:5000';
@@ -292,34 +224,7 @@
             return '';
         })();
 
-        // -----------------------------------------------------------
-        // Theme Toggle (Dark/Light Mode)
-        // -----------------------------------------------------------
-        const themeToggleBtn = document.getElementById('theme-toggle');
-        const lightIcon = document.getElementById('theme-toggle-light-icon');
-        const darkIcon = document.getElementById('theme-toggle-dark-icon');
-
-        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-            darkIcon.classList.add('hidden');
-            lightIcon.classList.remove('hidden');
-        } else {
-            document.documentElement.classList.remove('dark');
-            lightIcon.classList.add('hidden');
-            darkIcon.classList.remove('hidden');
-        }
-
-        themeToggleBtn.addEventListener('click', function () {
-            darkIcon.classList.toggle('hidden');
-            lightIcon.classList.toggle('hidden');
-            if (document.documentElement.classList.contains('dark')) {
-                document.documentElement.classList.remove('dark');
-                localStorage.theme = 'light';
-            } else {
-                document.documentElement.classList.add('dark');
-                localStorage.theme = 'dark';
-            }
-        });
+        // 테마(다크) 토글은 B안이 라이트 전용이라 제거했다. (head 에서 .dark 를 항상 걷어 낸다)
 
         // -----------------------------------------------------------
         // Mobile Navigation
@@ -379,7 +284,7 @@
             const navActions = document.getElementById('nav-actions');
             const dashboardLink = storedUser.role === 'admin' ? 'admin.html' : 'dashboard.html';
             navActions.innerHTML =
-                `<a href="${dashboardLink}" class="text-sm font-bold px-6 py-2 border border-brand-ink dark:border-brand-darkBorder dark:text-brand-darkText hover:bg-brand-ink hover:text-brand-paper dark:hover:bg-brand-darkBorder dark:hover:text-white transition-all">대시보드</a>`;
+                `<a href="${dashboardLink}" class="hm-acc hm-acc-outline">대시보드</a>`;
         }
 
         // 쿼리스트링으로 문의 유형을 지정할 수 있다 (예: contact.html?category=consultant)
@@ -403,12 +308,19 @@
         // -----------------------------------------------------------
         // 접수
         // -----------------------------------------------------------
+        // 알림 모양만 B안(hm-alert)으로 바꿨다. 문구는 textContent 로 넣어 HTML 로 해석되지 않는다.
+        const ALERT_ICON_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+        const ALERT_ICONS = {
+            error: `<svg ${ALERT_ICON_ATTRS}><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>`,
+            success: `<svg ${ALERT_ICON_ATTRS}><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>`
+        };
         function showAlert(message, isError) {
             const box = document.getElementById('inquiry-alert');
-            box.classList.remove('hidden');
-            box.textContent = message;
-            box.style.background = isError ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)';
-            box.style.color = isError ? '#dc2626' : '#16a34a';
+            box.className = isError ? 'hm-alert hm-alert-error' : 'hm-alert hm-alert-success';
+            box.innerHTML = isError ? ALERT_ICONS.error : ALERT_ICONS.success;
+            const text = document.createElement('span');
+            text.textContent = message;
+            box.appendChild(text);
         }
 
         document.getElementById('inquiry-form').addEventListener('submit', async (event) => {
@@ -461,7 +373,6 @@
             } finally {
                 button.disabled = false;
                 button.innerHTML = originalLabel;
-                lucide.createIcons();
             }
         });
     </script>

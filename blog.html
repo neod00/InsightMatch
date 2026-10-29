@@ -4,264 +4,181 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
     <title>블로그 - InsightMatch</title>
-    <meta name="description" content="ISO 인증, ESG 경영, 중대재해처벌법 등 기업 경영에 필요한 최신 정보와 인사이트를 확인하세요.">
+    <meta name="description" content="ISO 인증 준비와 경영시스템 운영에 도움이 되는 정보를 정리한 InsightMatch 블로그입니다.">
 
     <!-- Favicon -->
     <link rel="icon" type="image/png" sizes="32x32" href="images/logo2.png">
     <link rel="icon" type="image/png" sizes="16x16" href="images/logo2.png">
     <link rel="apple-touch-icon" href="images/logo2.png">
 
-    <!-- Google Fonts: Noto Serif KR & Noto Sans KR -->
+    <!-- B안은 라이트 전용. 예전 테마 토글이 남긴 localStorage.theme='dark' 가 있어도 어둡게 열지 않는다. -->
+    <script>
+        document.documentElement.classList.remove('dark');
+    </script>
+
+    <!-- Fonts: Pretendard + DM Sans (메인페이지와 동일) -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@400;600;700&display=swap"
-        rel="stylesheet">
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,500;9..40,600;9..40,700;9..40,800&display=swap">
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        serif: ['"Noto Serif KR"', 'serif'],
-                        sans: ['"Noto Sans KR"', 'sans-serif'],
-                    },
-                    colors: {
-                        brand: {
-                            paper: '#Fdfcf7',
-                            ink: '#1A1A1A',
-                            navy: '#112233',
-                            gold: '#C5A880',
-                            stone: '#EAE6DF',
-                            darkBg: '#0F0F11',
-                            darkSurface: '#161619',
-                            darkText: '#E0E0E0',
-                            darkMuted: '#9CA3AF',
-                            darkBorder: '#27272A'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style type="text/tailwindcss">
-        .texture-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            opacity: 0.03;
-            pointer-events: none;
-            z-index: 50;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-        }
-        .dark .texture-overlay { opacity: 0.015; }
-
-        .editorial-border-t { @apply border-t border-brand-stone; }
-        .editorial-border-b { @apply border-b border-brand-stone; }
-        .dark .editorial-border-t { @apply border-brand-darkBorder; }
-        .dark .editorial-border-b { @apply border-brand-darkBorder; }
-
-        body { margin: 0; padding: 0; }
-
-        .desktop-only { display: none; }
-        @media (min-width: 768px) {
-            .desktop-only { display: flex !important; }
-        }
-    </style>
-
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-
-    <!-- Legacy Styles (kept for compatibility) -->
-    <link rel="stylesheet" href="style.css">
+    <!-- B안 공통 스타일(14절: 블로그 카드). Tailwind CDN·style.css·lucide 는 로드하지 않는다(아이콘은 인라인 SVG). -->
+    <link rel="stylesheet" href="brand.css?v=3">
 </head>
 
-<body
-    class="font-sans antialiased bg-brand-paper text-brand-ink dark:bg-brand-darkBg dark:text-brand-darkText transition-colors duration-400 break-keep">
+<body class="hm-body">
+    <a class="hm-skip" href="#main">본문으로 건너뛰기</a>
 
-    <div class="texture-overlay"></div>
-
-    <!-- Editorial Header -->
-    <header
-        class="w-full px-6 py-6 md:px-12 flex justify-between items-center editorial-border-b sticky top-0 bg-brand-paper/90 dark:bg-brand-darkBg/90 backdrop-blur-sm z-40 transition-colors duration-400">
-        <a href="index.html"
-            class="font-serif text-xl md:text-2xl font-bold tracking-tight hover:text-brand-gold transition-colors">InsightMatch.</a>
-        <nav class="desktop-only space-x-10 text-sm font-medium text-brand-ink/80 dark:text-brand-darkMuted">
-            <a href="index.html" class="hover:text-brand-ink dark:hover:text-white transition-colors">홈</a>
-            <a href="index.html#how-it-works"
-                class="hover:text-brand-ink dark:hover:text-white transition-colors">프로세스</a>
-            <a href="index.html#diagnosis" class="hover:text-brand-ink dark:hover:text-white transition-colors">무료
-                상담</a>
-            <a href="blog.html" class="text-brand-gold">블로그</a>
-            <a href="index.html#faq" class="hover:text-brand-ink dark:hover:text-white transition-colors">FAQ</a>
-        </nav>
-        <div class="flex items-center gap-4">
-            <!-- Theme Toggle Button -->
-            <button id="theme-toggle" class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-                aria-label="Toggle Dark Mode">
-                <svg id="theme-toggle-light-icon" class="hidden w-5 h-5 text-yellow-500" fill="currentColor"
-                    viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                    <path fill-rule="evenodd"
-                        d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 3.22a1 1 0 011.415 0l.708.707a1 1 0 01-1.414 1.414l-.708-.707a1 1 0 010-1.414zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zm-3.22 4.22a1 1 0 010 1.415l-.707.708a1 1 0 01-1.414-1.414l.707-.708a1 1 0 011.415 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4.22-3.22a1 1 0 01-1.415 0l-.708-.707a1 1 0 011.414-1.414l.708.707a1 1 0 010 1.414zM2 10a1 1 0 011-1h1a1 1 0 110 2H3a1 1 0 01-1-1zm3.22-4.22a1 1 0 010-1.415l.707-.708a1 1 0 011.414 1.414l-.707.708a1 1 0 01-1.415 0zM10 6a4 4 0 100 8 4 4 0 000-8z"
-                        clip-rule="evenodd"></path>
-                </svg>
-                <svg id="theme-toggle-dark-icon" class="w-5 h-5 text-gray-700" fill="currentColor" viewBox="0 0 20 20"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
-                </svg>
-            </button>
-            <div id="nav-actions" class="desktop-only gap-3">
-                <a href="login.html"
-                    class="text-sm font-medium px-4 py-2 hover:text-brand-gold transition-colors dark:text-brand-darkMuted dark:hover:text-white">로그인</a>
-                <a href="index.html#diagnosis"
-                    class="text-sm font-bold px-6 py-2 border border-brand-ink dark:border-brand-darkBorder dark:text-brand-darkText hover:bg-brand-ink hover:text-brand-paper dark:hover:bg-brand-darkBorder dark:hover:text-white transition-all">도입
-                    문의</a>
+    <!-- Header -->
+    <header class="hm-header hm-header-wide">
+        <div class="hm-wrap">
+            <div class="hm-header-row">
+                <a class="hm-logo" href="index.html" aria-label="InsightMatch 메인으로">Insight<span class="hm-logo-dot" aria-hidden="true"></span>Match</a>
+                <nav class="hm-nav" aria-label="주요 메뉴">
+                    <a href="index.html#diagnosis">ISO 진단</a>
+                    <a href="index.html#how-it-works">작동 방식</a>
+                    <a href="index.html#verify">검증 기준</a>
+                    <a href="index.html#faq">FAQ</a>
+                    <a href="blog.html" aria-current="page">블로그</a>
+                    <a href="contact.html">문의하기</a>
+                </nav>
+                <div class="hm-header-actions">
+                    <!-- 로그인 상태면 아래 스크립트(updateNavigation)가 내용을 바꾼다 -->
+                    <div id="nav-actions" class="hm-nav-actions">
+                        <a class="hm-acc" href="login.html">로그인</a>
+                        <a class="hm-acc hm-acc-outline" href="consultant_register.html">컨설턴트 등록</a>
+                    </div>
+                    <a class="hm-btn hm-btn-lime hm-header-cta" href="index.html#diagnosis">무료 매칭 시작<span class="hm-arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+                    <button class="hm-menu-btn" id="mobile-menu-btn" type="button" aria-controls="mobile-nav" aria-label="메뉴 열기"><span></span></button>
+                </div>
             </div>
-
-            <!-- Mobile Menu Button -->
-            <button class="md:hidden p-2 text-brand-ink dark:text-brand-darkText" id="mobile-menu-btn"
-                aria-label="메뉴 열기">
-                <i data-lucide="menu"></i>
-            </button>
         </div>
     </header>
 
-    <!-- Mobile Navigation Overlay -->
-    <div class="fixed inset-0 bg-brand-paper/95 dark:bg-brand-darkBg/95 backdrop-blur-md z-50 flex flex-col justify-center items-center gap-8 text-xl font-medium opacity-0 pointer-events-none transition-opacity duration-300"
-        id="mobile-nav">
-        <button class="absolute top-6 right-6 p-2 text-brand-ink dark:text-white" id="close-mobile-nav">
-            <i data-lucide="x"></i>
-        </button>
-        <a href="index.html" class="mobile-nav-link hover:text-brand-gold transition-colors dark:text-white">홈</a>
-        <a href="index.html#how-it-works"
-            class="mobile-nav-link hover:text-brand-gold transition-colors dark:text-white">프로세스</a>
-        <a href="index.html#diagnosis"
-            class="mobile-nav-link hover:text-brand-gold transition-colors dark:text-white">무료 상담</a>
-        <a href="blog.html" class="text-brand-gold text-xl font-bold">블로그</a>
-        <a href="index.html#faq" class="mobile-nav-link hover:text-brand-gold transition-colors dark:text-white">FAQ</a>
-        <div class="h-px w-32 bg-brand-stone dark:bg-brand-darkBorder my-4"></div>
-        <div class="flex flex-col w-full max-w-xs gap-4" id="mobile-nav-actions">
-            <a href="login.html"
-                class="text-center py-3 border border-brand-stone dark:border-brand-darkBorder hover:bg-black/5 dark:hover:bg-white/5 transition-colors dark:text-white">로그인</a>
-            <a href="index.html#diagnosis"
-                class="text-center py-3 bg-brand-ink text-brand-paper dark:bg-white dark:text-brand-darkBg font-bold">도입
-                문의</a>
-        </div>
-    </div>
-
-    <!-- Blog Header Section -->
-    <section class="w-full px-6 md:px-12 py-16 md:py-24 max-w-[1400px] mx-auto text-center">
-        <p class="text-sm font-bold text-brand-gold tracking-wide mb-4">INSIGHTS & RESOURCES</p>
-        <h1 class="font-serif text-4xl md:text-5xl font-bold tracking-tight mb-6">최신 인사이트</h1>
-        <p class="text-brand-ink/60 dark:text-brand-darkMuted max-w-xl mx-auto text-lg font-light leading-relaxed">
-            ISO 인증, ESG 경영, 중대재해처벌법 등 기업 경영에 필요한 최신 정보를 확인하세요.
-        </p>
-    </section>
-
-    <!-- Blog Grid -->
-    <section class="w-full px-6 md:px-12 pb-16 max-w-[1400px] mx-auto">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="blog-grid">
-            <div class="col-span-full text-center py-16">
-                <div class="loading-spinner" style="margin: 0 auto 16px;"></div>
-                <p class="text-brand-ink/50 dark:text-brand-darkMuted">게시글을 불러오는 중...</p>
+    <!-- 모바일 메뉴 (닫힘 = opacity-0 + pointer-events-none, 아래 스크립트가 토글) -->
+    <nav class="hm-mnav hm-mnav-fade opacity-0 pointer-events-none" id="mobile-nav" aria-label="모바일 메뉴">
+        <div class="hm-mnav-inner">
+            <a href="index.html#diagnosis" class="mobile-nav-link">ISO 진단</a>
+            <a href="index.html#how-it-works" class="mobile-nav-link">작동 방식</a>
+            <a href="index.html#verify" class="mobile-nav-link">검증 기준</a>
+            <a href="index.html#faq" class="mobile-nav-link">FAQ</a>
+            <a href="blog.html" class="mobile-nav-link" aria-current="page">블로그</a>
+            <a href="contact.html" class="mobile-nav-link">문의하기</a>
+            <div class="hm-mnav-actions" id="mobile-nav-actions">
+                <a href="login.html">로그인</a>
+                <a href="index.html#diagnosis" class="is-primary">무료 매칭 시작</a>
             </div>
+            <button class="hm-mnav-close" id="close-mobile-nav" type="button">메뉴 닫기</button>
         </div>
-    </section>
+    </nav>
 
-    <!-- CTA Section -->
-    <section
-        class="w-full px-6 md:px-12 py-16 md:py-24 bg-brand-navy dark:bg-brand-darkSurface text-white text-center transition-colors duration-400">
-        <div class="max-w-2xl mx-auto">
-            <h2 class="font-serif text-3xl md:text-4xl font-bold mb-6">ISO 인증 준비가 필요하신가요?</h2>
-            <p class="text-white/70 text-lg mb-8 font-light">AI가 기업 리스크를 분석하고 최적의 컨설턴트를 추천해 드립니다.</p>
-            <a href="index.html#diagnosis"
-                class="inline-block bg-white text-brand-navy px-8 py-4 text-sm font-bold hover:bg-brand-stone transition-colors">
-                무료 상담 신청하기 →
-            </a>
-        </div>
-    </section>
+    <main id="main">
+        <!-- Blog Header -->
+        <section class="hm-wrap hm-page-head" aria-labelledby="blog-title">
+            <span class="hm-eyebrow">INSIGHTS &amp; RESOURCES</span>
+            <h1 class="hm-h1" id="blog-title">최신 인사이트</h1>
+            <p class="hm-lead">ISO 인증 준비와 경영시스템 운영에 도움이 되는 정보를 정리해 두었습니다.</p>
+        </section>
 
-    <!-- Editorial Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <div class="logo">
-                        <img src="images/logo2.png" alt="InsightMatch" class="logo-image"
-                            style="width:32px; height:32px;">
-                        <div class="logo-text">
-                            <span>InsightMatch</span>
-                            <span>by OpenBrain</span>
-                        </div>
-                    </div>
-                    <p>기업 맞춤형 ISO 컨설턴트 소개 플랫폼. 복잡한 인증 준비를 쉽고 빠르게.</p>
-                </div>
-
-                <div class="footer-links">
-                    <div class="footer-column">
-                        <h4>서비스</h4>
-                        <a href="index.html#diagnosis">컨설턴트 소개</a>
-                        <a href="index.html#how-it-works">프로세스 안내</a>
-                        <a href="consultant_register.html">컨설턴트 등록</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>지원</h4>
-                        <a href="index.html#faq">자주 묻는 질문</a>
-                        <a href="consultant-faq.html">전문가 FAQ</a>
-                        <a href="blog.html">블로그</a>
-                        <!-- 개인 Gmail mailto: 는 접수 이력이 남지 않아 문의 폼으로 교체했다 -->
-                        <a href="contact.html">문의하기</a>
-                    </div>
-                    <div class="footer-column">
-                        <h4>법적 고지</h4>
-                        <a href="terms.html">이용약관</a>
-                        <a href="privacy.html">개인정보처리방침</a>
-                        <a href="partner-agreement.html">컨설턴트 협력계약</a>
-                    </div>
+        <!-- Blog Grid (#blog-grid: 아래 스크립트가 카드·빈 목록·오류 상태로 채운다) -->
+        <section class="hm-wrap" aria-label="게시글 목록">
+            <div class="hm-post-grid" id="blog-grid" aria-live="polite">
+                <div class="hm-state">
+                    <span class="loading-spinner" aria-hidden="true"></span>
+                    <p>게시글을 불러오는 중...</p>
                 </div>
             </div>
+        </section>
 
-            <div class="footer-bottom">
-                <span>© 2025 OpenBrain Limited. All rights reserved.</span>
-                <span>InsightMatch - ISO Consultant Matching Platform</span>
+        <!-- CTA -->
+        <section class="hm-wrap" aria-labelledby="cta-title" style="margin-top: 96px;">
+            <div class="hm-cta-band hm-on-dark">
+                <div class="hm-auth-deco" aria-hidden="true"><div class="hm-blob"></div><div class="hm-circle"></div><div class="hm-circle r2"></div></div>
+                <div>
+                    <span class="hm-eyebrow">FREE MATCHING</span>
+                    <h2 id="cta-title">ISO 인증 준비가 필요하신가요?</h2>
+                    <p>인증 규격·업종·지역만 고르면 맞는 컨설턴트를 추천 근거와 함께 비교할 수 있습니다. 진단과 추천 확인은 무료입니다.</p>
+                </div>
+                <div class="hm-cta-band-actions">
+                    <a href="index.html#diagnosis" class="hm-btn hm-btn-lime hm-btn-lg">무료 매칭 시작<span class="hm-arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+                </div>
             </div>
+        </section>
+    </main>
+
+    <!-- Footer (메인과 같은 다크 푸터) -->
+    <footer class="hm-footer hm-on-dark is-spaced">
+        <div class="hm-wrap">
+            <div class="hm-foot-top">
+                <div>
+                    <div class="hm-foot-brand">Insight<span class="hm-logo-dot" aria-hidden="true"></span>Match<small>by OpenBrain</small></div>
+                    <p>InsightMatch는 ISO 인증을 준비하는 기업과 검증된 컨설턴트를 연결하는 매칭 플랫폼입니다. 심사는 인정받은 인증기관이 수행합니다.</p>
+                </div>
+                <div>
+                    <h4>SERVICE</h4>
+                    <ul>
+                        <li><a href="index.html#diagnosis">컨설턴트 소개</a></li>
+                        <li><a href="index.html#how-it-works">프로세스 안내</a></li>
+                        <li><a href="index.html#verify">검증 기준</a></li>
+                        <li><a href="index.html#iso-catalog">규격</a></li>
+                        <li><a href="ai-manual.html">AI 매뉴얼</a></li>
+                        <li><a href="consultant_register.html">컨설턴트 등록</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>SUPPORT</h4>
+                    <ul>
+                        <li><a href="index.html#faq">자주 묻는 질문</a></li>
+                        <li><a href="consultant-faq.html">전문가 FAQ</a></li>
+                        <li><a href="blog.html">블로그</a></li>
+                        <li><a href="contact.html">문의하기</a></li>
+                        <li><a href="login.html">로그인</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>LEGAL</h4>
+                    <ul>
+                        <li><a href="terms.html">이용약관</a></li>
+                        <li><a href="privacy.html">개인정보처리방침</a></li>
+                        <li><a href="partner-agreement.html">컨설턴트 협력계약</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="hm-wordmark" aria-hidden="true">Insight<span class="hm-logo-dot"></span>Match</div>
+            <div class="hm-foot-bottom"><span>© 2026 OpenBrain Limited. All rights reserved.</span><span>InsightMatch - ISO Consultant Matching Platform</span></div>
         </div>
     </footer>
 
     <script>
-        lucide.createIcons();
+        // 테마(다크) 토글은 B안이 라이트 전용이라 제거했다. (head 에서 .dark 를 항상 걷어 낸다)
 
-        // -----------------------------------------------------------
-        // Theme Toggle (Dark/Light Mode)
-        // -----------------------------------------------------------
-        const themeToggleBtn = document.getElementById('theme-toggle');
-        const lightIcon = document.getElementById('theme-toggle-light-icon');
-        const darkIcon = document.getElementById('theme-toggle-dark-icon');
+        // 인라인 SVG 아이콘 (lucide 의존 제거)
+        const ICON_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+        const ICONS = {
+            dashboard: `<svg ${ICON_ATTRS}><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>`,
+            logout: `<svg ${ICON_ATTRS}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>`,
+            user: `<svg ${ICON_ATTRS}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+            calendar: `<svg ${ICON_ATTRS}><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>`,
+            fileText: `<svg ${ICON_ATTRS}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>`,
+            alert: `<svg ${ICON_ATTRS}><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>`,
+            arrow: '<svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        };
 
-        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-            darkIcon.classList.add('hidden');
-            lightIcon.classList.remove('hidden');
-        } else {
-            document.documentElement.classList.remove('dark');
-            lightIcon.classList.add('hidden');
-            darkIcon.classList.remove('hidden');
+        // XSS 방어: 서버·저장소 값을 텍스트로만 표시할 때 사용
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
-
-        themeToggleBtn.addEventListener('click', function () {
-            darkIcon.classList.toggle('hidden');
-            lightIcon.classList.toggle('hidden');
-            if (document.documentElement.classList.contains('dark')) {
-                document.documentElement.classList.remove('dark');
-                localStorage.theme = 'light';
-            } else {
-                document.documentElement.classList.add('dark');
-                localStorage.theme = 'dark';
-            }
-        });
 
         // -----------------------------------------------------------
         // Mobile Navigation
@@ -284,15 +201,17 @@
         closeMobileNavBtn.addEventListener('click', closeMobileMenu);
         mobileNavLinks.forEach(link => link.addEventListener('click', closeMobileMenu));
 
+        // 햄버거가 보이는 폭이 1180px 이하로 바뀌어(brand.css 13절) 닫는 기준도 맞췄다 (예전 768px)
         window.addEventListener('resize', () => {
-            if (window.innerWidth >= 768) closeMobileMenu();
+            if (window.innerWidth > 1180) closeMobileMenu();
         });
 
         // -----------------------------------------------------------
         // Check login status and update navigation
         // -----------------------------------------------------------
         function updateNavigation() {
-            const user = JSON.parse(localStorage.getItem('user'));
+            let user = null;
+            try { user = JSON.parse(localStorage.getItem('user')); } catch (e) { user = null; }
             const token = localStorage.getItem('token');
             const navActions = document.getElementById('nav-actions');
             const mobileNavActions = document.getElementById('mobile-nav-actions');
@@ -300,42 +219,34 @@
             if (user && token) {
                 const dashboardLink = user.role === 'admin' ? 'admin.html' : 'dashboard.html';
                 const dashboardText = user.role === 'admin' ? '관리자 대시보드' : '대시보드';
+                // 이름은 저장소 값이므로 이스케이프해서 넣는다
+                const userName = escapeHtml(user.name);
 
                 if (navActions) {
                     navActions.innerHTML = `
-                        <a href="${dashboardLink}" class="flex items-center gap-2 text-sm font-medium px-4 py-2 hover:text-brand-gold transition-colors dark:text-brand-darkMuted dark:hover:text-white">
-                            <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
-                            ${dashboardText}
-                        </a>
-                        <span class="text-sm font-medium px-2 py-2 text-brand-gold">${user.name}님</span>
-                        <button onclick="logout()" class="flex items-center gap-2 text-sm font-medium px-4 py-2 hover:text-brand-gold transition-colors dark:text-brand-darkMuted dark:hover:text-white">
-                            <i data-lucide="log-out" class="w-4 h-4"></i>
-                            로그아웃
-                        </button>
+                        <a href="${dashboardLink}" class="hm-acc">${ICONS.dashboard}${dashboardText}</a>
+                        ${userName ? `<span class="hm-acc-user">${userName}님</span>` : ''}
+                        <button type="button" onclick="logout()" class="hm-acc hm-acc-outline">${ICONS.logout}로그아웃</button>
                     `;
                 }
                 if (mobileNavActions) {
                     mobileNavActions.innerHTML = `
-                        <a href="${dashboardLink}" class="flex justify-center items-center text-center py-3 border border-brand-stone dark:border-brand-darkBorder hover:bg-black/5 dark:hover:bg-white/5 transition-colors dark:text-white" onclick="closeMobileMenu()">
-                            <i data-lucide="layout-dashboard" class="w-4 h-4 mr-2"></i> ${dashboardText}
-                        </a>
-                        <button onclick="logout(); closeMobileMenu();" class="flex justify-center items-center text-center py-3 bg-brand-ink text-brand-paper dark:bg-white dark:text-brand-darkBg font-bold transition-colors">
-                            <i data-lucide="log-out" class="w-4 h-4 mr-2"></i> 로그아웃
-                        </button>
+                        ${userName ? `<p class="hm-mnav-user">${userName}님으로 로그인됨</p>` : ''}
+                        <a href="${dashboardLink}" onclick="closeMobileMenu()">${ICONS.dashboard} ${dashboardText}</a>
+                        <button type="button" onclick="logout(); closeMobileMenu();">${ICONS.logout} 로그아웃</button>
                     `;
                 }
-                if (window.lucide) { lucide.createIcons(); }
             } else {
                 if (navActions) {
                     navActions.innerHTML = `
-                        <a href="login.html" class="text-sm font-medium px-4 py-2 hover:text-brand-gold transition-colors dark:text-brand-darkMuted dark:hover:text-white">로그인</a>
-                        <a href="index.html#diagnosis" class="text-sm font-bold px-6 py-2 border border-brand-ink dark:border-brand-darkBorder dark:text-brand-darkText hover:bg-brand-ink hover:text-brand-paper dark:hover:bg-brand-darkBorder dark:hover:text-white transition-all">도입 문의</a>
+                        <a class="hm-acc" href="login.html">로그인</a>
+                        <a class="hm-acc hm-acc-outline" href="consultant_register.html">컨설턴트 등록</a>
                     `;
                 }
                 if (mobileNavActions) {
                     mobileNavActions.innerHTML = `
-                        <a href="login.html" class="text-center py-3 border border-brand-stone dark:border-brand-darkBorder hover:bg-black/5 dark:hover:bg-white/5 transition-colors dark:text-white" onclick="closeMobileMenu()">로그인</a>
-                        <a href="index.html#diagnosis" class="text-center py-3 bg-brand-ink text-brand-paper dark:bg-white dark:text-brand-darkBg font-bold transition-colors" onclick="closeMobileMenu()">도입 문의</a>
+                        <a href="login.html" onclick="closeMobileMenu()">로그인</a>
+                        <a href="index.html#diagnosis" class="is-primary" onclick="closeMobileMenu()">무료 매칭 시작</a>
                     `;
                 }
             }
@@ -367,13 +278,27 @@
             } catch (error) {
                 console.error(error);
                 document.getElementById('blog-grid').innerHTML = `
-                    <div class="col-span-full text-center py-16">
-                        <i data-lucide="alert-circle" class="w-12 h-12 text-red-400 mx-auto mb-4"></i>
-                        <p class="text-brand-ink/50 dark:text-brand-darkMuted">게시글을 불러오지 못했습니다.</p>
+                    <div class="hm-state" role="alert">
+                        <div class="hm-state-icon">${ICONS.alert}</div>
+                        <h2>게시글을 불러오지 못했습니다.</h2>
+                        <p>잠시 후 다시 시도해 주세요.</p>
+                        <button type="button" class="hm-btn hm-btn-ghost" onclick="location.reload()">다시 시도</button>
                     </div>
                 `;
-                lucide.createIcons();
             }
+        }
+
+        // 요약문: 태그를 지운 뒤(기존 방식) 엔티티를 풀어 순수 텍스트로 만든다.
+        // textarea 에 넣으면 태그는 해석되지 않고 엔티티만 풀린다. 결과는 다시 escapeHtml 로 넣는다.
+        function toPlainText(text) {
+            const box = document.createElement('textarea');
+            box.innerHTML = text;
+            return box.value;
+        }
+
+        // 대표 이미지가 없거나 깨졌을 때의 브랜드 자리표시 (예전 외부 스톡 이미지 대신)
+        function thumbPlaceholder(index) {
+            return `<div class="hm-post-ph v${(index % 3) + 1}" aria-hidden="true"><span class="hm-logo-dot"></span></div>`;
         }
 
         function renderPosts(posts) {
@@ -382,52 +307,54 @@
 
             if (posts.length === 0) {
                 container.innerHTML = `
-                    <div class="col-span-full text-center py-16">
-                        <i data-lucide="file-text" class="w-12 h-12 text-brand-ink/30 dark:text-brand-darkMuted mx-auto mb-4"></i>
-                        <p class="text-brand-ink/50 dark:text-brand-darkMuted">아직 게시글이 없습니다.</p>
+                    <div class="hm-state">
+                        <div class="hm-state-icon is-neutral">${ICONS.fileText}</div>
+                        <h2>아직 게시글이 없습니다.</h2>
+                        <p>새 글이 올라오면 이곳에서 확인하실 수 있습니다.</p>
+                        <a class="hm-btn hm-btn-ink" href="index.html#diagnosis">무료 매칭 시작<span class="hm-arrow" aria-hidden="true">${ICONS.arrow}</span></a>
                     </div>
                 `;
-                lucide.createIcons();
                 return;
             }
 
             posts.forEach((post, index) => {
                 const card = document.createElement('article');
-                card.className = 'group cursor-pointer';
+                card.className = 'hm-post-card';
                 card.onclick = () => window.location.href = `blog_detail.html?id=${post.id}`;
 
-                const tagsHtml = post.tags.map(tag =>
-                    `<span class="text-xs font-medium text-brand-gold bg-brand-gold/10 dark:bg-brand-gold/20 px-2 py-1 rounded">#${tag.trim()}</span>`
+                const tags = (post.tags || []).map(tag => String(tag).trim()).filter(Boolean);
+                const tagsHtml = tags.map((tag, i) =>
+                    `<span class="hm-chip-tag${i === 0 ? ' is-lime' : ''}">#${escapeHtml(tag)}</span>`
                 ).join('');
 
-                const excerptRaw = post.content.replace(/<[^>]*>?/gm, '').replace(/\n/g, ' ').trim();
+                const excerptRaw = toPlainText(String(post.content || '').replace(/<[^>]*>?/gm, '').replace(/\n/g, ' ')).trim();
                 const excerpt = excerptRaw.length > 120 ? excerptRaw.substring(0, 120) + '...' : excerptRaw;
 
+                const thumb = post.image_url
+                    ? `<img src="${escapeHtml(post.image_url)}" alt="" loading="lazy">`
+                    : thumbPlaceholder(index);
+
                 card.innerHTML = `
-                    <div class="overflow-hidden mb-4">
-                        <img src="${post.image_url || 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=1000'}"
-                             alt="${post.title}"
-                             class="w-full h-56 object-cover transition-transform duration-500 group-hover:scale-105"
-                             onerror="this.src='https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=1000'">
-                    </div>
-                    <div class="flex flex-wrap gap-2 mb-3">${tagsHtml}</div>
-                    <h3 class="font-serif text-xl font-bold mb-3 group-hover:text-brand-gold transition-colors leading-snug">${post.title}</h3>
-                    <p class="text-brand-ink/60 dark:text-brand-darkMuted text-sm leading-relaxed mb-4 font-light">${excerpt}</p>
-                    <div class="flex items-center gap-4 text-xs text-brand-ink/40 dark:text-brand-darkMuted editorial-border-t pt-4">
-                        <span class="flex items-center gap-1">
-                            <i data-lucide="user" class="w-3 h-3"></i>
-                            ${post.author}
-                        </span>
-                        <span class="flex items-center gap-1">
-                            <i data-lucide="calendar" class="w-3 h-3"></i>
-                            ${post.created_at}
-                        </span>
+                    <div class="hm-post-thumb">${thumb}</div>
+                    <div class="hm-post-body">
+                        ${tagsHtml ? `<div class="hm-post-tags">${tagsHtml}</div>` : ''}
+                        <h2 class="hm-post-title"><a href="blog_detail.html?id=${escapeHtml(post.id)}">${escapeHtml(post.title)}</a></h2>
+                        <p class="hm-post-excerpt">${escapeHtml(excerpt)}</p>
+                        <div class="hm-post-meta">
+                            <span>${ICONS.user}${escapeHtml(post.author)}</span>
+                            <span>${ICONS.calendar}${escapeHtml(post.created_at)}</span>
+                        </div>
                     </div>
                 `;
+
+                const img = card.querySelector('.hm-post-thumb img');
+                if (img) {
+                    img.addEventListener('error', () => {
+                        img.parentElement.innerHTML = thumbPlaceholder(index);
+                    }, { once: true });
+                }
                 container.appendChild(card);
             });
-
-            lucide.createIcons();
         }
 
         fetchPosts();
