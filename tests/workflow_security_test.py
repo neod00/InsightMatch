@@ -520,6 +520,25 @@ class TestWorkflowSecurity(unittest.TestCase):
         db.session.refresh(self.consultant)
         self.assertEqual(self.consultant.bio, 'updated by owner')
 
+    def test_my_consultant_profile_returns_own_row(self):
+        """대시보드 '내 프로필' 탭: 토큰으로 본인 행을 찾는다 (공개 목록에는 user_id 가 없다)."""
+        response = self.client.get('/api/consultants/me', headers=auth_headers(self.consultant_user))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()['id'], self.consultant.id)
+
+        response = self.client.get('/api/consultants/me', headers=auth_headers(self.company))
+        self.assertEqual(response.status_code, 404)
+
+        response = self.client.get('/api/consultants/me')
+        self.assertEqual(response.status_code, 401)
+
+    def test_my_consultant_profile_reports_unsubmitted_signup_placeholder(self):
+        body = self._signup_and_login('placeholder-me@example.com')
+        response = self.client.get('/api/consultants/me',
+                                   headers={'Authorization': f"Bearer {body['token']}"})
+        self.assertEqual(response.status_code, 404)
+        self.assertIs(response.get_json()['registered'], False)
+
     def test_messages_require_project_participant_and_use_authenticated_sender(self):
         response = self.client.get(
             f'/api/projects/{self.project.id}/messages',

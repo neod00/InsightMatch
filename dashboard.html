@@ -990,25 +990,23 @@
             if (user.role !== 'consultant') return;
 
             try {
-                // 먼저 컨설턴트 ID 조회 (user_id로)
-                const consultantsRes = await authFetch(`${API_BASE_URL}/api/consultants`);
-                const consultants = await consultantsRes.json();
-                const myConsultant = consultants.find(c => c.user_id === user.id);
+                // 본인 프로필은 토큰으로 바로 조회한다 (공개 목록에는 user_id 가 없고 승인된 컨설턴트만 있다)
+                const profileRes = await authFetch(`${API_BASE_URL}/api/consultants/me`);
+                const profile = await profileRes.json();
 
-                if (!myConsultant) {
-                    document.getElementById('profile-tab-content').innerHTML = `
-                        <div class="card hm-dash-error">
-                            <p>컨설턴트 프로필을 찾을 수 없습니다.</p>
-                        </div>
-                    `;
+                if (!profileRes.ok) {
+                    document.getElementById('profile-tab-content').innerHTML = profile.registered === false
+                        ? `<div class="card hm-dash-error">
+                               <p>전문가 프로필 등록이 아직 완료되지 않았습니다.</p>
+                               <p><a href="consultant_register.html">전문가 등록하러 가기</a></p>
+                           </div>`
+                        : `<div class="card hm-dash-error">
+                               <p>컨설턴트 프로필을 찾을 수 없습니다.</p>
+                           </div>`;
                     return;
                 }
 
-                consultantId = myConsultant.id;
-
-                // 프로필 상세 조회
-                const profileRes = await authFetch(`${API_BASE_URL}/api/consultants/${consultantId}/profile`);
-                const profile = await profileRes.json();
+                consultantId = profile.id;
 
                 // 🔒 검증된 정보 채우기
                 document.getElementById('verified-name').textContent = profile.name || '-';
