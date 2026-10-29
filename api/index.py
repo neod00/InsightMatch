@@ -1096,7 +1096,7 @@ def is_valid_email(email):
     return re.match(pattern, email) is not None
 
 # --- 정산·세금계산서 정보 검증 (A안: NGB 원청 구조의 외주비 지급에 필요) ---
-PARTNER_AGREEMENT_VERSION = '1.0'
+PARTNER_AGREEMENT_VERSION = '1.1'  # 1.1: 기본 지급률 80% 명시, 건별 발주(수락 절차 없음). 1.0 원문은 partner-agreement-v1.0.html
 ALLOWED_BUSINESS_TYPES = {'business', 'individual'}
 
 
