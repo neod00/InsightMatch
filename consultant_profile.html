@@ -393,6 +393,7 @@
         </div>
     </footer>
 
+    <script src="business-number.js"></script>
     <script>
         // XSS 방어: 컨설턴트가 직접 입력한 값(자격·프로젝트 등)을
         // innerHTML에 넣기 전 반드시 이스케이프한다.
@@ -788,7 +789,7 @@
             consultCancel.disabled = true;
             consultSend.textContent = '요청 중...';
             try {
-                const response = await fetch('/api/quotes/request', {
+                const sendQuoteRequest = () => fetch('/api/quotes/request', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({
@@ -797,6 +798,11 @@
                         session_id: (ctx && ctx.session_id) || null
                     })
                 });
+                let response = await sendQuoteRequest();
+                // 사업자등록번호가 없으면 입력 창을 띄우고, 확인되면 같은 요청을 다시 보낸다.
+                if (window.InsightBiz && await window.InsightBiz.handle(response)) {
+                    response = await sendQuoteRequest();
+                }
                 let data = {};
                 try { data = await response.json(); } catch (e) { data = {}; }
 

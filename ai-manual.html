@@ -18,6 +18,7 @@
     <!-- Marked.js for Markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.3/dist/purify.min.js"></script>
+    <script src="business-number.js"></script>
 
     <!-- Mermaid.js for Process Map (부록 B) diagram rendering -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
@@ -803,7 +804,7 @@
             });
 
             try {
-                const sessionResponse = await fetch(`${API_BASE_URL}/api/iso-manual/session`, {
+                const createSession = () => fetch(`${API_BASE_URL}/api/iso-manual/session`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -820,6 +821,11 @@
                         reasons
                     })
                 });
+                let sessionResponse = await createSession();
+                // 기업 회원은 사업자등록번호 확인 후 이용할 수 있다. 없으면 입력 창을 띄우고 다시 시도한다.
+                if (window.InsightBiz && await window.InsightBiz.handle(sessionResponse, { apiBase: API_BASE_URL })) {
+                    sessionResponse = await createSession();
+                }
 
                 if (!sessionResponse.ok) {
                     const err = await sessionResponse.json().catch(() => ({}));

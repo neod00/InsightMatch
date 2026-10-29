@@ -29,6 +29,7 @@
     <!-- 아이콘: 스크립트가 그리는 HTML 이 data-lucide 를 쓰고 lucide.createIcons() 를 부르므로
          lucide 는 남기되 메인페이지와 같은 고정 버전으로 로드한다(@latest 금지). -->
     <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+    <script src="business-number.js"></script>
 
     <!-- B안 공통 스타일(15절: 앱 셸·대시보드). Tailwind CDN·style.css 는 로드하지 않는다.
          예전에 로드하던 Supabase JS 는 이 페이지에서 쓰는 곳이 없어 뺐다(업로드는 서버 API 경유). -->
@@ -137,6 +138,15 @@
                 <i data-lucide="user"></i>
                 내 프로필
             </button>
+        </div>
+
+        <!-- 기업 사업자 정보 (기업 회원에게만 스크립트가 표시) -->
+        <div id="biz-number-card" class="hm-dash-card hidden" style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
+            <div style="min-width:0;">
+                <strong style="display:block;margin-bottom:4px;">사업자등록번호</strong>
+                <span data-biz-value style="font-size:14px;color:var(--muted, #6b6c66);"></span>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" data-biz-action onclick="editBusinessNumber()">등록하기</button>
         </div>
 
         <!-- 요청 목록 탭 -->
@@ -959,6 +969,44 @@
                 headerTitle.textContent = '내 견적 요청';
                 headerDesc.textContent = '전문가에게 요청한 견적 현황을 확인하세요.';
                 if (actionBtn) actionBtn.style.display = 'flex';
+                if (user.role === 'company') renderBusinessNumberCard();
+            }
+        }
+
+        // --- 기업 사업자등록번호 (견적 요청·AI 매뉴얼 전 필수, 국세청 상태조회) ---
+        const BIZ_STATUS_TEXT = {
+            verified: '국세청 확인 완료',
+            manual: '관리자 확인 완료',
+            unchecked: '국세청 조회 대기 — 관리자가 확인합니다'
+        };
+
+        async function renderBusinessNumberCard() {
+            const card = document.getElementById('biz-number-card');
+            if (!card) return;
+            let info = { biz_reg_no: '', biz_status: '' };
+            try {
+                const res = await authFetch(`${API_BASE_URL}/api/me/business-number`);
+                if (res.ok) info = await res.json();
+            } catch (e) { /* 표시만 못 할 뿐 다른 기능에는 영향 없음 */ }
+
+            const has = Boolean(info.biz_reg_no);
+            const number = has && window.InsightBiz ? window.InsightBiz.formatNumber(info.biz_reg_no) : '';
+            card.querySelector('[data-biz-value]').textContent = has
+                ? `${number} · ${BIZ_STATUS_TEXT[info.biz_status] || '확인 상태 미상'}`
+                : '아직 등록하지 않았습니다. 견적 요청과 AI 매뉴얼 생성 전에 한 번 등록해 주세요.';
+            card.querySelector('[data-biz-action]').textContent = has ? '변경' : '등록하기';
+            card.classList.remove('hidden');
+        }
+
+        async function editBusinessNumber() {
+            if (!window.InsightBiz) return;
+            const saved = await window.InsightBiz.open({
+                apiBase: API_BASE_URL,
+                message: '회사 사업자등록번호를 입력하면 국세청에 영업 상태를 조회해 확인합니다.'
+            });
+            if (saved) {
+                showNotification('사업자등록번호가 확인되었습니다.', 'success');
+                renderBusinessNumberCard();
             }
         }
 
@@ -1224,6 +1272,7 @@
                             <div class="quote-request-title">${escapeHtml(project.title)}</div>
                             <div class="quote-request-meta">
                                 <span><i data-lucide="building"></i> ${escapeHtml(project.company_name || '기업 고객')}</span>
+                                ${project.company_business_verified ? '<span title="국세청 또는 관리자가 영업 중인 사업자임을 확인했습니다"><i data-lucide="badge-check"></i> 사업자 확인됨</span>' : ''}
                                 <span><i data-lucide="calendar"></i> ${requestDate} 요청</span>
                             </div>
                         </div>
@@ -2578,7 +2627,7 @@
             if (!user) return;
 
             try {
-                const response = await authFetch(`${API_BASE_URL}/api/projects/add-consultant`, {
+                const sendAddRequest = () => authFetch(`${API_BASE_URL}/api/projects/add-consultant`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2588,6 +2637,12 @@
                         session_id: currentAddSessionId // 세션 ID 추가
                     })
                 });
+                let response = await sendAddRequest();
+                // 사업자등록번호가 없으면 입력 창을 띄우고, 확인되면 같은 요청을 다시 보낸다.
+                if (window.InsightBiz && await window.InsightBiz.handle(response, { apiBase: API_BASE_URL })) {
+                    response = await sendAddRequest();
+                    renderBusinessNumberCard();
+                }
 
                 if (response.ok) {
                     showNotification(`${consultantName}에게 견적 요청을 추가했습니다.`, 'success');

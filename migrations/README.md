@@ -400,3 +400,23 @@ WHERE schemaname = 'public' ORDER BY rowsecurity, tablename;
 
 > 주의: Supabase SQL Editor는 여러 문장을 한 트랜잭션으로 실행한다.
 > 존재하지 않는 테이블을 대상으로 하면 **전체가 롤백**되므로 `IF EXISTS` 를 붙일 것.
+
+## 2026-10-29 — 기업 사업자등록번호 (`user.biz_reg_no` 등 3개 열)
+
+가입 때 선택, 견적 요청·AI 매뉴얼 생성 전 필수. 국세청 사업자 상태조회(`NTS_BUSINESS_API_KEY`)로 확인한다.
+**코드 배포 전에 실행** — 열이 없으면 `user` 를 읽는 모든 요청이 500 이 난다(create_all 은 기존 테이블에 열을 추가하지 않음).
+로컬 SQLite 도 같은 이유로 열을 직접 추가하거나 DB 를 새로 만들어야 한다.
+
+```sql
+ALTER TABLE public."user" ADD COLUMN IF NOT EXISTS biz_reg_no     VARCHAR(20) NULL;  -- 숫자 10자리
+ALTER TABLE public."user" ADD COLUMN IF NOT EXISTS biz_status     VARCHAR(20) NULL;  -- verified | unchecked | manual
+ALTER TABLE public."user" ADD COLUMN IF NOT EXISTS biz_checked_at TIMESTAMP   NULL;  -- 마지막 확인 시각
+
+-- 확인: 3행
+SELECT column_name, data_type, is_nullable FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = 'user'
+  AND column_name IN ('biz_reg_no', 'biz_status', 'biz_checked_at');
+
+-- 되돌리기
+-- ALTER TABLE public."user" DROP COLUMN IF EXISTS biz_reg_no, DROP COLUMN IF EXISTS biz_status, DROP COLUMN IF EXISTS biz_checked_at;
+```

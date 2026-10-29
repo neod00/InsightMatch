@@ -27,6 +27,12 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, CronRun, ErrorLog, Inquiry, Review, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry, parse_text_or_json_list
 from services import MatchingService, ProposalService, EmailService
 from services.iso_manual_service import generate_iso_manual_stream
+from services.business_check import (
+    ACTIVE as BUSINESS_ACTIVE,
+    business_status_rejection_message,
+    check_business_status,
+    normalize_business_number,
+)
 
 # Load environment variables
 # Load from project root directory
@@ -1110,6 +1116,50 @@ def is_valid_biz_reg_no(value):
     return check == int(digits[9])
 
 
+# --- 기업 사업자등록번호 (가입 때 선택, 견적 요청·AI 매뉴얼 전 필수) ---
+
+def apply_company_business_number(user, raw_value):
+    """기업 사용자의 사업자등록번호를 검증해 user 에 적어 둔다(커밋은 호출부).
+
+    형식(체크섬) → 국세청 상태조회 순으로 확인한다. 휴업·폐업·미등록이면 거절하고,
+    국세청 조회가 안 되면(키 없음·장애) 막지 않고 'unchecked' 로 남겨 관리자가 본다.
+    반환: 문제 없으면 None, 거절이면 (응답, 상태코드).
+    """
+    digits = normalize_business_number(raw_value)
+    if not is_valid_biz_reg_no(digits):
+        return jsonify({'code': 'BUSINESS_NUMBER_INVALID',
+                        'message': '사업자등록번호 10자리를 정확히 입력해 주세요.'}), 400
+
+    status = check_business_status(digits)
+    rejection = business_status_rejection_message(status)
+    if rejection:
+        return jsonify({'code': f'BUSINESS_{status.upper()}', 'message': rejection}), 400
+
+    user.biz_reg_no = digits
+    user.biz_status = 'verified' if status == BUSINESS_ACTIVE else 'unchecked'
+    user.biz_checked_at = _naive_utc_now()
+    return None
+
+
+def company_business_info(user):
+    return {
+        'biz_reg_no': user.biz_reg_no or '',
+        'biz_status': user.biz_status or '',
+        'biz_checked_at': user.biz_checked_at.isoformat() if user.biz_checked_at else None,
+    }
+
+
+def require_company_business_number(action_label):
+    """기업 사용자가 사업자등록번호를 아직 안 넣었으면 화면이 입력 창을 띄울 수 있게 코드로 알린다."""
+    user = getattr(g, 'current_user', None)
+    if not user or user.role != 'company' or user.biz_reg_no:
+        return None
+    return jsonify({
+        'code': 'BUSINESS_NUMBER_REQUIRED',
+        'message': f'{action_label} 전에 회사 사업자등록번호를 한 번 입력해 주세요.',
+    }), 400
+
+
 def validate_settlement_fields(data):
     """등록/수정 시 정산 정보를 검증해 정규화된 dict를 반환.
 
@@ -1424,6 +1474,16 @@ def signup():
         role=role,
         phone=phone
     )
+
+    # 기업 사업자등록번호는 가입 때 선택. 넣었으면 국세청으로 확인하고, 틀리면 가입 전에 알려 준다.
+    biz_raw = str(data.get('biz_reg_no') or '').strip()
+    if role == 'company' and biz_raw:
+        if not check_rate_limit('bizcheck', limit=20, window_minutes=60):
+            return jsonify({'message': '사업자번호 확인 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.'}), 429
+        biz_error = apply_company_business_number(new_user, biz_raw)
+        if biz_error:
+            return biz_error
+
     db.session.add(new_user)
     db.session.commit()
     
@@ -1510,8 +1570,28 @@ def login():
             'employees': company.employees if company else '',
             # 컨설턴트가 아니면 항상 False (undefined 로 새어나가지 않게 한다)
             'has_consultant_profile': has_consultant_profile,
+            **(company_business_info(user) if user.role == 'company' else {}),
         }
     })
+
+
+@app.route('/api/me/business-number', methods=['GET', 'PUT'])
+@token_required
+def my_business_number():
+    """기업 담당자 본인의 사업자등록번호 조회·등록(변경)."""
+    user = g.current_user
+    if user.role != 'company':
+        return jsonify({'message': '기업 회원만 사업자등록번호를 등록할 수 있습니다.'}), 403
+    if request.method == 'GET':
+        return jsonify(company_business_info(user))
+
+    if not check_rate_limit('bizcheck', limit=20, window_minutes=60):
+        return jsonify({'message': '사업자번호 확인 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.'}), 429
+    biz_error = apply_company_business_number(user, (request.json or {}).get('biz_reg_no'))
+    if biz_error:
+        return biz_error
+    db.session.commit()
+    return jsonify({'message': '사업자등록번호가 확인되었습니다.', **company_business_info(user)})
 
 # --- Password Reset Endpoints ---
 @app.route('/api/auth/request-reset', methods=['POST'])
@@ -1948,6 +2028,9 @@ def create_iso_manual_session():
     role_error = require_manual_user()
     if role_error:
         return role_error
+    biz_error = require_company_business_number('AI 매뉴얼 생성')
+    if biz_error:
+        return biz_error
 
     form_data, errors = validate_manual_form_data(request.json or {})
     if errors:
@@ -2466,6 +2549,8 @@ def handle_projects():
                 'consultant_experience': consultant_info.experience if consultant_info else None,
                 'company_id': p.company_id,
                 'company_name': company_user.name if company_user else 'Unknown Company',
+                # 컨설턴트 카드의 '사업자 확인됨' 표시용. 번호 자체는 내려주지 않는다.
+                'company_business_verified': bool(company_user and company_user.biz_status in ('verified', 'manual')),
                 'start_date': p.start_date.isoformat() if p.start_date else None,
                 'created_at': p.created_at.isoformat() if p.created_at else None,
                 # BUG-029 Fix: 불필요한 getattr 제거
@@ -4147,6 +4232,9 @@ def add_consultant_to_request():
     data = request.json
     if g.current_user.role != 'company':
         return jsonify({'message': '기업 담당자만 컨설턴트를 추가할 수 있습니다.'}), 403
+    biz_error = require_company_business_number('견적 요청')
+    if biz_error:
+        return biz_error
 
     user_id = str(g.current_user.id)  # BUG-001 Fix: JWT에서 추출
     consultant_id = data.get('consultant_id')
@@ -4450,7 +4538,11 @@ def get_admin_jobs():
                     'contact_email': contact_email
                 },
                 'related_projects': related_projects,
-                'project_count': len(related_projects)
+                'project_count': len(related_projects),
+                # 관리자가 사업자 확인 상태를 보고, 미확인·공공기관 등은 직접 확인한다.
+                'company_user_id': user.id if user else None,
+                'company_biz_reg_no': (user.biz_reg_no or '') if user else '',
+                'company_biz_status': (user.biz_status or '') if user else '',
             })
         
         # Sort by created_at descending
@@ -4773,6 +4865,42 @@ def revoke_consultant_verification(consultant_id):
     db.session.commit()
     return jsonify({'message': 'Consultant verification revoked', 'verified': False, 'status': consultant.status})
 
+@app.route('/api/admin/users/<int:user_id>/business-number', methods=['POST'])
+@admin_required
+def admin_set_company_business_number(user_id):
+    """관리자: 기업 사업자등록번호를 다시 조회하거나 직접 확인 처리한다.
+
+    - mode='recheck': 국세청에 다시 조회(장애로 '미확인'이 된 건)
+    - mode='manual': 공공기관·비영리단체(고유번호)처럼 국세청 조회가 안 되는 곳을 서류로 확인한 뒤 등록.
+      형식(체크섬)만 검사하며, 조치는 관리자 기록에 남는다.
+    """
+    user = User.query.get_or_404(user_id)
+    if user.role != 'company':
+        return jsonify({'message': '기업 회원만 사업자등록번호를 가질 수 있습니다.'}), 400
+    data = request.json or {}
+    mode = data.get('mode')
+    raw = data.get('biz_reg_no') or user.biz_reg_no
+
+    if mode == 'recheck':
+        biz_error = apply_company_business_number(user, raw)
+        if biz_error:
+            return biz_error
+    elif mode == 'manual':
+        digits = normalize_business_number(raw)
+        if not is_valid_biz_reg_no(digits):
+            return jsonify({'code': 'BUSINESS_NUMBER_INVALID',
+                            'message': '사업자등록번호(고유번호) 10자리를 정확히 입력해 주세요.'}), 400
+        user.biz_reg_no = digits
+        user.biz_status = 'manual'
+        user.biz_checked_at = _naive_utc_now()
+    else:
+        return jsonify({'message': "mode 는 'recheck' 또는 'manual' 이어야 합니다."}), 400
+
+    log_admin_action(f'business_number_{mode}', 'user', user.id, {'biz_status': user.biz_status})
+    db.session.commit()
+    return jsonify({'message': '사업자등록번호를 저장했습니다.', **company_business_info(user)})
+
+
 @app.route('/api/admin/consultants/<int:consultant_id>/restore', methods=['POST'])
 @admin_required
 def restore_consultant(consultant_id):
@@ -4828,6 +4956,9 @@ def request_quotes():
     data = request.json
     if g.current_user.role != 'company':
         return jsonify({'message': '기업 담당자만 견적 요청을 생성할 수 있습니다.'}), 403
+    biz_error = require_company_business_number('견적 요청')
+    if biz_error:
+        return biz_error
 
     consultant_ids = data.get('consultant_ids', [])
     analysis_context = data.get('analysis_context') or {}  # Ensure it's not None

@@ -2206,6 +2206,45 @@
             }
 
             // View Consultant Details - Show in side panel
+            // ===== 기업 사업자 확인 (국세청 재조회 / 공공기관·비영리 등 서류 확인 후 직접 등록) =====
+            const BIZ_PILL = {
+                verified: ['국세청 확인', 'is-ok'],
+                manual: ['관리자 확인', 'is-ok'],
+                unchecked: ['조회 대기', 'is-warn']
+            };
+
+            function formatBizNo(value) {
+                const d = String(value || '').replace(/\D/g, '');
+                return d.length === 10 ? `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}` : d;
+            }
+
+            async function adminBusinessNumber(userId, mode) {
+                const body = { mode };
+                if (mode === 'manual') {
+                    const input = prompt('사업자등록번호(또는 고유번호) 10자리를 입력하세요.\n사업자등록증·고유번호증 등 서류로 확인한 뒤 등록해 주세요.');
+                    if (input === null) return;
+                    body.biz_reg_no = input;
+                }
+                try {
+                    const res = await authFetch(`/api/admin/users/${Number(userId)}/business-number`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        showNotification(data.message || '처리하지 못했습니다.', 'error');
+                        return;
+                    }
+                    showNotification('사업자 정보를 저장했습니다.', 'success');
+                    await fetchJobs();
+                    closeSidePanel();
+                } catch (error) {
+                    console.error('사업자 확인 처리 실패:', error);
+                    showNotification('처리하지 못했습니다.', 'error');
+                }
+            }
+
             // ===== 제안서 열람 (관리자 — 열람 사실은 서버가 기록한다) =====
             async function viewProposal(projectId) {
                 const id = Number(projectId);
@@ -2576,6 +2615,20 @@
                         </div>
                     </div>
                 </div>
+
+                ${job.company_user_id ? `
+                <div class="detail-section">
+                    <h4 class="detail-section-title"><i data-lucide="badge-check"></i>사업자 확인</h4>
+                    <div class="detail-description">
+                        <span class="hm-pill ${BIZ_PILL[job.company_biz_status] ? BIZ_PILL[job.company_biz_status][1] : ''}">${escapeHtml(BIZ_PILL[job.company_biz_status] ? BIZ_PILL[job.company_biz_status][0] : '미등록')}</span>
+                        ${job.company_biz_reg_no ? `<span style="margin-left:8px;">${escapeHtml(formatBizNo(job.company_biz_reg_no))}</span>` : ''}
+                        <div class="hm-ci-actions">
+                            ${job.company_biz_reg_no ? `<button type="button" class="btn btn-secondary btn-sm" onclick="adminBusinessNumber(${Number(job.company_user_id)}, 'recheck')">국세청 다시 조회</button>` : ''}
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="adminBusinessNumber(${Number(job.company_user_id)}, 'manual')">서류 확인 후 직접 등록</button>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
 
                 <div class="detail-section">
                     <h4 class="detail-section-title"><i data-lucide="list-checks"></i>이슈 및 요구사항</h4>
