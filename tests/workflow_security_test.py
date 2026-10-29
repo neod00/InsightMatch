@@ -251,6 +251,10 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertEqual(consultant_sign.status_code, 200)
         db.session.refresh(project)
         self.assertEqual(project.status, 'contracted')
+        # 계약 시 PRD 5.6 의 한국어 진행 단계가 만들어진다
+        from index import DEFAULT_MILESTONE_TITLES
+        self.assertEqual([m.title for m in project.milestones], list(DEFAULT_MILESTONE_TITLES))
+        self.assertEqual(DEFAULT_MILESTONE_TITLES[0], '진단·갭 분석')
 
         first = Milestone(project_id=project_id, title='Gap analysis')
         second = Milestone(project_id=project_id, title='Internal audit')
@@ -3067,6 +3071,17 @@ class TestWorkflowSecurity(unittest.TestCase):
                              headers=auth_headers(self.company)).status_code,
             404,
         )
+
+    def test_legacy_english_milestone_titles_are_shown_in_korean(self):
+        """예전 영어 기본 단계명은 DB 를 바꾸지 않고 응답에서만 한국어로 보인다. 직접 입력한 이름은 그대로."""
+        for title in ('Kick-off Meeting', 'Gap Analysis', 'Final Certification', '사내 교육'):
+            db.session.add(Milestone(project_id=self.project.id, title=title))
+        db.session.commit()
+
+        projects = self.client.get('/api/projects', headers=auth_headers(self.company)).get_json()
+        titles = [m['title'] for p in projects if p['id'] == self.project.id for m in p['milestones']]
+        self.assertEqual(titles, ['착수 회의', '진단·갭 분석', '인증심사', '사내 교육'])
+        self.assertEqual(Milestone.query.filter_by(title='Kick-off Meeting').count(), 1)  # 저장값은 그대로
 
     def test_milestone_status_update_requires_participant_and_valid_status(self):
         """L0: 마일스톤 status 를 바꾸는 코드가 없어 항상 pending 이었다."""
