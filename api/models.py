@@ -408,6 +408,10 @@ class Project(db.Model):
     # ⑥ 계약서 (Contract) 관련 필드
     contract_pdf_url = db.Column(db.String(500))  # 생성된 계약서 PDF URL
     contract_special_terms = db.Column(db.Text)  # 특약 사항
+    # 대금 지급 일정 JSON: [{"label": "선금", "percent": 50, "due": "계약 체결 후 7일 이내"}, ...]
+    # 비어 있으면 기본(선금 50 · 잔금 50). 관리자가 서명 전에만 바꿀 수 있고, 계약서 본문에 그대로 들어간다.
+    # ⚠️ 운영 DB 는 migrations/README.md 의 ALTER TABLE 을 배포 전에 실행할 것.
+    payment_schedule = db.Column(db.Text)
     company_signed_at = db.Column(db.DateTime)  # 기업 서명 시간
     consultant_signed_at = db.Column(db.DateTime)  # 전문가 서명 시간
     

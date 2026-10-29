@@ -3003,12 +3003,78 @@ def sign_contract_step(project_id):
 
 # --- 계약서 본문 (서버가 만들고, 서명 순간의 원문을 증거로 남긴다) ---
 # 본문은 A안(기업 ↔ NGB) 구조로 다시 써야 한다(변호사 검토 예정). 그 전까지의 임시 문안 버전.
-CONTRACT_TEMPLATE_VERSION = '0.1-draft'
+CONTRACT_TEMPLATE_VERSION = '0.2-draft'  # 0.2: 제4조(대금 지급) 추가
 
 
 def _format_biz_no(value):
     d = normalize_business_number(value)
     return f'{d[:3]}-{d[3:5]}-{d[5:]}' if len(d) == 10 else d
+
+
+# --- 대금 지급 일정 (기본 선금 50 · 잔금 50, 관리자가 서명 전에 프로젝트별로 조정) ---
+DEFAULT_PAYMENT_SCHEDULE = (
+    {'label': '선금', 'percent': 50, 'due': '계약 체결 후 7일 이내'},
+    {'label': '잔금', 'percent': 50, 'due': '갑의 완료 확인 후 7일 이내'},
+)
+MAX_PAYMENT_INSTALLMENTS = 5
+
+
+def project_payment_schedule(project):
+    if project.payment_schedule:
+        try:
+            items = json.loads(project.payment_schedule)
+            if isinstance(items, list) and items:
+                return items
+        except (TypeError, ValueError):
+            pass
+    return [dict(item) for item in DEFAULT_PAYMENT_SCHEDULE]
+
+
+def validate_payment_schedule(items):
+    """반환: (정리된 목록, 오류 문구). 비율은 정수, 합계 100."""
+    if not isinstance(items, list) or not 1 <= len(items) <= MAX_PAYMENT_INSTALLMENTS:
+        return None, f'지급 단계는 1~{MAX_PAYMENT_INSTALLMENTS}개여야 합니다.'
+    cleaned = []
+    for item in items:
+        if not isinstance(item, dict):
+            return None, '지급 단계 형식이 올바르지 않습니다.'
+        label = str(item.get('label') or '').strip()
+        due = str(item.get('due') or '').strip()
+        try:
+            percent = int(item.get('percent'))
+        except (TypeError, ValueError):
+            return None, '비율은 숫자로 입력해 주세요.'
+        if not label or len(label) > 20:
+            return None, '단계 이름은 1~20자로 입력해 주세요.'
+        if not due or len(due) > 60:
+            return None, '지급 시점은 1~60자로 입력해 주세요.'
+        if not 1 <= percent <= 100:
+            return None, '비율은 1~100 사이여야 합니다.'
+        cleaned.append({'label': label, 'percent': percent, 'due': due})
+    if sum(item['percent'] for item in cleaned) != 100:
+        return None, '비율의 합계가 100%여야 합니다.'
+    return cleaned, None
+
+
+def payment_schedule_lines(project):
+    """계약서에 넣을 지급 조항 줄. 금액은 원 단위로 내리고 끝전은 마지막 단계에 붙인다."""
+    schedule = project_payment_schedule(project)
+    price = project.proposal_price or 0
+    amounts = [price * item['percent'] // 100 for item in schedule]
+    if price and amounts:
+        amounts[-1] += price - sum(amounts)
+    lines = []
+    for i, (item, amount) in enumerate(zip(schedule, amounts), start=1):
+        money = f'({amount:,}원)' if price else ''
+        lines.append(f"{i}. {item['label']} {item['percent']}%{money}: {item['due']}")
+    return lines
+
+
+def contract_is_locked(project):
+    """서명이 하나라도 있거나 체결된 계약은 지급 일정을 바꾸지 않는다(변경계약으로만)."""
+    return bool(project.company_signed_at or project.consultant_signed_at
+                or project.status in ('contracted', 'in_progress', 'completed')
+                or ContractSignature.query.filter_by(project_id=project.id).first())
 
 
 def build_contract_text(project):
@@ -3041,11 +3107,14 @@ def build_contract_text(project):
         f'본 계약의 대상 용역은 「{project.title}」으로 한다.',
         '제3조 (계약 금액)',
         f'본 용역의 총 계약금액은 {price}으로 한다.',
-        '제4조 (수행 기간)',
+        '제4조 (대금 지급)',
+        '갑은 계약금액을 다음과 같이 나누어 지급한다.',
+        *payment_schedule_lines(project),
+        '제5조 (수행 기간)',
         f'본 용역의 수행 기간은 계약 체결일로부터 {duration}으로 한다.',
-        '제5조 (비밀 유지)',
+        '제6조 (비밀 유지)',
         '갑과 을은 본 계약의 수행 과정에서 취득한 상대방의 비밀 정보를 제3자에게 누설하거나 본 계약 외의 목적으로 사용하지 않는다.',
-        '제6조 (전자 서명)',
+        '제7조 (전자 서명)',
         '갑과 을은 InsightMatch 서비스에서 「서명하기」를 눌러 이 계약에 서명하며, 서비스는 서명 시각과 서명한 계약서 원문을 보관한다.',
     ]
     if project.contract_special_terms:
@@ -4611,6 +4680,9 @@ def get_admin_jobs():
                     'proposal_submitted_at': p.proposal_submitted_at.isoformat() if p.proposal_submitted_at else None,
                     # 관리자 화면의 "제안서 보기" 버튼 표시용. 파일 주소는 내려주지 않는다.
                     'has_proposal': bool(p.proposal_submitted_at),
+                    # 관리자 '지급 일정' 편집용. 서명이 시작되면 잠긴다.
+                    'payment_schedule': project_payment_schedule(p),
+                    'payment_schedule_locked': contract_is_locked(p),
                 })
             
             # Sort related projects by created_at descending
@@ -5004,6 +5076,35 @@ def admin_set_company_business_number(user_id):
     log_admin_action(f'business_number_{mode}', 'user', user.id, {'biz_status': user.biz_status})
     db.session.commit()
     return jsonify({'message': '사업자등록번호를 저장했습니다.', **company_business_info(user)})
+
+
+@app.route('/api/admin/projects/<int:project_id>/payment-schedule', methods=['GET', 'PUT'])
+@admin_required
+def admin_project_payment_schedule(project_id):
+    """관리자: 프로젝트 대금 지급 일정 조회·조정. 서명이 시작되면 바꿀 수 없다(변경계약으로만)."""
+    project = get_active_project_or_404(project_id)
+    if request.method == 'GET':
+        return jsonify({'payment_schedule': project_payment_schedule(project),
+                        'locked': contract_is_locked(project),
+                        'is_default': not project.payment_schedule})
+
+    if contract_is_locked(project):
+        return jsonify({'code': 'PAYMENT_SCHEDULE_LOCKED',
+                        'message': '서명이 시작된 계약은 지급 일정을 바꿀 수 없습니다. 변경계약으로 진행해 주세요.'}), 409
+    data = request.json or {}
+    if data.get('reset'):
+        project.payment_schedule = None
+    else:
+        cleaned, error = validate_payment_schedule(data.get('payment_schedule'))
+        if error:
+            return jsonify({'message': error}), 400
+        project.payment_schedule = json.dumps(cleaned, ensure_ascii=False)
+    log_admin_action('payment_schedule_update', 'project', project.id,
+                     {'payment_schedule': project_payment_schedule(project)})
+    db.session.commit()
+    return jsonify({'message': '지급 일정을 저장했습니다.',
+                    'payment_schedule': project_payment_schedule(project), 'locked': False,
+                    'is_default': not project.payment_schedule})
 
 
 @app.route('/api/admin/consultants/<int:consultant_id>/restore', methods=['POST'])
