@@ -1344,3 +1344,6 @@ body:has(.hm-selbar.active) { padding-bottom: 112px; }
   .hm-loading-bar::after { animation: none; width: 60%; }
   .hm-selbar { transition: none; }
 }
+
+/* 규격 카드의 매뉴얼 작성 예시 링크 (iso-*-manual-sample.html) */
+.hm-rep .hm-rep-sample { align-self: flex-start; font-size: 14px; }
