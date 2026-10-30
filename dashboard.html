@@ -993,7 +993,7 @@
             const number = has && window.InsightBiz ? window.InsightBiz.formatNumber(info.biz_reg_no) : '';
             card.querySelector('[data-biz-value]').textContent = has
                 ? `${number} · ${BIZ_STATUS_TEXT[info.biz_status] || '확인 상태 미상'}`
-                : '아직 등록하지 않았습니다. 견적 요청과 AI 매뉴얼 생성 전에 한 번 등록해 주세요.';
+                : '아직 등록하지 않았습니다. 견적 요청과 AI 매뉴얼 전체 받기 전에 한 번 등록해 주세요.';
             card.querySelector('[data-biz-action]').textContent = has ? '변경' : '등록하기';
             card.classList.remove('hidden');
         }

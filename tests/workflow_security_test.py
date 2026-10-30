@@ -2620,15 +2620,42 @@ class TestWorkflowSecurity(unittest.TestCase):
             self.assertEqual(check_business_status('1234567891'), 'unavailable')
             mock_post.assert_not_called()
 
-    def test_quote_request_and_manual_require_business_number(self):
+    def test_quote_request_and_manual_download_require_business_number(self):
         for path, payload in (
             ('/api/quotes/request', {'consultant_ids': [self.consultant.id], 'analysis_context': {}}),
             ('/api/projects/add-consultant', {'consultant_id': self.consultant.id, 'title': 'ISO 9001 Project'}),
-            ('/api/iso-manual/session', self._manual_payload()),
+            ('/api/export-iso', {'markdown': '# 매뉴얼', 'format': 'docx'}),
         ):
             response = self.client.post(path, json=payload, headers=auth_headers(self.other_company))
             self.assertEqual(response.status_code, 400, path)
             self.assertEqual(response.get_json()['code'], 'BUSINESS_NUMBER_REQUIRED', path)
+
+    def test_manual_preview_needs_no_business_number_but_full_manual_does(self):
+        """유입 최대화: 1단계 미리보기는 가입만으로, 전체 받기(7절 이후)는 사업자등록번호 확인 후."""
+        session = self.client.post('/api/iso-manual/session', json=self._manual_payload(),
+                                   headers=auth_headers(self.other_company))
+        self.assertEqual(session.status_code, 201, session.get_json())
+        data = session.get_json()
+
+        def fake_stream(form_data):
+            yield 'data: ## 7. 지원\\n\\n전체 매뉴얼\n\n'
+            yield 'data: [PHASE_COMPLETE:2]\n\n'
+            yield 'data: [DONE]\n\n'
+
+        url = f"/api/generate-iso?manual_id={data['manual_id']}&stream_token={data['stream_token']}&continue_from=7"
+        with patch('index.generate_iso_manual_stream', fake_stream):
+            blocked = self.client.get(url).get_data(as_text=True)
+        self.assertIn('사업자등록번호 확인 후', blocked)
+        self.assertIsNone(ManualGeneration.query.get(data['manual_id']).phase2_markdown)
+
+        # 번호를 등록하면 같은 세션으로 이어서 받을 수 있다
+        self.other_company.biz_reg_no = '2208112341'
+        self.other_company.biz_status = 'verified'
+        db.session.commit()
+        with patch('index.generate_iso_manual_stream', fake_stream):
+            allowed = self.client.get(url).get_data(as_text=True)
+        self.assertNotIn('사업자등록번호 확인 후', allowed)
+        self.assertIn('전체 매뉴얼', ManualGeneration.query.get(data['manual_id']).phase2_markdown or '')
 
     def test_admin_manual_generation_does_not_need_business_number(self):
         response = self.client.post('/api/iso-manual/session', json=self._manual_payload(),
