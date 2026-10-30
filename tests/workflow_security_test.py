@@ -668,6 +668,55 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertEqual(preview.status_code, 200)
         return preview.get_json()['contract_hash']
 
+    def test_robots_and_sitemap_are_served_from_the_site_root(self):
+        """검색엔진은 /robots.txt · /sitemap.xml 을 찾는다. 공개 페이지만 알리고 비공개 화면은 막는다."""
+        with patch.dict(os.environ, {'BASE_URL': 'https://example.test/'}):
+            robots = self.client.get('/robots.txt')
+            old_robots = self.client.get('/api/robots.txt')
+            sitemap = self.client.get('/sitemap.xml')
+            old_sitemap = self.client.get('/api/sitemap.xml')
+
+        self.assertEqual(robots.status_code, 200)
+        self.assertEqual(robots.get_data(as_text=True), old_robots.get_data(as_text=True))
+        text = robots.get_data(as_text=True)
+        self.assertIn('Allow: /', text)
+        for private in ('/api/', '/admin.html', '/dashboard.html', '/login.html'):
+            self.assertIn(f'Disallow: {private}', text)
+        self.assertIn('Sitemap: https://example.test/sitemap.xml', text)  # 끝의 '/' 가 겹치지 않는다
+
+        body = sitemap.get_data(as_text=True)
+        self.assertEqual(sitemap.status_code, 200)
+        self.assertEqual(body, old_sitemap.get_data(as_text=True))
+        self.assertIn('xml', sitemap.mimetype)
+        for page in ('/', '/ai-manual.html', '/iso-9001-manual-sample.html', '/iso-14001-manual-sample.html',
+                     '/iso-45001-manual-sample.html', '/blog.html'):
+            self.assertIn(f'<loc>https://example.test{page}</loc>', body)
+        for hidden in ('/login.html', '/admin.html', '/dashboard.html', '/index.html', '/terms.html'):
+            self.assertNotIn(f'https://example.test{hidden}<', body)
+
+    def test_sitemap_lists_published_blog_posts_but_not_deleted_ones(self):
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        live = Post(title='공개 글', content='본문')
+        gone = Post(title='삭제된 글', content='본문', deleted_at=now)
+        db.session.add_all([live, gone])
+        db.session.commit()
+        with patch.dict(os.environ, {'BASE_URL': 'https://example.test'}):
+            body = self.client.get('/sitemap.xml').get_data(as_text=True)
+        self.assertIn(f'/blog_detail.html?id={live.id}</loc>', body)
+        self.assertNotIn(f'/blog_detail.html?id={gone.id}</loc>', body)
+
+    def test_vercel_routes_send_root_sitemap_and_robots_to_the_api(self):
+        with open(os.path.join(os.path.dirname(__file__), '..', 'vercel.json'), encoding='utf-8') as f:
+            config = json.load(f)
+        import re
+        routes = {r['src']: r['dest'] for r in config['routes']}
+        matching = [dest for src, dest in routes.items() if re.fullmatch(src, 'sitemap.xml') or re.fullmatch(src.lstrip('/'), 'sitemap.xml')]
+        self.assertIn('/api/index.py', matching)
+        self.assertTrue(any(re.fullmatch(src.lstrip('/'), 'robots.txt') and dest == '/api/index.py' for src, dest in routes.items()))
+        # 정적 HTML 라우트가 이 두 경로를 가로채지 않는다
+        first = next(src for src in routes if re.fullmatch(src.lstrip('/'), 'robots.txt'))
+        self.assertIn('sitemap', first)
+
     def test_contract_includes_default_50_50_payment_schedule(self):
         text = self.client.get(f'/api/projects/{self.project.id}/contract/preview',
                                headers=auth_headers(self.company)).get_json()['contract_text']
