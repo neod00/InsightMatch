@@ -3582,6 +3582,53 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()['days'], 365)
 
+    def _seed_manual_rows(self):
+        """기업 2명: A 는 1단계+전체 받기까지 했고 이후 견적 요청, B 는 세션만 만들고 이탈."""
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        earlier = now - datetime.timedelta(hours=2)
+        def manual(mid, user, p1=None, p2=None, created=None):
+            row = ManualGeneration(id=mid, user_id=user.id, token_hash='h', token_expires_at=now,
+                                   form_data='{}', phase1_markdown=p1, phase2_markdown=p2, created_at=created or earlier)
+            db.session.add(row)
+        manual('m-a1', self.company, p1='# 1~6절', p2='# 7~10절')
+        manual('m-a2', self.company, p1='# 1~6절')            # 같은 사람의 두 번째 세션 — 사람은 한 번만 센다
+        manual('m-b1', self.other_company)                    # 세션만 만들고 이탈
+        db.session.commit()
+
+    def test_funnel_stats_includes_ai_manual_stages_in_users(self):
+        self._seed_manual_rows()
+        # self.company 는 setUp 에서 견적(프로젝트)을 만들었고 그것은 이 매뉴얼(2시간 전)보다 뒤 — 견적으로 이어진 1명
+        data, _ = self._funnel()
+        stages = {s['key']: s for s in data['manualFunnel']}
+        self.assertEqual([s['key'] for s in data['manualFunnel']],
+                         ['manual_started', 'manual_preview_done', 'manual_full_done', 'manual_to_quote'])
+        self.assertEqual(stages['manual_started']['count'], 2)
+        self.assertEqual(stages['manual_preview_done']['count'], 1)
+        self.assertEqual(stages['manual_full_done']['count'], 1)
+        self.assertEqual(stages['manual_to_quote']['count'], 1)
+        self.assertEqual(stages['manual_preview_done']['rateFromPrev'], 50.0)
+        self.assertTrue(all(s['unit'] == '명' for s in data['manualFunnel']))
+
+    def test_manual_funnel_counts_only_quotes_made_after_the_manual(self):
+        self._seed_manual_rows()
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        # other_company 의 견적은 매뉴얼(2시간 전)보다 먼저(3시간 전) — 매뉴얼에서 이어진 것이 아니다
+        db.session.add(Project(company_id=self.other_company.id, consultant_id=self.consultant.id, title='매뉴얼 전 견적',
+                               session_id='before-manual', status='proposal_pending',
+                               created_at=now - datetime.timedelta(hours=3)))
+        db.session.commit()
+        data, _ = self._funnel()
+        stages = {s['key']: s for s in data['manualFunnel']}
+        self.assertEqual(stages['manual_to_quote']['count'], 1)           # self.company 만
+        self.assertEqual(stages['manual_to_quote']['rateFromPrev'], 50.0)  # 시작한 2명 중 1명
+
+    def test_manual_funnel_has_no_data_does_not_divide_by_zero(self):
+        data, _ = self._funnel()
+        for stage in data['manualFunnel']:
+            self.assertEqual(stage['count'], 0)
+        self.assertIsNone(data['manualFunnel'][1]['rateFromPrev'])
+        self.assertTrue(any('AI 매뉴얼' in text for text in data['limitations']))
+
     def test_funnel_stats_states_its_measurement_limits(self):
         """파생 집계의 한계를 응답이 스스로 밝혀야 한다 (숨기면 전환율을 오해한다)."""
         data, _ = self._funnel()

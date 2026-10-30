@@ -359,6 +359,17 @@
                 <div id="funnel-project-list"></div>
             </section>
 
+            <!-- 3구간: AI 매뉴얼 (사용자 단위) -->
+            <section class="hm-admin-card">
+                <div class="hm-admin-card-head">
+                    <h2><i data-lucide="file-text"></i>AI 매뉴얼 — 사용자 기준</h2>
+                </div>
+                <p class="hm-admin-card-lead">
+                    매뉴얼은 유입을 위한 기능입니다. 단위는 <strong>사용자 수</strong>이며, 가입한 기업이 매뉴얼을 만들기 시작한 뒤 어디까지 가는지 봅니다.
+                </p>
+                <div id="funnel-manual-list"></div>
+            </section>
+
             <!-- 본류가 아닌 분기 -->
             <div class="hm-kpi-grid fade-in-up">
                 <div class="hm-kpi is-warn">
@@ -1015,8 +1026,10 @@
                 const days = document.getElementById('funnel-days').value || '30';
                 const surveyBox = document.getElementById('funnel-survey-list');
                 const projectBox = document.getElementById('funnel-project-list');
+                const manualBox = document.getElementById('funnel-manual-list');
                 surveyBox.innerHTML = '<p class="hm-admin-empty">불러오는 중...</p>';
                 projectBox.innerHTML = '';
+                manualBox.innerHTML = '';
 
                 try {
                     const res = await authFetch(`/api/admin/funnel-stats?days=${encodeURIComponent(days)}`);
@@ -1028,6 +1041,7 @@
 
                     renderFunnelStages(surveyBox, data.surveyFunnel || []);
                     renderFunnelStages(projectBox, data.projectFunnel || []);
+                    renderFunnelStages(manualBox, data.manualFunnel || []);
 
                     const first = (data.surveyFunnel || [])[0];
                     document.getElementById('funnel-count').textContent = first ? first.count : '0';
