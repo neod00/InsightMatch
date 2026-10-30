@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title>ISO 14001 환경매뉴얼 작성 예시 (ISO 14001:2015) - InsightMatch</title>
+    <meta name="description" content="ISO 14001:2015 환경매뉴얼 작성 예시. 환경측면 평가, 준수의무, 비상사태 대응, 환경목표를 가상 회사 예시와 작성 포인트로 보여 드립니다.">
+    <meta property="og:title" content="ISO 14001 환경매뉴얼 작성 예시 (ISO 14001:2015)">
+    <meta property="og:description" content="ISO 14001:2015 환경매뉴얼 작성 예시. 환경측면 평가, 준수의무, 비상사태 대응, 환경목표를 가상 회사 예시와 작성 포인트로 보여 드립니다.">
+    <meta property="og:type" content="article">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="images/logo2.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="images/logo2.png">
+    <link rel="apple-touch-icon" href="images/logo2.png">
+
+    <!-- B안은 라이트 전용. 예전 테마 토글이 남긴 localStorage.theme='dark' 가 있어도 어둡게 열지 않는다. -->
+    <script>
+        document.documentElement.classList.remove('dark');
+    </script>
+
+    <!-- Fonts: Pretendard + DM Sans (메인페이지와 동일) -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,500;9..40,600;9..40,700;9..40,800&display=swap">
+
+    <!-- B안 공통 스타일(14절: 법률 문서 레이아웃). Tailwind CDN·style.css·lucide 는 로드하지 않는다(아이콘은 인라인 SVG). -->
+    <link rel="stylesheet" href="brand.css?v=6">
+    <style>
+        /* 작성 예시 페이지 전용(이 페이지에서만 쓰는 작은 보정) */
+        .sample-cta { display: flex; flex-wrap: wrap; gap: 10px; }
+        .hm-legal .sample-cta a.hm-btn { text-decoration: none; }
+        .sample-switch { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; }
+        .sample-switch a { padding: 8px 14px; border-radius: 999px; background: var(--white); border: 1px solid var(--line);
+            font-size: 14px; font-weight: 600; color: var(--char); text-decoration: none; }
+        .sample-switch a[aria-current="page"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+    </style>
+</head>
+
+<body class="hm-body">
+    <a class="hm-skip" href="#main">본문으로 건너뛰기</a>
+
+    <header class="hm-header">
+        <div class="hm-wrap">
+            <div class="hm-header-row">
+                <a class="hm-logo" href="index.html" aria-label="InsightMatch 메인으로">Insight<span class="hm-logo-dot" aria-hidden="true"></span>Match</a>
+                <nav class="hm-nav" aria-label="주요 메뉴">
+                    <a href="index.html">홈</a>
+                    <a href="index.html#diagnosis">ISO 진단</a>
+                    <a href="ai-manual.html">AI 매뉴얼</a>
+                    <a href="iso-9001-manual-sample.html" aria-current="page">매뉴얼 예시</a>
+                    <a href="blog.html">블로그</a>
+                    <a href="contact.html">문의하기</a>
+                </nav>
+                <div class="hm-header-actions">
+                    <div id="nav-actions" class="hm-nav-actions">
+                        <a class="hm-acc" href="login.html">로그인</a>
+                        <a class="hm-acc hm-acc-outline" href="signup.html">무료 회원가입</a>
+                    </div>
+                    <button class="hm-menu-btn" id="mobile-menu-btn" type="button" aria-controls="mobile-nav" aria-label="메뉴 열기"><span></span></button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="hm-mnav hm-mnav-fade opacity-0 pointer-events-none" id="mobile-nav" aria-label="모바일 메뉴">
+        <div class="hm-mnav-inner">
+            <a href="index.html" class="mobile-nav-link">홈</a>
+            <a href="index.html#diagnosis" class="mobile-nav-link">ISO 진단</a>
+            <a href="ai-manual.html" class="mobile-nav-link">AI 매뉴얼</a>
+            <a href="iso-9001-manual-sample.html" class="mobile-nav-link" aria-current="page">매뉴얼 예시</a>
+            <a href="blog.html" class="mobile-nav-link">블로그</a>
+            <a href="contact.html" class="mobile-nav-link">문의하기</a>
+            <div class="hm-mnav-actions" id="mobile-nav-actions">
+                <a href="login.html">로그인</a>
+                <a href="signup.html" class="is-primary">무료 회원가입</a>
+            </div>
+            <button class="hm-mnav-close" id="close-mobile-nav" type="button">메뉴 닫기</button>
+        </div>
+    </nav>
+
+    <main id="main">
+        <section class="hm-wrap hm-doc-head" aria-labelledby="doc-title">
+            <span class="hm-eyebrow">ISO 14001 · 매뉴얼 작성 예시</span>
+            <h1 class="hm-h1" id="doc-title">ISO 14001 환경매뉴얼 작성 예시</h1>
+            <div class="hm-doc-meta">
+                <span>기준 <strong>ISO 14001:2015</strong></span>
+                <span>예시 회사 <strong>(주)예시정밀</strong> (가상)</span>
+                <span>문서 <strong>EM-001</strong></span>
+            </div>
+            <nav class="sample-switch" aria-label="다른 규격 예시"><a href="iso-9001-manual-sample.html">ISO 9001 품질</a><a href="iso-14001-manual-sample.html" aria-current="page">ISO 14001 환경</a><a href="iso-45001-manual-sample.html">ISO 45001 안전보건</a></nav>
+        </section>
+
+        <div class="hm-wrap">
+            <div class="hm-doc">
+                <nav class="hm-doc-toc" id="doc-toc" aria-labelledby="toc-title">
+                    <button class="hm-doc-toc-toggle" id="toc-toggle" type="button" aria-expanded="false" aria-controls="toc-list"><span class="lbl" aria-hidden="true">목차</span><span class="cur" id="toc-current">문서 정보</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+                    <h2 class="hm-doc-toc-title" id="toc-title">목차</h2>
+                    <ol id="toc-list"><li><a href="#info">문서 정보</a></li><li><a href="#c1">1~3. 적용범위·용어</a></li><li><a href="#c4">4. 조직의 상황</a></li><li><a href="#c5">5. 리더십</a></li><li><a href="#c6">6. 기획</a></li><li><a href="#c7">7. 지원</a></li><li><a href="#c8">8. 운용</a></li><li><a href="#c9">9. 성과평가</a></li><li><a href="#c10">10. 개선</a></li><li><a href="#appendix">부록 A. 문서 목록</a></li></ol>
+                </nav>
+
+                <div class="hm-doc-main">
+                    <div class="hm-doc-notices">
+                        <div class="hm-doc-notice is-warn">
+                            <span class="hm-doc-notice-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span>
+                            <p class="hm-doc-notice-title"><span>이해를 돕기 위한 작성 예시입니다</span></p>
+                            <p>가상의 회사로 만든 <strong>작성 예시</strong>이며, InsightMatch AI 매뉴얼 생성기의 실제 결과물이 아닙니다.
+                                그대로 인증심사에 쓸 수 없고, 회사의 실제 업무에 맞게 다시 써야 합니다.
+                                AI 매뉴얼 생성기는 입력한 회사 정보로 맞춤 초안을 만들어 드립니다.</p>
+                        </div>
+                        <div class="hm-doc-notice is-ok">
+                            <span class="hm-doc-notice-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span>
+                            <p class="hm-doc-notice-title"><span>규격 개정판 안내</span></p>
+                            <p>ISO 14001은 2026판이 2026년 4월 발행되었습니다. 이 예시는 지금 대부분의 기업이 인증을 유지하는 2015판 조항 구조를 따릅니다.</p>
+                        </div>
+                    </div>
+
+                    <article class="legal hm-legal">
+<h2 id="info">문서 정보</h2>
+<div class="table-scroll"><table><thead><tr><th>항목</th><th>내용</th></tr></thead><tbody><tr><td>회사</td><td>(주)예시정밀 (가상의 회사)</td></tr><tr><td>사업 내용</td><td>자동차 제동장치 부품 정밀 가공(CNC) 및 조립</td></tr><tr><td>사업장 · 인원</td><td>본사 공장 1곳 (경기도 ○○시) · 85명</td></tr><tr><td>적용 규격</td><td>ISO 14001:2015</td></tr><tr><td>문서번호 · 개정</td><td>EM-001 · 개정 0</td></tr><tr><td>승인</td><td>대표이사</td></tr></tbody></table></div>
+<h2 id="c1">1~3. 적용범위 · 인용표준 · 용어</h2>
+<div class="clause"><h3>1. 적용범위</h3><p>자동차 제동장치 부품의 정밀 가공(CNC) 및 조립과 관련된 본사 공장의 모든 활동, 제품, 서비스에 적용한다.</p></div>
+<div class="clause"><h3>2. 인용표준</h3><p>ISO 14001:2015 환경경영시스템 — 요구사항 및 사용지침</p></div>
+<div class="clause"><h3>3. 용어와 정의</h3><p>이 매뉴얼의 용어는 ISO 14001:2015를 따른다. "관리책임자"는 대표이사가 지정한 시스템 운영 책임자를 말한다.</p></div>
+<h2 id="c4">4. 조직의 상황</h2>
+<div class="clause"><h3>4.1 조직과 조직상황의 이해</h3><ul><li>내부: 절삭유·세척제 사용량 증가, 노후 컴프레서의 전력 낭비</li><li>외부: 고객사의 탄소 배출 정보 요구, 폐기물 처리 단가 상승, 공장 주변 주거지의 소음 민원 가능성</li></ul></div>
+<div class="clause"><h3>4.2 이해관계자의 니즈와 기대 이해</h3><div class="table-scroll"><table><thead><tr><th>이해관계자</th><th>요구와 기대</th><th>준수의무 여부</th></tr></thead><tbody><tr><td>지자체·환경청</td><td>배출·폐기물 법규 준수</td><td>예(법규)</td></tr><tr><td>고객사</td><td>유해물질 미사용, 탄소 정보 제공</td><td>예(계약)</td></tr><tr><td>인근 주민</td><td>소음·악취 최소화</td><td>아니오(자율 관리)</td></tr></tbody></table></div></div>
+<div class="clause"><h3>4.3 환경경영시스템 적용범위 결정</h3><p>자동차 제동장치 부품의 정밀 가공(CNC) 및 조립과 관련된 본사 공장의 모든 활동, 제품, 서비스에 적용한다.</p></div>
+<div class="clause"><h3>4.4 환경경영시스템</h3><p>회사는 이 매뉴얼과 절차서에 따라 환경경영시스템을 수립·실행·유지하고 지속적으로 개선한다.</p></div>
+<p class="is-small"><strong>작성 포인트</strong> · 환경 매뉴얼에서는 &quot;제품의 수명주기 관점&quot;을 언급해 두는 것이 좋습니다. 원자재 구매부터 폐기까지 회사가 영향을 줄 수 있는 범위를 생각했다는 근거가 됩니다.</p>
+<h2 id="c5">5. 리더십</h2>
+<div class="clause"><h3>5.1 리더십과 의지표명</h3><p>대표이사는 환경경영시스템의 효과성에 책임을 지고, 환경 목표 달성에 필요한 예산을 배정한다.</p></div>
+<div class="clause"><h3>5.2 환경방침</h3><div class="hm-legal-callout"><p>“우리는 가공 공정에서 나오는 폐기물과 에너지 사용을 줄이고, 환경 법규를 지키며, 오염을 예방한다. 고객과 이웃에게 환경 성과를 투명하게 알린다.”</p></div><p>환경방침에는 환경 보호, 준수의무 이행, 지속적 개선에 대한 약속을 담는다.</p></div>
+<div class="clause"><h3>5.3 조직의 역할, 책임 및 권한</h3><p>생산관리팀장을 환경 관리책임자로 지정하며, 환경 성과를 분기마다 대표이사에게 보고한다.</p></div>
+<h2 id="c6">6. 기획</h2>
+<div class="clause"><h3>6.1.2 환경측면</h3><p>공정별 환경측면을 찾아 발생 빈도·영향 크기·법규 관련성으로 평가하고, 12점 이상을 중대한 환경측면으로 관리한다.</p><div class="table-scroll"><table><thead><tr><th>공정</th><th>환경측면</th><th>환경영향</th><th>중대성</th></tr></thead><tbody><tr><td>CNC 가공</td><td>폐절삭유 발생</td><td>토양·수질 오염</td><td>중대</td></tr><tr><td>세척</td><td>세척제 휘발(VOC)</td><td>대기 오염</td><td>중대</td></tr><tr><td>가공 전반</td><td>금속 칩 발생</td><td>자원 소모</td><td>일반</td></tr><tr><td>공장 전체</td><td>전력 사용</td><td>온실가스 배출</td><td>중대</td></tr></tbody></table></div></div>
+<div class="clause"><h3>6.1.3 준수의무</h3><p>관리책임자는 적용 법규 목록을 관리하고 반기마다 개정 여부를 확인한다.</p><ul><li>폐기물관리법(폐절삭유·폐유기용제 처리)</li><li>대기환경보전법(세척 공정 배출)</li><li>화학물질관리법(세척제 보관·취급)</li><li>고객사 유해물질 관리 기준(계약)</li></ul></div>
+<div class="clause"><h3>6.1.4 조치의 기획</h3><p>중대한 환경측면과 준수의무는 운용 기준(8.1), 목표(6.2), 비상 대응(8.2) 중 알맞은 방법으로 관리한다.</p></div>
+<div class="clause"><h3>6.2 환경목표와 달성 기획</h3><div class="table-scroll"><table><thead><tr><th>목표</th><th>지표</th><th>목표값</th><th>주기</th><th>담당</th></tr></thead><tbody><tr><td>폐절삭유 감축</td><td>발생량(톤/년)</td><td>전년 대비 10% 감축</td><td>월</td><td>생산팀</td></tr><tr><td>전력 절감</td><td>생산량당 전력(kWh/개)</td><td>전년 대비 5% 감축</td><td>월</td><td>설비팀</td></tr><tr><td>법규 위반</td><td>위반 건수</td><td>0건</td><td>반기</td><td>관리책임자</td></tr></tbody></table></div></div>
+<p class="is-small"><strong>작성 포인트</strong> · 환경측면 평가표는 심사의 중심입니다. 평가 기준(점수표)과 결과를 별도 양식으로 두고, 매뉴얼에는 기준 점수와 관리 방법만 씁니다.</p>
+<h2 id="c7">7. 지원</h2>
+<div class="clause"><h3>7.1 자원</h3><p>회사는 환경경영시스템의 수립·실행·유지에 필요한 인원, 설비, 작업 환경을 연간 사업계획에서 확보한다.</p><p>측정·시험 장비는 연 1회 공인 교정기관에서 교정하고, 교정 상태를 장비에 표시한다.</p></div>
+<div class="clause"><h3>7.2 역량</h3><p>직무별로 필요한 자격과 교육을 직무 기술서에 정하고, 개인별 교육 이력을 역량 매트릭스로 관리한다.</p><p>신규 입사자는 배치 전 2주간 현장 교육(OJT)을 받고, 팀장이 수행 능력을 확인한 뒤 단독 작업을 승인한다.</p></div>
+<div class="clause"><h3>7.3 인식</h3><p>모든 직원은 입사 교육과 연 1회 정기 교육에서 회사의 방침·목표와 자신의 업무가 환경경영시스템에 주는 영향을 배운다.</p></div>
+<div class="clause"><h3>7.4 의사소통</h3><div class="table-scroll"><table><thead><tr><th>무엇을</th><th>누구에게</th><th>언제</th><th>방법</th></tr></thead><tbody><tr><td>방침·목표·성과</td><td>전 직원</td><td>분기 1회</td><td>전체 조회, 사내 게시판</td></tr><tr><td>고객·외부 요청</td><td>관련 팀</td><td>접수 즉시</td><td>담당자 메일, 접수 대장</td></tr><tr><td>현장 이슈</td><td>팀장·관리책임자</td><td>매일</td><td>생산 회의(오전 8시 30분)</td></tr></tbody></table></div></div>
+<div class="clause"><h3>7.5 문서화된 정보</h3><p>문서 체계는 매뉴얼(1단계) → 절차서(2단계) → 작업지침서·양식(3단계) → 기록으로 구성한다.</p><p>문서는 작성·검토·승인 후 배포하고, 개정 시 개정 이력을 남긴다. 주요 기록(환경측면 평가표, 폐기물 처리 기록, 준수평가 기록, 비상 훈련 기록)은 최소 3년 보관한다.</p></div>
+<p class="is-small"><strong>작성 포인트</strong> · 역량 매트릭스와 교육 기록은 심사에서 가장 자주 확인하는 증거입니다. 매뉴얼에는 &quot;어떻게 관리하는지&quot;만 쓰고, 실제 표와 기록은 따로 둡니다.</p>
+<h2 id="c8">8. 운용</h2>
+<div class="clause"><h3>8.1 운용 기획 및 관리</h3><ul><li>폐절삭유와 폐세척제는 지정 용기에 담아 지붕과 방류벽이 있는 보관장에 두고, 허가 업체에 위탁 처리한다.</li><li>세척제는 물질안전보건자료(MSDS)를 비치하고 사용량을 기록한다.</li><li>외주·공급사에는 회사의 환경 요구사항(유해물질 관리, 폐기물 처리)을 계약서로 알린다.</li></ul></div>
+<div class="clause"><h3>8.2 비상사태 대비 및 대응</h3><p>절삭유·세척제 누출과 화재를 비상사태로 정하고, 흡착포·방제 키트를 비치한다. 연 1회 누출 대응 훈련을 하고 결과를 검토해 대응 절차를 보완한다.</p></div>
+<h2 id="c9">9. 성과평가</h2>
+<div class="clause"><h3>9.1 모니터링, 측정, 분석 및 평가</h3><p>목표 지표는 매월 집계하여 월례 회의에서 검토하고, 목표에 미달하면 원인을 분석해 개선 조치를 정한다.</p></div>
+<div class="clause"><h3>9.1.2 준수평가</h3><p>관리책임자는 반기마다 법규 목록의 준수 여부를 평가하고, 미준수 사항은 즉시 시정한다.</p></div>
+<div class="clause"><h3>9.2 내부심사</h3><p>관리책임자는 연 1회 이상 환경경영시스템 전 범위를 내부심사한다. 심사원은 자기 업무를 심사하지 않는다.</p><p>심사 결과의 부적합은 해당 팀장이 30일 안에 시정조치하고, 관리책임자가 효과를 확인한다.</p></div>
+<div class="clause"><h3>9.3 경영검토</h3><p>대표이사는 연 1회 경영검토 회의를 주관한다. 이전 검토의 후속 조치, 목표 달성도, 심사 결과, 리스크와 기회, 자원의 적절성, 개선 기회를 검토하고, 결정 사항을 회의록으로 남긴다.</p></div>
+<p class="is-small"><strong>작성 포인트</strong> · 경영검토 회의록은 &quot;무엇을 검토했고 무엇을 결정했는지&quot;가 보여야 합니다. 검토 항목을 목차로 두고 항목마다 결론을 한 줄씩 적으면 충분합니다.</p>
+<h2 id="c10">10. 개선</h2>
+<div class="clause"><h3>10.1 일반사항</h3><p>회사는 성과평가 결과와 현장 제안을 바탕으로 개선 기회를 찾고, 개선 과제를 연간 계획에 반영한다.</p></div>
+<div class="clause"><h3>10.2 부적합 및 시정조치</h3><p>누출, 법규 미준수, 목표 미달은 원인을 분석해 시정조치하고, 필요하면 환경측면 평가와 운용 기준을 고친다.</p></div>
+<div class="clause"><h3>10.3 지속적 개선</h3><p>분기마다 개선 제안을 모아 효과가 큰 과제를 선정하고, 결과를 경영검토에 보고한다.</p></div>
+<h2 id="appendix">부록 A. 문서 목록</h2>
+<p>매뉴얼(1단계) 아래에 실제 업무 방법을 정한 절차서(2단계)를 둡니다. 예시 회사의 문서 목록은 다음과 같습니다.</p>
+<div class="table-scroll"><table><thead><tr><th>문서</th><th>번호</th></tr></thead><tbody><tr><td>환경매뉴얼</td><td>EM-001</td></tr><tr><td>환경측면 평가 절차</td><td>EP-01</td></tr><tr><td>준수의무 관리 절차</td><td>EP-02</td></tr><tr><td>폐기물 관리 절차</td><td>EP-03</td></tr><tr><td>화학물질 관리 절차</td><td>EP-04</td></tr><tr><td>비상사태 대비·대응 절차</td><td>EP-05</td></tr><tr><td>모니터링·준수평가 절차</td><td>EP-06</td></tr></tbody></table></div>
+<div class="hm-legal-foot"><h3>우리 회사 환경매뉴얼 초안, 무료로 만들어 보세요</h3><p>업종·규모·경영 이슈를 입력하면 AI가 회사에 맞춘 매뉴얼 초안을 만들어 드립니다. 가입 후 표지부터 6절까지 무료로 볼 수 있습니다.</p><p class="sample-cta"><a class="hm-btn hm-btn-lime" href="ai-manual.html">무료로 매뉴얼 초안 만들기<span class="hm-arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a><a class="hm-btn hm-btn-ghost" href="index.html#diagnosis">전문가에게 검토받기<span class="hm-arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a></p><p class="is-small">다른 규격 예시: <a href="iso-9001-manual-sample.html">ISO 9001 품질 매뉴얼</a> · <a href="iso-45001-manual-sample.html">ISO 45001 안전보건 매뉴얼</a></p></div>
+                    </article>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer (메인과 같은 다크 푸터) -->
+    <footer class="hm-footer hm-on-dark is-spaced">
+        <div class="hm-wrap">
+            <div class="hm-foot-top">
+                <div>
+                    <div class="hm-foot-brand">Insight<span class="hm-logo-dot" aria-hidden="true"></span>Match<small>by OpenBrain</small></div>
+                    <p>InsightMatch는 ISO 인증을 준비하는 기업과 검증된 컨설턴트를 연결하는 매칭 플랫폼입니다. 심사는 인정받은 인증기관이 수행합니다.</p>
+                </div>
+                <div>
+                    <h4>SERVICE</h4>
+                    <ul>
+                        <li><a href="index.html#diagnosis">컨설턴트 소개</a></li>
+                        <li><a href="index.html#how-it-works">프로세스 안내</a></li>
+                        <li><a href="index.html#verify">검증 기준</a></li>
+                        <li><a href="index.html#iso-catalog">규격</a></li>
+                        <li><a href="ai-manual.html">AI 매뉴얼</a></li>
+                        <li><a href="iso-9001-manual-sample.html">매뉴얼 작성 예시</a></li>
+                        <li><a href="consultant_register.html">컨설턴트 등록</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>SUPPORT</h4>
+                    <ul>
+                        <li><a href="index.html#faq">자주 묻는 질문</a></li>
+                        <li><a href="consultant-faq.html">전문가 FAQ</a></li>
+                        <li><a href="blog.html">블로그</a></li>
+                        <li><a href="contact.html">문의하기</a></li>
+                        <li><a href="login.html">로그인</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>LEGAL</h4>
+                    <ul>
+                        <li><a href="terms.html">이용약관</a></li>
+                        <li><a href="privacy.html">개인정보처리방침</a></li>
+                        <li><a href="partner-agreement.html">컨설턴트 협력계약</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="hm-wordmark" aria-hidden="true">Insight<span class="hm-logo-dot"></span>Match</div>
+            <div class="hm-foot-bottom"><span>© 2026 OpenBrain Limited. All rights reserved.</span><span>InsightMatch - ISO Consultant Matching Platform</span></div>
+        </div>
+    </footer>
+
+    <script>
+        // 테마(다크) 토글은 B안이 라이트 전용이라 제거했다. (head 에서 .dark 를 항상 걷어 낸다)
+
+        // 인라인 SVG 아이콘 (lucide 의존 제거)
+        const ICON_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+        const ICONS = {
+            dashboard: `<svg ${ICON_ATTRS}><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>`,
+            logout: `<svg ${ICON_ATTRS}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>`
+        };
+
+        // -----------------------------------------------------------
+        // Mobile Navigation
+        // -----------------------------------------------------------
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const closeMobileNavBtn = document.getElementById('close-mobile-nav');
+        const mobileNav = document.getElementById('mobile-nav');
+        const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
+
+        function openMobileMenu() {
+            mobileNav.classList.remove('opacity-0', 'pointer-events-none');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeMobileMenu() {
+            mobileNav.classList.add('opacity-0', 'pointer-events-none');
+            document.body.style.overflow = '';
+        }
+
+        mobileMenuBtn.addEventListener('click', openMobileMenu);
+        closeMobileNavBtn.addEventListener('click', closeMobileMenu);
+        mobileNavLinks.forEach(link => link.addEventListener('click', closeMobileMenu));
+
+        // 햄버거가 보이는 폭이 1180px 이하로 바뀌어(brand.css 13절) 닫는 기준도 맞췄다 (예전 768px)
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 1180) closeMobileMenu();
+        });
+
+        // -----------------------------------------------------------
+        // Check login status and update navigation
+        // -----------------------------------------------------------
+        function updateNavigation() {
+            let user = null;
+            try { user = JSON.parse(localStorage.getItem('user')); } catch (e) { user = null; }
+            const token = localStorage.getItem('token');
+            const navActions = document.getElementById('nav-actions');
+            const mobileNavActions = document.getElementById('mobile-nav-actions');
+
+            if (user && token) {
+                const dashboardLink = user.role === 'admin' ? 'admin.html' : 'dashboard.html';
+                const dashboardText = user.role === 'admin' ? '관리자 대시보드' : '대시보드';
+                if (navActions) {
+                    navActions.innerHTML = `
+                        <a href="${dashboardLink}" class="hm-acc">${ICONS.dashboard}${dashboardText}</a>
+                        <button type="button" onclick="logout()" class="hm-acc hm-acc-outline">${ICONS.logout}로그아웃</button>
+                    `;
+                }
+                if (mobileNavActions) {
+                    mobileNavActions.innerHTML = `
+                        <a href="${dashboardLink}" onclick="closeMobileMenu()">${ICONS.dashboard} ${dashboardText}</a>
+                        <button type="button" onclick="logout(); closeMobileMenu();">${ICONS.logout} 로그아웃</button>
+                    `;
+                }
+            } else {
+                if (navActions) {
+                    navActions.innerHTML = `
+                        <a class="hm-acc" href="login.html">로그인</a>
+                        <a class="hm-acc hm-acc-outline" href="signup.html">무료 회원가입</a>
+                    `;
+                }
+                if (mobileNavActions) {
+                    mobileNavActions.innerHTML = `
+                        <a href="login.html" onclick="closeMobileMenu()">로그인</a>
+                        <a href="signup.html" class="is-primary" onclick="closeMobileMenu()">무료 회원가입</a>
+                    `;
+                }
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            updateNavigation();
+        }
+
+        updateNavigation();
+
+        // -----------------------------------------------------------
+        // 목차: 모바일 접기/펼치기 + 지금 읽는 장 표시
+        // -----------------------------------------------------------
+        (function () {
+            const toc = document.getElementById('doc-toc');
+            const toggle = document.getElementById('toc-toggle');
+            const current = document.getElementById('toc-current');
+            const links = Array.from(toc.querySelectorAll('ol a[href^="#"]'));
+            const targets = links.map(a => document.getElementById(a.getAttribute('href').slice(1))).filter(Boolean);
+
+            function setOpen(open) {
+                toc.classList.toggle('is-open', open);
+                toggle.setAttribute('aria-expanded', String(open));
+            }
+            toggle.addEventListener('click', () => setOpen(!toc.classList.contains('is-open')));
+            links.forEach(a => a.addEventListener('click', () => setOpen(false)));
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && toc.classList.contains('is-open')) { setOpen(false); toggle.focus(); }
+            });
+
+            function setActive(id) {
+                links.forEach(a => {
+                    if (a.getAttribute('href') === '#' + id) {
+                        a.setAttribute('aria-current', 'true');
+                        current.textContent = a.textContent;
+                    } else {
+                        a.removeAttribute('aria-current');
+                    }
+                });
+            }
+
+            let ticking = false;
+            function update() {
+                ticking = false;
+                if (!targets.length) return;
+                const line = toc.offsetHeight > 0 && getComputedStyle(toc).position === 'sticky' && innerWidth <= 1023
+                    ? document.querySelector('.hm-header').offsetHeight + toc.offsetHeight + 24
+                    : document.querySelector('.hm-header').offsetHeight + 96;
+                let active = targets[0];
+                for (const t of targets) {
+                    if (t.getBoundingClientRect().top - line <= 0) active = t; else break;
+                }
+                if (innerHeight + scrollY >= document.documentElement.scrollHeight - 4) {
+                    const last = targets[targets.length - 1];
+                    if (last.getBoundingClientRect().top < innerHeight) active = last;
+                }
+                setActive(active.id);
+            }
+            window.addEventListener('scroll', () => {
+                if (!ticking) { ticking = true; requestAnimationFrame(update); }
+            }, { passive: true });
+            window.addEventListener('resize', update);
+            update();
+        })();
+    </script>
+</body>
+
+</html>
