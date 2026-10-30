@@ -720,6 +720,45 @@ class TestWorkflowSecurity(unittest.TestCase):
         lines = payment_schedule_lines(self.project)
         self.assertEqual(lines, ['1. 선금 33%(330,000원): a', '2. 중도금 33%(330,000원): b', '3. 잔금 34%(340,001원): c'])
 
+    def test_concluded_contract_stays_viewable_by_both_parties_with_signed_original(self):
+        """체결된 계약서는 양측이 다시 볼 수 있고, 서명 당시 원문이 그대로 나온다. 무관한 사람은 못 본다."""
+        self.client.post(f'/api/projects/{self.project.id}/contract/draft', json={}, headers=auth_headers(self.company))
+        for user in (self.company, self.consultant_user):
+            self.client.post(f'/api/projects/{self.project.id}/contract/sign',
+                             json={'contract_hash': self._contract_hash(self.project.id, user)},
+                             headers=auth_headers(user))
+        self.assertEqual(Project.query.get(self.project.id).status, 'contracted')
+
+        # 체결 뒤에 회사명이 바뀌어도 서명한 원문이 그대로 보인다
+        self.company.company_name = 'Renamed After Signing'
+        db.session.commit()
+        bodies = [self.client.get(f'/api/projects/{self.project.id}/contract/preview', headers=auth_headers(u)).get_json()
+                  for u in (self.company, self.consultant_user)]
+        for body in bodies:
+            self.assertEqual(body['status'], 'contracted')
+            self.assertTrue(body['text_is_signed_original'])
+            self.assertIn('갑(의뢰인): Buyer Co', body['contract_text'])
+            self.assertNotIn('Renamed After Signing', body['contract_text'])
+            self.assertEqual([s['signer_role'] for s in body['signatures']], ['company', 'consultant'])
+        self.assertEqual(bodies[0]['contract_hash'], bodies[1]['contract_hash'])
+
+        # 당사자가 아니면 볼 수 없다
+        self.assertEqual(self.client.get(f'/api/projects/{self.project.id}/contract/preview',
+                                         headers=auth_headers(self.other_company)).status_code, 403)
+
+    def test_contract_signed_before_evidence_existed_is_flagged_as_rebuilt(self):
+        """서명 기록 기능 이전에 체결된 계약은 서명 당시 원문이 없다 — 화면이 현재 정보로 만든 문안임을 알려야 한다."""
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        self.project.status = 'contracted'
+        self.project.company_signed_at = now
+        self.project.consultant_signed_at = now
+        db.session.commit()
+        body = self.client.get(f'/api/projects/{self.project.id}/contract/preview',
+                               headers=auth_headers(self.company)).get_json()
+        self.assertFalse(body['text_is_signed_original'])
+        self.assertEqual(body['signatures'], [])
+        self.assertIn('갑(의뢰인)', body['contract_text'])
+
     def test_contract_signing_records_evidence_and_blocks_resign(self):
         """서명마다 원문·버전·해시·서명자·접속 정보를 남기고, 두 사람은 같은 원문에 서명한다. 재서명은 막는다."""
         from models import ContractSignature

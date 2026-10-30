@@ -673,7 +673,7 @@
             <div class="modal-header">
                 <h3 id="contract-modal-h">
                     <i data-lucide="file-signature"></i>
-                    ISO 컨설팅 표준 계약서
+                    <span id="contract-modal-title">ISO 컨설팅 표준 계약서</span>
                 </h3>
                 <button type="button" onclick="closeContractModal()" class="hm-icon-btn is-plain" aria-label="닫기">
                     <i data-lucide="x"></i>
@@ -1421,6 +1421,12 @@
                                 </button>
                                 <button class="btn btn-primary" onclick="enterProjectRoom(${project.id})">프로젝트 관리</button>
                             ` : ''}
+                            ${['contracted', 'in_progress', 'completed'].includes(project.status) ? `
+                                <button class="btn btn-secondary" onclick="openContractModal(${Number(project.id)})">
+                                    <i data-lucide="file-signature" style="width: 16px; height: 16px;"></i>
+                                    계약서 보기
+                                </button>
+                            ` : ''}
                         </div>
                     </div>
                 `;
@@ -1730,6 +1736,12 @@
                         </button>
                         ` : ''}
                         ` : ''}
+                        ${['contracted', 'in_progress', 'completed'].includes(project.status) ? `
+                        <button class="btn btn-secondary btn-sm" onclick="openContractModal(${Number(project.id)})">
+                            <i data-lucide="file-signature" style="width: 14px; height: 14px;"></i>
+                            계약서 보기
+                        </button>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -1972,6 +1984,10 @@
                     return `<p style="margin-left: 16px; white-space: pre-wrap;">${escapeHtml(line)}</p>`;
                 }).join('');
 
+                // 체결된 계약은 읽기 전용(서명 버튼 없음, 서명 기록 표시)
+                const readOnly = ['contracted', 'in_progress', 'completed'].includes(data.status);
+                document.getElementById('contract-modal-title').textContent = readOnly ? '체결된 계약서' : 'ISO 컨설팅 표준 계약서';
+
                 // 서명 상태 표시
                 const companySigned = data.company_signed_at;
                 const consultantSigned = data.consultant_signed_at;
@@ -1994,7 +2010,10 @@
 
                 // 이미 내가 서명한 경우 버튼 비활성화
                 const signBtn = document.getElementById('contract-sign-btn');
-                if (mySignStatus) {
+                signBtn.classList.toggle('hidden', readOnly);
+                if (readOnly) {
+                    document.getElementById('contract-signature-status').insertAdjacentHTML('beforeend', renderContractEvidence(data));
+                } else if (mySignStatus) {
                     // 누를 수 있는 버튼처럼 보이지 않도록 상태 문구로 바꾼다.
                     signBtn.disabled = true;
                     signBtn.textContent = otherSignStatus ? '양측 서명 완료' : '내 서명 완료 · 상대 서명 대기';
@@ -2011,6 +2030,25 @@
                 console.error(error);
                 document.getElementById('contract-preview').innerHTML = '<p style="color: var(--error);">계약서를 불러오지 못했습니다.</p>';
             }
+        }
+
+        // 체결된 계약의 서명 기록: 누가·언제·어떤 문안 버전·원문 확인값. 사용자 입력값은 모두 escapeHtml.
+        function renderContractEvidence(data) {
+            const roleText = { company: '기업', consultant: '컨설턴트' };
+            const rows = (data.signatures || []).map(s => `
+                <li>${escapeHtml(roleText[s.signer_role] || '')} · ${escapeHtml(s.signer_name || '')} ·
+                    ${escapeHtml(s.signed_at ? new Date(s.signed_at + (/[zZ]|[+-]\d\d:\d\d$/.test(s.signed_at) ? '' : 'Z')).toLocaleString('ko-KR') : '')} ·
+                    문안 ${escapeHtml(s.contract_version || '')} ·
+                    원문 확인값 <code title="${escapeAttr(s.contract_hash || '')}">${escapeHtml(String(s.contract_hash || '').slice(0, 12))}…</code></li>`).join('');
+            if (rows) {
+                return `<div class="hm-note is-info" style="margin-top:16px;"><i data-lucide="shield-check"></i>
+                    <span>서명 당시의 계약서 원문이 그대로 보관되어 있고, 위 내용은 그 원문입니다.<ul style="margin:8px 0 0;padding-left:18px;">${rows}</ul></span></div>`;
+            }
+            const when = [data.company_signed_at, data.consultant_signed_at].filter(Boolean).length
+                ? '서명 시각만 기록되어 있고' : '';
+            return `<div class="hm-note is-warn" style="margin-top:16px;"><i data-lucide="info"></i>
+                <span>이 계약은 서명 기록 기능 이전에 체결되어 ${when} 서명 당시의 원문이 보관되어 있지 않습니다.
+                위 내용은 현재 정보로 다시 만든 문안이라 실제 서명한 문안과 다를 수 있습니다.</span></div>`;
         }
 
         function closeContractModal() {
