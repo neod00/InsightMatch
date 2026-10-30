@@ -33,7 +33,7 @@
 
     <!-- 메인페이지 전용 B안 스타일. Tailwind CDN·style.css 는 로드하지 않는다(필요한 기본값·iso-catalog 카드 스타일은 home.css 로 옮김).
          style.css 는 다른 페이지가 계속 쓰므로 파일은 그대로 둔다. -->
-    <link rel="stylesheet" href="home.css?v=3">
+    <link rel="stylesheet" href="home.css?v=4">
 </head>
 
 <body class="hm-body">
@@ -97,9 +97,9 @@
                     <div class="hm-hero-cta hm-reveal d3">
                         <div class="hm-hero-cta-row">
                             <a class="hm-btn hm-btn-lime hm-btn-lg" id="primary-cta" href="#diagnosis" data-hm-prefill="force">매칭 결과 보기<span class="hm-arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
-                            <a class="hm-link-under" href="ai-manual.html">AI 매뉴얼 먼저 보기</a>
+                            <a class="hm-btn hm-btn-ghost hm-btn-lg hm-hero-manual" href="#manual-entry">무료 ISO 매뉴얼 초안</a>
                         </div>
-                        <p class="hm-hero-note"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="#C3FB79" stroke="#0E0F0C" stroke-width="1"/><path d="M5 8.2l2 2 4-4.2" stroke="#0E0F0C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>가입 없이 확인 · 진단과 추천 확인은 무료입니다</p>
+                        <p class="hm-hero-note"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="#C3FB79" stroke="#0E0F0C" stroke-width="1"/><path d="M5 8.2l2 2 4-4.2" stroke="#0E0F0C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>진단·추천 확인은 가입 없이 무료 · 매뉴얼 초안은 가입 후 무료</p>
                     </div>
                 </div>
 
@@ -191,6 +191,38 @@
                     <div class="hm-fact"><span class="k hm-en">0<small>원</small></span><span class="v">진단과 추천 확인은 무료</span></div>
                     <div class="hm-fact"><span class="k hm-en">3<small>단계</small></span><span class="v">진단 → 매칭 → 견적 비교</span></div>
                     <div class="hm-fact"><span class="k hm-en">5<small>개 기준</small></span><span class="v">검증 기준을 공개합니다</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================== MANUAL ENTRY (두 번째 입구: 무료 AI 매뉴얼 초안) ===================== -->
+        <section class="hm hm-manual-entry" id="manual-entry" aria-labelledby="manual-entry-title">
+            <div class="hm-wrap">
+                <div class="hm-me-card hm-reveal">
+                    <div class="hm-me-copy">
+                        <span class="hm-tag ai"><span class="dot" aria-hidden="true"></span>AI 매뉴얼 · ISO 9001·14001·45001</span>
+                        <h2 class="hm-me-title" id="manual-entry-title">ISO 매뉴얼, <span class="hl">빈 문서부터</span> 쓰지 마세요.</h2>
+                        <p class="hm-me-sub">업종·규모·경영 이슈를 입력하면 AI가 회사에 맞춘 시스템 매뉴얼 초안을 만들어 드립니다. 가입 후 표지부터 6절까지는 무료로 볼 수 있습니다.</p>
+                        <ol class="hm-me-steps">
+                            <li><b>1</b>회사 정보 입력</li>
+                            <li><b>2</b>AI 초안 생성</li>
+                            <li><b>3</b>전문가 검토·매칭</li>
+                        </ol>
+                        <div class="hm-me-cta">
+                            <a class="hm-btn hm-btn-lime hm-btn-lg" href="ai-manual.html">무료로 초안 만들기<span class="hm-arrow" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>
+                            <a class="hm-link-under" href="iso-9001-manual-sample.html">작성 예시 먼저 보기</a>
+                        </div>
+                    </div>
+                    <!-- 장식용 문서 모형(예시) — 실제 생성물 화면이 아니다 -->
+                    <div class="hm-me-doc" aria-hidden="true">
+                        <div class="hm-me-doc-head"><span class="hm-en">QM-001</span><span>품질매뉴얼 초안</span><span class="hm-me-doc-badge">예시</span></div>
+                        <div class="hm-me-doc-body">
+                            <p class="h">4. 조직의 상황</p><i style="--w:92%"></i><i style="--w:78%"></i>
+                            <p class="h">5. 리더십</p><i style="--w:86%"></i><i class="hl" style="--w:64%"></i>
+                            <p class="h">6. 기획</p><i style="--w:90%"></i><i style="--w:70%"></i>
+                            <p class="h is-lock">7~10절 · 부록</p><i class="lock" style="--w:82%"></i><i class="lock" style="--w:58%"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
