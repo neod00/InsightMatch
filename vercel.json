@@ -35,6 +35,10 @@
       "dest": "/api/index.py"
     },
     {
+      "src": "/(sitemap\\.xml|robots\\.txt)",
+      "dest": "/api/index.py"
+    },
+    {
       "src": "/(.*\\.html)",
       "dest": "/$1"
     },

@@ -5545,21 +5545,45 @@ def get_post(post_id):
         return jsonify({'message': 'Post deleted', 'id': post_id})
 
 # --- SEO Endpoints ---
+# 검색엔진은 루트의 /sitemap.xml · /robots.txt 를 찾는다. vercel.json 이 이 두 경로를 이 함수로 보내고,
+# 예전 /api/ 경로도 그대로 둔다. 도메인은 BASE_URL 환경 변수를 따른다(도메인을 바꾸면 이 값만 바꾼다).
+SITEMAP_PAGES = (
+    # (경로, 갱신 주기, 우선순위) — 로그인·대시보드·관리자 같은 비공개 화면과 약관 초안은 넣지 않는다.
+    ('/', 'daily', '1.0'),
+    ('/ai-manual.html', 'weekly', '0.9'),
+    ('/iso-9001-manual-sample.html', 'weekly', '0.8'),
+    ('/iso-14001-manual-sample.html', 'weekly', '0.8'),
+    ('/iso-45001-manual-sample.html', 'weekly', '0.8'),
+    ('/blog.html', 'daily', '0.7'),
+    ('/signup.html', 'monthly', '0.5'),
+    ('/consultant-faq.html', 'monthly', '0.5'),
+    ('/contact.html', 'monthly', '0.4'),
+)
+ROBOTS_DISALLOW = (
+    '/api/', '/admin.html', '/dashboard.html', '/login.html', '/reset-password.html',
+    '/forgot-password.html', '/find-email.html', '/logos.html',
+)
+
+
+def _site_base_url():
+    return (os.environ.get('BASE_URL') or 'https://insight-match.vercel.app').rstrip('/')
+
+
 @app.route('/api/sitemap.xml')
+@app.route('/sitemap.xml')
 def sitemap():
-    base_url = os.environ.get('BASE_URL', 'https://insight-match.vercel.app')
-    pages = ['/', '/index.html', '/login.html', '/signup.html', '/blog.html']
-    
+    base_url = _site_base_url()
+
     sitemap_xml = ['<?xml version="1.0" encoding="UTF-8"?>']
     sitemap_xml.append('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')
-    
-    for page in pages:
+
+    for page, changefreq, priority in SITEMAP_PAGES:
         sitemap_xml.append('<url>')
         sitemap_xml.append(f'<loc>{base_url}{page}</loc>')
-        sitemap_xml.append('<changefreq>daily</changefreq>')
-        sitemap_xml.append('<priority>0.8</priority>')
+        sitemap_xml.append(f'<changefreq>{changefreq}</changefreq>')
+        sitemap_xml.append(f'<priority>{priority}</priority>')
         sitemap_xml.append('</url>')
-        
+
     posts = Post.query.filter(Post.deleted_at.is_(None)).all()
     for post in posts:
         sitemap_xml.append('<url>')
@@ -5568,18 +5592,18 @@ def sitemap():
         sitemap_xml.append('<changefreq>weekly</changefreq>')
         sitemap_xml.append('<priority>0.6</priority>')
         sitemap_xml.append('</url>')
-        
+
     sitemap_xml.append('</urlset>')
     return Response('\n'.join(sitemap_xml), mimetype='text/xml')
 
+
 @app.route('/api/robots.txt')
+@app.route('/robots.txt')
 def robots():
-    base_url = os.environ.get('BASE_URL', 'https://insight-match.vercel.app')
-    lines = [
-        "User-agent: *",
-        "Allow: /",
-        f"Sitemap: {base_url}/api/sitemap.xml"
-    ]
+    base_url = _site_base_url()
+    lines = ['User-agent: *', 'Allow: /']
+    lines += [f'Disallow: {path}' for path in ROBOTS_DISALLOW]
+    lines.append(f'Sitemap: {base_url}/sitemap.xml')
     return Response('\n'.join(lines), mimetype='text/plain')
 
 # --- Blog Posts API ---
