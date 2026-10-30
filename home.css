@@ -1347,3 +1347,38 @@ body:has(.hm-selbar.active) { padding-bottom: 112px; }
 
 /* 규격 카드의 매뉴얼 작성 예시 링크 (iso-*-manual-sample.html) */
 .hm-rep .hm-rep-sample { align-self: flex-start; font-size: 14px; }
+
+/* ===================== MANUAL ENTRY (두 번째 입구: 무료 AI 매뉴얼 초안) ===================== */
+.hm-hero-manual { padding: 0 26px; }
+.hm-hero-cta-row .hm-hero-manual { order: -1; }
+@media (max-width: 900px) { .hm-hero-cta-row .hm-hero-manual { order: 0; } }
+.hm-manual-entry { padding: 28px 0 0; }
+.hm-me-card {
+  display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 48px; align-items: center;
+  padding: 48px 52px; border-radius: var(--r-lg); background: var(--white); border: 1px solid var(--line);
+}
+.hm-me-title { margin-top: 18px; font-size: clamp(28px, 3.2vw, 42px); font-weight: 800; letter-spacing: -.035em; line-height: 1.2; color: var(--ink); }
+.hm-me-title .hl { background: linear-gradient(transparent 58%, var(--lime) 58%); }
+.hm-me-sub { margin-top: 14px; font-size: 16px; color: var(--char); line-height: 1.65; max-width: 520px; }
+.hm-me-steps { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; }
+.hm-me-steps li { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px 8px 8px; border-radius: var(--pill); background: var(--surface); font-size: 14px; font-weight: 600; color: var(--ink); }
+.hm-me-steps b { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--lime); font-family: var(--font-en); font-size: 12px; }
+.hm-me-cta { margin-top: 26px; display: flex; flex-wrap: wrap; align-items: center; gap: 22px; }
+.hm-me-doc { border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); overflow: hidden; box-shadow: 0 24px 48px -28px rgba(14, 15, 12, .35); }
+.hm-me-doc-head { display: flex; align-items: center; gap: 10px; padding: 14px 18px; background: var(--ink); color: #fff; font-size: 13px; font-weight: 600; }
+.hm-me-doc-head .hm-en { color: var(--lime); font-weight: 700; }
+.hm-me-doc-badge { margin-left: auto; padding: 2px 10px; border-radius: var(--pill); background: rgba(255, 255, 255, .14); font-size: 12px; }
+.hm-me-doc-body { padding: 18px 20px 22px; display: grid; gap: 8px; }
+.hm-me-doc-body .h { margin-top: 6px; font-size: 13px; font-weight: 700; color: var(--ink); }
+.hm-me-doc-body .h.is-lock { color: var(--muted); }
+.hm-me-doc-body i { display: block; width: var(--w); height: 8px; border-radius: var(--pill); background: #DCDDD3; }
+.hm-me-doc-body i.hl { background: var(--lime); }
+.hm-me-doc-body i.lock { background: repeating-linear-gradient(90deg, #E7E8E0 0 10px, #F1F2EC 10px 20px); }
+@media (max-width: 900px) {
+  .hm-me-card { grid-template-columns: minmax(0, 1fr); gap: 28px; padding: 32px 24px; }
+  .hm-me-doc { max-width: 420px; }
+}
+@media (max-width: 560px) {
+  .hm-me-cta { gap: 16px; }
+  .hm-me-cta .hm-btn { width: 100%; justify-content: space-between; }
+}
