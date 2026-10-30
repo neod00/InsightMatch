@@ -3167,6 +3167,9 @@ def get_contract_preview(project_id):
         'contract_version': version,
         'contract_hash': contract_hash(text),
         'signatures': [s.to_dict() for s in signatures],
+        # 서명 기록 기능(2026-10-29) 이전에 체결된 계약은 서명 당시 원문이 보관돼 있지 않다.
+        # 이때 contract_text 는 지금 정보로 다시 만든 문안이라, 화면이 그렇다고 알려 준다.
+        'text_is_signed_original': bool(signatures),
     })
 
 # ========================================
