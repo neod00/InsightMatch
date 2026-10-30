@@ -66,7 +66,7 @@ class User(db.Model):
     token_version = db.Column(db.Integer, nullable=False, default=0, server_default='0')
 
     # ── 기업 사업자등록번호 (기업 회원만 사용) ──
-    # 가입 때는 선택, 견적 요청·AI 매뉴얼 생성 전에는 필수. 국세청 상태조회로 확인한다.
+    # 가입 때는 선택, 견적 요청·AI 매뉴얼 전체 받기(7절 이후·다운로드) 전에는 필수. 국세청 상태조회로 확인한다.
     # ⚠️ 운영 DB 는 create_all 이 열을 추가하지 않는다 — migrations/README.md 의 ALTER TABLE 을 먼저 실행할 것.
     biz_reg_no = db.Column(db.String(20), nullable=True)      # 숫자 10자리
     biz_status = db.Column(db.String(20), nullable=True)      # 'verified'(계속사업자) | 'unchecked'(조회 불가·관리자 확인) | 'manual'(관리자 직접 확인)

@@ -1,5 +1,5 @@
 /*
- * 기업 사업자등록번호 입력 창 (견적 요청·AI 매뉴얼 생성 전에 필수).
+ * 기업 사업자등록번호 입력 창 (견적 요청 · AI 매뉴얼 전체 받기·다운로드 전에 필수).
  *
  * 서버가 400 + code 'BUSINESS_NUMBER_REQUIRED' 를 돌려주면, 이 창으로 번호를 받아
  * PUT /api/me/business-number (국세청 상태조회) 에 저장한 뒤 원래 요청을 다시 보낸다.
@@ -79,7 +79,7 @@
                     </div>
                 </div>`;
             overlay.querySelector('.imbiz-desc').textContent = opts.message
-                || '견적 요청과 AI 매뉴얼 생성은 사업자 확인을 마친 기업만 이용할 수 있습니다.';
+                || '견적 요청과 AI 매뉴얼 전체 받기는 사업자 확인을 마친 기업만 이용할 수 있습니다.';
             const input = overlay.querySelector('.imbiz-input');
             const error = overlay.querySelector('.imbiz-error');
             const okBtn = overlay.querySelector('.imbiz-ok');

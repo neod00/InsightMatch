@@ -2028,9 +2028,8 @@ def create_iso_manual_session():
     role_error = require_manual_user()
     if role_error:
         return role_error
-    biz_error = require_company_business_number('AI 매뉴얼 생성')
-    if biz_error:
-        return biz_error
+    # 1단계 미리보기(표지~6절)는 가입만으로 만든다(유입 최대화). 사업자등록번호는 전체 받기
+    # (7절 이후 이어 생성 · PDF/Word 다운로드) 때 확인한다 — generate_iso_manual / export_iso_manual.
 
     form_data, errors = validate_manual_form_data(request.json or {})
     if errors:
@@ -2116,6 +2115,14 @@ def generate_iso_manual():
                 if part
             )
         phase = 3 if continue_from_int >= 9 else 2
+        # 전체 받기(2·3단계)는 사업자등록번호를 확인한 기업만. 화면이 먼저 입력 창을 띄우고, 여기서 한 번 더 막는다.
+        owner = User.query.get(manual.user_id) if manual.user_id else None
+        if owner and owner.role == 'company' and not owner.biz_reg_no:
+            def business_number_required():
+                yield "data: [ERROR] 전체 매뉴얼은 사업자등록번호 확인 후 받을 수 있습니다.\n\n"
+                yield "data: [DONE]\n\n"
+            return Response(business_number_required(), mimetype='text/event-stream',
+                           headers={'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*'})
     else:
         form_data['max_sections'] = 5
 
@@ -2240,6 +2247,10 @@ def export_iso_manual():
         role_error = require_manual_user()
         if role_error:
             return role_error
+        # 다운로드는 전체 받기에 포함된다 — 사업자등록번호 확인 후.
+        biz_error = require_company_business_number('매뉴얼 다운로드')
+        if biz_error:
+            return biz_error
 
         data = request.json or {}
         markdown_text = data.get('markdown', '')
