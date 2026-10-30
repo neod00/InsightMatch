@@ -7398,6 +7398,8 @@ FUNNEL_LIMITATIONS = [
     '설문을 시작만 하고 이탈한 사용자는 DB에 기록이 남지 않습니다. 첫 단계는 "방문"이 아니라 "설문 완료"입니다.',
     '1~2단계는 설문 건수, 3단계부터는 견적 요청 건수가 단위입니다. 설문 1건이 여러 컨설턴트에게 견적을 요청하면 견적 건수가 더 많아집니다.',
     '기간 필터는 생성 시각 기준입니다. 최근에 시작된 건은 아직 뒷단계에 도달할 시간이 없어 전환율이 낮게 나옵니다.',
+    'AI 매뉴얼 단계는 사용자 수가 단위이고, 첫 단계는 "방문"이 아니라 "매뉴얼 생성 시작(로그인한 기업)"입니다. '
+    '작성 예시 페이지 방문과 가입 전 이탈은 기록되지 않습니다.',
 ]
 
 
@@ -7492,6 +7494,37 @@ def get_funnel_stats():
         .scalar() or 0
     )
 
+    # ── 4회차: AI 매뉴얼 (사용자 단위) ──
+    #   매뉴얼은 로그인한 기업만 만들 수 있으므로 첫 단계는 '세션 생성'이다.
+    #   견적 요청은 매뉴얼을 만든 시점 이후에 같은 사용자가 만든 프로젝트만 센다(코호트 정렬).
+    def _has_text(column):
+        return and_(column.isnot(None), func.length(column) > 0)
+
+    manual_filters = [ManualGeneration.created_at >= since]
+    manual_row = db.session.query(
+        func.count(func.distinct(ManualGeneration.user_id)).label('started'),
+        func.count(func.distinct(case((_has_text(ManualGeneration.phase1_markdown), ManualGeneration.user_id), else_=None))).label('preview'),
+        func.count(func.distinct(case((_has_text(ManualGeneration.phase2_markdown), ManualGeneration.user_id), else_=None))).label('full'),
+    ).filter(*manual_filters).one()
+    manual_started = int(manual_row.started or 0)
+    manual_preview = int(manual_row.preview or 0)
+    manual_full = int(manual_row.full or 0)
+    manual_with_quote = int(
+        db.session.query(func.count(func.distinct(ManualGeneration.user_id)))
+        .select_from(ManualGeneration)
+        .join(Project, and_(Project.company_id == ManualGeneration.user_id,
+                            Project.created_at >= ManualGeneration.created_at))
+        .filter(*manual_filters)
+        .filter(Project.deleted_at.is_(None))
+        .scalar() or 0
+    )
+    manual_funnel = [
+        _funnel_stage('manual_started', '매뉴얼 생성 시작', manual_started, None, '명'),
+        _funnel_stage('manual_preview_done', '1단계 미리보기 완료 (표지~6절)', manual_preview, manual_started, '명'),
+        _funnel_stage('manual_full_done', '전체 받기 (7절 이후 생성)', manual_full, manual_preview, '명'),
+        _funnel_stage('manual_to_quote', '견적 요청으로 이어짐', manual_with_quote, manual_started, '명'),
+    ]
+
     # 1~2단계: 설문 단위
     survey_funnel = [
         _funnel_stage('survey_completed', '설문 완료 (= 매칭 실행)', surveys, None, '설문'),
@@ -7512,6 +7545,7 @@ def get_funnel_stats():
         'since': since.isoformat(),
         'surveyFunnel': survey_funnel,
         'projectFunnel': project_funnel,
+        'manualFunnel': manual_funnel,
         # 본류가 아닌 분기들 — 단계로 세면 퍼널이 왜곡되므로 따로 낸다.
         # (협상은 선택 단계이고, 취소는 이탈이지 진행이 아니다)
         'side': {

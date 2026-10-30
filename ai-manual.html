@@ -766,6 +766,56 @@
         })();
 
         // ========== Form Submit ==========
+        // 가입하러 갔다 돌아와도 입력한 내용이 남도록 폼을 sessionStorage 에 잠깐 보관한다(탭을 닫으면 사라짐).
+        // id 가 있는 입력은 id 로, 체크박스는 같은 묶음의 순서로 저장해서 폼 구성이 바뀌어도 동작한다.
+        const MANUAL_DRAFT_KEY = 'manual_form_draft_v1';
+        function saveManualDraft() {
+            try {
+                const draft = { fields: {}, checks: {} };
+                document.querySelectorAll('#iso-form input[id], #iso-form select[id], #iso-form textarea[id]').forEach(el => {
+                    if (el.type === 'checkbox' || el.type === 'radio') draft.checks[el.id] = el.checked;
+                    else draft.fields[el.id] = el.value;
+                });
+                document.querySelectorAll('#iso-form .checkbox-group').forEach(group => {
+                    if (!group.id) return;
+                    draft.checks[group.id] = Array.from(group.querySelectorAll('input[type="checkbox"]')).map(cb => cb.checked);
+                });
+                sessionStorage.setItem(MANUAL_DRAFT_KEY, JSON.stringify(draft));
+            } catch (e) { /* 저장소를 못 쓰면 입력은 유지되지 않을 뿐 생성에는 영향 없음 */ }
+        }
+
+        function restoreManualDraft() {
+            let draft = null;
+            try { draft = JSON.parse(sessionStorage.getItem(MANUAL_DRAFT_KEY) || 'null'); } catch (e) { draft = null; }
+            if (!draft) return false;
+            try { sessionStorage.removeItem(MANUAL_DRAFT_KEY); } catch (e) { /* 무시 */ }
+            Object.entries(draft.fields || {}).forEach(([id, value]) => {
+                const el = document.getElementById(id);
+                if (el && typeof value === 'string') el.value = value;
+            });
+            Object.entries(draft.checks || {}).forEach(([id, value]) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (Array.isArray(value)) {
+                    el.querySelectorAll('input[type="checkbox"]').forEach((cb, i) => {
+                        cb.checked = Boolean(value[i]);
+                        if (cb.parentElement) cb.parentElement.classList.toggle('active', cb.checked);
+                    });
+                } else if (el.type === 'checkbox' || el.type === 'radio') {
+                    el.checked = Boolean(value);
+                }
+            });
+            return true;
+        }
+        // 입력한 내용을 되살렸고 로그인된 상태면 이어서 만들 수 있다고 알린다.
+        if (restoreManualDraft() && localStorage.getItem('token')) {
+            const note = document.createElement('p');
+            note.setAttribute('role', 'status');
+            note.style.cssText = 'margin:0 0 12px;padding:10px 14px;border-radius:10px;background:rgba(16,185,129,0.12);font-size:0.85rem;';
+            note.textContent = "가입이 끝났습니다. 입력하신 내용을 그대로 두었으니 '생성하기'를 눌러 이어서 진행해 주세요.";
+            document.getElementById('iso-form').prepend(note);
+        }
+
         document.getElementById('iso-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             if (isGenerating) return;
@@ -783,10 +833,13 @@
                 return;
             }
 
-            // 로그인 체크
+            // 로그인 체크 — 처음 온 분이 로그인 화면에서 막히지 않게 '무료 가입'으로 보내고, 입력한 내용은 돌아와서 이어 쓴다.
             const token = localStorage.getItem('token');
             if (!token) {
-                if (confirm('회원 로그인이 필요합니다.\n\n로그인 페이지로 이동하시겠습니까?')) {
+                saveManualDraft();
+                if (confirm('무료 회원가입 후 매뉴얼 초안을 만들 수 있습니다.\n\n지금 입력한 내용은 가입 후 돌아오면 그대로 남아 있습니다.\n회원가입 페이지로 이동하시겠습니까?\n(이미 회원이라면 [취소]를 누르고 로그인해 주세요)')) {
+                    window.location.href = 'signup.html?role=company&redirect=' + encodeURIComponent('ai-manual.html');
+                } else {
                     window.location.href = 'login.html?redirect=ai-manual.html';
                 }
                 return;
