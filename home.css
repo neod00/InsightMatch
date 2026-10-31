@@ -386,6 +386,69 @@ body.hm-body {
 .hm-js .hm-stage:not(.filled) .hm-bar i { width: 0%; }
 .hm-rc-why { font-size: 13.5px; line-height: 1.55; color: #DADDD3; border-top: 1px solid var(--d-line); padding-top: 12px; }
 .hm-rc-why b { display: block; font-size: 12px; color: var(--d-muted); font-weight: 600; margin-bottom: 3px; }
+/* 카드 아래 '확인한 매칭 기준'(예시). 넓은 화면에서 카드가 진단 폼 높이만큼 늘어나 생기던 빈 공간을 채운다 */
+.hm-rc-fit { order: 1; margin: auto 0 0; padding: 12px 0 0; list-style: none; display: grid; border-top: 1px solid var(--d-line); }
+.hm-rc-fit::before { content: "확인한 기준"; font-size: 12px; font-weight: 600; color: var(--d-muted); margin-bottom: 4px; }
+.hm-rc-fit li { display: flex; align-items: center; gap: 10px; min-height: 40px; font-size: 13.5px; color: #DADDD3; }
+.hm-rc-fit li + li { border-top: 1px dashed rgba(255,255,255,.08); }
+.hm-rc-fit li::before {
+  content: ""; width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+  background: var(--lime) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.3l2.2 2.2 4.8-5' fill='none' stroke='%230E0F0C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 12px no-repeat;
+}
+.hm-js .hm-stage:not(.filled) .hm-rc-fit li::before { transform: scale(0); }
+.hm-stage.filled .hm-rc-fit li::before { animation: hm-tick .45s var(--ease) both; animation-delay: .55s; }
+.hm-stage.filled .hm-rc-fit li:nth-child(2)::before { animation-delay: .67s; }
+.hm-stage.filled .hm-rc-fit li:nth-child(3)::before { animation-delay: .79s; }
+.hm-stage.filled .hm-rc-fit li:nth-child(4)::before { animation-delay: .91s; }
+@keyframes hm-tick { from { transform: scale(0); } 70% { transform: scale(1.18); } to { transform: scale(1); } }
+
+/* 결과 카드 아래 '03 비교' 다음 단계 미리보기 (장식용 띠, 누르는 요소 아님) */
+.hm-next {
+  margin-top: 14px; display: flex; align-items: center; gap: 16px;
+  padding: 16px 20px; border-radius: 22px;
+  border: 1px dashed rgba(255,255,255,.16); background: rgba(255,255,255,.02);
+}
+.hm-next-step { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.hm-next-step b { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: rgba(195, 251, 121, .14); color: var(--lime); font-family: var(--font-en); font-size: 11px; }
+.hm-next p { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.5; color: var(--d-muted); }
+.hm-next p strong { color: #DADDD3; font-weight: 600; }
+.hm-next-avs { display: flex; padding-left: 8px; }
+.hm-next-avs i {
+  display: grid; place-items: center; width: 32px; height: 32px; margin-left: -8px; border-radius: 50%;
+  background: var(--d-card); border: 2px solid var(--d-bg); color: #DADDD3;
+  font-style: normal; font-family: var(--font-en); font-size: 10.5px; font-weight: 800;
+}
+.hm-next-avs i:first-child { background: var(--lime); color: var(--ink); }
+
+/* 히어로 자동 시연: 가상 커서 (위치는 스크립트가 transform 으로 옮긴다. 화살표 끝 = 요소의 왼쪽 위) */
+.hm-demo-cursor {
+  position: absolute; left: 0; top: 0; z-index: 5; width: 0; height: 0; pointer-events: none;
+  opacity: 0; transition: transform .75s cubic-bezier(.5, 0, .2, 1), opacity .3s;
+}
+.hm-demo-cursor.jump { transition: opacity .3s; }
+.hm-demo-cursor.on { opacity: 1; }
+.hm-demo-cursor i { position: absolute; left: -4px; top: -3px; display: block; width: 28px; height: 28px; transform-origin: 4px 3px; }
+.hm-demo-cursor svg { display: block; width: 100%; height: 100%; filter: drop-shadow(0 4px 8px rgba(0,0,0,.45)); }
+.hm-demo-cursor.touch i { left: -18px; top: -18px; width: 36px; height: 36px; transform-origin: center; border-radius: 50%; background: rgba(255,255,255,.5); box-shadow: 0 0 0 4px rgba(195, 251, 121, .55), 0 6px 14px rgba(0,0,0,.4); }
+.hm-demo-cursor.tap i { animation: hm-press .32s var(--ease); }
+@keyframes hm-press { 0% { transform: scale(1); } 45% { transform: scale(.8); } 100% { transform: scale(1); } }
+
+/* 히어로 자동 시연: 대신 누른 칩에 퍼지는 고리 + 끝난 뒤 '눌러서 바꿔 보세요' 안내 */
+.hm-chip.hm-demo-tap label { animation: hm-tap .7s var(--ease); }
+@keyframes hm-tap {
+  0%   { transform: scale(.92); box-shadow: 0 0 0 0 rgba(195, 251, 121, .75); }
+  60%  { transform: scale(1.03); }
+  100% { transform: none; box-shadow: 0 0 0 14px rgba(195, 251, 121, 0); }
+}
+.hm-try {
+  display: inline-flex; align-items: center; gap: 7px; margin-left: 10px; vertical-align: 2px;
+  padding: 3px 11px 3px 9px; border-radius: var(--pill); border: 1px solid rgba(195, 251, 121, .4);
+  font-size: 12px; font-weight: 600; letter-spacing: 0; color: var(--lime);
+  opacity: 0; transform: translateX(-6px); transition: opacity .5s var(--ease), transform .5s var(--ease);
+}
+.hm-try::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--lime); animation: hm-ping 1.6s ease-out infinite; }
+.hm-try.show { opacity: 1; transform: none; }
+@keyframes hm-ping { 0% { box-shadow: 0 0 0 0 rgba(195, 251, 121, .6); } 100% { box-shadow: 0 0 0 8px rgba(195, 251, 121, 0); } }
 
 /* 6. FACT STRIP */
 .hm-facts { padding: 28px 0 0; }
@@ -1193,6 +1256,7 @@ body:has(.hm-selbar.active) { padding-bottom: 112px; }
   .hm-rc-score { grid-column: 2; grid-row: 1; }
   .hm-rc .hm-bar { grid-column: 2; }
   .hm-rc-why { grid-column: 1; grid-row: 2; border-top: 0; padding-top: 0; }
+  .hm-rc-fit, .hm-next { display: none; } /* 좁은 화면은 카드가 가로로 눕고 빈 공간이 없어 기준 목록·비교 띠를 숨긴다 */
   .hm-facts-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hm-fact:nth-child(3) { border-left: 0; }
   .hm-fact:nth-child(n+3) { border-top: 1px solid var(--line); }
