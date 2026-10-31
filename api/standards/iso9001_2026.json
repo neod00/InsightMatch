@@ -1,0 +1,2489 @@
+{
+  "schema_version": "1.2",
+  "standard_key": "iso9001",
+  "edition": "2026",
+  "standard_code": "ISO 9001:2026",
+  "tag": "Q",
+  "name_ko": "품질경영시스템",
+  "system_noun": "품질경영시스템",
+  "policy_noun": "품질방침",
+  "objective_noun": "품질목표",
+  "default_department": "품질경영팀",
+  "content_source": "self_authored",
+  "source_note": "자체 작성 요약이며 ISO/KS 표준 원문 문장을 포함하지 않는다. 조항 번호와 짧은 제목만 사실 정보로 사용했다. 2026판 내용은 저장소 밖 구매본의 해당 조항 쪽만 열람해 만든 비교 노트(T1c)를 근거로 작성했고, 원문·추출물은 포함하지 않는다. KS 번역본이 아직 없어 2026판에서 제목이 새로 생기거나 바뀐 조항(6.1.1, 6.1.2, 6.1.3, 9.2.1, 9.2.2, 9.3.3, 10.1)의 한국어 제목은 임시 번역이며, 제목 없는 번호 문단(5.2.1, 5.2.2, 6.2.1, 6.2.2, 8.7.1, 8.7.2, 10.2.1, 10.2.2)의 title_ko는 설명용이다. 인증 심사 전에는 표준 원문과 대조 검토가 필요하다. 제목의 확정 정도는 조항별 title_ko_status(official/provisional/descriptive)로 구분한다.",
+  "published_at": "2026-09",
+  "authored_by": "product-agent (AI 초안, 2026-10-25, T1b — T1c 본문 비교 노트 기반)",
+  "reviewed_by": "InsightMatch 운영자(사용자 본인) — 결정 목록 승인, 조항별 검토 아님",
+  "reviewed_at": "2026-10-25",
+  "terms_section": {
+    "verification": "body_verified",
+    "approach": "ISO 9000 참조를 유지하면서 경영시스템 공통 핵심 용어를 3절에서 직접 정의한다. 매뉴얼의 용어 절은 'ISO 9000 참조'만 쓰지 말고 아래 용어를 회사 맥락에 맞춘 자체 설명으로 정리하며, 표준의 정의 문장은 옮기지 않는다.",
+    "terms_en": [
+      "organization",
+      "interested party",
+      "top management",
+      "management system",
+      "quality management system",
+      "policy",
+      "quality policy",
+      "objective",
+      "quality objective",
+      "risk",
+      "process",
+      "competence",
+      "documented information",
+      "performance",
+      "continual improvement",
+      "effectiveness",
+      "requirement",
+      "conformity",
+      "nonconformity",
+      "corrective action",
+      "audit",
+      "measurement",
+      "monitoring"
+    ],
+    "notes": "핵심 용어 20개와 하위 용어 3개(quality management system, quality policy, quality objective). outsource는 정의 목록에 없다."
+  },
+  "clauses": [
+    {
+      "id": "4",
+      "title_ko": "조직 상황",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "context",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "carried",
+      "carried_from": "iso9001_2015:4",
+      "requirement_summary": "품질경영시스템을 설계하기 전에 회사가 처한 환경, 이해관계자, 적용범위, 프로세스 구조를 먼저 정리한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "조직 상황",
+        "조직상황"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "4.1",
+      "title_ko": "조직과 조직 상황의 이해",
+      "title_ko_status": "official",
+      "parent": "4",
+      "level": 2,
+      "merge_key": "context.issues",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "회사의 목적·전략 방향과 관련해 품질경영의 의도한 결과에 영향을 줄 수 있는 내부·외부 이슈(시장, 기술, 법규, 경쟁, 내부 역량·자원·문화 등)를 정하고 그 변화를 정기적으로 살핀다. 이때 기후변화가 회사와 관련된 이슈인지도 판단해야 한다. 파악한 이슈는 리스크·기회 결정(6.1)과 경영검토(9.3)의 입력이 된다.",
+      "manual_guidance": [
+        "PESTEL 분석표(현재/미래/기회/위협)를 업종과 주요 제품 기준으로 채우고, 기후변화 관련성 판단 결과(관련 없음 포함)와 그 근거를 함께 적는다",
+        "이슈 검토 주기와 주관 부서, 검토 결과를 경영검토에 올리는 경로를 명시한다"
+      ],
+      "required_artifacts": [
+        "PESTEL 분석표"
+      ],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP00",
+        "CP01"
+      ],
+      "coverage_keywords": [
+        "조직상황",
+        "조직 상황",
+        "기후변화"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "4.2",
+      "title_ko": "이해관계자의 니즈와 기대 이해",
+      "title_ko_status": "official",
+      "parent": "4",
+      "level": 2,
+      "merge_key": "context.interested_parties",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "고객, 공급자, 규제기관, 임직원 등 품질경영시스템과 관련된 이해관계자를 가려내고 그들의 요구·기대를 파악한 뒤, 그중 무엇을 품질경영시스템으로 다룰지 결정한다. 이 정보는 정기적으로 갱신해 적용범위와 리스크·기회 결정에 반영한다.",
+      "manual_guidance": [
+        "이해관계자별 요구·기대, 시스템으로 다룰지 여부와 판단 근거, 회사의 대응 방안, 관리 부서를 표로 정리한다",
+        "검토 주기와 갱신 계기(신규 고객, 법규 변경 등)를 명시한다"
+      ],
+      "required_artifacts": [
+        "이해관계자 요구파악표"
+      ],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP00"
+      ],
+      "coverage_keywords": [
+        "이해관계자"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "4.3",
+      "title_ko": "경영시스템의 적용범위 결정",
+      "title_ko_status": "official",
+      "parent": "4",
+      "level": 2,
+      "merge_key": "context.scope",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:4.3",
+      "requirement_summary": "4.1·4.2의 결과와 제품·서비스 특성을 고려해 시스템이 다루는 사업장, 조직, 제품·서비스의 경계를 정하고 문서로 유지한다. 해당 사항이 없어 적용하지 않는 요구사항이 있으면 근거를 밝히되, 제품 적합성과 고객만족 책임에 영향이 없어야 한다.",
+      "manual_guidance": [
+        "적용 사업장 주소, 제품·서비스, 적용 제외 조항과 그 타당성을 선언문 형태로 적는다",
+        "설계 업무가 없으면 8.3 적용 제외의 판단 근거를 구체적으로 쓴다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "품질경영시스템 적용범위(적용 제외 근거 포함)"
+        }
+      ],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "적용범위"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "4.4",
+      "title_ko": "경영시스템과 그 프로세스",
+      "title_ko_status": "official",
+      "parent": "4",
+      "level": 2,
+      "merge_key": "context.system_processes",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "시스템에 필요한 프로세스와 그 순서·상호작용을 정하고, 프로세스마다 입력·출력, 책임과 권한, 성과 기준, 필요한 자원, 관련 리스크와 기회를 관리하며 평가·개선한다. 프로세스 운영을 뒷받침하는 문서와 계획대로 수행되었다는 증거 기록을 필요한 만큼 갖춘다.",
+      "manual_guidance": [
+        "경영·핵심·지원·개선 4개 범주로 프로세스 상호관계도(Mermaid)를 작성한다",
+        "프로세스별 주관 부서와 관련 절차서 번호를 연결한다"
+      ],
+      "required_artifacts": [
+        "프로세스 상호관계도(Process Map)"
+      ],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "프로세스 운영을 지원하는 문서"
+        },
+        {
+          "kind": "retain",
+          "name": "프로세스가 계획대로 수행되었다는 근거 기록"
+        }
+      ],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "프로세스",
+        "경영시스템"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "5",
+      "title_ko": "리더십",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "leadership",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "carried",
+      "carried_from": "iso9001_2015:5",
+      "requirement_summary": "최고경영자가 품질경영시스템에 대한 책임을 지고 방침과 조직 체계를 세운다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "리더십"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "5.1",
+      "title_ko": "리더십과 의지표명",
+      "title_ko_status": "official",
+      "parent": "5",
+      "level": 2,
+      "merge_key": "leadership.commitment",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "최고경영자는 시스템 효과성에 책임을 지고, 방침·목표를 전략 방향과 맞추며, 자원을 확보하고, 프로세스 접근법과 함께 리스크 기반 사고와 기회 기반 사고를 장려한다. 또한 조직 안에 품질문화와 윤리적 행동이 자리 잡도록 장려하며, 고객중시를 이끈다.",
+      "manual_guidance": [
+        "최고경영자의 책임 사항을 항목별로 선언하고 경영검토(9.3)와 자원 승인으로 이행함을 기술하며, 고객중시(5.1.2)는 별도 문단으로 쓴다",
+        "품질문화와 윤리적 행동을 장려하는 실제 수단(경영자 메시지, 윤리강령·행동규범 연계, 품질 우선 의사결정 원칙, 문제 제기 경로와 불이익 금지)과 기회 기반 사고를 장려하는 방법을 회사 정보로 구체화한다",
+        "통합경영매뉴얼에서는 품질문화·윤리와 기회 기반 사고가 ISO 9001 요구([Q 5.1.1])로서 품질 부분에 적용됨을 밝힌다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP01"
+      ],
+      "coverage_keywords": [
+        "리더십",
+        "의지표명",
+        "품질문화",
+        "윤리",
+        "기회 기반 사고"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "5.1.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "official",
+      "parent": "5.1",
+      "level": 3,
+      "merge_key": "leadership.commitment.general",
+      "phase": 1,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "최고경영자가 보여야 할 리더십 활동 전반(책임, 방향 정렬, 자원 제공, 프로세스 접근법과 리스크·기회 기반 사고 장려, 품질문화·윤리적 행동 장려, 참여 독려, 개선 촉진)을 다룬다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "리더십",
+        "품질문화",
+        "윤리"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "5.1.2",
+      "title_ko": "고객중시",
+      "title_ko_status": "official",
+      "parent": "5.1",
+      "level": 3,
+      "merge_key": "leadership.customer_focus",
+      "phase": 1,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:5.1.2",
+      "requirement_summary": "최고경영자는 고객 요구와 적용 법규 요구사항을 파악·충족하고, 제품 적합성과 고객만족에 영향을 주는 리스크·기회를 다루며, 고객만족 향상에 계속 초점을 두도록 한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "고객중시"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "5.2",
+      "title_ko": "방침",
+      "title_ko_status": "official",
+      "parent": "5",
+      "level": 2,
+      "merge_key": "leadership.policy",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:5.2",
+      "requirement_summary": "최고경영자는 회사의 목적과 상황에 맞고, 목표 설정의 틀이 되며, 요구사항 충족과 지속적 개선 의지를 담은 품질방침을 세운다. 방침은 문서로 유지하고 조직 안에 전달해 이해·적용되게 하며, 필요하면 이해관계자에게 제공한다.",
+      "manual_guidance": [
+        "{policy_noun} 선언문(최고경영자 명의)을 제시하고 전달 수단(게시, 교육, 홈페이지)과 검토 주기를 기술한다",
+        "선택 사항: {policy_noun}에 회사가 기대하는 품질문화·윤리적 행동을 반영할 수 있다(요구 아님)"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "품질방침"
+        }
+      ],
+      "linked_procedures": [
+        "CP01",
+        "CP04"
+      ],
+      "coverage_keywords": [
+        "방침"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "5.2.1",
+      "title_ko": "품질방침의 수립",
+      "title_ko_status": "descriptive",
+      "parent": "5.2",
+      "level": 3,
+      "merge_key": "leadership.policy.establish",
+      "phase": 1,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:5.2.1",
+      "requirement_summary": "방침에 담을 요소(목적 부합, 목표의 틀, 요구사항 충족 의지, 지속적 개선 의지)를 갖춰 수립한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "방침"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "5.2.2",
+      "title_ko": "품질방침에 대한 의사소통",
+      "title_ko_status": "descriptive",
+      "parent": "5.2",
+      "level": 3,
+      "merge_key": "leadership.policy.communicate",
+      "phase": 1,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:5.2.2",
+      "requirement_summary": "수립한 방침을 문서로 유지하고 내부에 전달해 이해·적용되게 하며, 관련 이해관계자에게 필요 시 제공한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "방침"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "5.3",
+      "title_ko": "조직의 역할, 책임 및 권한",
+      "title_ko_status": "official",
+      "parent": "5",
+      "level": 2,
+      "merge_key": "leadership.roles",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:5.3",
+      "requirement_summary": "시스템 관련 역할마다 책임과 권한을 배정하고 조직 안에 알린다. 특히 요구사항 적합성 보장, 프로세스 출력 달성, 성과 보고, 고객중시 촉진, 변경 시 시스템 무결성 유지를 맡을 사람을 지정한다.",
+      "manual_guidance": [
+        "조직도와 역할·책임·권한(R&R) 매트릭스를 제시한다",
+        "경영시스템 관리책임자의 권한과 보고 경로를 명시한다"
+      ],
+      "required_artifacts": [
+        "조직도",
+        "R&R 매트릭스"
+      ],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP02"
+      ],
+      "coverage_keywords": [
+        "역할",
+        "책임",
+        "권한"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6",
+      "title_ko": "기획",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "planning",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "carried",
+      "carried_from": "iso9001_2015:6",
+      "requirement_summary": "상황 분석 결과를 바탕으로 리스크·기회 대응, 목표, 시스템 변경을 계획한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "기획"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.1",
+      "title_ko": "리스크와 기회를 다루는 조치",
+      "title_ko_status": "official",
+      "parent": "6",
+      "level": 2,
+      "merge_key": "planning.risk_opportunity",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "4.1·4.2에서 파악한 이슈와 요구를 바탕으로 다뤄야 할 리스크와 기회를 정하고(6.1.1), 리스크와 기회 각각에 대해 분석·평가를 거쳐 조치를 계획한다(6.1.2, 6.1.3). 리스크 조치는 잠재 영향에 비례해야 하고, 기회 조치는 회사 상황에 맞고 원하는 결과를 뒷받침해야 한다.",
+      "manual_guidance": [
+        "리스크 평가 기준(발생빈도×영향크기), 평가 매트릭스, 등급별 대응 원칙과 기회 평가 기준을 표로 제시한다",
+        "세부 방법은 「SMS-CP00 리스크관리 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [
+        "리스크 평가 기준표",
+        "리스크 평가 매트릭스"
+      ],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP00"
+      ],
+      "coverage_keywords": [
+        "리스크",
+        "기회"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.1.1",
+      "title_ko": "리스크와 기회의 결정",
+      "title_ko_status": "provisional",
+      "parent": "6.1",
+      "level": 3,
+      "merge_key": "planning.risks_opportunities",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "시스템이 의도한 결과를 내고, 좋은 효과는 키우며, 원치 않는 영향은 막거나 줄이고, 지속적 개선을 이루도록 상황 이슈(4.1)와 이해관계자 요구(4.2)를 고려해 다뤄야 할 리스크와 기회를 정한다.",
+      "manual_guidance": [
+        "리스크·기회 파악 시점(연간 기획, 주요 변경 시)과 출처(4.1 이슈, 4.2 요구)를 연결한 목록 양식을 제시한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP00"
+      ],
+      "coverage_keywords": [
+        "리스크와 기회의 결정",
+        "리스크",
+        "기회"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.1.2",
+      "title_ko": "리스크 대응 조치",
+      "title_ko_status": "provisional",
+      "parent": "6.1",
+      "level": 3,
+      "merge_key": "planning.action_planning",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "정한 리스크를 분석·평가한 뒤 대응 조치를 계획하고, 조치를 시스템 프로세스에 통합해 실행하는 방법과 그 효과성을 평가하는 방법을 정한다. 조치의 규모는 리스크의 잠재 영향에 비례해야 한다. 공급 중단 같은 상황도 리스크 검토 대상이 될 수 있다.",
+      "manual_guidance": [
+        "리스크별 분석·평가 결과(가능성, 영향, 등급), 대응 방식(제거, 감소, 이전, 근거 있는 수용 등), 담당·기한, 효과성 확인 방법을 담은 리스크 대응 계획표를 제시한다",
+        "통합경영매뉴얼의 '조치의 기획'(6.1.B) 섹션에서는 ISO 9001 리스크 조치가 분석·평가 후 비례적으로 정해진다는 점을 밝히고, 품질 측면의 기회 조치는 6.1.C(기회에 대한 조치, 단일 매뉴얼에서는 6.1.3) 섹션을 참조하게 한다"
+      ],
+      "required_artifacts": [
+        "리스크 대응 계획표"
+      ],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP00"
+      ],
+      "coverage_keywords": [
+        "리스크 대응",
+        "리스크",
+        "조치"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.1.3",
+      "title_ko": "기회 대응 조치",
+      "title_ko_status": "provisional",
+      "parent": "6.1",
+      "level": 3,
+      "merge_key": "planning.opportunity_actions",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "기회도 리스크와 따로 정하고 분석·평가한 뒤, 어떤 조치를 할지와 그 조치를 프로세스에 통합해 실행하는 방법, 효과성을 평가하는 방법을 계획한다. 기회 조치는 영향 비례가 아니라 회사 상황에 맞는지와 원하는 결과 달성을 뒷받침하는지를 기준으로 정한다.",
+      "manual_guidance": [
+        "기회 목록(출처, 기대 효과, 실행 여부 판단, 담당, 기한, 효과성 확인 방법)을 표로 제시하고 기회 발굴 경로(고객 피드백, 신기술, 신시장, 개선 제안)를 기술한다",
+        "기회 조치의 효과성 평가가 분석·평가(9.1.3)와 경영검토 입력(9.3.2)으로 이어짐을 밝힌다"
+      ],
+      "required_artifacts": [
+        "기회 관리표"
+      ],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP00"
+      ],
+      "coverage_keywords": [
+        "기회 대응",
+        "기회"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.2",
+      "title_ko": "목표 및 달성 기획",
+      "title_ko_status": "official",
+      "parent": "6",
+      "level": 2,
+      "merge_key": "planning.objectives",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:6.2",
+      "requirement_summary": "관련 부서·계층·프로세스별로 방침과 일관되고 측정 가능한 목표를 세워 모니터링·전달·갱신한다. 목표마다 실행 내용, 자원, 책임자, 완료 시점, 결과 평가 방법을 계획한다.",
+      "manual_guidance": [
+        "경영 이슈와 연계한 맞춤 KPI 표(지표, 계산식, 주기, 평가 방법, 책임자)를 제시한다",
+        "{objective_noun}의 수립·검토 주기와 경영검토 보고 경로를 기술한다"
+      ],
+      "required_artifacts": [
+        "KPI 표"
+      ],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "품질목표"
+        }
+      ],
+      "linked_procedures": [
+        "CP01"
+      ],
+      "coverage_keywords": [
+        "목표"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.2.1",
+      "title_ko": "품질목표 수립",
+      "title_ko_status": "descriptive",
+      "parent": "6.2",
+      "level": 3,
+      "merge_key": "planning.objectives.set",
+      "phase": 1,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:6.2.1",
+      "requirement_summary": "방침과 일관되고 측정 가능하며 제품 적합성과 고객만족 향상에 관련된 목표를 필요한 부서·계층에 설정한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "목표"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.2.2",
+      "title_ko": "품질목표 달성 기획",
+      "title_ko_status": "descriptive",
+      "parent": "6.2",
+      "level": 3,
+      "merge_key": "planning.objectives.plan",
+      "phase": 1,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:6.2.2",
+      "requirement_summary": "목표 달성을 위해 무엇을, 어떤 자원으로, 누가, 언제까지 하고 결과를 어떻게 평가할지 계획한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "목표"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.3",
+      "title_ko": "변경의 기획",
+      "title_ko_status": "official",
+      "parent": "6",
+      "level": 2,
+      "merge_key": "planning.changes",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "시스템 변경이 필요하면 계획을 세워 진행하고, 변경이 의도한 결과로 이어지도록 변경 목적과 예상 결과, 시스템 무결성, 자원과 정보의 가용성, 책임·권한 배정, 변경 내용의 의사소통, 효과성 모니터링·평가 방법, 변경 결과 검토 방법을 고려한다.",
+      "manual_guidance": [
+        "변경 계획에 담을 7개 항목(목적·예상 결과, 무결성 영향, 자원·정보 가용성, 책임·권한 (재)배정, 의사소통, 효과성 모니터링·평가 방법, 결과 검토 방법)을 표로 제시하고 변경 사례(조직 개편, 사업장 이전, 신규 공정 도입)에 적용한다",
+        "변경 요청서·변경 계획서 양식, 변경 후 검토 시점, 경영검토(9.3.2)와 책임 배정(5.3)의 연결은 문서화 의무가 없으므로 권장 기록으로 표기한다",
+        "운용 단계의 변경(8.1 계획된 변경, 8.5.6 변경관리)과 구분해 시스템 수준의 변경만 다룬다"
+      ],
+      "required_artifacts": [
+        "변경 계획 항목표"
+      ],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP01",
+        "CP02"
+      ],
+      "coverage_keywords": [
+        "변경",
+        "변경 의사소통",
+        "효과성"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7",
+      "title_ko": "지원",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "support",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "carried",
+      "carried_from": "iso9001_2015:7",
+      "requirement_summary": "시스템 운영에 필요한 자원, 역량, 인식, 의사소통, 문서화된 정보를 갖춘다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "지원"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.1",
+      "title_ko": "자원",
+      "title_ko_status": "official",
+      "parent": "7",
+      "level": 2,
+      "merge_key": "support.resources",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "carried",
+      "carried_from": "iso9001_2015:7.1",
+      "requirement_summary": "시스템 수립·운영·개선에 필요한 인원, 기반구조, 프로세스 운용 환경, 모니터링·측정 자원, 조직의 지식을 정하고 제공한다. 내부 자원의 한계와 외부에서 확보할 부분을 함께 고려한다.",
+      "manual_guidance": [
+        "7.1.1~7.1.6 항목별로 회사의 자원 확보 원칙을 짧게 기술한다",
+        "측정장비 교정 관리와 조직 지식(기술 노하우, 교훈) 보존 방법을 포함한다",
+        "프로세스 운용 환경(7.1.4)은 사회·심리·물리 요인과 품질문화·윤리가 근무 환경에 줄 수 있는 영향을 고려 사항으로 적고 의무 문장으로 쓰지 않는다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "QP00",
+        "QP05"
+      ],
+      "coverage_keywords": [
+        "자원"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.1.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "official",
+      "parent": "7.1",
+      "level": 3,
+      "merge_key": "support.resources.general",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:7.1.1",
+      "requirement_summary": "필요한 자원을 정해 제공하며, 내부 자원의 능력·제약과 외부 조달이 필요한 부분을 고려한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "자원"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.1.2",
+      "title_ko": "인원",
+      "title_ko_status": "official",
+      "parent": "7.1",
+      "level": 3,
+      "merge_key": "support.resources.people",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:7.1.2",
+      "requirement_summary": "시스템 운영과 프로세스 관리에 필요한 인원을 확보한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP02"
+      ],
+      "coverage_keywords": [
+        "인원"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.1.3",
+      "title_ko": "기반구조",
+      "title_ko_status": "official",
+      "parent": "7.1",
+      "level": 3,
+      "merge_key": "support.resources.infrastructure",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:7.1.3",
+      "requirement_summary": "건물, 설비, 장비, 운송 수단, 정보통신 기술 등 프로세스 운영과 제품 적합성에 필요한 기반구조를 정하고 유지·보수한다.",
+      "manual_guidance": [
+        "현장·원격·혼합 근무 환경을 고려해 필요한 기반구조(시설, 설비, 정보통신 수단)를 정하는 방법을 기술한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "QP00"
+      ],
+      "coverage_keywords": [
+        "기반구조",
+        "인프라"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.1.4",
+      "title_ko": "프로세스 운용 환경",
+      "title_ko_status": "official",
+      "parent": "7.1",
+      "level": 3,
+      "merge_key": "support.resources.environment",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "제품·서비스 적합성과 프로세스 운영에 필요한 작업 환경을 정하고 제공·유지한다. 이 환경에는 온습도·조명·위생 같은 물리적 조건과 차별·갈등, 스트레스·번아웃 같은 사회·심리적 요인이 포함될 수 있고, 품질문화와 윤리적 행동도 이런 요인에 영향을 줄 수 있다.",
+      "manual_guidance": [
+        "사회(차별 없음·갈등 완화), 심리(스트레스·번아웃 예방), 물리(온습도·조명·위생·소음) 요인을 회사가 살피는 고려 사항으로 적고 '해야 한다'로 쓰지 않는다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "QP00"
+      ],
+      "coverage_keywords": [
+        "운용 환경",
+        "작업환경"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.1.5",
+      "title_ko": "모니터링 자원과 측정 자원",
+      "title_ko_status": "official",
+      "parent": "7.1",
+      "level": 3,
+      "merge_key": "support.resources.monitoring_measuring",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:7.1.5",
+      "requirement_summary": "검사·측정 결과를 믿을 수 있도록 목적에 맞는 측정 자원을 갖추고 유지한다. 측정 소급성이 필요하면 정해진 주기로 교정·검증하고 식별·보호하며, 교정 이탈이 확인되면 이전 측정 결과의 유효성을 검토해 조치한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "모니터링·측정 자원의 목적 적합성 증거"
+        },
+        {
+          "kind": "retain",
+          "name": "교정 또는 검증 기록"
+        }
+      ],
+      "linked_procedures": [
+        "QP05"
+      ],
+      "coverage_keywords": [
+        "측정",
+        "교정"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.1.6",
+      "title_ko": "조직의 지식",
+      "title_ko_status": "official",
+      "parent": "7.1",
+      "level": 3,
+      "merge_key": "support.resources.knowledge",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "프로세스 운영과 제품 적합성에 필요한 지식(기술 노하우, 실패·성공 경험, 교육으로 얻은 지식, 디지털 시스템에 담긴 정보 등)을 정하고 필요한 만큼 보유·활용·공유하며, 변화하는 니즈에 맞춰 추가 지식을 얻는 방법을 정한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "지식"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.2",
+      "title_ko": "역량 (적격성)",
+      "title_ko_status": "official",
+      "parent": "7",
+      "level": 2,
+      "merge_key": "support.competence",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:7.2",
+      "requirement_summary": "품질 성과에 영향을 주는 업무 수행자에게 필요한 역량을 정하고, 교육·훈련·경험으로 갖추게 하며, 부족하면 교육·재배치·채용 등으로 보완하고 효과를 평가한다.",
+      "manual_guidance": [
+        "직무별 자격 기준과 역량 평가 주기를 기술하고, 세부 운영은 「SMS-CP03 교육훈련 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "역량의 증거(자격, 교육·평가 기록)"
+        }
+      ],
+      "linked_procedures": [
+        "CP03"
+      ],
+      "coverage_keywords": [
+        "역량",
+        "적격성"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.3",
+      "title_ko": "인식",
+      "title_ko_status": "official",
+      "parent": "7",
+      "level": 2,
+      "merge_key": "support.awareness",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "회사의 관리 아래 일하는 사람이 품질방침, 관련 품질목표, 자기 업무가 시스템 성과에 기여하는 방식, 요구사항을 지키지 않았을 때의 결과, 그리고 회사의 품질문화와 기대되는 윤리적 행동을 알고 있도록 한다.",
+      "manual_guidance": [
+        "임직원이 {policy_noun}, 관련 {objective_noun}, 본인 업무의 기여, 요구사항 미준수 시 영향, 회사의 품질문화와 윤리적 행동 기대를 인식하도록 하는 수단(신규 입사·정기 교육, 조회, 게시, 현장 브리핑)과 인식 확인 방법을 기술한다",
+        "고객·법규 요구사항, 부적합 예방, 고객만족에 대한 인식 활동을 포함하고, 통합경영매뉴얼에서는 품질문화·윤리 항목이 ISO 9001 요구([Q 7.3])임을 밝힌다",
+        "실행·기록은 「SMS-CP03 교육훈련 절차서」와 「SMS-CP04 의사소통 관리 절차서」를 참조하고, 증거 기록 예(교육참석부, 회의록, 공지 이력)를 제시한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP03",
+        "CP04"
+      ],
+      "coverage_keywords": [
+        "인식",
+        "품질문화",
+        "윤리"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.4",
+      "title_ko": "의사소통",
+      "title_ko_status": "official",
+      "parent": "7",
+      "level": 2,
+      "merge_key": "support.communication",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:7.4",
+      "requirement_summary": "시스템과 관련된 내부·외부 의사소통에 대해 무엇을, 언제, 누구와, 어떤 방법으로, 누가 할지를 정한다.",
+      "manual_guidance": [
+        "의사소통 매트릭스(주제, 대상, 시기, 방법, 담당)를 표로 제시한다",
+        "세부 방법은 「SMS-CP04 의사소통 관리 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [
+        "의사소통 매트릭스"
+      ],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP04"
+      ],
+      "coverage_keywords": [
+        "의사소통"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.5",
+      "title_ko": "문서화된 정보",
+      "title_ko_status": "official",
+      "parent": "7",
+      "level": 2,
+      "merge_key": "support.documented_info",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:7.5",
+      "requirement_summary": "표준이 요구하는 문서와 회사가 필요하다고 정한 문서를 갖추고, 작성·갱신 때 식별·형식·검토·승인을 거치며, 배포·접근·보관·변경·보존·폐기를 관리한다. 외부 출처 문서도 식별해 관리한다.",
+      "manual_guidance": [
+        "문서 체계(매뉴얼-절차서-지침서-양식)와 문서번호 규칙을 기술한다",
+        "세부 관리는 「SMS-CP05 문서화된 정보관리 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP05"
+      ],
+      "coverage_keywords": [
+        "문서화된 정보"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.5.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "official",
+      "parent": "7.5",
+      "level": 3,
+      "merge_key": "support.documented_info.general",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:7.5.1",
+      "requirement_summary": "시스템에 포함할 문서화된 정보의 범위를 정하며, 그 양은 조직 규모, 프로세스 복잡성, 인원 역량에 따라 달라질 수 있다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "문서화된 정보"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.5.2",
+      "title_ko": "작성 및 갱신",
+      "title_ko_status": "official",
+      "parent": "7.5",
+      "level": 3,
+      "merge_key": "support.documented_info.create_update",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:7.5.2",
+      "requirement_summary": "문서를 만들거나 고칠 때 식별 정보(제목, 번호, 개정일), 형식과 매체, 적절성 검토와 승인을 보장한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "작성",
+        "갱신"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.5.3",
+      "title_ko": "문서화된 정보의 관리",
+      "title_ko_status": "official",
+      "parent": "7.5",
+      "level": 3,
+      "merge_key": "support.documented_info.control",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:7.5.3",
+      "requirement_summary": "문서가 필요한 때와 장소에서 쓸 수 있고 훼손·오용·기밀 유출로부터 보호되도록 배포, 접근, 검색, 보관, 변경, 보존, 폐기를 관리한다. 적합성 증거로 남긴 기록은 무단 변경되지 않게 보호한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "문서화된 정보"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8",
+      "title_ko": "운용",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "ops",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "carried",
+      "carried_from": "iso9001_2015:8",
+      "requirement_summary": "제품·서비스 제공에 필요한 프로세스를 계획하고 관리한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "운용"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.1",
+      "title_ko": "운용 기획 및 관리",
+      "title_ko_status": "official",
+      "parent": "8",
+      "level": 2,
+      "merge_key": "ops.planning_control",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.1",
+      "requirement_summary": "제품·서비스 요구사항을 충족하고 6절의 조치를 실행하기 위해 필요한 프로세스를 계획·실행·관리한다. 요구사항과 합격 기준, 필요한 자원, 남길 기록을 정하고, 계획된 변경과 의도하지 않은 변경의 결과를 검토하며, 외주 프로세스도 관리 대상에 넣는다.",
+      "manual_guidance": [
+        "수주부터 인도·사후관리까지 운용 흐름과 단계별 관리 기준(합격 기준, 기록)을 개괄한다",
+        "8.2~8.7 각 프로세스와 절차서의 연결을 표로 제시한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "프로세스가 계획대로 수행된다는 확신에 필요한 문서"
+        },
+        {
+          "kind": "retain",
+          "name": "제품·서비스가 요구사항에 적합함을 보여주는 기록"
+        }
+      ],
+      "linked_procedures": [
+        "QP04"
+      ],
+      "coverage_keywords": [
+        "운용 기획",
+        "운용"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.2",
+      "title_ko": "제품 및 서비스 요구사항",
+      "title_ko_status": "official",
+      "parent": "8",
+      "level": 2,
+      "merge_key": "ops.product_requirements",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "carried",
+      "carried_from": "iso9001_2015:8.2",
+      "requirement_summary": "고객과의 소통, 제품·서비스 요구사항의 결정과 검토, 요구사항 변경 관리를 통해 회사가 실제로 이행할 수 있는 것만 약속하도록 한다.",
+      "manual_guidance": [
+        "고객 문의-견적-계약 검토-변경 통보의 흐름을 기술하고 「SMS-QP01 영업관리 절차서」를 참조하도록 한다",
+        "계약 검토 시 확인 항목(사양, 납기, 법규, 인도 후 활동)을 열거한다",
+        "비상 상황에서 고객에게 알릴 정보(공급 중단 가능성, 대체 공급·연락 체계)를 정하는 방법을 기술한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "QP01"
+      ],
+      "coverage_keywords": [
+        "제품 및 서비스 요구사항",
+        "요구사항"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.2.1",
+      "title_ko": "고객과의 의사소통",
+      "title_ko_status": "official",
+      "parent": "8.2",
+      "level": 3,
+      "merge_key": "ops.product_requirements.customer_communication",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "제품·서비스 정보 제공, 문의·계약·주문 처리와 변경, 불만을 포함한 고객 피드백 수집, 고객 재산 취급, 필요한 경우 비상 조치에 관한 요구(공급 중단 관련 정보 포함)에 대해 고객과 소통하는 방법을 정한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "QP01"
+      ],
+      "coverage_keywords": [
+        "고객",
+        "공급 중단"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.2.2",
+      "title_ko": "제품 및 서비스 요구사항의 결정",
+      "title_ko_status": "official",
+      "parent": "8.2",
+      "level": 3,
+      "merge_key": "ops.product_requirements.determine",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.2.2",
+      "requirement_summary": "제공할 제품·서비스의 요구사항(적용 법규와 회사가 필요하다고 본 사항 포함)을 정하고, 회사가 내세우는 내용을 실제로 충족할 수 있는지 확인한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "QP01"
+      ],
+      "coverage_keywords": [
+        "요구사항"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.2.3",
+      "title_ko": "제품 및 서비스 요구사항의 검토",
+      "title_ko_status": "official",
+      "parent": "8.2",
+      "level": 3,
+      "merge_key": "ops.product_requirements.review",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.2.3",
+      "requirement_summary": "고객에게 약속하기 전에 명시된 요구, 명시되지 않았지만 용도상 필요한 요구, 법규 요구, 이전과 달라진 계약 조건을 검토해 해결하고, 검토 결과와 새 요구사항을 기록한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "요구사항 검토 결과"
+        },
+        {
+          "kind": "retain",
+          "name": "제품·서비스에 대한 신규 요구사항"
+        }
+      ],
+      "linked_procedures": [
+        "QP01"
+      ],
+      "coverage_keywords": [
+        "검토"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.2.4",
+      "title_ko": "제품 및 서비스 요구사항의 변경",
+      "title_ko_status": "official",
+      "parent": "8.2",
+      "level": 3,
+      "merge_key": "ops.product_requirements.changes",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.2.4",
+      "requirement_summary": "요구사항이 바뀌면 관련 문서를 고치고 관련 인원에게 변경 내용을 알린다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "QP01"
+      ],
+      "coverage_keywords": [
+        "변경"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.3",
+      "title_ko": "제품 및 서비스의 설계와 개발",
+      "title_ko_status": "official",
+      "parent": "8",
+      "level": 2,
+      "merge_key": "ops.design_development",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.3",
+      "requirement_summary": "설계·개발이 필요하면 단계, 검토·검증·타당성 확인, 책임, 자원, 인터페이스를 계획하고, 입력을 명확히 하며, 관리 활동을 거쳐 요구사항을 충족하는 출력을 만든다. 설계 변경은 식별·검토·승인하고 기록한다.",
+      "manual_guidance": [
+        "설계 단계별 검토·검증·타당성 확인 시점과 승인권자를 기술하고 「SMS-QP02 설계관리 절차서」를 참조하도록 한다",
+        "설계 업무가 없으면 4.3 적용 제외와 일관되게 적용 제외 사유를 쓴다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "QP02"
+      ],
+      "coverage_keywords": [
+        "설계"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.3.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "official",
+      "parent": "8.3",
+      "level": 3,
+      "merge_key": "ops.design_development.general",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.3.1",
+      "requirement_summary": "이후의 생산·서비스 제공을 보장할 수 있도록 적절한 설계·개발 프로세스를 수립하고 운영한다.",
+      "manual_guidance": [
+        "반복적·점진적 개발 방식(예: 단계별 시제품 검증과 개선)도 적용할 수 있으므로, 해당하면 그 방식과 단계별 검토 시점을 기술한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "설계"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.3.2",
+      "title_ko": "설계와 개발 기획",
+      "title_ko_status": "official",
+      "parent": "8.3",
+      "level": 3,
+      "merge_key": "ops.design_development.planning",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.3.2",
+      "requirement_summary": "설계의 성격과 복잡성을 고려해 단계, 검토 시점, 검증·타당성 확인, 책임, 필요한 자원과 인터페이스, 고객 참여 여부, 남길 기록을 계획한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "설계",
+        "기획"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.3.3",
+      "title_ko": "설계와 개발 입력",
+      "title_ko_status": "official",
+      "parent": "8.3",
+      "level": 3,
+      "merge_key": "ops.design_development.inputs",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.3.3",
+      "requirement_summary": "기능·성능 요구, 과거 유사 설계 정보, 법규, 적용하기로 한 표준·규범, 실패 시 예상 결과 등 입력을 정하고, 모호하거나 상충하는 입력을 해결한다.",
+      "manual_guidance": [
+        "반복적·점진적 개발 방식을 쓰는 경우 단계마다 입력을 갱신·확정하는 방법을 기술할 수 있다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "설계·개발 입력"
+        }
+      ],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "입력"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.3.4",
+      "title_ko": "설계와 개발 관리",
+      "title_ko_status": "official",
+      "parent": "8.3",
+      "level": 3,
+      "merge_key": "ops.design_development.controls",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.3.4",
+      "requirement_summary": "달성할 결과를 정하고, 검토로 요구 충족 능력을 평가하며, 검증으로 출력이 입력을 충족하는지, 타당성 확인으로 의도한 용도에 맞는지 확인하고 문제에 조치한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "검토·검증·타당성 확인 기록"
+        }
+      ],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "검증",
+        "타당성"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.3.5",
+      "title_ko": "설계와 개발 출력",
+      "title_ko_status": "official",
+      "parent": "8.3",
+      "level": 3,
+      "merge_key": "ops.design_development.outputs",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.3.5",
+      "requirement_summary": "출력이 입력을 충족하고, 후속 공정에 충분하며, 모니터링·측정 요구와 합격 기준, 안전하고 올바른 사용에 필요한 특성을 담도록 한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "설계·개발 출력"
+        }
+      ],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "출력"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.3.6",
+      "title_ko": "설계와 개발 변경",
+      "title_ko_status": "official",
+      "parent": "8.3",
+      "level": 3,
+      "merge_key": "ops.design_development.changes",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.3.6",
+      "requirement_summary": "설계 중이나 이후의 변경을 식별·검토·관리해 요구사항 적합성에 나쁜 영향이 없게 하고, 변경 내용, 검토 결과, 승인, 악영향 방지 조치를 기록한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "설계·개발 변경 기록"
+        }
+      ],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "변경"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.4",
+      "title_ko": "외부에서 제공되는 프로세스, 제품 및 서비스의 관리",
+      "title_ko_status": "official",
+      "parent": "8",
+      "level": 2,
+      "merge_key": "ops.external_provision",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "carried",
+      "carried_from": "iso9001_2015:8.4",
+      "requirement_summary": "구매품, 고객에게 직접 가는 외부 제공품, 외주 프로세스가 요구사항에 맞도록 공급자 평가·선정·성과 모니터링·재평가 기준을 정하고, 영향에 맞게 관리 방식과 정도를 정하며, 공급자에게 요구사항을 명확히 전달한다.",
+      "manual_guidance": [
+        "공급자 평가·선정 기준, 재평가 주기, 수입검사 방법을 기술하고 「SMS-QP03 협력업체/구매관리 절차서」를 참조하도록 한다",
+        "외주 공정이 있으면 관리 방법(승인, 검사, 현장 확인)을 명시한다",
+        "ISO 45001을 함께 적용하는 통합 매뉴얼에서는 조달(계약자·외주처리) 섹션(S 8.1.4)과 서로 참조하고, 외부공급자의 안전보건 요구는 그 섹션에서 다룬다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "공급자 평가·선정·모니터링·재평가 기록"
+        }
+      ],
+      "linked_procedures": [
+        "QP03"
+      ],
+      "coverage_keywords": [
+        "외부",
+        "구매"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.4.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "official",
+      "parent": "8.4",
+      "level": 3,
+      "merge_key": "ops.external_provision.general",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.4.1",
+      "requirement_summary": "외부 제공품 관리가 필요한 경우를 정하고, 공급자 평가·선정·성과 모니터링·재평가 기준을 정해 적용한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "QP03"
+      ],
+      "coverage_keywords": [
+        "공급자"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.4.2",
+      "title_ko": "관리의 유형과 정도",
+      "title_ko_status": "official",
+      "parent": "8.4",
+      "level": 3,
+      "merge_key": "ops.external_provision.controls",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.4.2",
+      "requirement_summary": "외부 제공 프로세스가 시스템 관리 범위 안에 있도록 하고, 고객 요구 충족에 미치는 영향과 공급자 관리 효과를 고려해 공급자와 그 출력에 적용할 관리·검증 방식을 정한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "QP03"
+      ],
+      "coverage_keywords": [
+        "관리"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.4.3",
+      "title_ko": "외부공급자를 위한 정보",
+      "title_ko_status": "official",
+      "parent": "8.4",
+      "level": 3,
+      "merge_key": "ops.external_provision.information",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "공급자에게 넘기기 전에 제공 대상, 승인 조건, 요구 역량·자격, 회사(필요하면 고객 등 관련 이해관계자 포함)와의 상호작용, 회사의 관리·모니터링 방법, 현장 검증 계획 등 요구사항이 적절한지 확인하고 전달한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "QP03"
+      ],
+      "coverage_keywords": [
+        "공급자"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.5",
+      "title_ko": "생산 및 서비스 제공",
+      "title_ko_status": "official",
+      "parent": "8",
+      "level": 2,
+      "merge_key": "ops.production_service",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.5",
+      "requirement_summary": "관리된 조건(작업 기준, 설비, 환경, 적격 인원, 측정 자원, 검증 활동, 인적 오류 예방)에서 생산·서비스를 제공하고, 식별·추적성, 고객·외부공급자 재산, 보존, 인도 후 활동, 변경관리를 다룬다.",
+      "manual_guidance": [
+        "8.5 상세 작성 기준(관리된 조건, 공정관리, 특별공정, 식별·추적성, 고객 재산, 보존, 인도 후 활동, 변경관리)을 모두 다루되, 세부 작업순서는 「SMS-QP04 프로젝트(생산)관리 절차서」로 넘긴다",
+        "업종과 주요 제품·서비스에 맞춰 관리 포인트를 구체화한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "QP04"
+      ],
+      "coverage_keywords": [
+        "생산",
+        "서비스 제공"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.5.1",
+      "title_ko": "생산 및 서비스 제공의 관리",
+      "title_ko_status": "official",
+      "parent": "8.5",
+      "level": 3,
+      "merge_key": "ops.production_service.control",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.5.1",
+      "requirement_summary": "작업 기준 문서, 적합한 설비와 측정 자원, 작업 환경, 적격 인원, 단계별 검증 활동, 결과를 나중에 검증하기 어려운 공정의 타당성 확인, 인적 오류 예방, 인도 관련 활동을 관리 조건으로 갖춘다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "QP04"
+      ],
+      "coverage_keywords": [
+        "관리"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.5.2",
+      "title_ko": "식별과 추적성",
+      "title_ko_status": "official",
+      "parent": "8.5",
+      "level": 3,
+      "merge_key": "ops.production_service.traceability",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.5.2",
+      "requirement_summary": "출력물을 식별하고 단계별 검사 상태를 표시하며, 추적성이 요구되면 고유 식별을 관리하고 기록한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "추적성 확보에 필요한 기록"
+        }
+      ],
+      "linked_procedures": [
+        "QP04"
+      ],
+      "coverage_keywords": [
+        "식별",
+        "추적성"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.5.3",
+      "title_ko": "고객 또는 외부공급자의 재산",
+      "title_ko_status": "official",
+      "parent": "8.5",
+      "level": 3,
+      "merge_key": "ops.production_service.customer_property",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.5.3",
+      "requirement_summary": "회사가 맡은 고객·공급자 재산(자재, 도면, 지식재산, 개인정보 등)을 식별·검증·보호하고, 분실·손상·부적합 시 소유자에게 알리고 기록한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "고객·공급자 재산 이상 발생 보고 기록"
+        }
+      ],
+      "linked_procedures": [
+        "QP04"
+      ],
+      "coverage_keywords": [
+        "재산"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.5.4",
+      "title_ko": "보존",
+      "title_ko_status": "official",
+      "parent": "8.5",
+      "level": 3,
+      "merge_key": "ops.production_service.preservation",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.5.4",
+      "requirement_summary": "생산·서비스 제공 중 출력물이 요구사항을 유지하도록 식별, 취급, 오염 방지, 포장, 보관, 운송, 보호 기준을 정한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "QP04"
+      ],
+      "coverage_keywords": [
+        "보존"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.5.5",
+      "title_ko": "인도 후 활동",
+      "title_ko_status": "official",
+      "parent": "8.5",
+      "level": 3,
+      "merge_key": "ops.production_service.post_delivery",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.5.5",
+      "requirement_summary": "보증, 유지보수, 회수·폐기 등 인도 후 활동의 범위를 법규, 잠재 부작용, 제품 수명, 고객 요구와 피드백을 고려해 정하고 이행한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "QP04"
+      ],
+      "coverage_keywords": [
+        "인도 후"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.5.6",
+      "title_ko": "변경관리",
+      "title_ko_status": "official",
+      "parent": "8.5",
+      "level": 3,
+      "merge_key": "ops.production_service.changes",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.5.6",
+      "requirement_summary": "생산·서비스 제공 중 생긴 변경을 검토·관리해 요구사항 적합성을 유지하고, 검토 결과, 승인자, 필요한 조치를 기록한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "변경 검토 결과와 승인 기록"
+        }
+      ],
+      "linked_procedures": [
+        "QP04"
+      ],
+      "coverage_keywords": [
+        "변경"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.6",
+      "title_ko": "제품 및 서비스의 불출(Release)",
+      "title_ko_status": "official",
+      "parent": "8",
+      "level": 2,
+      "merge_key": "ops.release",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.6",
+      "requirement_summary": "정해진 단계에서 계획된 검사·확인으로 요구사항 충족을 검증하고, 완료 전에는 승인권자(필요 시 고객)의 승인 없이 출하·인도하지 않는다. 합격 근거와 불출 승인자를 추적할 수 있게 기록한다.",
+      "manual_guidance": [
+        "수입·공정·최종 검사 단계와 합격 기준, 출하 승인 권한을 기술하고 「SMS-QP05 검사 및 시험 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "합격 기준 적합 증거"
+        },
+        {
+          "kind": "retain",
+          "name": "불출 승인자 추적 기록"
+        }
+      ],
+      "linked_procedures": [
+        "QP05"
+      ],
+      "coverage_keywords": [
+        "불출",
+        "출하"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.7",
+      "title_ko": "부적합 출력(Output)의 관리",
+      "title_ko_status": "official",
+      "parent": "8",
+      "level": 2,
+      "merge_key": "ops.nonconforming_output",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.7",
+      "requirement_summary": "요구사항에 맞지 않는 출력물을 식별·관리해 의도하지 않은 사용이나 인도를 막고, 시정, 격리·반품·공급 중단, 고객 통보, 특채 승인 등으로 처리하며, 시정한 경우 재검증한다.",
+      "manual_guidance": [
+        "부적합 식별·격리·처분(재작업, 폐기, 특채) 권한과 흐름을 기술하고 「SMS-QP06 부적합 출력 관리 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "부적합 내용, 조치, 특채, 처분 결정권자 기록"
+        }
+      ],
+      "linked_procedures": [
+        "QP06"
+      ],
+      "coverage_keywords": [
+        "부적합"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.7.1",
+      "title_ko": "부적합 출력의 처리",
+      "title_ko_status": "descriptive",
+      "parent": "8.7",
+      "level": 3,
+      "merge_key": "ops.nonconforming_output.handling",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.7.1",
+      "requirement_summary": "부적합의 성격과 제품 적합성에 대한 영향에 맞게 조치하며, 인도 후 발견된 부적합에도 적용한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "QP06"
+      ],
+      "coverage_keywords": [
+        "부적합"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.7.2",
+      "title_ko": "부적합 출력의 기록",
+      "title_ko_status": "descriptive",
+      "parent": "8.7",
+      "level": 3,
+      "merge_key": "ops.nonconforming_output.records",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:8.7.2",
+      "requirement_summary": "부적합 내용, 취한 조치, 받은 특채, 조치 결정 권한자를 기록으로 남긴다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "QP06"
+      ],
+      "coverage_keywords": [
+        "부적합"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9",
+      "title_ko": "성과 평가",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "perf",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "carried",
+      "carried_from": "iso9001_2015:9",
+      "requirement_summary": "시스템 성과를 모니터링·측정·분석하고 내부심사와 경영검토로 평가한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "성과 평가",
+        "성과평가"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.1",
+      "title_ko": "모니터링, 측정, 분석 및 평가",
+      "title_ko_status": "official",
+      "parent": "9",
+      "level": 2,
+      "merge_key": "perf.monitoring",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "carried",
+      "carried_from": "iso9001_2015:9.1",
+      "requirement_summary": "무엇을, 어떤 방법으로, 언제 모니터링·측정하고 언제 분석·평가할지 정해 시스템 성과와 효과성을 평가한다. 고객만족 파악과 데이터 분석·평가가 포함된다.",
+      "manual_guidance": [
+        "KPI 모니터링 주기, 분석 방법, 결과 보고 경로를 기술한다",
+        "고객만족 조사 방법(설문, VOC, 클레임 분석)과 주기를 포함한다",
+        "리스크 조치(6.1.2)와 기회 조치(6.1.3)의 효과성을 따로 평가하는 지표·방법을 포함한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "모니터링·측정·분석·평가 결과"
+        }
+      ],
+      "linked_procedures": [
+        "CP01"
+      ],
+      "coverage_keywords": [
+        "모니터링",
+        "측정"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.1.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "official",
+      "parent": "9.1",
+      "level": 3,
+      "merge_key": "perf.monitoring.general",
+      "phase": 3,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:9.1.1",
+      "requirement_summary": "모니터링·측정 대상, 방법, 시기와 분석·평가 시기를 정하고 결과를 기록한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "모니터링"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.1.2",
+      "title_ko": "고객만족",
+      "title_ko_status": "official",
+      "parent": "9.1",
+      "level": 3,
+      "merge_key": "perf.customer_satisfaction",
+      "phase": 3,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:9.1.2",
+      "requirement_summary": "고객이 요구와 기대가 얼마나 충족되었다고 느끼는지 조사, 피드백, 클레임 분석 등으로 파악하고, 그 방법과 검토 방식을 정한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "QP01"
+      ],
+      "coverage_keywords": [
+        "고객만족"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.1.3",
+      "title_ko": "분석 및 평가",
+      "title_ko_status": "official",
+      "parent": "9.1",
+      "level": 3,
+      "merge_key": "perf.analysis_evaluation",
+      "phase": 3,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "모니터링·측정 데이터를 분석해 제품 적합성, 고객만족, 시스템 성과, 기획의 효과적 실행, 리스크 조치의 효과성, 기회 조치의 효과성, 공급자 성과, 개선 필요성을 평가한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "분석",
+        "평가"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.2",
+      "title_ko": "내부심사",
+      "title_ko_status": "official",
+      "parent": "9",
+      "level": 2,
+      "merge_key": "perf.internal_audit",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:9.2",
+      "requirement_summary": "시스템이 회사와 표준의 요구사항에 맞고 효과적으로 운영되는지 정해진 주기로 내부심사한다. 프로세스 중요도와 이전 결과를 반영해 심사 프로그램을 세우고, 객관적인 심사원을 선정하며, 결과를 경영진에 보고하고 후속 조치를 한다.",
+      "manual_guidance": [
+        "연간 심사 주기, 심사원 자격과 독립성, 결과 보고·시정조치 연계를 기술하고 「SMS-CP06 내부심사 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "심사 프로그램 실행과 심사 결과의 증거"
+        }
+      ],
+      "linked_procedures": [
+        "CP06"
+      ],
+      "coverage_keywords": [
+        "내부심사",
+        "내부 심사"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.2.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "provisional",
+      "parent": "9.2",
+      "level": 3,
+      "merge_key": "perf.internal_audit.general",
+      "phase": 3,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:9.2.1",
+      "requirement_summary": "정해진 주기로 심사해 시스템이 요구사항에 적합하고 효과적으로 실행·유지되는지 확인한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "내부심사"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.2.2",
+      "title_ko": "내부심사 프로그램",
+      "title_ko_status": "provisional",
+      "parent": "9.2",
+      "level": 3,
+      "merge_key": "perf.internal_audit.programme",
+      "phase": 3,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:9.2.2",
+      "requirement_summary": "빈도, 방법, 책임, 계획, 보고를 포함한 심사 프로그램을 세우고, 심사마다 기준과 범위를 정하며, 결과를 관련 경영진에 보고하고 지체 없이 조치한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "심사 프로그램"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.3",
+      "title_ko": "경영검토(Management Review)",
+      "title_ko_status": "official",
+      "parent": "9",
+      "level": 2,
+      "merge_key": "perf.management_review",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "최고경영자는 정해진 주기로 시스템이 계속 적절하고 충분하며 효과적이고 전략 방향과 맞는지 검토한다. 이해관계자 니즈·기대의 변화, 리스크 조치와 기회 조치 각각의 효과성을 포함한 성과·자원 정보를 입력으로 삼고, 개선 기회, 시스템 변경, 자원 필요성을 결정해 결과를 기록한다.",
+      "manual_guidance": [
+        "경영검토 주기와 입력·출력(결과) 항목을 표로 기술하고, 이해관계자 니즈·기대 변화와 리스크·기회 조치 효과성을 각각 독립 입력 항목으로 둔다",
+        "세부 운영은 「SMS-CP01 경영 계획수립 및 검토 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [
+        "경영검토 입력·출력 항목표"
+      ],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "경영검토 결과"
+        }
+      ],
+      "linked_procedures": [
+        "CP01"
+      ],
+      "coverage_keywords": [
+        "경영검토"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.3.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "official",
+      "parent": "9.3",
+      "level": 3,
+      "merge_key": "perf.management_review.general",
+      "phase": 3,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:9.3.1",
+      "requirement_summary": "최고경영자가 정해진 주기로 시스템 전반을 검토한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "경영검토"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.3.2",
+      "title_ko": "경영검토 입력사항",
+      "title_ko_status": "official",
+      "parent": "9.3",
+      "level": 3,
+      "merge_key": "perf.management_review.inputs",
+      "phase": 3,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "이전 검토 후속 조치 상태, 내·외부 이슈 변화, 이해관계자 니즈·기대의 변화, 시스템 성과·효과성 정보(고객만족과 이해관계자 피드백, 품질목표 달성도, 프로세스 성과와 제품·서비스 적합성, 부적합과 시정조치, 모니터링·측정 결과, 심사 결과, 외부공급자 성과), 자원 충분성, 리스크 조치와 기회 조치 각각의 효과성, 개선 기회를 범주별로 빠짐없이 검토 입력으로 삼는다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "입력"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.3.3",
+      "title_ko": "경영검토 결과",
+      "title_ko_status": "provisional",
+      "parent": "9.3",
+      "level": 3,
+      "merge_key": "perf.management_review.outputs",
+      "phase": 3,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "개선 기회, 시스템 변경 필요성, 자원 필요성에 대한 결정과 조치를 경영검토 결과로 정하고 기록으로 남긴다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "결과",
+        "경영검토"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "10",
+      "title_ko": "개선",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "improvement",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "carried",
+      "carried_from": "iso9001_2015:10",
+      "requirement_summary": "부적합을 시정하고 재발을 막으며 시스템을 계속 개선한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "개선"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "10.1",
+      "title_ko": "지속적 개선",
+      "title_ko_status": "provisional",
+      "parent": "10",
+      "level": 2,
+      "merge_key": "improvement.continual",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "시스템의 적절성·충분성·효과성을 계속 높인다. 모니터링·분석·평가와 경영검토 결과를 고려해 개선 기회를 정하고, 프로세스·제품·서비스 개선, 미래 니즈 대응, 원치 않는 영향의 시정·예방·감소 등 필요한 조치를 지속적 개선의 일부로 실행한다.",
+      "manual_guidance": [
+        "개선 기회 발굴 경로(성과 분석, 고객 피드백, 심사, 경영검토)와 개선 활동 유형(시정, 시정조치, 혁신, 재구성)을 기술한다",
+        "개선 과제 선정·추적 방법과 경영검토 연계를 기술한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP01"
+      ],
+      "coverage_keywords": [
+        "지속적 개선",
+        "개선"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "10.2",
+      "title_ko": "부적합 및 시정조치",
+      "title_ko_status": "official",
+      "parent": "10",
+      "level": 2,
+      "merge_key": "improvement.nonconformity_ca",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:10.2",
+      "requirement_summary": "불만을 포함한 부적합이 생기면 즉시 관리·시정하고 그 결과를 처리하며, 원인을 분석해 재발이나 다른 곳 발생 가능성을 평가하고 필요한 시정조치를 실행한 뒤 효과를 검토한다. 필요하면 리스크·기회와 시스템을 갱신한다.",
+      "manual_guidance": [
+        "부적합 발생-원인분석-시정조치-효과성 확인 흐름을 기술하고 「SMS-CP07 시정조치 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "부적합의 성격과 후속 조치"
+        },
+        {
+          "kind": "retain",
+          "name": "시정조치 결과"
+        }
+      ],
+      "linked_procedures": [
+        "CP07",
+        "QP06"
+      ],
+      "coverage_keywords": [
+        "시정조치"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "10.2.1",
+      "title_ko": "부적합 대응과 시정조치",
+      "title_ko_status": "descriptive",
+      "parent": "10.2",
+      "level": 3,
+      "merge_key": "improvement.nonconformity_ca.actions",
+      "phase": 3,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:10.2.1",
+      "requirement_summary": "부적합에 대응해 관리·시정하고, 원인 제거 필요성을 평가해 시정조치를 실행·검토한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP07"
+      ],
+      "coverage_keywords": [
+        "시정조치"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "10.2.2",
+      "title_ko": "부적합과 시정조치의 기록",
+      "title_ko_status": "descriptive",
+      "parent": "10.2",
+      "level": 3,
+      "merge_key": "improvement.nonconformity_ca.records",
+      "phase": 3,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "carried_from": "iso9001_2015:10.2.2",
+      "requirement_summary": "부적합의 성격, 후속 조치, 시정조치 결과를 기록으로 남긴다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP07"
+      ],
+      "coverage_keywords": [
+        "기록"
+      ],
+      "kr_context": []
+    }
+  ],
+  "procedures": [
+    {
+      "id": "CP00",
+      "name": "리스크관리 절차서",
+      "iso_clauses": [
+        "6.1"
+      ],
+      "merge_key": "proc.risk",
+      "process_category": "MGT",
+      "department": "품질경영팀",
+      "input": "내외부 이슈, 이해관계자 요구, 프로세스 성과, 법규/고객 요구",
+      "output": "리스크 및 기회 평가표, 조치계획, 효과성 평가 결과",
+      "records": "리스크 및 기회 평가표, 조치계획서",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "CP01",
+      "name": "경영 계획수립 및 검토 절차서",
+      "iso_clauses": [
+        "5.1",
+        "9.3"
+      ],
+      "merge_key": "proc.planning_review",
+      "process_category": "MGT",
+      "department": "경영지원팀",
+      "input": "경영방침, 품질목표, KPI 실적, 내부심사 결과, 고객 피드백",
+      "output": "경영계획, 경영검토 회의록, 개선 지시사항",
+      "records": "경영계획서, 경영검토 회의록",
+      "retention": "3년",
+      "media": "전자문서/회의록"
+    },
+    {
+      "id": "CP02",
+      "name": "조직 및 업무분장 절차서",
+      "iso_clauses": [
+        "5.3"
+      ],
+      "merge_key": "proc.organization",
+      "process_category": "MGT",
+      "department": "경영지원팀",
+      "input": "조직도, 직무기술서, 업무분장 변경 요청",
+      "output": "조직도, 업무분장표, 권한 위임표",
+      "records": "조직도, 업무분장표, 직무기술서",
+      "retention": "개정 후 3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "CP03",
+      "name": "교육훈련 절차서",
+      "iso_clauses": [
+        "7.2"
+      ],
+      "merge_key": "proc.training",
+      "process_category": "SUP",
+      "department": "인사/교육담당부서",
+      "input": "역량 기준, 교육 필요성, 법정교육 요구, 직무별 자격 요건",
+      "output": "연간 교육계획, 교육 결과, 적격성 평가 결과, 인식 교육 기록",
+      "records": "교육계획서, 교육참석부, 역량평가표, 인식교육 기록",
+      "retention": "3년",
+      "media": "전자문서/서명부"
+    },
+    {
+      "id": "CP04",
+      "name": "의사소통 관리 절차서",
+      "iso_clauses": [
+        "7.4"
+      ],
+      "merge_key": "proc.communication",
+      "process_category": "SUP",
+      "department": "품질경영팀",
+      "input": "고객 요구, 내부 공지사항, 변경사항, 외부 이해관계자 요구",
+      "output": "의사소통 계획, 회의록, 공지 기록, 고객 대응 기록",
+      "records": "의사소통 계획표, 회의록, 고객협의 기록",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "CP05",
+      "name": "문서화된 정보관리 절차서",
+      "iso_clauses": [
+        "7.5"
+      ],
+      "merge_key": "proc.documented_info",
+      "process_category": "SUP",
+      "department": "품질경영팀",
+      "input": "문서 제·개정 요청, 기록 생성 기준, 보존 요구사항",
+      "output": "문서목록, 기록목록, 배포/회수 이력, 보존 기준",
+      "records": "문서관리대장, 기록관리대장, 문서 배포대장",
+      "retention": "최신본 유지 및 폐기 후 3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "CP06",
+      "name": "내부심사 절차서",
+      "iso_clauses": [
+        "9.2"
+      ],
+      "merge_key": "proc.internal_audit",
+      "process_category": "IMP",
+      "department": "품질경영팀",
+      "input": "연간 내부심사 계획, ISO 요구사항, 이전 심사 결과",
+      "output": "내부심사 보고서, 부적합 보고서, 시정조치 요구",
+      "records": "내부심사 계획서, 체크리스트, 심사보고서",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "CP07",
+      "name": "시정조치 절차서",
+      "iso_clauses": [
+        "10.2"
+      ],
+      "merge_key": "proc.corrective_action",
+      "process_category": "IMP",
+      "department": "품질경영팀/해당부서",
+      "input": "부적합, 고객불만, 내부심사 지적, 성과 미달, 재발 이슈",
+      "output": "시정조치 계획, 원인분석, 조치 결과, 효과성 확인",
+      "records": "시정조치 요구서, 원인분석서, 효과성 확인 기록",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "QP00",
+      "name": "인프라관리 절차서",
+      "iso_clauses": [
+        "7.1.3"
+      ],
+      "merge_key": "proc.infrastructure",
+      "process_category": "SUP",
+      "department": "생산/운영부서",
+      "input": "설비 목록, 점검 기준, 작업환경 요구사항, 유지보수 계획",
+      "output": "설비 점검 결과, 보전 계획, 작업환경 개선 조치",
+      "records": "설비점검표, 유지보수 이력, 작업환경 점검표",
+      "retention": "3년",
+      "media": "전자문서/점검표"
+    },
+    {
+      "id": "QP01",
+      "name": "영업관리 절차서",
+      "iso_clauses": [
+        "8.2"
+      ],
+      "merge_key": "proc.sales",
+      "process_category": "CORE",
+      "department": "영업부서",
+      "input": "고객 문의, 입찰/계약 요구사항, 법규 및 납기 조건",
+      "output": "견적서, 계약검토 결과, 고객 요구사항 검토 기록",
+      "records": "견적서, 계약검토서, 고객 요구사항 검토표",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "QP02",
+      "name": "설계관리 절차서",
+      "iso_clauses": [
+        "8.3"
+      ],
+      "merge_key": "proc.design",
+      "process_category": "CORE",
+      "department": "설계/기술부서",
+      "input": "고객 요구사항, 법규/표준, 설계 입력, 변경 요청",
+      "output": "설계 출력, 검토/검증/타당성확인 결과, 설계 변경 기록",
+      "records": "설계계획서, 설계검토서, 검증/타당성확인 기록",
+      "retention": "제품 수명 또는 5년",
+      "media": "전자문서"
+    },
+    {
+      "id": "QP03",
+      "name": "협력업체/구매관리 절차서",
+      "iso_clauses": [
+        "8.4"
+      ],
+      "merge_key": "proc.purchasing",
+      "process_category": "SUP",
+      "department": "구매부서",
+      "input": "구매 요청, 공급업체 평가 기준, 외주 요구사항",
+      "output": "발주서, 공급업체 평가 결과, 수입검사 결과",
+      "records": "공급업체 평가표, 발주서, 수입검사 기록",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "QP04",
+      "name": "프로젝트(생산)관리 절차서",
+      "iso_clauses": [
+        "8.5"
+      ],
+      "merge_key": "proc.production",
+      "process_category": "CORE",
+      "department": "생산/프로젝트부서",
+      "input": "수주/계약 정보, 설계 출력, 작업표준, 자재/설비/인력 계획",
+      "output": "생산/프로젝트 실적, 공정검사 결과, 식별/추적 기록, 변경관리 기록",
+      "records": "작업일보, 공정검사표, LOT/식별관리대장, 변경관리 기록",
+      "retention": "3년 또는 고객 요구기간",
+      "media": "전자문서/현장기록"
+    },
+    {
+      "id": "QP05",
+      "name": "검사 및 시험 절차서",
+      "iso_clauses": [
+        "8.6"
+      ],
+      "merge_key": "proc.inspection",
+      "process_category": "CORE",
+      "department": "품질검사부서",
+      "input": "검사 기준, 제품/서비스 출력, 측정장비, 고객 승인 조건",
+      "output": "검사 성적서, 출하 승인, 부적합 판정",
+      "records": "검사성적서, 시험성적서, 출하승인 기록",
+      "retention": "3년 또는 고객 요구기간",
+      "media": "전자문서/성적서"
+    },
+    {
+      "id": "QP06",
+      "name": "부적합 출력 관리 절차서",
+      "iso_clauses": [
+        "8.7"
+      ],
+      "merge_key": "proc.nonconforming_output",
+      "process_category": "IMP",
+      "department": "품질경영팀/해당부서",
+      "input": "부적합 제품/서비스, 검사 불합격, 고객 클레임",
+      "output": "격리/식별, 처분 결정, 재작업/폐기/특채 기록, 재검사 결과",
+      "records": "부적합보고서, 처분승인서, 재검사 기록",
+      "retention": "3년",
+      "media": "전자문서"
+    }
+  ]
+}

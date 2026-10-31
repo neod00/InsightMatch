@@ -5,6 +5,7 @@ Converts Markdown ISO manuals to PDF and Word (DOCX) formats.
 
 import io
 import re
+from xml.sax.saxutils import escape as _xml_escape
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -225,18 +226,33 @@ def clean_inline_markdown(text):
 
 
 def rich_inline_markdown(text):
-    """Convert inline markdown to ReportLab XML tags."""
+    """Convert inline markdown to ReportLab XML tags.
+
+    입력(LLM 출력·요청 본문)의 `&`, `<`, `>` 를 **먼저** 이스케이프한 뒤 우리가 만드는 태그
+    (<b>, <i>, <font face="Courier">)만 넣는다. 그래서 입력에 `<img src=...>`, `<a href=...>`,
+    `<font face=...>` 같은 ReportLab 마크업이 있어도 글자로만 찍히고, 파일·네트워크를 열지 않는다 (T11 F-04).
+    """
+    text = _xml_escape(str(text))
     # Bold: **text** → <b>text</b>
     text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
     # Italic: *text* → <i>text</i>
     text = re.sub(r'\*(.+?)\*', r'<i>\1</i>', text)
     # Code: `text` → <font face="Courier">text</font>
     text = re.sub(r'`(.+?)`', r'<font face="Courier" size="8">\1</font>', text)
-    # Escape special XML chars (but not our tags)
-    text = text.replace('&', '&amp;')
-    # Re-fix tags broken by &amp;
-    # (no-op for now as our content shouldn't have & in tags)
     return text
+
+
+def _safe_paragraph(source_text, style, prefix=''):
+    """ReportLab Paragraph 생성. 서식 태그가 어긋나 파싱이 실패하면(예: `**a *b** c*`) 서식 없이
+    이스케이프한 일반 글자로 다시 만든다 — 어느 경우에도 입력은 마크업으로 해석되지 않는다."""
+    try:
+        return Paragraph(prefix + rich_inline_markdown(source_text), style)
+    except ValueError:
+        return Paragraph(prefix + _xml_escape(clean_inline_markdown(str(source_text))), style)
+
+
+# 표지 하단 고정 고지문 (PRD NFR-7). 서버 템플릿으로 넣는다 — LLM 생성 본문에 의존하지 않는다.
+COVER_NOTICE_TEXT = '본 문서는 ISO 표준 원문을 대체하지 않으며, 인증 심사 전 표준 원문과 대조 검토가 필요합니다.'
 
 
 # ============================================================
@@ -380,6 +396,24 @@ def _add_page_number(canvas, doc):
     canvas.restoreState()
 
 
+def _draw_cover_notice(canvas, doc):
+    """첫 페이지(표지) 하단, 바닥글 선 위에 NFR-7 고지문을 고정으로 그린다."""
+    canvas.saveState()
+    available = A4[0] - 40 * mm
+    size = 7.5
+    while size > 5 and pdfmetrics.stringWidth(COVER_NOTICE_TEXT, _KR_FONT, size) > available:
+        size -= 0.5
+    canvas.setFont(_KR_FONT, size)
+    canvas.setFillColor(colors.HexColor('#4B5563'))
+    canvas.drawCentredString(A4[0] / 2, 21 * mm, COVER_NOTICE_TEXT)
+    canvas.restoreState()
+
+
+def _first_page(canvas, doc):
+    _add_page_number(canvas, doc)
+    _draw_cover_notice(canvas, doc)
+
+
 def markdown_to_pdf(markdown_text, company_name="", target_iso=""):
     """
     Convert markdown text to a PDF byte stream.
@@ -406,9 +440,8 @@ def markdown_to_pdf(markdown_text, company_name="", target_iso=""):
 
         if btype == 'heading':
             level = block['level']
-            text = rich_inline_markdown(block['content'])
             style_name = {1: 'ISOH1', 2: 'ISOH2', 3: 'ISOH3', 4: 'ISOH4'}.get(level, 'ISOH4')
-            story.append(Paragraph(text, styles[style_name]))
+            story.append(_safe_paragraph(block['content'], styles[style_name]))
 
             # Add line under H1
             if level == 1:
@@ -420,8 +453,7 @@ def markdown_to_pdf(markdown_text, company_name="", target_iso=""):
                 ))
 
         elif btype == 'paragraph':
-            text = rich_inline_markdown(block['content'])
-            story.append(Paragraph(text, styles['ISOBody']))
+            story.append(_safe_paragraph(block['content'], styles['ISOBody']))
 
         elif btype == 'hr':
             story.append(Spacer(1, 2 * mm))
@@ -434,13 +466,11 @@ def markdown_to_pdf(markdown_text, company_name="", target_iso=""):
 
         elif btype == 'unordered_list':
             for item in block['items']:
-                text = rich_inline_markdown(item)
-                story.append(Paragraph(f"• {text}", styles['ISOListItem']))
+                story.append(_safe_paragraph(item, styles['ISOListItem'], prefix='• '))
 
         elif btype == 'ordered_list':
             for idx, item in enumerate(block['items'], 1):
-                text = rich_inline_markdown(item)
-                story.append(Paragraph(f"{idx}. {text}", styles['ISOListItem']))
+                story.append(_safe_paragraph(item, styles['ISOListItem'], prefix=f'{idx}. '))
 
         elif btype == 'table':
             rows = block['rows']
@@ -453,12 +483,12 @@ def markdown_to_pdf(markdown_text, company_name="", target_iso=""):
                 if row_idx == 0:
                     # Header row
                     table_data.append([
-                        Paragraph(rich_inline_markdown(cell), styles['ISOTableHeader'])
+                        _safe_paragraph(cell, styles['ISOTableHeader'])
                         for cell in row
                     ])
                 else:
                     table_data.append([
-                        Paragraph(rich_inline_markdown(cell), styles['ISOTableCell'])
+                        _safe_paragraph(cell, styles['ISOTableCell'])
                         for cell in row
                     ])
 
@@ -497,7 +527,8 @@ def markdown_to_pdf(markdown_text, company_name="", target_iso=""):
             story.append(Spacer(1, 2 * mm))
 
     # Build PDF
-    doc.build(story, onFirstPage=_add_page_number, onLaterPages=_add_page_number)
+    # 첫 페이지(표지)에는 NFR-7 고지문을 함께 그린다
+    doc.build(story, onFirstPage=_first_page, onLaterPages=_add_page_number)
     buffer.seek(0)
     return buffer
 
@@ -570,6 +601,28 @@ def _add_inline_formatting(paragraph, text):
             paragraph.add_run(part)
 
 
+def _append_page_number_fields(paragraph):
+    """`PAGE / NUMPAGES` 필드를 문단에 넣는다."""
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+
+    def _field(instr):
+        run = paragraph.add_run()
+        begin = OxmlElement('w:fldChar')
+        begin.set(qn('w:fldCharType'), 'begin')
+        run._element.append(begin)
+        instr_text = OxmlElement('w:instrText')
+        instr_text.text = instr
+        run._element.append(instr_text)
+        end = OxmlElement('w:fldChar')
+        end.set(qn('w:fldCharType'), 'end')
+        run._element.append(end)
+
+    _field('PAGE')
+    paragraph.add_run(' / ')
+    _field('NUMPAGES')
+
+
 def markdown_to_docx(markdown_text, company_name="", target_iso=""):
     """
     Convert markdown text to a DOCX byte stream.
@@ -585,34 +638,25 @@ def markdown_to_docx(markdown_text, company_name="", target_iso=""):
         section.left_margin = Cm(2.5)
         section.right_margin = Cm(2.5)
 
-    # Add footer with page numbers
-    footer = doc.sections[0].footer
-    footer_para = footer.paragraphs[0]
-    footer_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = footer_para.add_run()
-    # Add page numbering field
     from docx.oxml.ns import qn
     from docx.oxml import OxmlElement
-    fldChar1 = OxmlElement('w:fldChar')
-    fldChar1.set(qn('w:fldCharType'), 'begin')
-    run._element.append(fldChar1)
-    instrText = OxmlElement('w:instrText')
-    instrText.text = 'PAGE'
-    run._element.append(instrText)
-    fldChar2 = OxmlElement('w:fldChar')
-    fldChar2.set(qn('w:fldCharType'), 'end')
-    run._element.append(fldChar2)
-    footer_para.add_run(' / ')
-    run2 = footer_para.add_run()
-    fldChar3 = OxmlElement('w:fldChar')
-    fldChar3.set(qn('w:fldCharType'), 'begin')
-    run2._element.append(fldChar3)
-    instrText2 = OxmlElement('w:instrText')
-    instrText2.text = 'NUMPAGES'
-    run2._element.append(instrText2)
-    fldChar4 = OxmlElement('w:fldChar')
-    fldChar4.set(qn('w:fldCharType'), 'end')
-    run2._element.append(fldChar4)
+
+    # Add footer with page numbers
+    section = doc.sections[0]
+    footer_para = section.footer.paragraphs[0]
+    footer_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    _append_page_number_fields(footer_para)
+
+    # 첫 페이지(표지) 바닥글: NFR-7 고지문(서버 고정 문구) + 쪽 번호
+    section.different_first_page_header_footer = True
+    notice_para = section.first_page_footer.paragraphs[0]
+    notice_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    notice_run = notice_para.add_run(COVER_NOTICE_TEXT)
+    notice_run.font.size = Pt(8)
+    notice_run.font.color.rgb = RGBColor(0x4B, 0x55, 0x63)
+    first_page_number_para = section.first_page_footer.add_paragraph()
+    first_page_number_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    _append_page_number_fields(first_page_number_para)
 
     # Parse and build
     blocks = parse_markdown_lines(markdown_text)

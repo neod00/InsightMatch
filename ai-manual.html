@@ -16,7 +16,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
 
     <!-- Marked.js for Markdown rendering -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.3/dist/purify.min.js"></script>
     <script src="business-number.js"></script>
 
@@ -462,6 +462,80 @@
             display: inline-block;
             margin-left: 4px;
         }
+
+        /* ===== T8: edition 선택 · 전환 일정 · 커버리지 배지 (디자인 병합 시 이 구역만 옮기면 됨) ===== */
+        /* 규격 칩: 기존 .checkbox-chip 을 재사용하되, 숨겨진 input 이 키보드로 포커스되도록 투명 오버레이로 둔다 */
+        .checkbox-chip.iso-std-chip { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+        .checkbox-chip.iso-std-chip input {
+            display: block; position: absolute; inset: 0; width: 100%; height: 100%;
+            margin: 0; padding: 0; border: 0; opacity: 0; cursor: pointer;
+        }
+        .checkbox-chip.iso-std-chip:focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
+        .checkbox-chip.iso-std-chip.is-disabled { opacity: 0.45; cursor: not-allowed; }
+        .checkbox-chip.iso-std-chip.is-disabled input { cursor: not-allowed; }
+        .iso-std-chip .iso-std-sub { font-size: 0.72rem; color: var(--text-muted); }
+        .iso-std-chip.active .iso-std-sub { color: inherit; opacity: 0.8; }
+
+        .iso-edition-panel { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .iso-edition-panel:empty { display: none; }
+        .iso-edition-row {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
+            padding: 8px 10px; background: var(--bg-primary);
+            border: 1px solid var(--border); border-radius: 10px;
+        }
+        .iso-edition-name { font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); min-width: 84px; }
+        .iso-edition-options { display: flex; flex-wrap: wrap; gap: 6px; }
+        .iso-edition-row .checkbox-chip { padding: 3px 10px; font-size: 0.78rem; background: var(--bg-card); }
+        .iso-edition-row .checkbox-chip.active { background: rgba(197, 168, 128, 0.15); }
+        .iso-edition-fixed { font-size: 0.78rem; color: var(--text-muted); }
+
+        .iso-note { margin-top: 10px; font-size: 0.78rem; line-height: 1.6; color: var(--text-secondary); }
+        .iso-note.is-ims { color: var(--primary); border-left: 3px solid var(--primary); padding-left: 10px; }
+        .iso-note.is-warn { color: var(--danger); }
+
+        .iso-schedule-area { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .iso-schedule-area:empty { display: none; }
+        .iso-schedule {
+            border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.02); font-size: 0.76rem;
+        }
+        .iso-schedule.is-urgent { border-color: var(--danger); background: rgba(239, 68, 68, 0.07); }
+        .iso-schedule-title {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
+            font-weight: 600; font-size: 0.8rem; color: var(--text-primary); margin-bottom: 6px;
+        }
+        .iso-schedule-badge {
+            font-size: 0.7rem; font-weight: 700; padding: 1px 8px; border-radius: 10px;
+            background: var(--danger); color: #fff;
+        }
+        .iso-schedule-list { margin: 0; }
+        .iso-schedule-item { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 3px 0; color: var(--text-secondary); }
+        .iso-schedule-item dt { line-height: 1.5; }
+        .iso-schedule-item dd { white-space: nowrap; margin: 0; font-variant-numeric: tabular-nums; }
+        .iso-schedule-item.is-key { color: var(--text-primary); font-weight: 700; }
+        .iso-schedule-item.is-key dd { color: var(--primary); }
+        .iso-schedule-source { margin-top: 2px; font-size: 0.72rem; line-height: 1.5; color: var(--text-muted); }
+
+        /* 커버리지 배지 (생성 결과 상단, 결과 헤더 아래) */
+        .coverage-panel { padding: 10px 28px; border-bottom: 1px solid var(--border); font-size: 0.8rem; }
+        .coverage-details > summary { list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+        .coverage-details > summary::-webkit-details-marker { display: none; }
+        .coverage-badge {
+            display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 12px;
+            font-size: 0.76rem; font-weight: 600; border: 1px solid var(--border); color: var(--text-secondary);
+        }
+        .coverage-badge.is-ok { color: var(--accent); border-color: rgba(16, 185, 129, 0.35); background: rgba(16, 185, 129, 0.1); }
+        .coverage-badge.is-gap { color: var(--primary); border-color: rgba(197, 168, 128, 0.4); background: rgba(197, 168, 128, 0.12); }
+        .coverage-more { font-size: 0.74rem; color: var(--text-muted); text-decoration: underline; }
+        .coverage-list { margin: 8px 0 0 18px; color: var(--text-secondary); line-height: 1.6; font-size: 0.78rem; }
+        .coverage-list-title { margin-top: 8px; font-size: 0.76rem; font-weight: 600; color: var(--text-secondary); }
+        .coverage-refs { color: var(--text-muted); }
+        /* 2·3단계 제목 단계가 #(h1)로 바뀌어도 첫 제목 위 여백이 과하지 않게 */
+        .md-viewer > h1:first-child { margin-top: 0; }
+        @media (max-width: 480px) {
+            .coverage-panel { padding: 10px 16px; }
+        }
+        /* ===== /T8 ===== */
     </style>
 </head>
 
@@ -526,14 +600,26 @@
                             <option value="300명 이상">300명 이상</option>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label>타깃 인증</label>
-                        <select id="inp-target-iso" required>
-                            <option value="ISO 9001:2015">ISO 9001:2015 (품질경영)</option>
-                            <option value="ISO 14001:2015">ISO 14001:2015 (환경경영)</option>
-                            <option value="ISO 45001:2018">ISO 45001:2018 (안전보건)</option>
-                        </select>
-                        <p class="form-note">ISO 9001·14001은 2026판이 발행되었으나, AI 매뉴얼은 현재 2015판 요구사항을 기준으로 생성됩니다. 2015판 신규 인증은 2028년 3월 31일까지 가능하며, 2026판 대응 매뉴얼은 준비 중입니다.</p>
+                    <!-- T8: 규격 복수 선택 + 규격별 edition (옵션 API 결과로 JS 가 edition 행·일정을 채움) -->
+                    <div class="form-group" id="target-iso-form-group">
+                        <label id="target-iso-label">타깃 인증 (복수 선택, 최대 3개)</label>
+                        <div class="checkbox-group" id="target-iso-group" role="group" aria-labelledby="target-iso-label">
+                            <label class="checkbox-chip iso-std-chip" data-std="iso9001">
+                                <input type="checkbox" value="iso9001"> ISO 9001 <span class="iso-std-sub">품질</span>
+                            </label>
+                            <label class="checkbox-chip iso-std-chip" data-std="iso14001">
+                                <input type="checkbox" value="iso14001"> ISO 14001 <span class="iso-std-sub">환경</span>
+                            </label>
+                            <label class="checkbox-chip iso-std-chip" data-std="iso45001">
+                                <input type="checkbox" value="iso45001"> ISO 45001 <span class="iso-std-sub">안전보건</span>
+                            </label>
+                        </div>
+                        <p class="iso-note is-warn hidden" id="iso-empty-notice" role="alert">규격을 1개 이상 선택해주세요.</p>
+                        <div class="iso-edition-panel" id="iso-edition-panel"></div>
+                        <p class="iso-note is-ims hidden" id="iso-ims-notice">통합경영매뉴얼(IMS)로 생성됩니다. 선택한 규격이 하나의 매뉴얼로 통합됩니다.</p>
+                        <p class="iso-note hidden" id="iso-mixed-notice">규격별 개정판이 다릅니다. 선택한 개정판 기준으로 각각 반영됩니다.</p>
+                        <p class="iso-note hidden" id="iso-edition-hint">다음 심사가 2015 기준이면 2015를 선택하세요.<span class="hidden" id="iso-pending-note"> 준비 중인 개정판은 아직 선택할 수 없습니다.</span></p>
+                        <div class="iso-schedule-area" id="iso-schedule-area"></div>
                     </div>
                     <div class="form-group">
                         <label>인증 취득 목적 (복수 선택)</label>
@@ -605,6 +691,7 @@
                         <div class="result-stats" id="result-stats">
                             <span id="stat-time">⏱ --</span>
                             <span id="stat-chars">📝 --</span>
+                            <span id="stat-retry" class="hidden" title="이 매뉴얼에서 실패한 단계를 다시 생성할 수 있는 남은 횟수">🔁 --</span>
                         </div>
                         <div class="download-group" id="download-group">
                             <button class="btn-download-trigger" onclick="toggleDownloadMenu()">
@@ -635,6 +722,9 @@
                     <p>왼쪽의 기업 정보를 입력하고<br><strong>'AI 매뉴얼 생성하기'</strong> 버튼을 클릭하세요.</p>
                 </div>
 
+                <!-- T8: 조항 커버리지 배지 (SSE coverage 이벤트가 있을 때만 표시) -->
+                <div class="coverage-panel hidden" id="coverage-panel" aria-live="polite"></div>
+
                 <!-- Markdown Viewer -->
                 <div class="md-viewer hidden" id="md-viewer"></div>
 
@@ -652,7 +742,7 @@
                             <div style="font-size:0.82rem;color:var(--text-secondary);text-align:left;margin-bottom:16px;">
                                 <div style="margin-bottom:4px;">✓ 7~10절 + 부록 이어서 생성 (2~3단계 자동)</div>
                                 <div style="margin-bottom:4px;">✓ PDF / Word 다운로드</div>
-                                <div>✓ 재생성 3회</div>
+                                <div>✓ 생성 실패 시 이어서 재시도 3회</div>
                             </div>
                             <button class="btn-unlock" onclick="unlockFullManual()" style="font-size:0.9rem;padding:12px 20px;">
                                 잠금 해제 →
@@ -702,16 +792,15 @@
         let currentPhase = 1;  // 현재 생성 단계 (1 or 2)
         let currentManualId = null;
         let currentStreamToken = null;
+        let phaseBaseMarkdown = '';  // 현재 phase 시작 직전까지의 완료분 (실패한 phase 의 부분 출력을 버릴 때 복원)
+        let isResuming = false;  // resume 요청 중 (중복 클릭 방지)
         let phaseGenOk = false;  // 현재 phase가 [PHASE_COMPLETE] 성공 신호를 받았는가
 
         function renderSafeMarkdown(markdown) {
             const html = marked.parse(markdown || '');
             if (!window.DOMPurify) return `<pre style="white-space:pre-wrap;">${escapeHtml(markdown || '')}</pre>`;
-            return DOMPurify.sanitize(html, {
-                USE_PROFILES: { html: true },
-                ADD_TAGS: ['svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'text', 'tspan', 'marker', 'defs'],
-                ADD_ATTR: ['viewBox', 'd', 'x', 'y', 'x1', 'x2', 'y1', 'y2', 'cx', 'cy', 'r', 'rx', 'ry', 'points', 'marker-end', 'stroke', 'fill', 'transform', 'class', 'id']
-            });
+            // Mermaid 다이어그램은 정화 이후 별도로 렌더링하므로 LLM 출력에 SVG 태그를 허용할 필요가 없다(T11 F-11).
+            return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
         }
 
         function escapeHtml(value) {
@@ -721,6 +810,459 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;');
+        }
+
+        // ========== T8: 규격·edition 선택 / 전환 일정 안내 (PRD FR-60~63, FR-72, FR-75) ==========
+        // 규격·edition 목록, 기본값, 노출 여부, 전환 일정은 모두 GET /api/iso-manual/options 응답을 쓴다 (날짜 하드코딩 없음).
+        // 옵션 API가 실패하면(미로그인 포함) 아래 폴백 목록(2015/2018)으로 폼이 그대로 동작한다.
+        const ISO_STD_ORDER = ['iso9001', 'iso14001', 'iso45001'];
+        const ISO_NUMBER_TO_KEY = { '9001': 'iso9001', '14001': 'iso14001', '45001': 'iso45001' };
+        const ISO_SCHEDULE_KEYS = ['published_at', 'cb_prev_edition_application_stop', 'new_cert_new_edition_only_after', 'prev_edition_cert_invalid_after'];
+        const ISO_SCHEDULE_HIGHLIGHT_KEYS = ['cb_prev_edition_application_stop', 'new_cert_new_edition_only_after'];
+        const ISO_FALLBACK_OPTIONS = {
+            standards: [
+                { standard_key: 'iso9001', display: 'ISO 9001', number: '9001', default_edition: '2015',
+                  editions: [{ edition: '2015', standard_code: 'ISO 9001:2015', exposed: true }], schedule: null },
+                { standard_key: 'iso14001', display: 'ISO 14001', number: '14001', default_edition: '2015',
+                  editions: [{ edition: '2015', standard_code: 'ISO 14001:2015', exposed: true }], schedule: null },
+                { standard_key: 'iso45001', display: 'ISO 45001', number: '45001', default_edition: '2018',
+                  editions: [{ edition: '2018', standard_code: 'ISO 45001:2018', exposed: true }], schedule: null }
+            ],
+            max_standards: 3,
+            schedule_labels: {}
+        };
+
+        let isoOptions = null;        // 옵션 API 응답 (null 이면 폴백 사용)
+        let isoSelected = {};         // { iso9001: { edition: '2026', picked: false } }  picked = 사용자가 직접 고른 edition
+        let isoPreset = [];           // URL 프리셋 [{ key, edition|null }]
+        let isoUserTouched = false;   // 사용자가 칩/edition 을 직접 바꿨는가 (바꿨다면 옵션 도착 후에도 프리셋을 다시 적용하지 않음)
+        let lastTargetIsos = null;    // 마지막으로 세션을 만든 규격 목록 (내보내기·파일명에 사용)
+        let lastCompanyName = '';     // 마지막으로 세션을 만든 회사명
+        let phaseCoverage = {};       // { phase: coverage 리포트 }
+        let retriesRemaining = null;  // resume 응답의 retries_remaining (알 수 없으면 null)
+
+        function isoOptionSource() {
+            return (isoOptions && Array.isArray(isoOptions.standards) && isoOptions.standards.length) ? isoOptions : ISO_FALLBACK_OPTIONS;
+        }
+        function isoStandardsList() {
+            return isoOptionSource().standards;
+        }
+        function getIsoStandard(key) {
+            return isoStandardsList().find(s => s.standard_key === key)
+                || ISO_FALLBACK_OPTIONS.standards.find(s => s.standard_key === key);
+        }
+        function isoMaxStandards() {
+            const n = Number(isoOptionSource().max_standards);
+            return n >= 1 ? n : 3;
+        }
+        function isoEditionSelectable(edition) {
+            return !!edition && edition.exposed !== false;
+        }
+        // 옵션 API 의 default_edition (게이트가 닫힌 edition 이면 서버가 이미 노출 가능한 edition 으로 내려 준다)
+        function isoDefaultEdition(std) {
+            const eds = (std && std.editions) || [];
+            const byDefault = eds.find(e => e.edition === std.default_edition);
+            if (isoEditionSelectable(byDefault)) return byDefault.edition;
+            const flagged = eds.find(e => e.is_default);
+            if (isoEditionSelectable(flagged)) return flagged.edition;
+            const open = eds.filter(isoEditionSelectable);
+            return open.length ? open[open.length - 1].edition : null;
+        }
+        function isoStandardCode(key, edition) {
+            const std = getIsoStandard(key);
+            const hit = ((std && std.editions) || []).find(e => e.edition === edition);
+            return (hit && hit.standard_code) || `ISO ${std ? std.number : ''}:${edition}`;
+        }
+        // 서버 계약: edition 포함 문자열 배열 (예: ['ISO 9001:2026', 'ISO 45001:2018'])
+        function collectTargetIsos() {
+            return ISO_STD_ORDER.filter(k => isoSelected[k]).map(k => isoStandardCode(k, isoSelected[k].edition));
+        }
+
+        // URL: ?target_isos=9001,45001 / 9001:2026,45001 (신규, FR-61), ?target_iso=ISO 9001:2015 (기존)
+        function parseIsoPreset(params) {
+            const raw = params.get('target_isos') || params.get('target_iso') || '';
+            const out = [];
+            raw.split(',').forEach(item => {
+                const m = /(\d{4,5})(?:\s*:\s*(\d{4}))?/.exec(item);
+                const key = m && ISO_NUMBER_TO_KEY[m[1]];
+                if (key && !out.some(p => p.key === key)) out.push({ key, edition: m[2] || null });
+            });
+            return out.slice(0, 3);
+        }
+        function applyIsoPreset() {
+            if (!isoPreset.length) return;
+            isoSelected = {};
+            isoPreset.slice(0, isoMaxStandards()).forEach(p => {
+                const std = getIsoStandard(p.key);
+                const wanted = p.edition && (std.editions || []).find(e => e.edition === p.edition);
+                const usable = isoEditionSelectable(wanted);
+                const edition = usable ? p.edition : isoDefaultEdition(std);
+                if (edition) isoSelected[p.key] = { edition, picked: usable };
+            });
+        }
+        // 옵션 도착/변경 후: 기본 edition 갱신, 선택 불가가 된 edition 정리
+        function reconcileIsoSelection() {
+            ISO_STD_ORDER.forEach(key => {
+                const sel = isoSelected[key];
+                if (!sel) return;
+                const std = getIsoStandard(key);
+                const current = (std.editions || []).find(e => e.edition === sel.edition);
+                const usable = isoEditionSelectable(current);
+                if (!usable || !sel.picked) {
+                    const fallback = isoDefaultEdition(std);
+                    if (fallback) { sel.edition = fallback; sel.picked = sel.picked && usable; }
+                    else delete isoSelected[key];
+                }
+            });
+        }
+
+        function setHidden(id, hidden) {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('hidden', !!hidden);
+        }
+
+        function syncIsoChips() {
+            document.querySelectorAll('#target-iso-group .iso-std-chip').forEach(label => {
+                const input = label.querySelector('input');
+                const on = !!isoSelected[input.value];
+                input.checked = on;
+                label.classList.toggle('active', on);
+            });
+        }
+
+        function renderIsoEditionRows() {
+            const panel = document.getElementById('iso-edition-panel');
+            if (!panel) return;
+            panel.textContent = '';
+            ISO_STD_ORDER.forEach(key => {
+                const sel = isoSelected[key];
+                if (!sel) return;
+                const std = getIsoStandard(key);
+                const eds = std.editions || [];
+                const row = document.createElement('div');
+                row.className = 'iso-edition-row';
+                row.dataset.std = key;
+                const name = document.createElement('span');
+                name.className = 'iso-edition-name';
+                name.textContent = `${std.display} 개정판`;
+                row.appendChild(name);
+                if (eds.length <= 1) {
+                    // 45001 처럼 개정판이 하나뿐인 규격은 선택 없이 표시만
+                    const fixed = document.createElement('span');
+                    fixed.className = 'iso-edition-fixed';
+                    fixed.textContent = `${sel.edition} (고정)`;
+                    row.appendChild(fixed);
+                } else {
+                    const group = document.createElement('div');
+                    group.className = 'iso-edition-options';
+                    group.setAttribute('role', 'radiogroup');
+                    group.setAttribute('aria-label', `${std.display} 개정판 선택`);
+                    eds.forEach(e => {
+                        const open = isoEditionSelectable(e);
+                        const label = document.createElement('label');
+                        label.className = 'checkbox-chip iso-std-chip' + (open ? '' : ' is-disabled') + (sel.edition === e.edition ? ' active' : '');
+                        if (!open) label.title = '이 개정판은 준비 중이라 아직 선택할 수 없습니다.';
+                        const input = document.createElement('input');
+                        input.type = 'radio';
+                        input.name = `iso-edition-${key}`;
+                        input.value = e.edition;
+                        input.checked = sel.edition === e.edition;
+                        input.disabled = !open;
+                        label.appendChild(input);
+                        label.appendChild(document.createTextNode(open ? e.edition : `${e.edition} · 준비 중`));
+                        group.appendChild(label);
+                    });
+                    row.appendChild(group);
+                }
+                panel.appendChild(row);
+            });
+        }
+
+        // 일정 중 '이전 판 접수 중단일'이 가장 빠른 규격을 강조한다 (데이터로 판정 — 현재 데이터에서는 14001)
+        function isoDaysUntil(dateStr) {
+            const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr || '');
+            if (!m) return null;
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            return Math.round((new Date(+m[1], +m[2] - 1, +m[3]) - today) / 86400000);
+        }
+        function renderIsoSchedule(keys) {
+            const box = document.getElementById('iso-schedule-area');
+            if (!box) return;
+            const labels = (isoOptions && isoOptions.schedule_labels) || {};
+            let earliest = null;
+            isoStandardsList().forEach(s => {
+                const d = s.schedule && s.schedule.cb_prev_edition_application_stop;
+                if (d && (earliest === null || d < earliest)) earliest = d;
+            });
+            const blocks = keys.map(getIsoStandard).filter(s => s && s.schedule).map(s => ({
+                std: s,
+                urgent: !!earliest && s.schedule.cb_prev_edition_application_stop === earliest
+            })).sort((a, b) => Number(b.urgent) - Number(a.urgent));
+            if (!blocks.length) { box.innerHTML = ''; return; }
+
+            const html = blocks.map(({ std, urgent }) => {
+                let badge = '';
+                if (urgent) {
+                    const days = isoDaysUntil(std.schedule.cb_prev_edition_application_stop);
+                    if (days !== null) {
+                        const text = days > 0 ? `접수 중단까지 ${days}일` : (days === 0 ? '오늘 접수 중단' : '접수 중단일 경과');
+                        badge = `<span class="iso-schedule-badge">${escapeHtml(text)}</span>`;
+                    }
+                }
+                const rows = ISO_SCHEDULE_KEYS.filter(k => std.schedule[k] && labels[k]).map(k => {
+                    const key = urgent && ISO_SCHEDULE_HIGHLIGHT_KEYS.includes(k) ? ' is-key' : '';
+                    return `<div class="iso-schedule-item${key}"><dt>${escapeHtml(labels[k])}</dt><dd>${escapeHtml(std.schedule[k])}</dd></div>`;
+                }).join('');
+                if (!rows) return '';
+                return `<div class="iso-schedule${urgent ? ' is-urgent' : ''}">`
+                    + `<div class="iso-schedule-title">${escapeHtml(std.display)} 전환 일정 ${badge}</div>`
+                    + `<dl class="iso-schedule-list">${rows}</dl></div>`;
+            }).join('');
+            if (!html) { box.innerHTML = ''; return; }
+
+            const src = isoOptions && isoOptions.schedule_source;
+            const confirmed = isoOptions && isoOptions.schedule_confirmed_at;
+            const meta = [src ? `출처: ${src}` : '', confirmed ? `확인일 ${confirmed}` : '', '실제 심사 기준은 인증기관에 확인하세요.']
+                .filter(Boolean).join(' · ');
+            box.innerHTML = html + `<p class="iso-schedule-source">${escapeHtml(meta)}</p>`;
+        }
+
+        function renderIsoNotices() {
+            const keys = ISO_STD_ORDER.filter(k => isoSelected[k]);
+            const stds = keys.map(getIsoStandard);
+            setHidden('iso-empty-notice', keys.length > 0);
+            setHidden('iso-ims-notice', keys.length < 2);
+
+            const choosable = stds.filter(s => (s.editions || []).length > 1);
+            setHidden('iso-edition-hint', choosable.length === 0);
+            setHidden('iso-pending-note', !stds.some(s => (s.editions || []).some(e => !isoEditionSelectable(e))));
+
+            // 개정판을 고를 수 있는 규격끼리 개정판이 다를 때만 안내 (45001 처럼 개정판이 하나뿐인 규격은 제외)
+            const picked = new Set(choosable.map(s => isoSelected[s.standard_key].edition));
+            setHidden('iso-mixed-notice', picked.size < 2);
+
+            renderIsoSchedule(keys);
+        }
+
+        function refreshIsoUI() {
+            syncIsoChips();
+            renderIsoEditionRows();
+            renderIsoNotices();
+        }
+
+        function onIsoChipChange(input) {
+            const key = input.value;
+            isoUserTouched = true;
+            if (input.checked) {
+                if (Object.keys(isoSelected).length >= isoMaxStandards()) {
+                    input.checked = false;
+                    alert(`규격은 최대 ${isoMaxStandards()}개까지 선택할 수 있습니다.`);
+                    return;
+                }
+                const edition = isoDefaultEdition(getIsoStandard(key));
+                if (edition) isoSelected[key] = { edition, picked: false };
+            } else {
+                delete isoSelected[key];
+            }
+            refreshIsoUI();
+        }
+
+        function onIsoEditionChange(input) {
+            const key = (input.name || '').replace(/^iso-edition-/, '');
+            if (!isoSelected[key]) return;
+            isoUserTouched = true;
+            isoSelected[key] = { edition: input.value, picked: true };
+            const row = input.closest('.iso-edition-row');
+            if (row) row.querySelectorAll('.iso-std-chip').forEach(l => l.classList.toggle('active', l.querySelector('input').checked));
+            renderIsoNotices();
+        }
+
+        async function loadIsoOptions() {
+            let token = null;
+            try { token = localStorage.getItem('token'); } catch (e) { /* ignore */ }
+            if (!token) return false;  // 미로그인: 폴백 목록 사용 (생성 시 로그인 안내가 나온다)
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/iso-manual/options`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                if (!data || !Array.isArray(data.standards) || !data.standards.length) throw new Error('empty options');
+                isoOptions = data;
+                if (!isoUserTouched) applyIsoPreset();
+                reconcileIsoSelection();
+                refreshIsoUI();
+                return true;
+            } catch (e) {
+                // 토스트/알림 없이 로그만: 폴백 목록으로 폼은 계속 동작한다
+                console.warn('[ISO Manual] edition options unavailable, using fallback list:', e && e.message);
+                return false;
+            }
+        }
+
+        function initIsoSelector() {
+            // 가입 후 돌아와 되살린 선택이 있으면 그것을, 없으면 URL 프리셋을 쓴다
+            isoPreset = (restoredIsoPreset && restoredIsoPreset.length)
+                ? restoredIsoPreset
+                : parseIsoPreset(new URLSearchParams(window.location.search));
+            if (isoPreset.length) applyIsoPreset();
+            if (!Object.keys(isoSelected).length) {
+                // 기본: ISO 9001 (기존 select 기본값과 동일), edition 은 옵션의 기본값
+                const edition = isoDefaultEdition(getIsoStandard('iso9001'));
+                if (edition) isoSelected.iso9001 = { edition, picked: false };
+            }
+            document.getElementById('target-iso-group').addEventListener('change', (e) => {
+                if (e.target && e.target.matches('input[type="checkbox"]')) onIsoChipChange(e.target);
+            });
+            document.getElementById('iso-edition-panel').addEventListener('change', (e) => {
+                if (e.target && e.target.matches('input[type="radio"]')) onIsoEditionChange(e.target);
+            });
+            refreshIsoUI();
+            loadIsoOptions();
+        }
+
+        // ---- 서버 오류 응답 → 사용자 문구 ({message, errors, error_codes}) ----
+        function formatManualApiError(err) {
+            const lines = [err && (err.message || err.error) || '매뉴얼 생성 세션을 만들 수 없습니다.'];
+            if (err && err.errors && typeof err.errors === 'object') {
+                Object.keys(err.errors).forEach(field => {
+                    const msg = err.errors[field];
+                    if (typeof msg === 'string' && msg && msg !== lines[0]) lines.push(`· ${msg}`);
+                });
+            }
+            return lines.join('\n');
+        }
+
+        // ---- 다운로드 파일명: 서버 규칙 `{회사}_ISO_9001-2026_45001-2018_매뉴얼.{ext}` ----
+        function buildExportFilename(company, standardCodes, ext) {
+            const order = ISO_STD_ORDER.map(k => (getIsoStandard(k) || {}).number);
+            const parsed = [];
+            (standardCodes || []).forEach(code => {
+                const m = /(\d{4,5})\s*:\s*(\d{4})/.exec(String(code));
+                if (m) parsed.push({ idx: order.indexOf(m[1]) < 0 ? order.length : order.indexOf(m[1]), number: m[1], edition: m[2] });
+            });
+            parsed.sort((a, b) => a.idx - b.idx);
+            const seen = new Set();
+            const parts = [];
+            parsed.forEach(p => { if (!seen.has(p.number)) { seen.add(p.number); parts.push(`${p.number}-${p.edition}`); } });
+            const safeCompany = String(company || '').replace(/[^\p{L}\p{N}\p{M}_\s]/gu, '').trim() || 'ISO매뉴얼';
+            const safeIso = parts.length ? 'ISO_' + parts.join('_') : 'ISO';
+            const safeExt = String(ext || '').replace(/[^0-9A-Za-z]/g, '') || 'pdf';
+            return `${safeCompany}_${safeIso}_매뉴얼.${safeExt}`;
+        }
+        // Content-Disposition: filename*=UTF-8''…(RFC 5987) 우선, 없으면 filename="…"
+        function parseContentDispositionFilename(header) {
+            if (!header) return '';
+            let m = /filename\*\s*=\s*([^']*)'[^']*'([^;]+)/i.exec(header);
+            if (m && (!m[1] || /^utf-?8$/i.test(m[1].trim()))) {
+                try { return decodeURIComponent(m[2].trim().replace(/^"|"$/g, '')); } catch (e) { /* fall through */ }
+            }
+            m = /filename\s*=\s*"((?:[^"\\]|\\.)*)"/i.exec(header) || /filename\s*=\s*([^;]+)/i.exec(header);
+            return m ? m[1].trim() : '';
+        }
+        function safeDownloadName(name) {
+            return String(name || '').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').trim();
+        }
+
+        // ---- 조항 커버리지 배지 (SSE `event: coverage`, FR-51/52) ----
+        // 이벤트가 없거나 error 필드가 있으면 아무것도 표시하지 않는다 (점검 실패가 생성 완료를 막지 않음).
+        function prepareCoverageForPhase(appendMode) {
+            if (!appendMode) phaseCoverage = {};
+            else delete phaseCoverage[currentPhase];
+            renderCoveragePanel();
+        }
+        function handleCoverageEvent(event, phase) {
+            try {
+                const report = JSON.parse(event.data);
+                if (!report || typeof report !== 'object' || report.error) return;
+                if (!Number.isFinite(report.required) || !Number.isFinite(report.found)) return;
+                const p = [1, 2, 3].includes(report.phase) ? report.phase : phase;
+                phaseCoverage[p] = report;
+                renderCoveragePanel();
+            } catch (e) {
+                console.warn('[ISO Manual] coverage event ignored:', e && e.message);
+            }
+        }
+        function renderCoveragePanel() {
+            const panel = document.getElementById('coverage-panel');
+            if (!panel) return;
+            const phases = Object.keys(phaseCoverage).map(Number).sort();
+            let required = 0, found = 0;
+            const missing = [], keywordGaps = [];
+            phases.forEach(p => {
+                const r = phaseCoverage[p];
+                required += Math.max(0, r.required);
+                found += Math.max(0, r.found);
+                (Array.isArray(r.missing) ? r.missing : []).forEach(m => missing.push({ phase: p, m }));
+                (Array.isArray(r.keyword_missing) ? r.keyword_missing : []).forEach(k => keywordGaps.push({ phase: p, k }));
+            });
+            if (!phases.length || (required === 0 && keywordGaps.length === 0)) {
+                panel.classList.add('hidden');
+                panel.innerHTML = '';
+                return;
+            }
+            const gap = Math.max(0, required - found);
+            const scope = phases.length === 1 ? `${phases[0]}단계` : `${phases[0]}~${phases[phases.length - 1]}단계`;
+            const badgeText = gap === 0 ? `✓ 조항 점검 ${found}/${required}` : `조항 점검 ${found}/${required} · 누락 ${gap}건`;
+            const badge = `<span class="coverage-badge ${gap === 0 ? 'is-ok' : 'is-gap'}" title="필수 조항이 생성된 매뉴얼에 포함됐는지 자동 점검한 결과 (${escapeHtml(scope)})">${escapeHtml(badgeText)}</span>`;
+
+            const itemLabel = (phase, no, title) => `${phase}단계 · ${escapeHtml(no || '')} ${escapeHtml(title || '')}`.trim();
+            const missingHtml = missing.map(({ phase, m }) => {
+                const refs = Array.isArray(m.refs) && m.refs.length ? ` <span class="coverage-refs">(${escapeHtml(m.refs.join(', '))})</span>` : '';
+                return `<li>${itemLabel(phase, m.manual_no, m.title)}${refs}</li>`;
+            }).join('');
+            const kwHtml = keywordGaps.map(({ phase, k }) => {
+                const kws = Array.isArray(k.keywords) && k.keywords.length ? ` <span class="coverage-refs">(${escapeHtml(k.keywords.join(', '))})</span>` : '';
+                return `<li>${itemLabel(phase, k.manual_no, k.title)}${kws}</li>`;
+            }).join('');
+
+            if (!missingHtml && !kwHtml) {
+                panel.innerHTML = badge;
+            } else {
+                const moreLabel = missingHtml ? '누락 항목 보기' : '내용 확인 권장 항목 보기';
+                panel.innerHTML = `<details class="coverage-details"><summary>${badge}<span class="coverage-more">${moreLabel}</span></summary>`
+                    + (missingHtml ? `<div class="coverage-list-title">누락된 필수 조항</div><ul class="coverage-list">${missingHtml}</ul>` : '')
+                    + (kwHtml ? `<div class="coverage-list-title">제목은 있으나 핵심 내용 확인이 필요한 조항</div><ul class="coverage-list">${kwHtml}</ul>` : '')
+                    + `</details>`;
+            }
+            panel.classList.remove('hidden');
+        }
+
+        // ---- 다시 생성 안내 (resume 응답) ----
+        function updateRetryStat() {
+            const el = document.getElementById('stat-retry');
+            if (!el) return;
+            if (retriesRemaining === null) { el.classList.add('hidden'); return; }
+            el.textContent = `🔁 다시 생성 ${retriesRemaining}회 남음`;
+            el.classList.remove('hidden');
+        }
+        function resumeErrorMessage(status, data) {
+            const code = data && data.code;
+            const server = data && (data.message || data.error);
+            if (status === 401) return '로그인이 만료되었습니다. 다시 로그인한 뒤 시도해주세요.';
+            switch (code) {
+                case 'RETRY_LIMIT_EXCEEDED':
+                    return '이 매뉴얼은 다시 생성할 수 있는 횟수를 모두 사용했습니다. ' + (server || '재생성은 매뉴얼 1건당 최대 3회까지 가능합니다.');
+                case 'RETRY_WINDOW_EXPIRED':
+                    return '다시 생성 가능 기간(생성 후 24시간)이 지났습니다. 새로 생성해주세요.';
+                case 'GENERATION_IN_PROGRESS':
+                    return '이전 요청이 아직 생성 중입니다. 1~2분 정도 기다린 뒤 다시 시도해주세요.';
+                case 'MANUAL_ALREADY_COMPLETE':
+                    return '이미 모든 단계의 생성이 끝난 매뉴얼입니다. 다시 생성할 필요가 없습니다.';
+                case 'ENTITLEMENT_REQUIRED':
+                    return server || '전체 버전 이용 권한이 없습니다.';
+                case 'NOT_FOUND':
+                    return '매뉴얼 생성 이력을 찾을 수 없습니다. 처음부터 새로 생성해주세요.';
+                default:
+                    return server || '다시 생성을 시작할 수 없습니다. 잠시 후 다시 시도해주세요.';
+            }
+        }
+        function showRetryMessage(message, hideRetryButton) {
+            const el = document.getElementById('retry-msg');
+            if (el) { el.textContent = message; el.classList.remove('hidden'); }
+            else alert(message);
+            if (hideRetryButton) setHidden('btn-retry', true);
         }
 
         // ========== Auto-fill user info ==========
@@ -769,17 +1311,23 @@
         // 가입하러 갔다 돌아와도 입력한 내용이 남도록 폼을 sessionStorage 에 잠깐 보관한다(탭을 닫으면 사라짐).
         // id 가 있는 입력은 id 로, 체크박스는 같은 묶음의 순서로 저장해서 폼 구성이 바뀌어도 동작한다.
         const MANUAL_DRAFT_KEY = 'manual_form_draft_v1';
+        // 규격·개정판 선택은 화면 체크 상태가 아니라 isoSelected 가 기준이다. 되살린 선택은 initIsoSelector()
+        // 가 URL 프리셋 대신 쓰도록 여기 담아 두고, 옵션 API 가 오면 프리셋과 같은 규칙으로 다시 맞춘다.
+        let restoredIsoPreset = null;  // [{ key, edition|null }]
         function saveManualDraft() {
             try {
-                const draft = { fields: {}, checks: {} };
+                const draft = { fields: {}, checks: {}, iso: [] };
                 document.querySelectorAll('#iso-form input[id], #iso-form select[id], #iso-form textarea[id]').forEach(el => {
                     if (el.type === 'checkbox' || el.type === 'radio') draft.checks[el.id] = el.checked;
                     else draft.fields[el.id] = el.value;
                 });
                 document.querySelectorAll('#iso-form .checkbox-group').forEach(group => {
-                    if (!group.id) return;
+                    if (!group.id || group.id === 'target-iso-group') return;  // 규격은 아래 draft.iso 로 따로 저장
                     draft.checks[group.id] = Array.from(group.querySelectorAll('input[type="checkbox"]')).map(cb => cb.checked);
                 });
+                // 사용자가 직접 고른 개정판만 기억한다(기본값이었으면 null → 돌아왔을 때 그때의 기본 개정판을 쓴다)
+                draft.iso = ISO_STD_ORDER.filter(k => isoSelected[k])
+                    .map(k => ({ key: k, edition: isoSelected[k].picked ? isoSelected[k].edition : null }));
                 sessionStorage.setItem(MANUAL_DRAFT_KEY, JSON.stringify(draft));
             } catch (e) { /* 저장소를 못 쓰면 입력은 유지되지 않을 뿐 생성에는 영향 없음 */ }
         }
@@ -805,6 +1353,12 @@
                     el.checked = Boolean(value);
                 }
             });
+            if (Array.isArray(draft.iso)) {
+                const seen = new Set();
+                restoredIsoPreset = draft.iso.filter(p => p && ISO_STD_ORDER.includes(p.key) && !seen.has(p.key) && seen.add(p.key))
+                    .map(p => ({ key: p.key, edition: /^\d{4}$/.test(String(p.edition || '')) ? String(p.edition) : null }))
+                    .slice(0, 3);
+            }
             return true;
         }
         // 입력한 내용을 되살렸고 로그인된 상태면 이어서 만들 수 있다고 알린다.
@@ -825,11 +1379,17 @@
             const industry = document.getElementById('inp-industry').value;
             const mainProduct = document.getElementById('inp-main-product').value.trim();
             const employees = document.getElementById('inp-employees').value;
-            const targetIso = document.getElementById('inp-target-iso').value;
+            const targetIsos = collectTargetIsos();
             const customIssue = document.getElementById('inp-custom-issue').value.trim();
 
             if (!company || !industry || !employees || !mainProduct) {
                 alert('회사명, 업종, 주요 생산품/서비스, 규모를 입력해주세요.');
+                return;
+            }
+            if (!targetIsos.length) {
+                alert('타깃 인증을 1개 이상 선택해주세요.');
+                const firstChip = document.querySelector('#target-iso-group input');
+                if (firstChip) firstChip.focus();
                 return;
             }
 
@@ -869,7 +1429,7 @@
                         industry,
                         main_product: mainProduct,
                         employees,
-                        target_iso: targetIso,
+                        target_isos: targetIsos,
                         custom_issue: customIssue,
                         issues,
                         reasons
@@ -883,12 +1443,18 @@
 
                 if (!sessionResponse.ok) {
                     const err = await sessionResponse.json().catch(() => ({}));
-                    throw new Error(err.message || err.error || '매뉴얼 생성 세션을 만들 수 없습니다.');
+                    // 선택한 edition 이 서버에서 막힌 경우(공개 전 등) 옵션을 다시 받아 화면을 맞춘다
+                    if (err && err.error_codes && /edition|standard/.test(String(err.error_codes.target_isos || ''))) loadIsoOptions();
+                    throw new Error(formatManualApiError(err));
                 }
 
                 const session = await sessionResponse.json();
                 currentManualId = session.manual_id;
                 currentStreamToken = session.stream_token;
+                lastTargetIsos = targetIsos.slice();
+                lastCompanyName = company;
+                retriesRemaining = null;
+                updateRetryStat();
 
                 const params = new URLSearchParams();
                 params.set('manual_id', currentManualId);
@@ -907,9 +1473,16 @@
             isGenerating = true;
             if (!appendMode) {
                 rawMarkdown = '';
+                phaseBaseMarkdown = '';
                 startTime = Date.now();
                 currentPhase = 1;
+            } else {
+                // 완료분을 기억해 두고(실패 시 복원), phase 이음은 서버 저장본과 같이 '\n\n'으로 통일
+                phaseBaseMarkdown = rawMarkdown;
+                if (rawMarkdown) rawMarkdown += '\n\n';  // FR-45: 서버 combined_markdown 과 같은 이음 ('\n\n' 고정)
             }
+
+            prepareCoverageForPhase(appendMode);  // T8: 이번 phase 의 이전 커버리지 결과 정리
 
             // Phase indicator UI
             const phaseIndicator = document.getElementById('phase-indicator');
@@ -990,6 +1563,10 @@
                 updateStats();
             };
 
+            // T8: 조항 커버리지 (named event — onmessage 로는 오지 않으므로 본문에 섞이지 않는다)
+            const coveragePhase = currentPhase;
+            eventSource.addEventListener('coverage', (event) => handleCoverageEvent(event, coveragePhase));
+
             eventSource.onerror = () => {
                 eventSource.close();
                 if (phaseGenOk) return;  // 이미 성공 완료된 뒤의 지연 오류는 무시
@@ -1002,6 +1579,8 @@
         // '미완성 초안'으로 명확히 표시하고, 다음 phase 자동 전이나 다운로드는 막는다.
         function handleGenerationError(message) {
             if (renderTimer) { clearTimeout(renderTimer); renderTimer = null; }
+            // 실패한 phase 의 부분 출력은 버리고, 앞서 완료된 phase 만 남긴다 (재시도 시 그 phase 부터 다시 생성)
+            rawMarkdown = phaseBaseMarkdown;
             const viewer = document.getElementById('md-viewer');
             const hasPartial = !!(rawMarkdown && rawMarkdown.length > 0);
 
@@ -1010,7 +1589,9 @@
                     <strong style="color:var(--danger);">⚠️ 생성이 중단되었습니다</strong>
                     <p style="margin-top:8px;color:var(--text-muted);">${escapeHtml(message)}</p>
                     ${hasPartial ? '<p style="margin-top:8px;color:var(--text-muted);">지금까지 생성된 내용은 <strong>미완성 초안</strong>입니다. 완성본이 아니므로 제출·다운로드 전에 다시 생성해주세요.</p>' : ''}
-                    <button onclick="retryGeneration()" style="margin-top:12px;padding:10px 18px;background:var(--text-primary);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">다시 생성</button>
+                    ${retriesRemaining !== null ? `<p style="margin-top:8px;color:var(--text-muted);">다시 생성 가능 횟수: ${Number(retriesRemaining)}회 남음</p>` : ''}
+                    <p id="retry-msg" class="hidden" role="alert" style="margin-top:8px;color:var(--danger);"></p>
+                    <button id="btn-retry" onclick="retryGeneration()" class="${retriesRemaining === 0 ? 'hidden' : ''}" style="margin-top:12px;padding:10px 18px;background:var(--text-primary);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">다시 생성</button>
                 </div>`;
 
             if (hasPartial) {
@@ -1024,15 +1605,62 @@
             document.getElementById('download-group').classList.remove('visible');
             const phaseText = document.getElementById('phase-text');
             if (phaseText) phaseText.textContent = '중단됨';
-            isFullVersion = false;  // 잘린 전체버전이 이어서 트리거되지 않도록 해제
+            // isFullVersion 은 그대로 둔다: 유료 phase(2·3) 재시도 뒤에도 자동 전이를 이어가야 한다.
+            // (오류 시에는 finishGeneration 이 호출되지 않으므로 잘린 phase 로 자동 전이되지는 않는다)
             resetButton();
         }
 
         // ========== 다시 생성 ==========
-        function retryGeneration() {
-            if (isGenerating) return;
+        // 같은 manual_id 로 resume 을 호출해 실패한 phase 부터 이어서 생성한다 (새 세션을 만들지 않으므로
+        // 하루 한도에 걸리지 않는다). 세션이 없던 경우(세션 생성 전 실패)만 기존 폼 제출 경로를 쓴다.
+        async function retryGeneration() {
+            if (isGenerating || isResuming) return;
             const btn = document.getElementById('btn-generate');
-            if (btn) btn.click();  // 폼 제출 경로 → 새 세션으로 처음부터 재생성
+            const token = localStorage.getItem('token');
+            if (!currentManualId || !token || !lastFormParams) {
+                if (btn) btn.click();  // 폼 제출 경로 → 새 세션으로 처음부터 생성
+                return;
+            }
+
+            isResuming = true;
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/iso-manual/${encodeURIComponent(currentManualId)}/resume`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    // 429/410/409 등: 문구는 resumeErrorMessage, 더 시도해도 소용없는 경우(횟수 소진·기간 만료·이미 완료)는 버튼을 숨긴다
+                    const terminal = ['RETRY_LIMIT_EXCEEDED', 'RETRY_WINDOW_EXPIRED', 'MANUAL_ALREADY_COMPLETE'].includes(data.code);
+                    if (data.code === 'RETRY_LIMIT_EXCEEDED') { retriesRemaining = 0; updateRetryStat(); }
+                    showRetryMessage(resumeErrorMessage(response.status, data), terminal);
+                    return;
+                }
+                if (Number.isFinite(data.retries_remaining)) {
+                    retriesRemaining = data.retries_remaining;  // 남은 다시 생성 횟수 표시
+                    updateRetryStat();
+                }
+
+                // 새 stream_token 으로 교체 (이전 토큰은 무효화됨)
+                currentStreamToken = data.stream_token;
+                const params = new URLSearchParams(lastFormParams);
+                params.set('manual_id', currentManualId);
+                params.set('stream_token', currentStreamToken);
+                params.delete('continue_from');
+                lastFormParams = new URLSearchParams(params);
+
+                if (data.next_phase >= 2) {
+                    currentPhase = data.next_phase;
+                    params.set('continue_from', String(data.continue_from));
+                    startGeneration(params, true);   // 앞서 완료된 phase 뒤에 이어붙인다
+                } else {
+                    startGeneration(params, false);  // 1단계부터
+                }
+            } catch (err) {
+                showRetryMessage(`다시 생성 준비 실패: ${err.message}`, false);
+            } finally {
+                isResuming = false;
+            }
         }
 
         // ========== Render Markdown ==========
@@ -1234,17 +1862,17 @@
             const menu = document.getElementById('download-menu');
             menu.classList.remove('open');
 
-            const company = document.getElementById('inp-company').value || 'ISO매뉴얼';
-            const iso = document.getElementById('inp-target-iso').value;
-            const safeIso = iso.replace(/[:\s]/g, '_');
+            // 세션을 만든 시점의 회사명·규격(edition 포함)을 쓴다 — 생성 후 폼을 바꿔도 파일명·표기가 어긋나지 않게
+            const company = lastCompanyName || document.getElementById('inp-company').value || 'ISO매뉴얼';
+            const targetIsos = (lastTargetIsos && lastTargetIsos.length) ? lastTargetIsos : collectTargetIsos();
 
-            // Markdown: direct download (no API call)
+            // Markdown: direct download (no API call) — 파일명은 서버 규칙과 동일
             if (format === 'md') {
                 const blob = new Blob([rawMarkdown], { type: 'text/markdown;charset=utf-8' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `${company}_${safeIso}_매뉴얼.md`;
+                a.download = buildExportFilename(company, targetIsos, 'md');
                 a.click();
                 URL.revokeObjectURL(url);
                 return;
@@ -1272,7 +1900,7 @@
                         markdown: rawMarkdown,
                         format: format,
                         company_name: company,
-                        target_iso: iso,
+                        target_isos: targetIsos,
                         manual_id: currentManualId
                     })
                 });
@@ -1283,7 +1911,7 @@
                 }
 
                 if (!response.ok) {
-                    const err = await response.json();
+                    const err = await response.json().catch(() => ({}));
                     throw new Error(err.error || err.message || '변환 실패');
                 }
 
@@ -1292,7 +1920,10 @@
                 const a = document.createElement('a');
                 const ext = format === 'docx' ? 'docx' : 'pdf';
                 a.href = url;
-                a.download = `${company}_${safeIso}_매뉴얼.${ext}`;
+                // 서버가 정한 파일명(Content-Disposition, RFC 5987 filename* 포함)을 우선 쓰고,
+                // 헤더를 읽을 수 없으면(교차 출처 개발 환경 등) 같은 규칙으로 직접 만든다
+                const serverName = safeDownloadName(parseContentDispositionFilename(response.headers.get('Content-Disposition')));
+                a.download = serverName || buildExportFilename(company, targetIsos, ext);
                 a.click();
                 URL.revokeObjectURL(url);
             } catch (err) {
@@ -1331,19 +1962,10 @@
                     }
                 }
             }
-            if (params.get('target_iso')) {
-                // 판 연도는 무시하고 규격 번호로 고른다 ('ISO 14001:2026' → 'ISO 14001:2015' 옵션)
-                const isoNumber = v => (String(v).split(':')[0].match(/\d{4,5}/) || [])[0];
-                const sel = document.getElementById('inp-target-iso');
-                const num = isoNumber(params.get('target_iso'));
-                for (let opt of sel.options) {
-                    if (num && isoNumber(opt.value) === num) {
-                        sel.value = opt.value;
-                        break;
-                    }
-                }
-            }
+            // 규격 프리셋(target_iso / target_isos)은 T8 initIsoSelector() 가 처리한다 (FR-61)
         })();
+
+        initIsoSelector();
     </script>
 </body>
 </html>

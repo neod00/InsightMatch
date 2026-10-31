@@ -27,6 +27,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, CronRun, ErrorLog, Inquiry, Review, User, Project, Milestone, Post, Company, Notification, ContractSignature, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry, parse_text_or_json_list
 from services import MatchingService, ProposalService, EmailService
 from services.iso_manual_service import generate_iso_manual_stream
+from services import standards_loader as manual_standards
+from services import manual_outline as manual_outline_engine
+from services import manual_coverage
 from services.business_check import (
     ACTIVE as BUSINESS_ACTIVE,
     business_status_rejection_message,
@@ -185,7 +188,9 @@ def token_optional(f):
 # 'admin'은 절대 포함하지 않는다 — 관리자 계정은 DB에서 수동 부여만 허용.
 ALLOWED_SIGNUP_ROLES = {'company', 'consultant'}
 
-ALLOWED_MANUAL_ISO_STANDARDS = {'ISO 9001:2015', 'ISO 14001:2015', 'ISO 45001:2018'}
+# 허용 규격(edition 포함)은 규격 로더 레지스트리에서 파생한다 (하드코딩 사본 없음, FR-71·FR-82).
+# 실제 입력 검증은 manual_standards.resolve_manual_standards 가 하며(노출 게이트 포함), 이 값은 참조용이다.
+ALLOWED_MANUAL_ISO_STANDARDS = frozenset(manual_standards.allowed_standard_codes())
 ALLOWED_MANUAL_ISSUES = {
     'quality_defect',
     'customer_complaint',
@@ -199,6 +204,13 @@ ALLOWED_MANUAL_ISSUES = {
 MANUAL_TOKEN_TTL_MINUTES = 30
 MAX_MANUAL_MARKDOWN_CHARS = 250000
 DAILY_MANUAL_LIMIT = 1  # 기업 사용자당 하루 매뉴얼 생성 세션 상한 (AI API 비용 남용 방지). 관리자는 면제.
+MAX_MANUAL_RETRIES = 3  # 매뉴얼 1건당 실제 재생성(LLM 재호출) 상한. phase 합산, 무료 1단계 재시도 포함. 저장본 재전송은 세지 않는다.
+MANUAL_RETRY_WINDOW_HOURS = 24  # 재시도 가능 기간 (매뉴얼 생성 후)
+MANUAL_GENERATING_STALE_SECONDS = 90  # generating_phase_N 상태가 이 시간 넘게 갱신되지 않으면 중단된 것으로 본다 (Vercel 강제 종료 대비)
+# LLM 경로에서 실패·중단된 stream_token 자리에 넣는 값. sha256 hex(0-9a-f)가 아니므로 어떤 토큰의 해시와도 같아질 수 없다.
+_MANUAL_TOKEN_REVOKED = 'revoked'
+MANUAL_GENERATION_IN_PROGRESS_MESSAGE = '이미 생성이 진행 중입니다. 잠시 후 다시 시도해주세요.'
+MANUAL_RETRY_LIMIT_MESSAGE = f'재생성은 매뉴얼 1건당 최대 {MAX_MANUAL_RETRIES}회까지 가능합니다.'
 
 
 def require_company_user():
@@ -625,8 +637,29 @@ def _clean_text(value, max_length, required=False):
     return text, None
 
 
+class _ManualFormErrors(dict):
+    """필드별 오류 메시지({field: message}, 기존 응답 형식)에 오류 코드({field: code})를 덧붙인 dict."""
+
+    def __init__(self):
+        super().__init__()
+        self.codes = {}
+
+
+def _resolve_manual_selections(data):
+    """요청 본문에서 규격 선택을 해석한다. `target_isos`(배열) 우선, 없으면 `target_iso`(하위호환),
+    둘 다 없으면 현행 기본값(ISO 9001:2015). 노출 게이트가 닫힌 edition 은 거부한다 (FR-71·FR-81)."""
+    target_isos = data.get('target_isos')
+    target_iso = data.get('target_iso')
+    if isinstance(target_iso, str) and not target_iso.strip():
+        target_iso = None
+    if target_isos is None and target_iso is None:
+        target_iso = 'ISO 9001:2015'
+    return manual_standards.resolve_manual_standards(
+        target_isos=target_isos, target_iso=target_iso, enforce_exposure=True)
+
+
 def validate_manual_form_data(data):
-    errors = {}
+    errors = _ManualFormErrors()
     company_name, err = _clean_text(data.get('company_name'), 100, True)
     if err:
         errors['company_name'] = err
@@ -643,9 +676,17 @@ def validate_manual_form_data(data):
     if err:
         errors['custom_issue'] = err
 
-    target_iso = (data.get('target_iso') or 'ISO 9001:2015').strip()
-    if target_iso not in ALLOWED_MANUAL_ISO_STANDARDS:
-        errors['target_iso'] = '지원하지 않는 ISO 규격입니다.'
+    selections = None
+    try:
+        selections = _resolve_manual_selections(data)
+    except manual_standards.EditionSelectionError as exc:
+        field = exc.field if exc.field in ('target_isos', 'target_iso') else 'target_isos'
+        errors[field] = str(exc)[:300]
+        errors.codes[field] = exc.code
+    except manual_standards.StandardsDataError as exc:
+        print(f"[ISO Manual] standards unavailable while validating session: {exc}")
+        errors['target_isos'] = '매뉴얼 기준 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'
+        errors.codes['target_isos'] = 'STANDARDS_UNAVAILABLE'
 
     reasons = data.get('reasons') or []
     if not isinstance(reasons, list):
@@ -672,7 +713,10 @@ def validate_manual_form_data(data):
         'industry': industry,
         'main_product': main_product,
         'employees': employees,
-        'target_iso': target_iso,
+        # edition 이 확정된 정식 문자열을 저장한다 (생성 시 기본 edition 이 다시 선택되지 않게 함, T4 계약).
+        'target_isos': [sel.standard_code for sel in selections],
+        # 표시용·하위호환 (예: "ISO 9001:2026 + ISO 45001:2018")
+        'target_iso': manual_standards.format_target_iso(selections),
         'reasons': reasons,
         'issues': clean_issues,
         'custom_issue': custom_issue,
@@ -693,9 +737,217 @@ def get_manual_generation_from_stream_token(manual_id, stream_token):
         expires_at = expires_at.replace(tzinfo=datetime.timezone.utc)
     if expires_at and expires_at < now:
         return None, '매뉴얼 생성 세션이 만료되었습니다. 다시 생성해주세요.'
+    if manual.token_hash == _MANUAL_TOKEN_REVOKED:
+        # 실패·중단된 생성의 토큰 — 재시도는 resume 으로 새 토큰을 받아야 한다 (F-01)
+        return None, '매뉴얼 생성 세션이 유효하지 않습니다. 다시 생성을 눌러 이어서 진행해주세요.'
     if manual.token_hash != _manual_token_hash(stream_token):
         return None, '매뉴얼 생성 세션이 유효하지 않습니다.'
     return manual, None
+
+
+_GENERATING_STATUS_RE = re.compile(r'^generating_phase_(\d+)$')
+_PHASE_COMPLETE_RE = re.compile(r'^\[PHASE_COMPLETE:\d+\]$')
+
+
+def _as_utc(dt):
+    """DB 에서 읽은 naive datetime 은 UTC 로 간주한다 (utc_now 로 저장됨)."""
+    if dt is not None and dt.tzinfo is None:
+        return dt.replace(tzinfo=datetime.timezone.utc)
+    return dt
+
+
+def _is_full_manual_entitled(manual):
+    """phase 2·3(전체 버전) 생성 권한 hook.
+
+    1단계(기반)에서는 항상 True — 현행 '테스트 모드'(결제 없이 잠금 해제)와 같은 동작이다.
+    4단계에서 결제 확인으로 교체한다. /api/generate-iso 와 resume 가 같은 함수를 호출한다.
+    """
+    return True
+
+
+def _extract_stream_text(chunk):
+    """SSE 청크에서 서버 저장용 내용 토큰을 꺼낸다 (제어 신호·비내용 청크는 None).
+
+    - 'data: ' 접두어(6자)와 SSE 종결자(줄바꿈 2개)만 제거하고 공백은 보존한다.
+      LLM 토큰은 앞에 공백이 붙어 오므로 strip() 하면 띄어쓰기가 사라진다.
+    - 제어 신호는 [PHASE_COMPLETE:N], [ERROR]..., [DONE] 만이다.
+      그 밖에 '[' 로 시작하는 토큰(마크다운 링크·체크박스·Mermaid 노드 라벨)은 내용이다.
+    - 이스케이프된 줄바꿈(백슬래시+n 두 글자)은 실제 줄바꿈으로 복원한다.
+    """
+    if not chunk.startswith('data: '):
+        return None
+    payload = chunk[6:]
+    if payload.endswith('\n\n'):
+        payload = payload[:-2]
+    if payload == '[DONE]' or payload.startswith('[ERROR]') or _PHASE_COMPLETE_RE.match(payload):
+        return None
+    return payload.replace('\\n', '\n')
+
+
+def _sse_error_response(message):
+    """LLM 호출·상태 변경 없이 SSE [ERROR] 로 끝나는 응답."""
+    def error_stream():
+        yield f"data: [ERROR] {message}\n\n"
+        yield "data: [DONE]\n\n"
+    return Response(error_stream(), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*'})
+
+
+def _manual_generating_state(manual):
+    """(진행 중 여부, 중단 여부) — status 가 generating_phase_N 일 때 updated_at 으로 판정."""
+    if not _GENERATING_STATUS_RE.match(manual.status or ''):
+        return False, False
+    updated_at = _as_utc(manual.updated_at or manual.created_at)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    age = (now - updated_at).total_seconds() if updated_at else float('inf')
+    return True, age > MANUAL_GENERATING_STALE_SECONDS
+
+
+def _mark_stale_generation_aborted(manual):
+    """90초 넘게 갱신 없는 generating_phase_N 을 phase_N_aborted 로 정리한다."""
+    match = _GENERATING_STATUS_RE.match(manual.status or '')
+    if not match:
+        return
+    manual.status = f'phase_{match.group(1)}_aborted'
+    manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
+    db.session.commit()
+
+
+_MANUAL_GENERATING_STATUSES = tuple(f'generating_phase_{n}' for n in (1, 2, 3))
+
+
+def _is_manual_retry_status(status, phase, is_stale_generating):
+    """직전 시도가 이 phase 에서 실패·중단됐는가 (= 이번 LLM 호출은 '실제 재생성'인가)."""
+    return (status or '') in (f'phase_{phase}_failed', f'phase_{phase}_aborted') or bool(is_stale_generating)
+
+
+def _claim_manual_generation(manual_id, token_hash, phase, observed_status, is_stale_generating):
+    """LLM 호출 직전에 조건부 UPDATE 한 번으로 생성을 선점한다 (F-01·F-02·F-03).
+
+    - status 를 generating_phase_N 으로 바꾸고, 재시도(직전 상태가 이 phase 의 failed/aborted 또는
+      stale generating)일 때만 retry_count 를 1 올린다. 재시도 차감은 이 UPDATE 한 곳에서만 한다.
+    - 조건: 같은 토큰, 신선한 generating 아님, 읽은 status 그대로(compare-and-swap — 재시도 판정과
+      실제 행 상태가 어긋나지 않게), 재시도면 retry_count < MAX_MANUAL_RETRIES.
+    - 영향 행 수가 1이 아니면 선점 실패 — 호출자는 LLM 을 부르지 않는다.
+    SQLAlchemy update().where() 표준 구문만 쓴다 (SQLite·Postgres 공통).
+
+    Returns: (claimed: bool, is_retry: bool)
+    """
+    is_retry = _is_manual_retry_status(observed_status, phase, is_stale_generating)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    # 비교는 naive UTC 로 한다 (DateTime 컬럼은 tz 를 저장하지 않음, _naive_utc_now 와 같은 규칙)
+    stale_cutoff = _naive_utc_now() - datetime.timedelta(seconds=MANUAL_GENERATING_STALE_SECONDS)
+    conditions = [
+        ManualGeneration.id == manual_id,
+        ManualGeneration.token_hash == token_hash,
+        db.or_(
+            ManualGeneration.status.is_(None),
+            ManualGeneration.status.notin_(_MANUAL_GENERATING_STATUSES),
+            ManualGeneration.updated_at.is_(None),
+            ManualGeneration.updated_at < stale_cutoff,
+        ),
+        (ManualGeneration.status.is_(None) if observed_status is None
+         else ManualGeneration.status == observed_status),
+    ]
+    values = {
+        ManualGeneration.status: f'generating_phase_{phase}',
+        ManualGeneration.updated_at: now,
+    }
+    if is_retry:
+        conditions.append(ManualGeneration.retry_count < MAX_MANUAL_RETRIES)
+        values[ManualGeneration.retry_count] = ManualGeneration.retry_count + 1
+    stmt = db.update(ManualGeneration).where(*conditions).values(values)
+    result = db.session.execute(stmt.execution_options(synchronize_session=False))
+    if result.rowcount != 1:
+        db.session.rollback()
+        return False, is_retry
+    db.session.commit()
+    return True, is_retry
+
+
+def _manual_claim_failure_message(manual_id, token_hash, is_retry):
+    """선점 실패 사유를 다시 읽어 기존 resume 과 같은 문구로 돌려준다 (LLM 미호출)."""
+    db.session.expire_all()
+    current = db.session.get(ManualGeneration, manual_id)
+    if not current or current.token_hash != token_hash:
+        return '매뉴얼 생성 세션이 유효하지 않습니다.'
+    if is_retry and (current.retry_count or 0) >= MAX_MANUAL_RETRIES:
+        return MANUAL_RETRY_LIMIT_MESSAGE
+    return MANUAL_GENERATION_IN_PROGRESS_MESSAGE
+
+
+def _revoke_manual_stream_token(manual_id, token_hash):
+    """LLM 경로에서 실패·중단된 토큰을 무효화한다 — 같은 토큰으로 LLM 을 다시 부를 수 없고,
+    재시도는 resume(새 토큰 발급)으로만 한다. 그 사이 resume 이 토큰을 바꿨다면 건드리지 않는다.
+    커밋은 호출자가 한다."""
+    db.session.execute(
+        db.update(ManualGeneration)
+        .where(ManualGeneration.id == manual_id, ManualGeneration.token_hash == token_hash)
+        .values({ManualGeneration.token_hash: _MANUAL_TOKEN_REVOKED})
+        .execution_options(synchronize_session=False))
+
+
+def _manual_completed_phases(manual):
+    return [n for n, md in ((1, manual.phase1_markdown), (2, manual.phase2_markdown), (3, manual.phase3_markdown)) if md]
+
+
+_STANDARD_CODE_RE = re.compile(r'(\d{4,5})\s*:\s*(\d{4})')
+
+
+def build_export_filename(company_name, standard_codes, ext):
+    """내보내기 파일명: `{회사}_ISO_{번호-edition}[_{번호-edition}…]_매뉴얼.{ext}`.
+
+    예) `테스트기업_ISO_9001-2026_매뉴얼.docx`, `테스트기업_ISO_9001-2026_45001-2018_매뉴얼.pdf`.
+    규격은 9001 -> 14001 -> 45001 순(STANDARD_REGISTRY 순서)으로 정렬하고, 구분자는 규격 안 `-`, 규격 사이 `_` 이다.
+    standard_codes 는 'ISO 9001:2026' 형태 문자열 목록(outline.meta.standard_codes 또는 선택 결과).
+    해석할 수 없는 값은 건너뛰고, 하나도 없으면 'ISO' 만 쓴다. 회사명은 한글·영숫자·공백만 남긴다.
+    """
+    order = {spec['number']: i for i, spec in enumerate(manual_standards.STANDARD_REGISTRY.values())}
+    parsed = []
+    for code in standard_codes or ():
+        m = _STANDARD_CODE_RE.search(str(code))
+        if m:
+            parsed.append((order.get(m.group(1), len(order)), m.group(1), m.group(2)))
+    seen, parts = set(), []
+    for _, number, edition in sorted(parsed, key=lambda t: t[0]):
+        if number not in seen:
+            seen.add(number)
+            parts.append(f'{number}-{edition}')
+    safe_company = re.sub(r'[^\w가-힣\s]', '', company_name or '').strip() or 'ISO매뉴얼'
+    safe_iso = 'ISO_' + '_'.join(parts) if parts else 'ISO'
+    safe_ext = re.sub(r'[^0-9A-Za-z]', '', ext or '') or 'pdf'
+    return f'{safe_company}_{safe_iso}_매뉴얼.{safe_ext}'
+
+
+def _manual_coverage_outline(manual):
+    """저장된 세션 form_data 로 outline 을 다시 만든다 (커버리지 재계산용, DB 컬럼 불필요)."""
+    return manual_coverage.outline_from_form_data(manual.get_form_data() or {})
+
+
+def _coverage_log(report):
+    """서버 로그에 한 줄 요약 (사용자 입력·본문은 남기지 않는다)."""
+    missing = ','.join(m.manual_no for m in report.missing) or '-'
+    print(f"[ISO Manual] coverage phase={report.phase} required={report.required} found={report.found} "
+          f"missing={missing} keyword_missing={len(report.keyword_missing)} "
+          f"doc_no_issues={len(report.doc_no_issues)} mermaid_warnings={len(report.mermaid_warnings)} "
+          f"ms={report.elapsed_ms}" + (f" error={report.error}" if report.error else ''))
+
+
+def _coverage_sse_chunk(manual, phase, markdown):
+    """phase 마크다운의 커버리지를 계산해 SSE named event 한 덩어리로 만든다.
+
+    `event: coverage` 는 EventSource.onmessage 로 전달되지 않으므로 기존 프론트의 본문 버퍼에 섞이지 않는다.
+    점검이 실패해도 생성 완료에는 영향이 없다 — 어떤 오류든 None 을 돌려준다 (FR-51).
+    """
+    try:
+        outline = _manual_coverage_outline(manual)
+        report = manual_coverage.check_phase_coverage(markdown, outline, phase)
+        _coverage_log(report)
+        return f"event: coverage\ndata: {manual_coverage.report_to_json(report)}\n\n"
+    except Exception as exc:
+        print(f"[ISO Manual] coverage unavailable phase={phase}: {type(exc).__name__}")
+        return None
+
 
 def require_admin_request():
     auth_header = request.headers.get('Authorization', '')
@@ -2021,6 +2273,50 @@ def withdraw_account():
 #   api/services/advanced_diagnostic_service.py, data/risk_dbs/, services/__init__.py export
 
 
+@app.route('/api/iso-manual/options', methods=['GET'])
+@token_required
+def get_iso_manual_options():
+    """규격별 edition 선택지·기본값·노출 여부·전환 일정 (읽기 전용, FR-63·FR-75).
+
+    내부 파일 경로·데이터 검증 경고·게이트 사유는 응답에 넣지 않는다.
+    """
+    role_error = require_manual_user()
+    if role_error:
+        return role_error
+    try:
+        raw_options = manual_standards.get_edition_options()
+        info = manual_standards.get_edition_info()
+    except Exception as exc:
+        print(f"[ISO Manual] options unavailable: {exc!r}")
+        return jsonify({'message': '규격 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.',
+                        'code': 'STANDARDS_UNAVAILABLE'}), 503
+
+    standards = []
+    for item in raw_options:
+        standards.append({
+            'standard_key': item['standard_key'],
+            'display': item['display'],
+            'number': item['number'],
+            'tag': item['tag'],
+            'default_edition': item['default_edition'],
+            'editions': [{
+                'edition': e['edition'],
+                'standard_code': e['standard_code'],
+                'published_at': e.get('published_at'),
+                'exposed': bool(e['exposed']),
+                'is_default': bool(e['is_default']),
+            } for e in item['editions']],
+            'schedule': item.get('schedule'),
+        })
+    return jsonify({
+        'standards': standards,
+        'max_standards': manual_standards.MAX_SELECTED_STANDARDS,
+        'schedule_labels': info.get('schedule_labels') or {},
+        'schedule_source': info.get('source'),
+        'schedule_confirmed_at': info.get('confirmed_at'),
+    }), 200
+
+
 @app.route('/api/iso-manual/session', methods=['POST'])
 @token_required
 def create_iso_manual_session():
@@ -2031,9 +2327,12 @@ def create_iso_manual_session():
     # 1단계 미리보기(표지~6절)는 가입만으로 만든다(유입 최대화). 사업자등록번호는 전체 받기
     # (7절 이후 이어 생성 · PDF/Word 다운로드) 때 확인한다 — generate_iso_manual / export_iso_manual.
 
-    form_data, errors = validate_manual_form_data(request.json or {})
+    form_data, errors = validate_manual_form_data(request.get_json(silent=True) or {})
     if errors:
-        return jsonify({'message': '입력값을 확인해주세요.', 'errors': errors}), 400
+        body = {'message': '입력값을 확인해주세요.', 'errors': dict(errors)}
+        if getattr(errors, 'codes', None):
+            body['error_codes'] = dict(errors.codes)
+        return jsonify(body), 400
 
     # 비용 남용 방지: 기업 사용자당 하루 생성 세션 수 제한 (관리자는 면제).
     # created_at 은 UTC 기준으로 저장되므로 naive UTC 자정을 경계로 사용한다.
@@ -2067,6 +2366,116 @@ def create_iso_manual_session():
         'stream_token': raw_token,
         'expires_in_seconds': MANUAL_TOKEN_TTL_MINUTES * 60,
     }), 201
+
+
+@app.route('/api/iso-manual/<manual_id>/resume', methods=['POST'])
+@token_required
+def resume_iso_manual(manual_id):
+    """같은 manual_id 로 실패·중단된 phase 부터 다시 생성할 수 있게 새 stream_token 을 발급한다.
+
+    - 새 ManualGeneration 행을 만들지 않으므로 하루 한도(DAILY_MANUAL_LIMIT)에 포함되지 않는다.
+    - 완료된 phase 는 completed_phases 로 알려준다. 그 phase 는 /api/generate-iso 의 기존
+      재전송 경로(LLM 미호출)로 받으면 되고, 상한에 세지 않는다.
+    - 실제 재생성(직전 시도가 failed/aborted/중단인 phase 를 다시 돌리는 경우)만 횟수에 넣고
+      MAX_MANUAL_RETRIES 를 적용한다. 처음 시도하는 phase 는 세지 않는다.
+    - resume 자체는 retry_count 를 올리지 않는다. 차감은 /api/generate-iso 가 LLM 을 부르기 직전의
+      선점 UPDATE(_claim_manual_generation) 한 곳에서만 한다 — resume 을 연달아 불러도 이중 차감되지
+      않는다(F-03/D-1). 응답의 retry_count·retries_remaining 은 '이번 재생성까지 포함한 예정값'이다
+      (프론트 표시 계약 유지).
+    """
+    role_error = require_manual_user()
+    if role_error:
+        return role_error
+
+    manual = ManualGeneration.query.get(manual_id)
+    # 존재 여부를 숨기기 위해 남의 매뉴얼도 404 (관리자는 예외)
+    if not manual or (manual.user_id != g.current_user.id and g.current_user.role != 'admin'):
+        return jsonify({'message': '매뉴얼 생성 이력을 찾을 수 없습니다.', 'code': 'NOT_FOUND'}), 404
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    created_at = _as_utc(manual.created_at)
+    if created_at and now - created_at > datetime.timedelta(hours=MANUAL_RETRY_WINDOW_HOURS):
+        return jsonify({
+            'message': f'재시도 가능 기간({MANUAL_RETRY_WINDOW_HOURS}시간)이 지났습니다. 새로 생성해주세요.',
+            'code': 'RETRY_WINDOW_EXPIRED',
+        }), 410
+
+    completed_phases = _manual_completed_phases(manual)
+    next_phase = next((n for n in (1, 2, 3) if n not in completed_phases), None)
+    if next_phase is None:
+        return jsonify({
+            'message': '이미 모든 단계가 생성되었습니다.',
+            'code': 'MANUAL_ALREADY_COMPLETE',
+            'completed_phases': completed_phases,
+        }), 409
+
+    if next_phase >= 2 and not _is_full_manual_entitled(manual):
+        return jsonify({'message': '전체 버전 이용 권한이 없습니다.', 'code': 'ENTITLEMENT_REQUIRED'}), 403
+
+    # 동시 실행 방지·중단 상태 정리 (FR-42)
+    is_generating, is_stale = _manual_generating_state(manual)
+    if is_generating:
+        if not is_stale:
+            return jsonify({
+                'message': '이미 생성이 진행 중입니다. 잠시 후 다시 시도해주세요.',
+                'code': 'GENERATION_IN_PROGRESS',
+            }), 409
+        _mark_stale_generation_aborted(manual)
+
+    # 직전 시도가 이 phase 에서 실패·중단됐다면 이번 요청은 '실제 재생성'이다.
+    is_retry = _is_manual_retry_status(manual.status, next_phase, False)
+    # 상한 확인만 한다(차감 없음). 경합으로 확인을 통과해도 generate-iso 선점 UPDATE 가 상한을 다시 건다.
+    if is_retry and (manual.retry_count or 0) >= MAX_MANUAL_RETRIES:
+        return jsonify({
+            'message': MANUAL_RETRY_LIMIT_MESSAGE,
+            'code': 'RETRY_LIMIT_EXCEEDED',
+        }), 429
+
+    raw_token = secrets.token_urlsafe(32)
+    manual.token_hash = _manual_token_hash(raw_token)
+    manual.token_expires_at = now + datetime.timedelta(minutes=MANUAL_TOKEN_TTL_MINUTES)
+    db.session.commit()
+    db.session.refresh(manual)
+    projected_retry_count = (manual.retry_count or 0) + (1 if is_retry else 0)
+
+    return jsonify({
+        'manual_id': manual.id,
+        'stream_token': raw_token,
+        'expires_in_seconds': MANUAL_TOKEN_TTL_MINUTES * 60,
+        'next_phase': next_phase,
+        'continue_from': {1: None, 2: 7, 3: 9}[next_phase],
+        'completed_phases': completed_phases,
+        'is_retry': is_retry,
+        'retry_count': projected_retry_count,
+        'retries_remaining': max(0, MAX_MANUAL_RETRIES - projected_retry_count),
+    }), 200
+
+
+@app.route('/api/iso-manual/<manual_id>/coverage', methods=['GET'])
+@token_required
+def get_iso_manual_coverage(manual_id):
+    """저장된 phase 마다 필수 조항 커버리지를 다시 계산해 돌려준다 (FR-51, 저장 컬럼 없음).
+
+    권한은 resume 와 같다: 본인 또는 관리자만, 그 밖에는 존재 여부를 숨기려고 404.
+    """
+    role_error = require_manual_user()
+    if role_error:
+        return role_error
+
+    manual = ManualGeneration.query.get(manual_id)
+    if not manual or (manual.user_id != g.current_user.id and g.current_user.role != 'admin'):
+        return jsonify({'message': '매뉴얼 생성 이력을 찾을 수 없습니다.', 'code': 'NOT_FOUND'}), 404
+
+    try:
+        outline = _manual_coverage_outline(manual)
+        result = manual_coverage.check_manual_coverage(
+            {1: manual.phase1_markdown, 2: manual.phase2_markdown, 3: manual.phase3_markdown}, outline)
+    except Exception as exc:
+        # 내부 경로·원문 메시지는 응답에 담지 않는다
+        print(f"[ISO Manual] coverage unavailable manual={manual_id}: {type(exc).__name__}")
+        return jsonify({'message': '커버리지를 계산할 수 없습니다. 잠시 후 다시 시도해주세요.',
+                        'code': 'COVERAGE_UNAVAILABLE'}), 503
+    return jsonify(manual_coverage.manual_coverage_to_dict(result, manual_id=manual.id)), 200
 
 
 # --- ISO Manual Generation SSE Endpoint ---
@@ -2105,6 +2514,19 @@ def generate_iso_manual():
                 yield "data: [DONE]\n\n"
             return Response(unsupported_phase_error(), mimetype='text/event-stream',
                            headers={'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*'})
+        # 전체 받기(2·3단계)는 사업자등록번호를 확인한 기업만. 화면이 먼저 입력 창을 띄우고, 여기서 한 번 더 막는다.
+        # 자격 확인이라 앞 단계 검증(FR-47)보다 먼저 본다. 어느 쪽이든 선점·재시도 차감·LLM 호출 전에 끝난다.
+        owner = User.query.get(manual.user_id) if manual.user_id else None
+        if owner and owner.role == 'company' and not owner.biz_reg_no:
+            def business_number_required():
+                yield "data: [ERROR] 전체 매뉴얼은 사업자등록번호 확인 후 받을 수 있습니다.\n\n"
+                yield "data: [DONE]\n\n"
+            return Response(business_number_required(), mimetype='text/event-stream',
+                           headers={'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*'})
+        # 앞 단계 검증(FR-47): 7절 이어쓰기는 1단계, 9절 이어쓰기는 1·2단계 저장본이 있어야 한다.
+        # 없으면 LLM 호출·상태 변경 없이 SSE 에러로 끝낸다.
+        if not manual.phase1_markdown or (continue_from_int == 9 and not manual.phase2_markdown):
+            return _sse_error_response('이전 단계가 완료되지 않았습니다.')
         form_data['continue_from'] = continue_from_int
         form_data['max_sections'] = None
         if continue_from_int == 7:
@@ -2115,16 +2537,12 @@ def generate_iso_manual():
                 if part
             )
         phase = 3 if continue_from_int >= 9 else 2
-        # 전체 받기(2·3단계)는 사업자등록번호를 확인한 기업만. 화면이 먼저 입력 창을 띄우고, 여기서 한 번 더 막는다.
-        owner = User.query.get(manual.user_id) if manual.user_id else None
-        if owner and owner.role == 'company' and not owner.biz_reg_no:
-            def business_number_required():
-                yield "data: [ERROR] 전체 매뉴얼은 사업자등록번호 확인 후 받을 수 있습니다.\n\n"
-                yield "data: [DONE]\n\n"
-            return Response(business_number_required(), mimetype='text/event-stream',
-                           headers={'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*'})
     else:
         form_data['max_sections'] = 5
+
+    # 전체 버전(2·3단계) 권한 hook — 1단계(기반)에서는 항상 허용 (현행 동작 유지)
+    if phase >= 2 and not _is_full_manual_entitled(manual):
+        return _sse_error_response('전체 버전 이용 권한이 없습니다.')
 
     # 비용 가드: 이미 완료된 phase는 LLM 재호출 없이 저장본을 그대로 재전송한다.
     # (새로고침·토큰 재사용으로 같은 phase를 반복 생성해 비용이 새는 것을 차단)
@@ -2138,6 +2556,10 @@ def generate_iso_manual():
             escaped = existing_markdown.replace('\n', '\\n').replace('\r', '')
             yield f"data: {escaped}\n\n"
             yield f"data: [PHASE_COMPLETE:{phase}]\n\n"
+            # 저장본 재전송에도 커버리지를 다시 계산해 보낸다 (PHASE_COMPLETE 뒤, DONE 앞)
+            coverage_chunk = _coverage_sse_chunk(manual, phase, existing_markdown)
+            if coverage_chunk:
+                yield coverage_chunk
             yield "data: [DONE]\n\n"
         return Response(
             stream_with_context(replay_stream()),
@@ -2149,6 +2571,27 @@ def generate_iso_manual():
                 'Access-Control-Allow-Origin': '*',
             }
         )
+
+    # 동시 실행 방지·재시도 상한(FR-41·FR-42, F-01·F-02): 응답을 돌려주기 전에 조건부 UPDATE 한 번으로
+    # 선점한다. 90초 이내에 갱신된 generating_phase_N 이면 다른 요청이 생성 중이므로 막고, 90초 넘게
+    # 갱신이 없으면 중단된 것으로 보아 재시도로 센다. 선점에 실패하면 LLM 을 부르지 않는다.
+    # (저장본 재전송은 위에서 이미 끝났으므로 선점·차감 대상이 아니다.)
+    manual_pk = manual.id
+    claimed_token_hash = manual.token_hash
+    is_generating, is_stale = _manual_generating_state(manual)
+    if is_generating and not is_stale:
+        return _sse_error_response(MANUAL_GENERATION_IN_PROGRESS_MESSAGE)
+    claimed, claim_is_retry = _claim_manual_generation(
+        manual_pk, claimed_token_hash, phase, manual.status, is_generating and is_stale)
+    if not claimed:
+        return _sse_error_response(_manual_claim_failure_message(manual_pk, claimed_token_hash, claim_is_retry))
+
+    def _record_unsuccessful(status_value):
+        # 실패·중단 기록 + 이 토큰 무효화(같은 토큰으로 LLM 재호출 불가, 재시도는 resume 으로만)
+        manual.status = status_value
+        manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
+        _revoke_manual_stream_token(manual_pk, claimed_token_hash)
+        db.session.commit()
 
     def event_stream():
         generated_parts = []
@@ -2162,8 +2605,9 @@ def generate_iso_manual():
             if finalized:
                 return
             if success:
-                text = ''.join(generated_parts).strip()
-                if text:
+                # 저장본은 토큰을 그대로 이은 문자열이다(공백 보존). strip 은 '비었는가' 판정에만 쓴다.
+                text = ''.join(generated_parts)
+                if text.strip():
                     if phase == 1:
                         manual.phase1_markdown = text
                     elif phase == 2:
@@ -2171,31 +2615,36 @@ def generate_iso_manual():
                     else:
                         manual.phase3_markdown = text
                     manual.status = f'phase_{phase}_completed'
-                else:
-                    manual.status = f'phase_{phase}_failed'
-            else:
-                manual.status = f'phase_{phase}_failed'
-            manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
-            db.session.commit()
+                    manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
+                    db.session.commit()
+                    finalized = True
+                    return
+            _record_unsuccessful(f'phase_{phase}_failed')
             finalized = True
 
-        manual.status = f'generating_phase_{phase}'
-        manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
-        db.session.commit()
-
+        # generating_phase_N 기록은 위의 선점 UPDATE 가 이미 했다 (여기서 다시 쓰면 check-then-act 틈이 생긴다).
         try:
             for chunk in generate_iso_manual_stream(form_data):
-                if chunk.startswith('data: [PHASE_COMPLETE'):
+                is_phase_complete = chunk.startswith('data: ') and bool(_PHASE_COMPLETE_RE.match(chunk[6:].rstrip('\n')))
+                if is_phase_complete:
                     # 서버리스(Vercel)에서는 스트림 종료 후(post-loop) 코드가
                     # 실행되지 않을 수 있으므로, 성공 신호를 받는 즉시
                     # (스트림이 살아있을 때) 저장을 확정한다.
                     _finalize(success=True)
                 elif chunk.startswith('data: [ERROR]'):
                     _finalize(success=False)
-                elif chunk.startswith('data: ') and not chunk.startswith('data: ['):
-                    text = chunk[6:].strip()
-                    generated_parts.append(text.replace('\\n', '\n'))
+                else:
+                    # 내용 토큰: 공백 보존, 제어 신호([DONE] 등)와 '[' 로 시작하는 내용 구분 (FR-44)
+                    text = _extract_stream_text(chunk)
+                    if text is not None:
+                        generated_parts.append(text)
                 yield chunk
+                if is_phase_complete and manual.status == f'phase_{phase}_completed':
+                    # 커버리지 점검 (FR-50/51): 저장이 끝난 뒤, [PHASE_COMPLETE] 다음 · [DONE] 앞에 named event 로 보낸다.
+                    # 실패해도 생성 결과·신호 순서에는 영향이 없다.
+                    coverage_chunk = _coverage_sse_chunk(manual, phase, ''.join(generated_parts))
+                    if coverage_chunk:
+                        yield coverage_chunk
 
             # 성공/실패 신호 없이 끝났으면(비정상 종료) 실패로 마무리
             if not finalized:
@@ -2204,20 +2653,17 @@ def generate_iso_manual():
             # 클라이언트 연결 끊김(일시정지·탭 닫기) — 'generating' 상태 고착 방지
             if not finalized:
                 try:
-                    manual.status = f'phase_{phase}_aborted'
-                    manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
-                    db.session.commit()
+                    _record_unsuccessful(f'phase_{phase}_aborted')
                 except Exception:
                     db.session.rollback()
             raise
         except Exception as e:
             db.session.rollback()
-            print(f"[ISO Manual] stream persistence error: {e}")
+            # 예외 문자열에는 SQL 파라미터(본문·폼 데이터)가 섞일 수 있어 클래스명만 남긴다 (F-12)
+            print(f"[ISO Manual] stream persistence error: {type(e).__name__}")
             if not finalized:
                 try:
-                    manual.status = f'phase_{phase}_failed'
-                    manual.updated_at = datetime.datetime.now(datetime.timezone.utc)
-                    db.session.commit()
+                    _record_unsuccessful(f'phase_{phase}_failed')
                 except Exception:
                     db.session.rollback()
             yield "data: [ERROR] 매뉴얼 생성 상태 저장 중 오류가 발생했습니다.\n\n"
@@ -2241,7 +2687,7 @@ def generate_iso_manual():
 def export_iso_manual():
     """
     마크다운 텍스트를 PDF 또는 DOCX로 변환하여 파일로 반환.
-    POST body: { markdown, format: "pdf"|"docx", company_name, target_iso }
+    POST body: { markdown, format: "pdf"|"docx", company_name, target_isos | target_iso, manual_id }
     """
     try:
         role_error = require_manual_user()
@@ -2252,18 +2698,53 @@ def export_iso_manual():
         if biz_error:
             return biz_error
 
-        data = request.json or {}
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            data = {}
         markdown_text = data.get('markdown', '')
-        export_format = data.get('format', 'pdf').lower()
-        company_name = data.get('company_name', 'ISO매뉴얼')
-        target_iso = data.get('target_iso', '')
-        manual_id = data.get('manual_id', '')
+        export_format = data.get('format') or 'pdf'
+        if not isinstance(export_format, str):
+            return jsonify({'error': '지원하지 않는 다운로드 형식입니다.'}), 400
+        export_format = export_format.lower()
+        company_name = data.get('company_name') or 'ISO매뉴얼'
+        if not isinstance(company_name, str):
+            company_name = 'ISO매뉴얼'
+        company_name = company_name.strip()[:100] or 'ISO매뉴얼'
+        manual_id = data.get('manual_id') or ''
+        if not isinstance(manual_id, str):
+            return jsonify({'error': '매뉴얼 생성 이력을 찾을 수 없습니다.'}), 404
+        stored_form = {}
 
         if manual_id:
             manual = ManualGeneration.query.get(manual_id)
             if not manual or manual.user_id != g.current_user.id:
                 return jsonify({'error': '매뉴얼 생성 이력을 찾을 수 없습니다.'}), 404
-            markdown_text = markdown_text or manual.combined_markdown()
+            # 저장본 우선 (F-04): manual_id 가 있으면 서버에 저장된 생성 결과만 내보낸다.
+            # 요청 본문의 markdown 은 manual_id 가 없을 때만 쓴다 (임의 마크업 렌더링 경로 축소).
+            markdown_text = manual.combined_markdown()
+            stored_form = manual.get_form_data() or {}
+
+        # 규격 표기: 요청의 target_isos(우선) / target_iso(하위호환), 없으면 저장된 세션 값.
+        # 이미 생성된 문서를 내보내는 것이므로 노출 게이트는 다시 적용하지 않는다.
+        cover_standards, filename_codes = '', ()
+        iso_source = data if (data.get('target_isos') is not None or data.get('target_iso')) else stored_form
+        if iso_source.get('target_isos') is not None or iso_source.get('target_iso'):
+            try:
+                selections = manual_standards.resolve_manual_standards(
+                    target_isos=iso_source.get('target_isos'),
+                    target_iso=iso_source.get('target_iso') or None,
+                    enforce_exposure=False)
+            except manual_standards.EditionSelectionError as exc:
+                field = exc.field if exc.field in ('target_isos', 'target_iso') else 'target_isos'
+                return jsonify({'error': '규격 값이 올바르지 않습니다.', 'errors': {field: str(exc)[:300]},
+                                'error_codes': {field: exc.code}}), 400
+            try:
+                meta = manual_outline_engine.build_outline(selections).meta
+                cover_standards, filename_codes = meta.cover_standards, meta.standard_codes
+            except Exception as exc:
+                print(f"[Export] outline meta unavailable, using selections: {exc!r}")
+                cover_standards = ' · '.join(sel.standard_code for sel in selections)
+                filename_codes = tuple(sel.standard_code for sel in selections)
 
         if export_format not in {'pdf', 'docx'}:
             return jsonify({'error': '지원하지 않는 다운로드 형식입니다.'}), 400
@@ -2275,17 +2756,16 @@ def export_iso_manual():
 
         from services.document_export_service import markdown_to_pdf, markdown_to_docx
 
-        # Safe filename
-        safe_company = re.sub(r'[^\w가-힣\s]', '', company_name).strip() or 'ISO매뉴얼'
-        safe_iso = re.sub(r'[:\s]', '_', target_iso)
+        # 파일명과 표지·문서 제목 모두 edition 포함 (사용자 결정: `…_ISO_9001-2026_45001-2018_매뉴얼.pdf`)
+        target_iso = cover_standards
 
         if export_format == 'docx':
             buffer = markdown_to_docx(markdown_text, company_name, target_iso)
-            filename = f"{safe_company}_{safe_iso}_매뉴얼.docx"
+            filename = build_export_filename(company_name, filename_codes, 'docx')
             mimetype = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         else:
             buffer = markdown_to_pdf(markdown_text, company_name, target_iso)
-            filename = f"{safe_company}_{safe_iso}_매뉴얼.pdf"
+            filename = build_export_filename(company_name, filename_codes, 'pdf')
             mimetype = 'application/pdf'
 
         return send_file(
@@ -2296,10 +2776,12 @@ def export_iso_manual():
         )
 
     except Exception as e:
-        print(f"[Export Error] {str(e)}")
+        # 상세(경로·라이브러리 메시지)는 서버 로그에만 남기고 응답은 고정 문구로 (F-05)
+        print(f"[Export Error] {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({'error': f'파일 변환 중 오류: {str(e)}'}), 500
+        return jsonify({'error': '파일 변환 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+                        'code': 'EXPORT_FAILED'}), 500
 
 # --- Direct Matching Endpoint (Survey-Based, No AI) ---
 @app.route('/api/match', methods=['POST'])

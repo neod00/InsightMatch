@@ -1,0 +1,1905 @@
+{
+  "appendix_c": [
+    "부록 C. 규격 조항 대조표",
+    "",
+    "| 매뉴얼 번호 | 제목 | ISO 9001:2015 | ISO 14001:2015 | ISO 45001:2018 |",
+    "|---|---|---|---|---|",
+    "| 4 | 조직 상황 | 4 | 4 | 4 |",
+    "| 4.1 | 조직과 조직 상황의 이해 | 4.1 | 4.1 | 4.1 |",
+    "| 4.2 | 근로자 및 기타 이해관계자의 니즈와 기대 이해 | 4.2 | 4.2 | 4.2 |",
+    "| 4.3 | 통합경영시스템 적용범위 결정 | 4.3 | 4.3 | 4.3 |",
+    "| 4.4 | 통합경영시스템과 그 프로세스 | 4.4 | 4.4 | 4.4 |",
+    "| 5 | 리더십과 근로자 참여 | 5 | 5 | 5 |",
+    "| 5.1 | 리더십과 의지표명 | 5.1 (5.1.1, 5.1.2) | 5.1 | 5.1 |",
+    "| 5.2 | 방침 | 5.2 (5.2.1, 5.2.2) | 5.2 | 5.2 |",
+    "| 5.3 | 조직의 역할, 책임 및 권한 | 5.3 | 5.3 | 5.3 |",
+    "| 5.4 | 근로자 협의 및 참여 | — | — | 5.4 |",
+    "| 6 | 기획 | 6 | 6 | 6 |",
+    "| 6.1 | 리스크와 기회를 다루는 조치 | 6.1 | 6.1 | 6.1 |",
+    "| 6.1.A | 리스크와 기회의 결정 | 6.1.1 | 6.1.1 | 6.1.1 |",
+    "| 6.1.B | 조치의 기획 | 6.1.2 | 6.1.4 | 6.1.4 |",
+    "| 6.1.C | 준수의무(법적 및 기타 요구사항) | — | 6.1.3 | 6.1.3 |",
+    "| 6.1.D | 환경측면 | — | 6.1.2 | — |",
+    "| 6.1.E | 위험요인 파악 및 리스크·기회 평가 | — | — | 6.1.2 |",
+    "| 6.2 | 목표와 목표 달성 기획 | 6.2 (6.2.1, 6.2.2) | 6.2 (6.2.1, 6.2.2) | 6.2 (6.2.1, 6.2.2) |",
+    "| 6.3 | 변경의 기획 | 6.3 | — | — |",
+    "| 7 | 지원 | 7 | 7 | 7 |",
+    "| 7.1 | 자원 | 7.1 (7.1.1, 7.1.2, 7.1.3, 7.1.4, 7.1.5, 7.1.6) | 7.1 | 7.1 |",
+    "| 7.2 | 역량 | 7.2 | 7.2 | 7.2 |",
+    "| 7.3 | 인식 | 7.3 | 7.3 | 7.3 |",
+    "| 7.4 | 의사소통 | 7.4 | 7.4 (7.4.1, 7.4.2, 7.4.3) | 7.4 (7.4.1, 7.4.2, 7.4.3) |",
+    "| 7.5 | 문서화된 정보 | 7.5 (7.5.1, 7.5.2, 7.5.3) | 7.5 (7.5.1, 7.5.2, 7.5.3) | 7.5 (7.5.1, 7.5.2, 7.5.3) |",
+    "| 8 | 운용 | 8 | 8 | 8 |",
+    "| 8.1 | 운용 기획 및 관리 | 8.1 | 8.1 | 8.1 |",
+    "| 8.1.A | 운용 기준과 관리 | — | — | 8.1.1 |",
+    "| 8.1.B | 위험요인 제거 및 안전보건 리스크 감소 | — | — | 8.1.2 |",
+    "| 8.1.C | 운용 변경관리 | — | — | 8.1.3 |",
+    "| 8.1.D | 조달(계약자·외주처리) | — | — | 8.1.4 |",
+    "| 8.2 | 제품 및 서비스 요구사항 | 8.2 (8.2.1, 8.2.2, 8.2.3, 8.2.4) | — | — |",
+    "| 8.3 | 제품 및 서비스의 설계와 개발 | 8.3 (8.3.1, 8.3.2, 8.3.3, 8.3.4, 8.3.5, 8.3.6) | — | — |",
+    "| 8.4 | 외부에서 제공되는 프로세스, 제품 및 서비스의 관리 | 8.4 (8.4.1, 8.4.2, 8.4.3) | — | — |",
+    "| 8.5 | 생산 및 서비스 제공 | 8.5 (8.5.1, 8.5.2, 8.5.3, 8.5.4, 8.5.5, 8.5.6) | — | — |",
+    "| 8.6 | 제품 및 서비스의 불출(Release) | 8.6 | — | — |",
+    "| 8.7 | 부적합 출력(Output)의 관리 | 8.7 (8.7.1, 8.7.2) | — | — |",
+    "| 8.8 | 비상사태 대비 및 대응 | — | 8.2 | 8.2 |",
+    "| 9 | 성과 평가 | 9 | 9 | 9 |",
+    "| 9.1 | 모니터링, 측정, 분석 및 평가 | 9.1 | 9.1 | 9.1 |",
+    "| 9.1.A | 성과 모니터링 및 측정 | 9.1.1 | 9.1.1 | 9.1.1 |",
+    "| 9.1.B | 준수평가 | — | 9.1.2 | 9.1.2 |",
+    "| 9.1.C | 고객만족 | 9.1.2 | — | — |",
+    "| 9.1.D | 분석 및 평가 | 9.1.3 | — | — |",
+    "| 9.2 | 내부심사 | 9.2 (9.2.1, 9.2.2) | 9.2 (9.2.1, 9.2.2) | 9.2 (9.2.1, 9.2.2) |",
+    "| 9.3 | 경영검토 | 9.3 (9.3.1, 9.3.2, 9.3.3) | 9.3 | 9.3 |",
+    "| 10 | 개선 | 10 | 10 | 10 |",
+    "| 10.1 | 일반사항 | 10.1 | 10.1 | 10.1 |",
+    "| 10.2 | 사건, 부적합 및 시정조치 | 10.2 (10.2.1, 10.2.2) | 10.2 | 10.2 |",
+    "| 10.3 | 지속적 개선 | 10.3 | 10.3 | 10.3 |",
+    "",
+    "※ 괄호 안 조항은 해당 매뉴얼 항목 본문에 함께 다룬다."
+  ],
+  "meta": {
+    "cover_standards": "ISO 9001:2015 · ISO 14001:2015 · ISO 45001:2018",
+    "doc_title": "통합경영매뉴얼 (ISO 9001·14001·45001)",
+    "filename_numbers": "9001_14001_45001",
+    "is_ims": true,
+    "objective_name": "통합목표(품질·환경·안전보건)",
+    "policy_name": "통합방침(품질·환경·안전보건)",
+    "system_name": "통합경영시스템"
+  },
+  "procedures": [
+    {
+      "department": "품질경영팀",
+      "doc_no": "SMS-CP00",
+      "input": "내외부 이슈, 이해관계자 요구, 프로세스 성과, 법규/고객 요구, 환경측면 평가 결과, 준수의무, 잠재 비상 상황, 근로자·이해관계자 요구, 위험성평가 결과, 법적 요구사항",
+      "iso_clauses": "Q 6.1 · E 6.1 · S 6.1",
+      "manual_sections": [
+        "6.1"
+      ],
+      "media": "전자문서",
+      "merge_key": "proc.risk",
+      "name": "리스크관리 절차서",
+      "output": "리스크 및 기회 평가표, 조치계획, 효과성 평가 결과",
+      "process_category": "MGT",
+      "records": "리스크 및 기회 평가표, 조치계획서",
+      "replaces": [],
+      "retention": "3년",
+      "sources": [
+        "Q CP00",
+        "E CP00",
+        "S CP00"
+      ]
+    },
+    {
+      "department": "경영지원팀",
+      "doc_no": "SMS-CP01",
+      "input": "경영방침, 품질목표, KPI 실적, 내부심사 결과, 고객 피드백, 환경방침, 환경목표 실적, 준수평가 결과, 이해관계자 의견, 안전보건방침, 안전보건목표 실적, 사건 통계, 근로자 협의 결과",
+      "iso_clauses": "Q 5.1 · Q 9.3 · E 5.1 · E 9.3 · S 5.1 · S 9.3",
+      "manual_sections": [
+        "5.1",
+        "9.3"
+      ],
+      "media": "전자문서/회의록",
+      "merge_key": "proc.planning_review",
+      "name": "경영 계획수립 및 검토 절차서",
+      "output": "경영계획, 경영검토 회의록, 개선 지시사항",
+      "process_category": "MGT",
+      "records": "경영계획서, 경영검토 회의록",
+      "replaces": [],
+      "retention": "3년",
+      "sources": [
+        "Q CP01",
+        "E CP01",
+        "S CP01"
+      ]
+    },
+    {
+      "department": "경영지원팀",
+      "doc_no": "SMS-CP02",
+      "input": "조직도, 직무기술서, 업무분장 변경 요청, 법정 선임 요건",
+      "iso_clauses": "Q 5.3 · E 5.3 · S 5.3",
+      "manual_sections": [
+        "5.3"
+      ],
+      "media": "전자문서",
+      "merge_key": "proc.organization",
+      "name": "조직 및 업무분장 절차서",
+      "output": "조직도, 업무분장표, 권한 위임표, 안전보건 선임 현황",
+      "process_category": "MGT",
+      "records": "조직도, 업무분장표, 직무기술서, 선임 보고 기록",
+      "replaces": [],
+      "retention": "개정 후 3년",
+      "sources": [
+        "Q CP02",
+        "E CP02",
+        "S CP02"
+      ]
+    },
+    {
+      "department": "인사/교육담당부서",
+      "doc_no": "SMS-CP03",
+      "input": "역량 기준, 교육 필요성, 법정교육 요구, 직무별 자격 요건, 중대한 환경측면 관련 교육 필요성, 법정 자격·교육 요구, 위험성평가 결과, 법정 안전보건교육 요구",
+      "iso_clauses": "Q 7.2 · E 7.2 · S 7.2",
+      "manual_sections": [
+        "7.2"
+      ],
+      "media": "전자문서/서명부",
+      "merge_key": "proc.training",
+      "name": "교육훈련 절차서",
+      "output": "연간 교육계획, 교육 결과, 적격성 평가 결과, 인식 교육 기록",
+      "process_category": "SUP",
+      "records": "교육계획서, 교육참석부, 역량평가표, 인식교육 기록, 안전보건교육 기록",
+      "replaces": [],
+      "retention": "3년",
+      "sources": [
+        "Q CP03",
+        "E CP03",
+        "S CP03"
+      ]
+    },
+    {
+      "department": "품질경영팀",
+      "doc_no": "SMS-CP04",
+      "input": "고객 요구, 내부 공지사항, 변경사항, 외부 이해관계자 요구, 외부 민원·문의, 준수의무상 보고·공개 요구, 협력업체·방문자 안전 안내, 법적 보고 요구",
+      "iso_clauses": "Q 7.4 · E 7.4 · S 7.4",
+      "manual_sections": [
+        "7.4"
+      ],
+      "media": "전자문서",
+      "merge_key": "proc.communication",
+      "name": "의사소통 관리 절차서",
+      "output": "의사소통 계획, 회의록, 공지 기록, 고객 대응 기록, 외부 의견 처리 기록",
+      "process_category": "SUP",
+      "records": "의사소통 계획표, 회의록, 고객협의 기록, 외부 민원 처리 기록, 안전 공지 기록",
+      "replaces": [],
+      "retention": "3년",
+      "sources": [
+        "Q CP04",
+        "E CP04",
+        "S CP04"
+      ]
+    },
+    {
+      "department": "품질경영팀",
+      "doc_no": "SMS-CP05",
+      "input": "문서 제·개정 요청, 기록 생성 기준, 보존 요구사항, 법정 보존 요구사항",
+      "iso_clauses": "Q 7.5 · E 7.5 · S 7.5",
+      "manual_sections": [
+        "7.5"
+      ],
+      "media": "전자문서",
+      "merge_key": "proc.documented_info",
+      "name": "문서화된 정보관리 절차서",
+      "output": "문서목록, 기록목록, 배포/회수 이력, 보존 기준",
+      "process_category": "SUP",
+      "records": "문서관리대장, 기록관리대장, 문서 배포대장",
+      "replaces": [],
+      "retention": "최신본 유지 및 폐기 후 3년",
+      "sources": [
+        "Q CP05",
+        "E CP05",
+        "S CP05"
+      ]
+    },
+    {
+      "department": "품질경영팀",
+      "doc_no": "SMS-CP06",
+      "input": "연간 내부심사 계획, ISO 요구사항, 이전 심사 결과, ISO 14001 요구사항, ISO 45001 요구사항",
+      "iso_clauses": "Q 9.2 · E 9.2 · S 9.2",
+      "manual_sections": [
+        "9.2"
+      ],
+      "media": "전자문서",
+      "merge_key": "proc.internal_audit",
+      "name": "내부심사 절차서",
+      "output": "내부심사 보고서, 부적합 보고서, 시정조치 요구",
+      "process_category": "IMP",
+      "records": "내부심사 계획서, 체크리스트, 심사보고서",
+      "replaces": [],
+      "retention": "3년",
+      "sources": [
+        "Q CP06",
+        "E CP06",
+        "S CP06"
+      ]
+    },
+    {
+      "department": "품질경영팀/해당부서",
+      "doc_no": "SMS-CP07",
+      "input": "부적합, 고객불만, 내부심사 지적, 성과 미달, 재발 이슈, 환경사고, 외부 민원, 준수평가 미흡, 사건 조사 결과, 근로자 제안",
+      "iso_clauses": "Q 10.2 · E 10.2 · S 10.2",
+      "manual_sections": [
+        "10.2"
+      ],
+      "media": "전자문서",
+      "merge_key": "proc.corrective_action",
+      "name": "시정조치 절차서",
+      "output": "시정조치 계획, 원인분석, 조치 결과, 효과성 확인",
+      "process_category": "IMP",
+      "records": "시정조치 요구서, 원인분석서, 효과성 확인 기록",
+      "replaces": [],
+      "retention": "3년",
+      "sources": [
+        "Q CP07",
+        "E CP07",
+        "S CP07"
+      ]
+    },
+    {
+      "department": "환경안전팀",
+      "doc_no": "SMS-CP08",
+      "input": "법령 제·개정 정보, 인허가 조건, 이해관계자 협약, 측정 결과, 감독기관 지시, 원청·고객 요구",
+      "iso_clauses": "E 6.1.3 · E 9.1.2 · S 6.1.3 · S 9.1.2",
+      "manual_sections": [
+        "6.1.C",
+        "9.1.B"
+      ],
+      "media": "전자문서",
+      "merge_key": "proc.compliance",
+      "name": "준수의무(법규 및 기타 요구사항) 관리 절차서",
+      "output": "준수의무 등록부, 준수평가 결과, 미흡 사항 조치계획, 법규 및 기타 요구사항 등록부",
+      "process_category": "MGT",
+      "records": "준수의무 등록부, 준수평가표, 법규 등록부",
+      "replaces": [
+        "EP02",
+        "SP02"
+      ],
+      "retention": "3년",
+      "sources": [
+        "E EP02",
+        "S SP02"
+      ]
+    },
+    {
+      "department": "환경안전팀",
+      "doc_no": "SMS-CP09",
+      "input": "잠재 비상 상황 목록, 방제 자재·설비 현황, 비상연락망, 잠재 비상 상황, 비상 자원(소화설비, 응급장비)",
+      "iso_clauses": "E 8.2 · S 8.2",
+      "manual_sections": [
+        "8.8"
+      ],
+      "media": "전자문서/훈련사진",
+      "merge_key": "proc.emergency",
+      "name": "비상사태 대비 및 대응 절차서",
+      "output": "비상대응 계획, 훈련 결과, 사후 검토 결과, 사후 평가 결과",
+      "process_category": "CORE",
+      "records": "비상대응 계획서, 훈련 결과 보고서, 사고 보고서, 비상 상황 보고서",
+      "replaces": [
+        "EP03",
+        "SP04"
+      ],
+      "retention": "3년",
+      "sources": [
+        "E EP03",
+        "S SP04"
+      ]
+    },
+    {
+      "department": "생산/운영부서",
+      "doc_no": "SMS-QP00",
+      "input": "설비 목록, 점검 기준, 작업환경 요구사항, 유지보수 계획",
+      "iso_clauses": "Q 7.1.3",
+      "manual_sections": [
+        "7.1"
+      ],
+      "media": "전자문서/점검표",
+      "merge_key": "proc.infrastructure",
+      "name": "인프라관리 절차서",
+      "output": "설비 점검 결과, 보전 계획, 작업환경 개선 조치",
+      "process_category": "SUP",
+      "records": "설비점검표, 유지보수 이력, 작업환경 점검표",
+      "replaces": [],
+      "retention": "3년",
+      "sources": [
+        "Q QP00"
+      ]
+    },
+    {
+      "department": "영업부서",
+      "doc_no": "SMS-QP01",
+      "input": "고객 문의, 입찰/계약 요구사항, 법규 및 납기 조건",
+      "iso_clauses": "Q 8.2",
+      "manual_sections": [
+        "8.2"
+      ],
+      "media": "전자문서",
+      "merge_key": "proc.sales",
+      "name": "영업관리 절차서",
+      "output": "견적서, 계약검토 결과, 고객 요구사항 검토 기록",
+      "process_category": "CORE",
+      "records": "견적서, 계약검토서, 고객 요구사항 검토표",
+      "replaces": [],
+      "retention": "3년",
+      "sources": [
+        "Q QP01"
+      ]
+    },
+    {
+      "department": "설계/기술부서",
+      "doc_no": "SMS-QP02",
+      "input": "고객 요구사항, 법규/표준, 설계 입력, 변경 요청",
+      "iso_clauses": "Q 8.3",
+      "manual_sections": [
+        "8.3"
+      ],
+      "media": "전자문서",
+      "merge_key": "proc.design",
+      "name": "설계관리 절차서",
+      "output": "설계 출력, 검토/검증/타당성확인 결과, 설계 변경 기록",
+      "process_category": "CORE",
+      "records": "설계계획서, 설계검토서, 검증/타당성확인 기록",
+      "replaces": [],
+      "retention": "제품 수명 또는 5년",
+      "sources": [
+        "Q QP02"
+      ]
+    },
+    {
+      "department": "구매부서",
+      "doc_no": "SMS-QP03",
+      "input": "구매 요청, 공급업체 평가 기준, 외주 요구사항",
+      "iso_clauses": "Q 8.4",
+      "manual_sections": [
+        "8.4"
+      ],
+      "media": "전자문서",
+      "merge_key": "proc.purchasing",
+      "name": "협력업체/구매관리 절차서",
+      "output": "발주서, 공급업체 평가 결과, 수입검사 결과",
+      "process_category": "SUP",
+      "records": "공급업체 평가표, 발주서, 수입검사 기록",
+      "replaces": [],
+      "retention": "3년",
+      "sources": [
+        "Q QP03"
+      ]
+    },
+    {
+      "department": "생산/프로젝트부서",
+      "doc_no": "SMS-QP04",
+      "input": "수주/계약 정보, 설계 출력, 작업표준, 자재/설비/인력 계획",
+      "iso_clauses": "Q 8.5",
+      "manual_sections": [
+        "8.5"
+      ],
+      "media": "전자문서/현장기록",
+      "merge_key": "proc.production",
+      "name": "프로젝트(생산)관리 절차서",
+      "output": "생산/프로젝트 실적, 공정검사 결과, 식별/추적 기록, 변경관리 기록",
+      "process_category": "CORE",
+      "records": "작업일보, 공정검사표, LOT/식별관리대장, 변경관리 기록",
+      "replaces": [],
+      "retention": "3년 또는 고객 요구기간",
+      "sources": [
+        "Q QP04"
+      ]
+    },
+    {
+      "department": "품질검사부서",
+      "doc_no": "SMS-QP05",
+      "input": "검사 기준, 제품/서비스 출력, 측정장비, 고객 승인 조건",
+      "iso_clauses": "Q 8.6",
+      "manual_sections": [
+        "8.6"
+      ],
+      "media": "전자문서/성적서",
+      "merge_key": "proc.inspection",
+      "name": "검사 및 시험 절차서",
+      "output": "검사 성적서, 출하 승인, 부적합 판정",
+      "process_category": "CORE",
+      "records": "검사성적서, 시험성적서, 출하승인 기록",
+      "replaces": [],
+      "retention": "3년 또는 고객 요구기간",
+      "sources": [
+        "Q QP05"
+      ]
+    },
+    {
+      "department": "품질경영팀/해당부서",
+      "doc_no": "SMS-QP06",
+      "input": "부적합 제품/서비스, 검사 불합격, 고객 클레임",
+      "iso_clauses": "Q 8.7",
+      "manual_sections": [
+        "8.7"
+      ],
+      "media": "전자문서",
+      "merge_key": "proc.nonconforming_output",
+      "name": "부적합 출력 관리 절차서",
+      "output": "격리/식별, 처분 결정, 재작업/폐기/특채 기록, 재검사 결과",
+      "process_category": "IMP",
+      "records": "부적합보고서, 처분승인서, 재검사 기록",
+      "replaces": [],
+      "retention": "3년",
+      "sources": [
+        "Q QP06"
+      ]
+    },
+    {
+      "department": "환경안전팀",
+      "doc_no": "SMS-EP01",
+      "input": "공정 흐름도, 원·부자재와 에너지·용수 사용 현황, 배출시설·폐기물 현황, 변경 계획",
+      "iso_clauses": "E 6.1.2",
+      "manual_sections": [
+        "6.1.D"
+      ],
+      "media": "전자문서",
+      "merge_key": "proc.env_aspects",
+      "name": "환경측면·영향 평가 절차서",
+      "output": "환경측면·영향 목록, 중대성 평가 결과, 중대한 환경측면 목록",
+      "process_category": "MGT",
+      "records": "환경측면 파악 및 평가표, 중대한 환경측면 목록",
+      "replaces": [],
+      "retention": "개정 후 3년",
+      "sources": [
+        "E EP01"
+      ]
+    },
+    {
+      "department": "환경안전팀/생산부서",
+      "doc_no": "SMS-EP04",
+      "input": "중대한 환경측면, 운용 기준, 오염방지시설 운전 조건, 구매·외주 환경 요구",
+      "iso_clauses": "E 8.1",
+      "manual_sections": [
+        "8.1"
+      ],
+      "media": "전자문서/현장기록",
+      "merge_key": "proc.env_operation",
+      "name": "환경 운용관리 절차서",
+      "output": "운용 점검 결과, 방지시설 운영 기록, 폐기물·화학물질 관리 실적",
+      "process_category": "CORE",
+      "records": "방지시설 운영일지, 폐기물 관리대장, 화학물질 취급 기록",
+      "replaces": [],
+      "retention": "3년 또는 법정 보존기간",
+      "sources": [
+        "E EP04"
+      ]
+    },
+    {
+      "department": "환경안전팀",
+      "doc_no": "SMS-EP05",
+      "input": "모니터링 항목·주기, 측정장비 목록, 법정 측정 요구",
+      "iso_clauses": "E 9.1.1",
+      "manual_sections": [
+        "9.1.A"
+      ],
+      "media": "전자문서",
+      "merge_key": "proc.env_monitoring",
+      "name": "환경 모니터링 및 측정 절차서",
+      "output": "측정 결과, 환경성과 분석 결과, 장비 교정 결과",
+      "process_category": "IMP",
+      "records": "자가측정 기록, 에너지·용수 사용 실적, 측정장비 교정 기록",
+      "replaces": [],
+      "retention": "3년 또는 법정 보존기간",
+      "sources": [
+        "E EP05"
+      ]
+    },
+    {
+      "department": "안전보건팀",
+      "doc_no": "SMS-SP01",
+      "input": "공정·작업 목록, 기계·설비·물질 정보, 재해·아차사고 이력, 변경 계획, 근로자 의견",
+      "iso_clauses": "S 6.1.2 · S 6.1.4 · S 8.1.2",
+      "manual_sections": [
+        "6.1.B",
+        "6.1.E",
+        "8.1.B"
+      ],
+      "media": "전자문서",
+      "merge_key": "proc.hazard_risk_assessment",
+      "name": "위험성평가 절차서",
+      "output": "위험요인 목록, 위험성 결정 결과, 감소대책과 이행 결과",
+      "process_category": "MGT",
+      "records": "위험성평가표, 감소대책 이행 기록, 근로자 참여 기록",
+      "replaces": [],
+      "retention": "3년",
+      "sources": [
+        "S SP01"
+      ]
+    },
+    {
+      "department": "안전보건팀",
+      "doc_no": "SMS-SP03",
+      "input": "협의·참여 주제, 근로자 제안·아차사고 신고, 위원회 안건",
+      "iso_clauses": "S 5.4",
+      "manual_sections": [
+        "5.4"
+      ],
+      "media": "전자문서/회의록",
+      "merge_key": "proc.worker_participation",
+      "name": "근로자 협의·참여 절차서",
+      "output": "회의 결과, 제안·신고 처리 결과, 참여 실적",
+      "process_category": "MGT",
+      "records": "산업안전보건위원회(협의체) 회의록, 제안·신고 처리대장",
+      "replaces": [],
+      "retention": "3년",
+      "sources": [
+        "S SP03"
+      ]
+    },
+    {
+      "department": "안전보건팀/구매부서",
+      "doc_no": "SMS-SP05",
+      "input": "도급·외주 작업 계획, 수급인 안전보건 수준 평가 기준, 구매품 안전 요건",
+      "iso_clauses": "S 8.1.4",
+      "manual_sections": [
+        "8.1.D"
+      ],
+      "media": "전자문서",
+      "merge_key": "proc.contractor_procurement",
+      "name": "도급·계약자·조달 안전관리 절차서",
+      "output": "수급인 평가 결과, 작업 전 안전교육·작업허가 기록, 협의체·합동점검 결과",
+      "process_category": "SUP",
+      "records": "수급인 안전보건 평가표, 협의체 회의록, 합동점검표",
+      "replaces": [],
+      "retention": "3년",
+      "sources": [
+        "S SP05"
+      ]
+    },
+    {
+      "department": "안전보건팀/해당부서",
+      "doc_no": "SMS-SP06",
+      "input": "설비·공정·물질·조직 변경 요청, 법규 변경 정보",
+      "iso_clauses": "S 8.1.3",
+      "manual_sections": [
+        "8.1.C"
+      ],
+      "media": "전자문서",
+      "merge_key": "proc.change_management",
+      "name": "변경관리 절차서",
+      "output": "변경 위험성평가 결과, 승인 결과, 변경 후 확인 결과",
+      "process_category": "CORE",
+      "records": "변경관리 요청·승인서, 수시 위험성평가표",
+      "replaces": [],
+      "retention": "3년",
+      "sources": [
+        "S SP06"
+      ]
+    },
+    {
+      "department": "안전보건팀",
+      "doc_no": "SMS-SP07",
+      "input": "재해·아차사고 보고, 현장 조사 자료, 관계자 진술",
+      "iso_clauses": "S 10.2",
+      "manual_sections": [
+        "10.2"
+      ],
+      "media": "전자문서",
+      "merge_key": "proc.incident_investigation",
+      "name": "사건조사 절차서",
+      "output": "사건 조사 보고서, 원인분석, 재발방지 대책",
+      "process_category": "IMP",
+      "records": "사건 보고서, 산업재해 조사 기록, 재발방지 대책 이행 기록",
+      "replaces": [],
+      "retention": "3년",
+      "sources": [
+        "S SP07"
+      ]
+    },
+    {
+      "department": "안전보건팀/생산부서",
+      "doc_no": "SMS-SP08",
+      "input": "위험성평가 결과, 위험작업 목록, 작업허가 기준, 설비·보호구 점검 기준",
+      "iso_clauses": "S 8.1.1 · S 8.1.2 · S 9.1.1",
+      "manual_sections": [
+        "8.1.A",
+        "8.1.B",
+        "9.1.A"
+      ],
+      "media": "전자문서/현장기록",
+      "merge_key": "proc.ohs_operation",
+      "name": "안전보건 운용관리 절차서",
+      "output": "작업허가 기록, 안전점검 결과, 보호구 지급·관리 기록, 성과 모니터링 결과",
+      "process_category": "CORE",
+      "records": "작업허가서, 안전점검표, 보호구 지급대장, 작업환경측정·건강진단 결과",
+      "replaces": [],
+      "retention": "3년 또는 법정 보존기간",
+      "sources": [
+        "S SP08"
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "조직 상황",
+        "조직상황"
+      ],
+      "folded": [],
+      "level": 1,
+      "mandatory": true,
+      "manual_no": "4",
+      "merge_key": "context",
+      "parent": null,
+      "phase": 1,
+      "procedures": [],
+      "refs": [
+        "Q 4",
+        "E 4",
+        "S 4"
+      ],
+      "related_tag": "[관련 조항: Q 4 · E 4 · S 4]",
+      "title": "조직 상황",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "조직상황",
+        "조직 상황"
+      ],
+      "folded": [],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "4.1",
+      "merge_key": "context.issues",
+      "parent": "4",
+      "phase": 1,
+      "procedures": [
+        "CP00",
+        "CP01"
+      ],
+      "refs": [
+        "Q 4.1",
+        "E 4.1",
+        "S 4.1"
+      ],
+      "related_tag": "[관련 조항: Q 4.1 · E 4.1 · S 4.1]",
+      "title": "조직과 조직 상황의 이해",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "이해관계자",
+        "근로자"
+      ],
+      "folded": [],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "4.2",
+      "merge_key": "context.interested_parties",
+      "parent": "4",
+      "phase": 1,
+      "procedures": [
+        "CP00",
+        "CP08"
+      ],
+      "refs": [
+        "Q 4.2",
+        "E 4.2",
+        "S 4.2"
+      ],
+      "related_tag": "[관련 조항: Q 4.2 · E 4.2 · S 4.2]",
+      "title": "근로자 및 기타 이해관계자의 니즈와 기대 이해",
+      "title_source": "hls_title_variant"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "적용범위"
+      ],
+      "folded": [],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "4.3",
+      "merge_key": "context.scope",
+      "parent": "4",
+      "phase": 1,
+      "procedures": [],
+      "refs": [
+        "Q 4.3",
+        "E 4.3",
+        "S 4.3"
+      ],
+      "related_tag": "[관련 조항: Q 4.3 · E 4.3 · S 4.3]",
+      "title": "통합경영시스템 적용범위 결정",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "프로세스",
+        "경영시스템",
+        "환경경영시스템",
+        "안전보건경영시스템"
+      ],
+      "folded": [],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "4.4",
+      "merge_key": "context.system_processes",
+      "parent": "4",
+      "phase": 1,
+      "procedures": [],
+      "refs": [
+        "Q 4.4",
+        "E 4.4",
+        "S 4.4"
+      ],
+      "related_tag": "[관련 조항: Q 4.4 · E 4.4 · S 4.4]",
+      "title": "통합경영시스템과 그 프로세스",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "리더십"
+      ],
+      "folded": [],
+      "level": 1,
+      "mandatory": true,
+      "manual_no": "5",
+      "merge_key": "leadership",
+      "parent": null,
+      "phase": 1,
+      "procedures": [],
+      "refs": [
+        "Q 5",
+        "E 5",
+        "S 5"
+      ],
+      "related_tag": "[관련 조항: Q 5 · E 5 · S 5]",
+      "title": "리더십과 근로자 참여",
+      "title_source": "hls_title_variant"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "리더십",
+        "의지표명"
+      ],
+      "folded": [
+        "Q 5.1.1",
+        "Q 5.1.2"
+      ],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "5.1",
+      "merge_key": "leadership.commitment",
+      "parent": "5",
+      "phase": 1,
+      "procedures": [
+        "CP01"
+      ],
+      "refs": [
+        "Q 5.1",
+        "E 5.1",
+        "S 5.1"
+      ],
+      "related_tag": "[관련 조항: Q 5.1 · E 5.1 · S 5.1]",
+      "title": "리더십과 의지표명",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "방침"
+      ],
+      "folded": [
+        "Q 5.2.1",
+        "Q 5.2.2"
+      ],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "5.2",
+      "merge_key": "leadership.policy",
+      "parent": "5",
+      "phase": 1,
+      "procedures": [
+        "CP01",
+        "CP04"
+      ],
+      "refs": [
+        "Q 5.2",
+        "E 5.2",
+        "S 5.2"
+      ],
+      "related_tag": "[관련 조항: Q 5.2 · E 5.2 · S 5.2]",
+      "title": "방침",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "역할",
+        "책임",
+        "권한"
+      ],
+      "folded": [],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "5.3",
+      "merge_key": "leadership.roles",
+      "parent": "5",
+      "phase": 1,
+      "procedures": [
+        "CP02"
+      ],
+      "refs": [
+        "Q 5.3",
+        "E 5.3",
+        "S 5.3"
+      ],
+      "related_tag": "[관련 조항: Q 5.3 · E 5.3 · S 5.3]",
+      "title": "조직의 역할, 책임 및 권한",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "근로자",
+        "협의",
+        "참여"
+      ],
+      "folded": [],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "5.4",
+      "merge_key": "leadership.worker_participation",
+      "parent": "5",
+      "phase": 1,
+      "procedures": [
+        "SP03"
+      ],
+      "refs": [
+        "S 5.4"
+      ],
+      "related_tag": "[관련 조항: S 5.4]",
+      "title": "근로자 협의 및 참여",
+      "title_source": "standard"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "기획"
+      ],
+      "folded": [],
+      "level": 1,
+      "mandatory": true,
+      "manual_no": "6",
+      "merge_key": "planning",
+      "parent": null,
+      "phase": 1,
+      "procedures": [],
+      "refs": [
+        "Q 6",
+        "E 6",
+        "S 6"
+      ],
+      "related_tag": "[관련 조항: Q 6 · E 6 · S 6]",
+      "title": "기획",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "리스크",
+        "기회"
+      ],
+      "folded": [],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "6.1",
+      "merge_key": "planning.risk_opportunity",
+      "parent": "6",
+      "phase": 1,
+      "procedures": [
+        "CP00",
+        "SP01"
+      ],
+      "refs": [
+        "Q 6.1",
+        "E 6.1",
+        "S 6.1"
+      ],
+      "related_tag": "[관련 조항: Q 6.1 · E 6.1 · S 6.1]",
+      "title": "리스크와 기회를 다루는 조치",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "리스크",
+        "기회",
+        "일반사항"
+      ],
+      "folded": [],
+      "level": 3,
+      "mandatory": true,
+      "manual_no": "6.1.A",
+      "merge_key": "planning.risks_opportunities",
+      "parent": "6.1",
+      "phase": 1,
+      "procedures": [
+        "CP00"
+      ],
+      "refs": [
+        "Q 6.1.1",
+        "E 6.1.1",
+        "S 6.1.1"
+      ],
+      "related_tag": "[관련 조항: Q 6.1.1 · E 6.1.1 · S 6.1.1]",
+      "title": "리스크와 기회의 결정",
+      "title_source": "ims_subclause_titles"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "조치"
+      ],
+      "folded": [],
+      "level": 3,
+      "mandatory": true,
+      "manual_no": "6.1.B",
+      "merge_key": "planning.action_planning",
+      "parent": "6.1",
+      "phase": 1,
+      "procedures": [
+        "CP00",
+        "EP01",
+        "SP01"
+      ],
+      "refs": [
+        "Q 6.1.2",
+        "E 6.1.4",
+        "S 6.1.4"
+      ],
+      "related_tag": "[관련 조항: Q 6.1.2 · E 6.1.4 · S 6.1.4]",
+      "title": "조치의 기획",
+      "title_source": "ims_subclause_titles"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "준수의무",
+        "법적",
+        "요구사항"
+      ],
+      "folded": [],
+      "level": 3,
+      "mandatory": true,
+      "manual_no": "6.1.C",
+      "merge_key": "planning.compliance_obligations",
+      "parent": "6.1",
+      "phase": 1,
+      "procedures": [
+        "CP08"
+      ],
+      "refs": [
+        "E 6.1.3",
+        "S 6.1.3"
+      ],
+      "related_tag": "[관련 조항: E 6.1.3 · S 6.1.3]",
+      "title": "준수의무(법적 및 기타 요구사항)",
+      "title_source": "ims_subclause_titles"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "환경측면"
+      ],
+      "folded": [],
+      "level": 3,
+      "mandatory": true,
+      "manual_no": "6.1.D",
+      "merge_key": "planning.env_aspects",
+      "parent": "6.1",
+      "phase": 1,
+      "procedures": [
+        "EP01"
+      ],
+      "refs": [
+        "E 6.1.2"
+      ],
+      "related_tag": "[관련 조항: E 6.1.2]",
+      "title": "환경측면",
+      "title_source": "ims_subclause_titles"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "위험요인",
+        "위험성평가"
+      ],
+      "folded": [],
+      "level": 3,
+      "mandatory": true,
+      "manual_no": "6.1.E",
+      "merge_key": "planning.hazard_risk_assessment",
+      "parent": "6.1",
+      "phase": 1,
+      "procedures": [
+        "SP01"
+      ],
+      "refs": [
+        "S 6.1.2"
+      ],
+      "related_tag": "[관련 조항: S 6.1.2]",
+      "title": "위험요인 파악 및 리스크·기회 평가",
+      "title_source": "ims_subclause_titles"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "목표"
+      ],
+      "folded": [
+        "Q 6.2.1",
+        "Q 6.2.2",
+        "E 6.2.1",
+        "E 6.2.2",
+        "S 6.2.1",
+        "S 6.2.2"
+      ],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "6.2",
+      "merge_key": "planning.objectives",
+      "parent": "6",
+      "phase": 1,
+      "procedures": [
+        "CP01"
+      ],
+      "refs": [
+        "Q 6.2",
+        "E 6.2",
+        "S 6.2"
+      ],
+      "related_tag": "[관련 조항: Q 6.2 · E 6.2 · S 6.2]",
+      "title": "목표와 목표 달성 기획",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "변경"
+      ],
+      "folded": [],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "6.3",
+      "merge_key": "planning.changes",
+      "parent": "6",
+      "phase": 1,
+      "procedures": [
+        "CP01",
+        "CP02"
+      ],
+      "refs": [
+        "Q 6.3"
+      ],
+      "related_tag": "[관련 조항: Q 6.3]",
+      "title": "변경의 기획",
+      "title_source": "standard"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "지원"
+      ],
+      "folded": [],
+      "level": 1,
+      "mandatory": true,
+      "manual_no": "7",
+      "merge_key": "support",
+      "parent": null,
+      "phase": 2,
+      "procedures": [],
+      "refs": [
+        "Q 7",
+        "E 7",
+        "S 7"
+      ],
+      "related_tag": "[관련 조항: Q 7 · E 7 · S 7]",
+      "title": "지원",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "자원"
+      ],
+      "folded": [
+        "Q 7.1.1",
+        "Q 7.1.2",
+        "Q 7.1.3",
+        "Q 7.1.4",
+        "Q 7.1.5",
+        "Q 7.1.6"
+      ],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "7.1",
+      "merge_key": "support.resources",
+      "parent": "7",
+      "phase": 2,
+      "procedures": [
+        "QP00",
+        "QP05",
+        "CP02"
+      ],
+      "refs": [
+        "Q 7.1",
+        "E 7.1",
+        "S 7.1"
+      ],
+      "related_tag": "[관련 조항: Q 7.1 · E 7.1 · S 7.1]",
+      "title": "자원",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "역량",
+        "적격성"
+      ],
+      "folded": [],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "7.2",
+      "merge_key": "support.competence",
+      "parent": "7",
+      "phase": 2,
+      "procedures": [
+        "CP03"
+      ],
+      "refs": [
+        "Q 7.2",
+        "E 7.2",
+        "S 7.2"
+      ],
+      "related_tag": "[관련 조항: Q 7.2 · E 7.2 · S 7.2]",
+      "title": "역량",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "인식"
+      ],
+      "folded": [],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "7.3",
+      "merge_key": "support.awareness",
+      "parent": "7",
+      "phase": 2,
+      "procedures": [
+        "CP03",
+        "CP04"
+      ],
+      "refs": [
+        "Q 7.3",
+        "E 7.3",
+        "S 7.3"
+      ],
+      "related_tag": "[관련 조항: Q 7.3 · E 7.3 · S 7.3]",
+      "title": "인식",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "의사소통"
+      ],
+      "folded": [
+        "E 7.4.1",
+        "E 7.4.2",
+        "E 7.4.3",
+        "S 7.4.1",
+        "S 7.4.2",
+        "S 7.4.3"
+      ],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "7.4",
+      "merge_key": "support.communication",
+      "parent": "7",
+      "phase": 2,
+      "procedures": [
+        "CP04"
+      ],
+      "refs": [
+        "Q 7.4",
+        "E 7.4",
+        "S 7.4"
+      ],
+      "related_tag": "[관련 조항: Q 7.4 · E 7.4 · S 7.4]",
+      "title": "의사소통",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "문서화된 정보"
+      ],
+      "folded": [
+        "Q 7.5.1",
+        "Q 7.5.2",
+        "Q 7.5.3",
+        "E 7.5.1",
+        "E 7.5.2",
+        "E 7.5.3",
+        "S 7.5.1",
+        "S 7.5.2",
+        "S 7.5.3"
+      ],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "7.5",
+      "merge_key": "support.documented_info",
+      "parent": "7",
+      "phase": 2,
+      "procedures": [
+        "CP05"
+      ],
+      "refs": [
+        "Q 7.5",
+        "E 7.5",
+        "S 7.5"
+      ],
+      "related_tag": "[관련 조항: Q 7.5 · E 7.5 · S 7.5]",
+      "title": "문서화된 정보",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "운용"
+      ],
+      "folded": [],
+      "level": 1,
+      "mandatory": true,
+      "manual_no": "8",
+      "merge_key": "ops",
+      "parent": null,
+      "phase": 2,
+      "procedures": [],
+      "refs": [
+        "Q 8",
+        "E 8",
+        "S 8"
+      ],
+      "related_tag": "[관련 조항: Q 8 · E 8 · S 8]",
+      "title": "운용",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "운용 기획",
+        "운용"
+      ],
+      "folded": [],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "8.1",
+      "merge_key": "ops.planning_control",
+      "parent": "8",
+      "phase": 2,
+      "procedures": [
+        "QP04",
+        "EP04",
+        "SP08"
+      ],
+      "refs": [
+        "Q 8.1",
+        "E 8.1",
+        "S 8.1"
+      ],
+      "related_tag": "[관련 조항: Q 8.1 · E 8.1 · S 8.1]",
+      "title": "운용 기획 및 관리",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "일반사항",
+        "운용"
+      ],
+      "folded": [],
+      "level": 3,
+      "mandatory": true,
+      "manual_no": "8.1.A",
+      "merge_key": "ops.planning_control.general",
+      "parent": "8.1",
+      "phase": 2,
+      "procedures": [
+        "SP08"
+      ],
+      "refs": [
+        "S 8.1.1"
+      ],
+      "related_tag": "[관련 조항: S 8.1.1]",
+      "title": "운용 기준과 관리",
+      "title_source": "ims_subclause_titles"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "위험요인 제거",
+        "리스크 감소"
+      ],
+      "folded": [],
+      "level": 3,
+      "mandatory": true,
+      "manual_no": "8.1.B",
+      "merge_key": "ops.hazard_elimination",
+      "parent": "8.1",
+      "phase": 2,
+      "procedures": [
+        "SP01",
+        "SP08"
+      ],
+      "refs": [
+        "S 8.1.2"
+      ],
+      "related_tag": "[관련 조항: S 8.1.2]",
+      "title": "위험요인 제거 및 안전보건 리스크 감소",
+      "title_source": "ims_subclause_titles"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "변경관리",
+        "변경 관리"
+      ],
+      "folded": [],
+      "level": 3,
+      "mandatory": true,
+      "manual_no": "8.1.C",
+      "merge_key": "ops.change_management",
+      "parent": "8.1",
+      "phase": 2,
+      "procedures": [
+        "SP06",
+        "SP01"
+      ],
+      "refs": [
+        "S 8.1.3"
+      ],
+      "related_tag": "[관련 조항: S 8.1.3]",
+      "title": "운용 변경관리",
+      "title_source": "ims_subclause_titles"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "조달",
+        "계약자"
+      ],
+      "folded": [],
+      "level": 3,
+      "mandatory": true,
+      "manual_no": "8.1.D",
+      "merge_key": "ops.procurement",
+      "parent": "8.1",
+      "phase": 2,
+      "procedures": [
+        "SP05"
+      ],
+      "refs": [
+        "S 8.1.4"
+      ],
+      "related_tag": "[관련 조항: S 8.1.4]",
+      "title": "조달(계약자·외주처리)",
+      "title_source": "ims_subclause_titles"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "제품 및 서비스 요구사항",
+        "요구사항"
+      ],
+      "folded": [
+        "Q 8.2.1",
+        "Q 8.2.2",
+        "Q 8.2.3",
+        "Q 8.2.4"
+      ],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "8.2",
+      "merge_key": "ops.product_requirements",
+      "parent": "8",
+      "phase": 2,
+      "procedures": [
+        "QP01"
+      ],
+      "refs": [
+        "Q 8.2"
+      ],
+      "related_tag": "[관련 조항: Q 8.2]",
+      "title": "제품 및 서비스 요구사항",
+      "title_source": "standard"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "설계"
+      ],
+      "folded": [
+        "Q 8.3.1",
+        "Q 8.3.2",
+        "Q 8.3.3",
+        "Q 8.3.4",
+        "Q 8.3.5",
+        "Q 8.3.6"
+      ],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "8.3",
+      "merge_key": "ops.design_development",
+      "parent": "8",
+      "phase": 2,
+      "procedures": [
+        "QP02"
+      ],
+      "refs": [
+        "Q 8.3"
+      ],
+      "related_tag": "[관련 조항: Q 8.3]",
+      "title": "제품 및 서비스의 설계와 개발",
+      "title_source": "standard"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "외부",
+        "구매"
+      ],
+      "folded": [
+        "Q 8.4.1",
+        "Q 8.4.2",
+        "Q 8.4.3"
+      ],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "8.4",
+      "merge_key": "ops.external_provision",
+      "parent": "8",
+      "phase": 2,
+      "procedures": [
+        "QP03"
+      ],
+      "refs": [
+        "Q 8.4"
+      ],
+      "related_tag": "[관련 조항: Q 8.4]",
+      "title": "외부에서 제공되는 프로세스, 제품 및 서비스의 관리",
+      "title_source": "standard"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "생산",
+        "서비스 제공"
+      ],
+      "folded": [
+        "Q 8.5.1",
+        "Q 8.5.2",
+        "Q 8.5.3",
+        "Q 8.5.4",
+        "Q 8.5.5",
+        "Q 8.5.6"
+      ],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "8.5",
+      "merge_key": "ops.production_service",
+      "parent": "8",
+      "phase": 2,
+      "procedures": [
+        "QP04"
+      ],
+      "refs": [
+        "Q 8.5"
+      ],
+      "related_tag": "[관련 조항: Q 8.5]",
+      "title": "생산 및 서비스 제공",
+      "title_source": "standard"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "불출",
+        "출하"
+      ],
+      "folded": [],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "8.6",
+      "merge_key": "ops.release",
+      "parent": "8",
+      "phase": 2,
+      "procedures": [
+        "QP05"
+      ],
+      "refs": [
+        "Q 8.6"
+      ],
+      "related_tag": "[관련 조항: Q 8.6]",
+      "title": "제품 및 서비스의 불출(Release)",
+      "title_source": "standard"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "부적합"
+      ],
+      "folded": [
+        "Q 8.7.1",
+        "Q 8.7.2"
+      ],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "8.7",
+      "merge_key": "ops.nonconforming_output",
+      "parent": "8",
+      "phase": 2,
+      "procedures": [
+        "QP06"
+      ],
+      "refs": [
+        "Q 8.7"
+      ],
+      "related_tag": "[관련 조항: Q 8.7]",
+      "title": "부적합 출력(Output)의 관리",
+      "title_source": "standard"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "비상"
+      ],
+      "folded": [],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "8.8",
+      "merge_key": "ops.emergency",
+      "parent": "8",
+      "phase": 2,
+      "procedures": [
+        "CP09"
+      ],
+      "refs": [
+        "E 8.2",
+        "S 8.2"
+      ],
+      "related_tag": "[관련 조항: E 8.2 · S 8.2]",
+      "title": "비상사태 대비 및 대응",
+      "title_source": "ims_subclause_titles"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "성과 평가",
+        "성과평가"
+      ],
+      "folded": [],
+      "level": 1,
+      "mandatory": true,
+      "manual_no": "9",
+      "merge_key": "perf",
+      "parent": null,
+      "phase": 3,
+      "procedures": [],
+      "refs": [
+        "Q 9",
+        "E 9",
+        "S 9"
+      ],
+      "related_tag": "[관련 조항: Q 9 · E 9 · S 9]",
+      "title": "성과 평가",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "모니터링",
+        "측정"
+      ],
+      "folded": [],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "9.1",
+      "merge_key": "perf.monitoring",
+      "parent": "9",
+      "phase": 3,
+      "procedures": [
+        "CP01",
+        "EP05",
+        "CP08",
+        "SP08"
+      ],
+      "refs": [
+        "Q 9.1",
+        "E 9.1",
+        "S 9.1"
+      ],
+      "related_tag": "[관련 조항: Q 9.1 · E 9.1 · S 9.1]",
+      "title": "모니터링, 측정, 분석 및 평가",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "모니터링",
+        "일반사항"
+      ],
+      "folded": [],
+      "level": 3,
+      "mandatory": true,
+      "manual_no": "9.1.A",
+      "merge_key": "perf.monitoring.general",
+      "parent": "9.1",
+      "phase": 3,
+      "procedures": [
+        "EP05",
+        "SP08"
+      ],
+      "refs": [
+        "Q 9.1.1",
+        "E 9.1.1",
+        "S 9.1.1"
+      ],
+      "related_tag": "[관련 조항: Q 9.1.1 · E 9.1.1 · S 9.1.1]",
+      "title": "성과 모니터링 및 측정",
+      "title_source": "ims_subclause_titles"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "준수평가",
+        "준수 평가"
+      ],
+      "folded": [],
+      "level": 3,
+      "mandatory": true,
+      "manual_no": "9.1.B",
+      "merge_key": "perf.compliance_evaluation",
+      "parent": "9.1",
+      "phase": 3,
+      "procedures": [
+        "CP08"
+      ],
+      "refs": [
+        "E 9.1.2",
+        "S 9.1.2"
+      ],
+      "related_tag": "[관련 조항: E 9.1.2 · S 9.1.2]",
+      "title": "준수평가",
+      "title_source": "ims_subclause_titles"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "고객만족"
+      ],
+      "folded": [],
+      "level": 3,
+      "mandatory": true,
+      "manual_no": "9.1.C",
+      "merge_key": "perf.customer_satisfaction",
+      "parent": "9.1",
+      "phase": 3,
+      "procedures": [
+        "QP01"
+      ],
+      "refs": [
+        "Q 9.1.2"
+      ],
+      "related_tag": "[관련 조항: Q 9.1.2]",
+      "title": "고객만족",
+      "title_source": "ims_subclause_titles"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "분석",
+        "평가"
+      ],
+      "folded": [],
+      "level": 3,
+      "mandatory": true,
+      "manual_no": "9.1.D",
+      "merge_key": "perf.analysis_evaluation",
+      "parent": "9.1",
+      "phase": 3,
+      "procedures": [],
+      "refs": [
+        "Q 9.1.3"
+      ],
+      "related_tag": "[관련 조항: Q 9.1.3]",
+      "title": "분석 및 평가",
+      "title_source": "ims_subclause_titles"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "내부심사",
+        "내부 심사"
+      ],
+      "folded": [
+        "Q 9.2.1",
+        "Q 9.2.2",
+        "E 9.2.1",
+        "E 9.2.2",
+        "S 9.2.1",
+        "S 9.2.2"
+      ],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "9.2",
+      "merge_key": "perf.internal_audit",
+      "parent": "9",
+      "phase": 3,
+      "procedures": [
+        "CP06"
+      ],
+      "refs": [
+        "Q 9.2",
+        "E 9.2",
+        "S 9.2"
+      ],
+      "related_tag": "[관련 조항: Q 9.2 · E 9.2 · S 9.2]",
+      "title": "내부심사",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "경영검토",
+        "경영 검토"
+      ],
+      "folded": [
+        "Q 9.3.1",
+        "Q 9.3.2",
+        "Q 9.3.3"
+      ],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "9.3",
+      "merge_key": "perf.management_review",
+      "parent": "9",
+      "phase": 3,
+      "procedures": [
+        "CP01"
+      ],
+      "refs": [
+        "Q 9.3",
+        "E 9.3",
+        "S 9.3"
+      ],
+      "related_tag": "[관련 조항: Q 9.3 · E 9.3 · S 9.3]",
+      "title": "경영검토",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "개선"
+      ],
+      "folded": [],
+      "level": 1,
+      "mandatory": true,
+      "manual_no": "10",
+      "merge_key": "improvement",
+      "parent": null,
+      "phase": 3,
+      "procedures": [],
+      "refs": [
+        "Q 10",
+        "E 10",
+        "S 10"
+      ],
+      "related_tag": "[관련 조항: Q 10 · E 10 · S 10]",
+      "title": "개선",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "일반사항",
+        "개선"
+      ],
+      "folded": [],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "10.1",
+      "merge_key": "improvement.general",
+      "parent": "10",
+      "phase": 3,
+      "procedures": [],
+      "refs": [
+        "Q 10.1",
+        "E 10.1",
+        "S 10.1"
+      ],
+      "related_tag": "[관련 조항: Q 10.1 · E 10.1 · S 10.1]",
+      "title": "일반사항",
+      "title_source": "hls_common"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "시정조치",
+        "사건",
+        "시정 조치"
+      ],
+      "folded": [
+        "Q 10.2.1",
+        "Q 10.2.2"
+      ],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "10.2",
+      "merge_key": "improvement.nonconformity_ca",
+      "parent": "10",
+      "phase": 3,
+      "procedures": [
+        "CP07",
+        "QP06",
+        "SP07"
+      ],
+      "refs": [
+        "Q 10.2",
+        "E 10.2",
+        "S 10.2"
+      ],
+      "related_tag": "[관련 조항: Q 10.2 · E 10.2 · S 10.2]",
+      "title": "사건, 부적합 및 시정조치",
+      "title_source": "hls_title_variant"
+    },
+    {
+      "absorbed": [],
+      "coverage_keywords": [
+        "지속적 개선"
+      ],
+      "folded": [],
+      "level": 2,
+      "mandatory": true,
+      "manual_no": "10.3",
+      "merge_key": "improvement.continual",
+      "parent": "10",
+      "phase": 3,
+      "procedures": [
+        "CP01"
+      ],
+      "refs": [
+        "Q 10.3",
+        "E 10.3",
+        "S 10.3"
+      ],
+      "related_tag": "[관련 조항: Q 10.3 · E 10.3 · S 10.3]",
+      "title": "지속적 개선",
+      "title_source": "hls_common"
+    }
+  ],
+  "selections": [
+    "ISO 9001:2015",
+    "ISO 14001:2015",
+    "ISO 45001:2018"
+  ]
+}

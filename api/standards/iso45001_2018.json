@@ -1,0 +1,1673 @@
+{
+  "schema_version": "1.2",
+  "standard_key": "iso45001",
+  "edition": "2018",
+  "standard_code": "ISO 45001:2018",
+  "tag": "S",
+  "name_ko": "안전보건경영시스템",
+  "system_noun": "안전보건경영시스템",
+  "policy_noun": "안전보건방침",
+  "objective_noun": "안전보건목표",
+  "default_department": "안전보건팀",
+  "content_source": "self_authored",
+  "source_note": "자체 작성 요약이며 ISO/KS 표준 원문 문장을 포함하지 않는다. 조항 번호와 짧은 제목만 사실 정보로 사용했다. 인증 심사 전에는 표준 원문과 대조 검토가 필요하다.",
+  "published_at": "2018-03",
+  "authored_by": "product-agent (AI 초안, 2026-10-25)",
+  "reviewed_by": "InsightMatch 운영자(사용자 본인) — 결정 목록 승인, 조항별 검토 아님",
+  "reviewed_at": "2026-10-25",
+  "clauses": [
+    {
+      "id": "4",
+      "title_ko": "조직 상황",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "context",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "안전보건경영시스템을 설계하기 전에 회사의 상황, 근로자와 이해관계자, 적용범위, 시스템 구조를 먼저 정리한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "조직 상황",
+        "조직상황"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "4.1",
+      "title_ko": "조직과 조직 상황의 이해",
+      "title_ko_status": "official",
+      "parent": "4",
+      "level": 2,
+      "merge_key": "context.issues",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "회사의 목적과 관련해 안전보건경영의 의도한 결과에 영향을 주는 내부·외부 이슈(법규 변화, 고용 형태, 공정·기술 변화, 조직 문화, 근로자 구성 등)를 정하고 변화를 살핀다.",
+      "manual_guidance": [
+        "PESTEL 분석표를 안전보건 관점(법규 강화, 고령·외국인 근로자, 신규 설비·공정)으로 작성한다",
+        "이슈 검토 주기와 경영검토 보고 경로를 명시한다"
+      ],
+      "required_artifacts": [
+        "PESTEL 분석표"
+      ],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP00",
+        "CP01"
+      ],
+      "coverage_keywords": [
+        "조직 상황",
+        "조직상황"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "4.2",
+      "title_ko": "근로자 및 기타 이해관계자의 니즈와 기대 이해",
+      "title_ko_status": "official",
+      "parent": "4",
+      "level": 2,
+      "merge_key": "context.interested_parties",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "근로자 외에 시스템과 관련된 이해관계자(계약자, 감독기관, 고객, 지역사회 등)를 정하고, 근로자와 이해관계자의 요구·기대를 파악해 그중 법적 요구사항이거나 회사가 받아들일 것을 결정한다.",
+      "manual_guidance": [
+        "근로자(정규·비정규·협력업체)와 이해관계자별 요구를 표로 정리하고 법적 요구 여부를 표시한다"
+      ],
+      "required_artifacts": [
+        "이해관계자 요구파악표"
+      ],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP00",
+        "SP02"
+      ],
+      "coverage_keywords": [
+        "이해관계자",
+        "근로자"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "4.3",
+      "title_ko": "안전보건경영시스템 적용범위 결정",
+      "title_ko_status": "official",
+      "parent": "4",
+      "level": 2,
+      "merge_key": "context.scope",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "상황 이슈, 이해관계자 요구, 계획되거나 수행되는 업무 활동을 고려해 적용범위를 정하고 문서로 유지한다. 회사의 안전보건성과에 영향을 줄 수 있는 활동·제품·서비스는 모두 범위에 포함한다.",
+      "manual_guidance": [
+        "사업장과 포함 활동(협력업체 상주 작업, 외부 현장 작업 포함)을 선언한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "안전보건경영시스템 적용범위"
+        }
+      ],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "적용범위"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "4.4",
+      "title_ko": "안전보건경영시스템",
+      "title_ko_status": "official",
+      "parent": "4",
+      "level": 2,
+      "merge_key": "context.system_processes",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "필요한 프로세스와 그 상호작용을 갖춘 안전보건경영시스템을 수립·실행·유지하고 지속적으로 개선한다.",
+      "manual_guidance": [
+        "경영·핵심·지원·개선 4개 범주로 프로세스 상호관계도(Mermaid)를 작성하고, 위험성평가(SP01), 안전보건 운용관리(SP08), 비상대응(SP04)을 핵심 흐름에 표시한다"
+      ],
+      "required_artifacts": [
+        "프로세스 상호관계도(Process Map)"
+      ],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "안전보건경영시스템",
+        "프로세스"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "5",
+      "title_ko": "리더십과 근로자 참여",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "leadership",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "최고경영자가 안전보건에 대한 책임을 지고 방침과 조직 체계를 세우며, 근로자의 협의·참여를 보장한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "리더십"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "5.1",
+      "title_ko": "리더십과 의지표명",
+      "title_ko_status": "official",
+      "parent": "5",
+      "level": 2,
+      "merge_key": "leadership.commitment",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "최고경영자는 업무 관련 부상·질병 예방과 안전하고 건강한 작업장 제공에 대한 전반적 책임을 진다. 방침·목표를 전략과 맞추고, 사업 프로세스에 통합하며, 자원을 제공하고, 근로자 협의·참여를 보장하며, 사건·위험요인을 보고한 근로자가 불이익을 받지 않는 문화를 만든다.",
+      "manual_guidance": [
+        "최고경영자의 책임 사항과 안전보건 문화 조성 방안을 선언하고, 보고자 보호 원칙을 명시한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP01"
+      ],
+      "coverage_keywords": [
+        "리더십",
+        "의지표명"
+      ],
+      "kr_context": [
+        "중대재해 예방을 위한 경영책임자의 안전보건 확보 의무 이행 체계와 연결해 기술한다"
+      ]
+    },
+    {
+      "id": "5.2",
+      "title_ko": "안전보건 방침",
+      "title_ko_status": "official",
+      "parent": "5",
+      "level": 2,
+      "merge_key": "leadership.policy",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "최고경영자는 회사의 목적·규모·리스크 특성에 맞게, 안전하고 건강한 근무 조건 제공, 법적·기타 요구사항 이행, 위험요인 제거와 리스크 감소, 지속적 개선, 근로자 협의·참여에 대한 의지를 담은 안전보건방침을 세운다. 방침은 문서로 유지하고 내부에 전달하며 이해관계자가 볼 수 있게 한다.",
+      "manual_guidance": [
+        "{policy_noun} 선언문에 필수 의지 표명 요소를 담고, 게시·교육으로 전달하는 방법과 검토 주기를 기술한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "안전보건방침"
+        }
+      ],
+      "linked_procedures": [
+        "CP01",
+        "CP04"
+      ],
+      "coverage_keywords": [
+        "방침"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "5.3",
+      "title_ko": "조직의 역할, 책임 및 권한",
+      "title_ko_status": "official",
+      "parent": "5",
+      "level": 2,
+      "merge_key": "leadership.roles",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "시스템 내 역할의 책임과 권한을 모든 계층에 배정해 알리고 문서로 유지한다. 각 계층의 근로자는 자신이 관리하는 안전보건 측면에 책임을 지며, 시스템 적합성 보장과 성과 보고를 맡을 사람을 지정한다.",
+      "manual_guidance": [
+        "조직도와 R&R 매트릭스에 안전보건관리책임자, 관리감독자, 안전·보건관리자의 역할을 표시한다"
+      ],
+      "required_artifacts": [
+        "조직도",
+        "R&R 매트릭스"
+      ],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "역할·책임·권한"
+        }
+      ],
+      "linked_procedures": [
+        "CP02"
+      ],
+      "coverage_keywords": [
+        "역할",
+        "책임",
+        "권한"
+      ],
+      "kr_context": [
+        "산업안전보건법상 안전보건관리책임자·관리감독자·안전관리자·보건관리자 선임 체계와 일치시킨다"
+      ]
+    },
+    {
+      "id": "5.4",
+      "title_ko": "근로자 협의 및 참여",
+      "title_ko_status": "official",
+      "parent": "5",
+      "level": 2,
+      "merge_key": "leadership.worker_participation",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "현장 근로자와 근로자 대표가 안전보건경영시스템을 만들고 계획하고 실행하고 평가하고 개선하는 과정에서 의견을 내고 결정에 참여할 수 있도록 회의체, 시간, 교육, 정보 같은 수단을 마련하고, 참여를 어렵게 하는 장벽(보복 우려, 언어, 교대 근무 등)을 줄인다. 관리자가 아닌 근로자와 협의해야 하는 주제와 실제 참여가 필요한 주제를 구분해 정한다.",
+      "manual_guidance": [
+        "협의 주제(예: 방침·목표 수립, 법규 적용 결정, 교육 필요성)와 참여 주제(예: 위험요인 파악·위험성평가, 사건 조사, 개선 조치 결정)를 표로 구분한다",
+        "협의·참여 창구(산업안전보건위원회, 노사협의회, 제안·아차사고 신고 제도)와 운영 주기를 명시한다",
+        "세부 운영은 「SMS-SP03 근로자 협의·참여 절차서」를 참조하도록 한다",
+        "근로자가 안전보건경영시스템에 관한 명확하고 관련된 정보(방침, 절차, 위험성평가 결과 등 문서화된 정보 포함)에 필요한 때 접근할 수 있는 방법(게시, 공유 폴더, 교육 시 배포 등)을 기술한다"
+      ],
+      "required_artifacts": [
+        "협의·참여 주제 구분표"
+      ],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "산업안전보건위원회(또는 협의체) 회의록"
+        }
+      ],
+      "linked_procedures": [
+        "SP03"
+      ],
+      "coverage_keywords": [
+        "근로자",
+        "협의",
+        "참여"
+      ],
+      "kr_context": [
+        "상시근로자 규모에 따라 산업안전보건위원회 설치 의무가 달라지므로, 설치 대상이 아닌 사업장은 대체 협의 창구를 기술한다"
+      ]
+    },
+    {
+      "id": "6",
+      "title_ko": "기획",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "planning",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "위험요인, 안전보건 리스크·기회, 법적 요구사항을 바탕으로 조치와 안전보건목표를 계획한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "기획"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.1",
+      "title_ko": "리스크와 기회를 다루는 조치",
+      "title_ko_status": "official",
+      "parent": "6",
+      "level": 2,
+      "merge_key": "planning.risk_opportunity",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "상황 이슈, 이해관계자 요구, 적용범위를 고려해 다뤄야 할 리스크와 기회를 정하고, 위험요인 파악, 리스크·기회 평가, 법적 요구사항 결정, 조치 기획 프로세스를 갖춘다.",
+      "manual_guidance": [
+        "6.1.1~6.1.4의 연결 흐름(위험요인 파악 → 평가 → 법규 확인 → 조치 기획)을 개괄한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "리스크와 기회"
+        },
+        {
+          "kind": "maintain",
+          "name": "6.1~6.1.4 프로세스와 조치가 계획대로 수행된다는 확신에 필요한 정보"
+        }
+      ],
+      "linked_procedures": [
+        "CP00",
+        "SP01"
+      ],
+      "coverage_keywords": [
+        "리스크",
+        "기회"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.1.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "official",
+      "parent": "6.1",
+      "level": 3,
+      "merge_key": "planning.risks_opportunities",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "리스크·기회를 정할 때 위험요인, 안전보건 리스크와 기타 리스크, 기회, 법적·기타 요구사항을 고려하고, 조직·프로세스·시스템의 계획된 변경(임시·영구)도 평가에 넣는다. 잠재적 비상 상황도 이 단계에서 파악한다.",
+      "manual_guidance": [
+        "리스크·기회 평가 기준과 등급별 대응 원칙을 제시하고 「SMS-CP00 리스크관리 절차서」를 참조하도록 한다",
+        "여기서 파악한 잠재적 비상 상황이 8.2 비상대응으로 이어짐을 밝힌다",
+        "계획된 변경(조직·프로세스·시스템의 임시·영구 변경)은 시행 전에 리스크·기회에 미치는 영향을 평가하는 방법을 기술하고, 변경 자체의 관리는 운용 변경관리 섹션을 참조하게 한다"
+      ],
+      "required_artifacts": [
+        "리스크 평가 기준표"
+      ],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP00"
+      ],
+      "coverage_keywords": [
+        "일반사항",
+        "리스크"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.1.2",
+      "title_ko": "위험요인 파악 및 리스크와 기회의 평가",
+      "title_ko_status": "official",
+      "parent": "6.1",
+      "level": 3,
+      "merge_key": "planning.hazard_risk_assessment",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "정상·비정상 작업, 과거 사건, 비상 상황, 인적·조직적 요인, 설비·물질, 변경 사항을 고려해 위험요인을 미리 그리고 지속적으로 찾아낸다. 찾은 위험요인에 대해 안전보건 리스크와 시스템 관련 기타 리스크를 평가하고, 안전보건성과와 시스템을 개선할 기회도 평가한다. 평가 방법과 기준은 사후 대응이 아닌 사전 예방 관점으로 정한다.",
+      "manual_guidance": [
+        "위험성평가 기준표(가능성×중대성, 허용 기준)와 실시 시기(최초·정기·수시)를 제시한다",
+        "근로자 참여 방식을 명시하고 「SMS-SP01 위험성평가 절차서」를 참조하도록 한다",
+        "하위 요소를 구분해 기술한다: ① 위험요인 파악(정상·비정상 작업, 과거 사건, 비상 상황, 인적 요인, 변경), ② 안전보건 리스크와 기타 리스크 평가, ③ 안전보건 기회와 기타 기회 평가"
+      ],
+      "required_artifacts": [
+        "위험성평가 기준표"
+      ],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "리스크·기회 평가 방법과 기준"
+        },
+        {
+          "kind": "retain",
+          "name": "위험성평가 결과"
+        }
+      ],
+      "linked_procedures": [
+        "SP01"
+      ],
+      "coverage_keywords": [
+        "위험요인",
+        "위험성평가"
+      ],
+      "kr_context": [
+        "산업안전보건법의 사업주 위험성평가 의무와 고용노동부 위험성평가 지침(최초·정기·수시 평가)에 맞춘다"
+      ]
+    },
+    {
+      "id": "6.1.3",
+      "title_ko": "법적 요구사항 및 기타 요구사항의 결정",
+      "title_ko_status": "official",
+      "parent": "6.1",
+      "level": 3,
+      "merge_key": "planning.compliance_obligations",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "위험요인, 안전보건 리스크, 시스템에 적용되는 최신 법적 요구사항과 기타 요구사항을 파악해 확보하고, 회사에 어떻게 적용되며 누구에게 무엇을 전달해야 하는지 정해 시스템 운영에 반영한다.",
+      "manual_guidance": [
+        "적용 법규 목록(산업안전보건법, 중대재해 처벌 등에 관한 법률, 화학물질 관련 법령 등)과 갱신 주기·담당 부서를 기술한다",
+        "세부 관리는 「SMS-SP02 법규 및 기타 요구사항 관리 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [
+        "법규 및 기타 요구사항 등록부"
+      ],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "법적 요구사항 및 기타 요구사항"
+        },
+        {
+          "kind": "retain",
+          "name": "법적 요구사항 및 기타 요구사항 갱신 이력"
+        }
+      ],
+      "linked_procedures": [
+        "SP02"
+      ],
+      "coverage_keywords": [
+        "법적",
+        "요구사항"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.1.4",
+      "title_ko": "조치의 기획",
+      "title_ko_status": "official",
+      "parent": "6.1",
+      "level": 3,
+      "merge_key": "planning.action_planning",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "평가된 리스크·기회, 법적·기타 요구사항, 비상 대비에 대한 조치를 계획하고, 시스템과 사업 프로세스에 통합해 실행하는 방법과 효과성 평가 방법을 정한다. 조치를 고를 때 관리 단계(제거 우선)와 모범 사례, 기술·재무·운영상 여건을 고려한다.",
+      "manual_guidance": [
+        "조치를 안전보건목표(6.2), 운용관리(8.1), 비상대응(8.2) 중 어디로 연결할지 기준을 제시한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP00",
+        "SP01"
+      ],
+      "coverage_keywords": [
+        "조치"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.2",
+      "title_ko": "안전보건 목표와 목표 달성 기획",
+      "title_ko_status": "official",
+      "parent": "6",
+      "level": 2,
+      "merge_key": "planning.objectives",
+      "phase": 1,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "관련 기능·계층별로 방침과 일관되고 측정 가능하거나 성과 평가가 가능한 안전보건목표를 세운다. 리스크·기회 평가 결과와 근로자 협의 결과를 반영하고, 실행 내용, 자원, 책임자, 기한, 평가 지표를 계획해 사업 프로세스에 통합한다.",
+      "manual_guidance": [
+        "{objective_noun}·KPI 표(재해율, 아차사고 보고, 교육 이수율, 위험성평가 시행률 등)를 제시한다",
+        "목표 수립 때 근로자 협의를 거친다는 점을 기술한다"
+      ],
+      "required_artifacts": [
+        "KPI 표"
+      ],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "안전보건목표와 달성 계획"
+        }
+      ],
+      "linked_procedures": [
+        "CP01"
+      ],
+      "coverage_keywords": [
+        "목표"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.2.1",
+      "title_ko": "안전보건 목표",
+      "title_ko_status": "official",
+      "parent": "6.2",
+      "level": 3,
+      "merge_key": "planning.objectives.set",
+      "phase": 1,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "방침과 일관되고 측정 가능하며 법적 요구사항과 리스크·기회 평가 결과, 근로자 협의 결과를 반영한 목표를 필요한 기능·계층에 정한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "목표"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "6.2.2",
+      "title_ko": "안전보건 목표 달성 기획",
+      "title_ko_status": "official",
+      "parent": "6.2",
+      "level": 3,
+      "merge_key": "planning.objectives.plan",
+      "phase": 1,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "목표 달성 조치(무엇을, 어떤 자원으로, 누가, 언제까지, 어떤 지표로 평가할지)를 계획하고 사업 프로세스에 통합한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "목표"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7",
+      "title_ko": "지원",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "support",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "안전보건경영에 필요한 자원, 역량, 인식, 의사소통, 문서화된 정보를 갖춘다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "지원"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.1",
+      "title_ko": "자원",
+      "title_ko_status": "official",
+      "parent": "7",
+      "level": 2,
+      "merge_key": "support.resources",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "시스템 수립·운영·개선에 필요한 인력, 기반시설, 안전설비·보호구, 재정 자원을 정하고 제공한다.",
+      "manual_guidance": [
+        "안전설비, 보호구, 측정장비, 안전보건 전담 인력과 예산 확보 원칙을 기술한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "자원"
+      ],
+      "kr_context": [
+        "안전보건 예산 편성·집행 관리와 연결해 기술한다"
+      ]
+    },
+    {
+      "id": "7.2",
+      "title_ko": "역량/적격성",
+      "title_ko_status": "official",
+      "parent": "7",
+      "level": 2,
+      "merge_key": "support.competence",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "안전보건성과에 영향을 주는 근로자에게 필요한 역량(위험요인을 알아보고 대처하는 능력 포함)을 정하고, 교육·훈련·경험으로 갖추게 하며, 부족하면 보완하고 효과를 평가한다.",
+      "manual_guidance": [
+        "법정 안전보건교육과 직무별 자격 기준을 기술하고 「SMS-CP03 교육훈련 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "역량의 증거(자격, 교육·평가 기록)"
+        }
+      ],
+      "linked_procedures": [
+        "CP03"
+      ],
+      "coverage_keywords": [
+        "역량",
+        "적격성"
+      ],
+      "kr_context": [
+        "산업안전보건법상 근로자 안전보건교육(정기, 채용 시, 작업내용 변경 시, 특별교육)을 교육계획에 반영한다"
+      ]
+    },
+    {
+      "id": "7.3",
+      "title_ko": "인식",
+      "title_ko_status": "official",
+      "parent": "7",
+      "level": 2,
+      "merge_key": "support.awareness",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "근로자가 안전보건방침과 목표, 시스템 효과성에 대한 자신의 기여, 요구사항 미준수의 결과, 관련 사건과 조사 결과, 자기 업무의 위험요인·리스크와 관리 조치를 알도록 한다. 생명이나 건강에 급박한 위험이 있으면 작업에서 벗어날 수 있고 그로 인해 불이익을 받지 않는다는 점도 알린다.",
+      "manual_guidance": [
+        "임직원이 {policy_noun}, {objective_noun}, 본인 작업의 위험요인과 관리 조치, 사건 교훈, 위험 시 작업중지·대피 권리를 인식하도록 하는 수단(TBM, 교육, 게시)을 기술한다",
+        "협력업체 근로자와 방문자도 인식 대상에 포함한다",
+        "실행·기록은 「SMS-CP03 교육훈련 절차서」와 「SMS-CP04 의사소통 관리 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP03",
+        "CP04"
+      ],
+      "coverage_keywords": [
+        "인식"
+      ],
+      "kr_context": [
+        "산업안전보건법의 근로자 작업중지 권리와 일관되게 기술한다"
+      ]
+    },
+    {
+      "id": "7.4",
+      "title_ko": "의사소통",
+      "title_ko_status": "official",
+      "parent": "7",
+      "level": 2,
+      "merge_key": "support.communication",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "안전보건 관련 내부·외부 의사소통의 주제, 시기, 상대, 방법을 정하고, 성별·언어·문화·장애 등 다양성을 고려하며, 외부 이해관계자의 의견을 반영한다. 법적 요구사항을 고려하고 전달 정보가 일관되고 믿을 수 있게 하며, 의사소통 증거를 남긴다.",
+      "manual_guidance": [
+        "의사소통 매트릭스에 외국인 근로자 다국어 안내, 협력업체·방문자 안전 안내를 포함한다",
+        "세부 방법은 「SMS-CP04 의사소통 관리 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [
+        "의사소통 매트릭스"
+      ],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "의사소통 증거"
+        }
+      ],
+      "linked_procedures": [
+        "CP04"
+      ],
+      "coverage_keywords": [
+        "의사소통"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.4.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "official",
+      "parent": "7.4",
+      "level": 3,
+      "merge_key": "support.communication.general",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "의사소통 프로세스를 정하고, 다양성과 법적 요구사항을 고려하며, 정보의 일관성·신뢰성을 확보한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "의사소통"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.4.2",
+      "title_ko": "내부 의사소통",
+      "title_ko_status": "official",
+      "parent": "7.4",
+      "level": 3,
+      "merge_key": "support.communication.internal",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "조직 계층과 기능 사이에 변경을 포함한 안전보건 정보를 공유하고, 근로자가 개선에 기여할 수 있게 한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "내부"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.4.3",
+      "title_ko": "외부 의사소통",
+      "title_ko_status": "official",
+      "parent": "7.4",
+      "level": 3,
+      "merge_key": "support.communication.external",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "법적 요구사항과 회사가 정한 방식에 따라 안전보건 정보를 외부 이해관계자에게 전달한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "외부"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.5",
+      "title_ko": "문서화된 정보",
+      "title_ko_status": "official",
+      "parent": "7",
+      "level": 2,
+      "merge_key": "support.documented_info",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "표준이 요구하는 문서와 회사가 필요하다고 정한 문서를 갖추고, 작성·갱신 때 식별·형식·검토·승인을 거치며, 배포·접근·보관·변경·보존·폐기를 관리한다. 외부 출처 문서도 식별해 관리한다.",
+      "manual_guidance": [
+        "문서 체계와 문서번호 규칙(CP·SP 계열)을 기술하고 「SMS-CP05 문서화된 정보관리 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "CP05"
+      ],
+      "coverage_keywords": [
+        "문서화된 정보"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.5.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "official",
+      "parent": "7.5",
+      "level": 3,
+      "merge_key": "support.documented_info.general",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "시스템에 포함할 문서화된 정보의 범위를 정하며, 그 양은 조직 규모, 활동 복잡성, 법적 요구사항 이행 입증 필요, 인원 역량에 따라 달라질 수 있다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "문서화된 정보"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.5.2",
+      "title_ko": "작성 및 갱신",
+      "title_ko_status": "official",
+      "parent": "7.5",
+      "level": 3,
+      "merge_key": "support.documented_info.create_update",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "문서를 만들거나 고칠 때 식별 정보, 형식과 매체, 적절성 검토와 승인을 보장한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "작성",
+        "갱신"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "7.5.3",
+      "title_ko": "문서화된 정보의 관리",
+      "title_ko_status": "official",
+      "parent": "7.5",
+      "level": 3,
+      "merge_key": "support.documented_info.control",
+      "phase": 2,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "문서가 필요한 때와 장소에서 쓸 수 있고 적절히 보호되도록 배포, 접근, 검색, 보관, 변경, 보존, 폐기를 관리한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "문서화된 정보"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8",
+      "title_ko": "운용",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "ops",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "위험요인과 안전보건 리스크를 운용 단계에서 관리하고 비상 상황에 대비한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "운용"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.1",
+      "title_ko": "운용 기획 및 관리",
+      "title_ko_status": "official",
+      "parent": "8",
+      "level": 2,
+      "merge_key": "ops.planning_control",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "안전보건 요구사항 충족과 6절 조치 실행에 필요한 프로세스에 운용 기준을 정해 계획·관리하며, 위험요인 제거와 리스크 감소, 변경관리, 조달·계약자·외주 관리를 포함한다.",
+      "manual_guidance": [
+        "8.1.1~8.1.4의 관계(운용 기준 → 위험 감소 → 변경 → 조달·계약자)를 개괄한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "SP08"
+      ],
+      "coverage_keywords": [
+        "운용"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.1.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "official",
+      "parent": "8.1",
+      "level": 3,
+      "merge_key": "ops.planning_control.general",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "프로세스 운용 기준을 정해 그대로 관리하고, 계획대로 수행되었음을 보여줄 정보를 유지·보유한다. 작업을 근로자에게 맞추도록 설계하고, 여러 사업주가 함께 일하는 작업장에서는 관련 당사자와 시스템 관련 부분을 조정한다.",
+      "manual_guidance": [
+        "주요 위험작업(고소, 밀폐공간, 화기, 중량물, 전기)의 운용 기준과 작업허가 원칙을 표로 제시하고 「SMS-SP08 안전보건 운용관리 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [
+        "위험작업 운용 기준표"
+      ],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "프로세스가 계획대로 수행된다는 확신에 필요한 정보"
+        },
+        {
+          "kind": "retain",
+          "name": "운용 기준 이행 기록"
+        }
+      ],
+      "linked_procedures": [
+        "SP08"
+      ],
+      "coverage_keywords": [
+        "일반사항",
+        "운용"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.1.2",
+      "title_ko": "위험요인 제거 및 안전보건 리스크 감소",
+      "title_ko_status": "official",
+      "parent": "8.1",
+      "level": 3,
+      "merge_key": "ops.hazard_elimination",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "관리 단계에 따라 위험요인을 먼저 없애고, 안 되면 덜 위험한 공정·물질·설비로 바꾸며, 공학적 대책과 작업 재설계, 교육을 포함한 관리적 대책, 개인보호구 순서로 리스크를 줄인다.",
+      "manual_guidance": [
+        "관리 단계(제거 → 대체 → 공학적 대책 → 관리적 대책 → 보호구)를 표로 제시하고 위험성평가 감소대책에 적용함을 기술한다"
+      ],
+      "required_artifacts": [
+        "관리 단계(위험 통제 위계) 표"
+      ],
+      "documented_info": [],
+      "linked_procedures": [
+        "SP01",
+        "SP08"
+      ],
+      "coverage_keywords": [
+        "위험요인 제거",
+        "리스크 감소"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.1.3",
+      "title_ko": "변경 관리",
+      "title_ko_status": "official",
+      "parent": "8.1",
+      "level": 3,
+      "merge_key": "ops.change_management",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "안전보건성과에 영향을 주는 임시·영구 변경(신규 공정·설비·물질, 작업장·작업 조직·인력 변경, 법적 요구사항 변경, 위험요인 관련 지식이나 기술의 변화 등)을 실행 전에 계획하고 관리한다. 의도하지 않은 변경은 결과를 검토하고 필요하면 부정적 영향을 줄인다.",
+      "manual_guidance": [
+        "변경 유형별 사전 위험성평가(수시평가)와 승인 절차를 기술하고 「SMS-SP06 변경관리 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "SP06",
+        "SP01"
+      ],
+      "coverage_keywords": [
+        "변경관리",
+        "변경 관리"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "8.1.4",
+      "title_ko": "조달",
+      "title_ko_status": "official",
+      "parent": "8.1",
+      "level": 3,
+      "merge_key": "ops.procurement",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "구매하는 제품·서비스가 시스템 요구사항에 맞도록 조달을 관리한다. 계약자와는 양쪽 활동에서 생기는 위험요인을 함께 다루도록 조정하고, 계약자 선정 기준에 안전보건 기준을 넣는다. 외주 기능·프로세스는 법적 요구사항과 시스템 결과에 맞도록 관리 방식과 정도를 정한다.",
+      "manual_guidance": [
+        "계약자 선정·평가 기준, 작업 전 안전교육과 작업허가, 혼재작업 조정 방법을 기술한다",
+        "세부 관리는 「SMS-SP05 도급·계약자·조달 안전관리 절차서」를 참조하도록 한다",
+        "하위 요소를 구분해 기술한다: ① 조달 일반(구매 제품·서비스가 시스템 요구사항에 맞는지 관리), ② 계약자(위험요인 상호 조정, 선정 기준에 안전보건 포함), ③ 외주처리(외주 기능·프로세스의 관리 방식과 정도)",
+        "ISO 9001을 함께 적용하는 통합 매뉴얼에서는 외부에서 제공되는 프로세스·제품·서비스 관리 섹션(Q 8.4)과 서로 참조하고, 공급자 평가·선정 기준을 그 섹션과 일관되게 쓴다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "SP05"
+      ],
+      "coverage_keywords": [
+        "조달",
+        "계약자"
+      ],
+      "kr_context": [
+        "도급인의 안전보건 조치 의무(협의체 운영, 합동 점검 등)와 일관되게 기술한다"
+      ]
+    },
+    {
+      "id": "8.2",
+      "title_ko": "비상시 대비 및 대응",
+      "title_ko_status": "official",
+      "parent": "8",
+      "level": 2,
+      "merge_key": "ops.emergency",
+      "phase": 2,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "6.1.2에서 파악한 잠재적 비상 상황에 대해 응급조치를 포함한 대응 계획을 세우고, 대응 교육과 정기 훈련을 하며, 훈련 후 성과를 평가해 계획을 고친다. 근로자, 계약자, 방문자, 비상 서비스 기관, 지역사회 등 관련자와 필요한 정보를 공유하고, 계획 수립·검토에 이해관계자의 요구와 근로자 참여를 반영한다.",
+      "manual_guidance": [
+        "비상 시나리오(화재, 폭발, 누출, 중대재해)별 대응 체계, 비상연락망, 대피 경로를 표로 제시한다",
+        "훈련 주기와 사후 평가를 기술하고 「SMS-SP04 비상시 대비 및 대응 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [
+        "비상 시나리오별 대응 체계표"
+      ],
+      "documented_info": [
+        {
+          "kind": "maintain",
+          "name": "비상 대응 프로세스와 계획"
+        },
+        {
+          "kind": "retain",
+          "name": "훈련 및 대응 결과"
+        }
+      ],
+      "linked_procedures": [
+        "SP04"
+      ],
+      "coverage_keywords": [
+        "비상"
+      ],
+      "kr_context": [
+        "중대재해 발생 시 작업중지, 대피, 감독기관 보고 체계와 일관되게 기술한다"
+      ]
+    },
+    {
+      "id": "9",
+      "title_ko": "성과 평가",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "perf",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "안전보건성과와 법규 준수 상태를 평가하고 내부심사와 경영검토로 시스템을 점검한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "성과 평가",
+        "성과평가"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.1",
+      "title_ko": "모니터링, 측정, 분석 및 성과 평가",
+      "title_ko_status": "official",
+      "parent": "9",
+      "level": 2,
+      "merge_key": "perf.monitoring",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "안전보건성과를 무엇으로, 어떻게, 언제 모니터링·측정·분석·평가할지 정하고, 법적 요구사항 이행 상태를 정기적으로 평가한다.",
+      "manual_guidance": [
+        "9.1.1 성과 모니터링과 9.1.2 준수평가의 관계를 개괄한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [
+        "SP08",
+        "SP02"
+      ],
+      "coverage_keywords": [
+        "모니터링",
+        "측정"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.1.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "official",
+      "parent": "9.1",
+      "level": 3,
+      "merge_key": "perf.monitoring.general",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "모니터링·측정 대상(법적 요구사항 이행 정도, 위험요인·리스크 관리 활동, 목표 진척, 운용 관리의 효과성 등), 방법, 판단 기준, 시기, 분석·평가 시기를 정한다. 측정장비는 교정·검증하고 결과를 기록한다.",
+      "manual_guidance": [
+        "안전보건성과 지표(재해율, 아차사고, 작업환경측정, 건강진단 결과)와 주기를 표로 기술한다",
+        "ISO 9001을 함께 적용하는 통합 매뉴얼에서는 측정 장비의 교정·검증 관리를 7.1 자원 섹션의 모니터링·측정 자원(Q 7.1.5)과 서로 참조하게 한다"
+      ],
+      "required_artifacts": [
+        "안전보건 모니터링·측정 계획표"
+      ],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "모니터링·측정·분석·평가 결과"
+        },
+        {
+          "kind": "retain",
+          "name": "측정장비 교정·검증 기록"
+        }
+      ],
+      "linked_procedures": [
+        "SP08"
+      ],
+      "coverage_keywords": [
+        "일반사항",
+        "모니터링"
+      ],
+      "kr_context": [
+        "작업환경측정과 특수건강진단 결과를 성과 모니터링 항목에 포함한다"
+      ]
+    },
+    {
+      "id": "9.1.2",
+      "title_ko": "준수 평가",
+      "title_ko_status": "official",
+      "parent": "9.1",
+      "level": 3,
+      "merge_key": "perf.compliance_evaluation",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "법적·기타 요구사항 이행 여부를 정해진 주기와 방법으로 평가하고, 필요하면 조치하며, 준수 상태를 계속 파악하고 결과를 기록한다.",
+      "manual_guidance": [
+        "준수평가 주기, 방법(법규 체크리스트, 점검 결과 대조), 평가자를 기술하고 「SMS-SP02 법규 및 기타 요구사항 관리 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [
+        "준수평가 체크리스트"
+      ],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "준수평가 결과"
+        }
+      ],
+      "linked_procedures": [
+        "SP02"
+      ],
+      "coverage_keywords": [
+        "준수평가",
+        "준수 평가"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.2",
+      "title_ko": "내부 심사",
+      "title_ko_status": "official",
+      "parent": "9",
+      "level": 2,
+      "merge_key": "perf.internal_audit",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "시스템이 회사와 표준의 요구사항에 맞고 효과적으로 운영되는지 정해진 주기로 내부심사한다. 이전 결과와 변경을 반영해 심사 프로그램을 세우고, 객관적인 심사원을 선정하며, 결과를 경영진과 근로자(대표)에게 알리고 후속 조치를 한다.",
+      "manual_guidance": [
+        "연간 심사 주기, 심사원 자격과 독립성, 결과 보고·시정조치 연계를 기술하고 「SMS-CP06 내부심사 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "심사 프로그램 실행과 심사 결과의 증거"
+        }
+      ],
+      "linked_procedures": [
+        "CP06"
+      ],
+      "coverage_keywords": [
+        "내부심사",
+        "내부 심사"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.2.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "official",
+      "parent": "9.2",
+      "level": 3,
+      "merge_key": "perf.internal_audit.general",
+      "phase": 3,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "정해진 주기로 심사해 시스템이 요구사항에 적합하고 효과적으로 실행·유지되는지 확인한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "내부심사"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.2.2",
+      "title_ko": "내부 심사 프로그램",
+      "title_ko_status": "official",
+      "parent": "9.2",
+      "level": 3,
+      "merge_key": "perf.internal_audit.programme",
+      "phase": 3,
+      "mandatory": false,
+      "outline_role": "fold",
+      "verification": "body_verified",
+      "requirement_summary": "빈도, 방법, 책임, 협의, 계획, 보고를 포함한 심사 프로그램을 세우고, 결과를 관련 관리자와 근로자(대표)에게 보고한다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "심사 프로그램"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "9.3",
+      "title_ko": "경영 검토",
+      "title_ko_status": "official",
+      "parent": "9",
+      "level": 2,
+      "merge_key": "perf.management_review",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "최고경영자는 정해진 주기로 시스템의 적절성·충분성·효과성을 검토한다. 이슈·요구·리스크의 변화, 방침·목표 달성도, 사건·부적합·시정조치, 모니터링·준수평가·심사 결과, 근로자 협의·참여 결과, 자원, 이해관계자 의사소통, 개선 기회를 입력으로 삼고, 결정 사항을 기록해 근로자(대표)와 공유한다.",
+      "manual_guidance": [
+        "경영검토 입력·출력 항목표를 제시하고, 결과를 근로자와 공유하는 방법(산업안전보건위원회 보고 등)을 기술한다",
+        "세부 운영은 「SMS-CP01 경영 계획수립 및 검토 절차서」를 참조하도록 한다"
+      ],
+      "required_artifacts": [
+        "경영검토 입력·출력 항목표"
+      ],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "경영검토 결과"
+        }
+      ],
+      "linked_procedures": [
+        "CP01"
+      ],
+      "coverage_keywords": [
+        "경영검토",
+        "경영 검토"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "10",
+      "title_ko": "개선",
+      "title_ko_status": "official",
+      "parent": null,
+      "level": 1,
+      "merge_key": "improvement",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "사건과 부적합에서 배우고 재발을 막으며 안전보건성과를 계속 높인다.",
+      "manual_guidance": [],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "개선"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "10.1",
+      "title_ko": "일반사항",
+      "title_ko_status": "official",
+      "parent": "10",
+      "level": 2,
+      "merge_key": "improvement.general",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "개선 기회를 정하고 안전보건경영의 의도한 결과를 얻기 위한 조치를 실행한다.",
+      "manual_guidance": [
+        "개선 기회 발굴 경로(성과 분석, 사건 조사, 준수평가, 심사, 근로자 제안)를 기술한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [],
+      "linked_procedures": [],
+      "coverage_keywords": [
+        "일반사항",
+        "개선"
+      ],
+      "kr_context": []
+    },
+    {
+      "id": "10.2",
+      "title_ko": "사건, 부적합 및 시정 조치",
+      "title_ko_status": "official",
+      "parent": "10",
+      "level": 2,
+      "merge_key": "improvement.nonconformity_ca",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "사건이나 부적합이 생기면 적시에 대응해 관리·시정하고, 근로자와 관련 이해관계자를 참여시켜 원인을 조사한다. 기존 위험성평가를 다시 보고, 관리 단계에 따라 시정조치를 정하되 실행 전에 새 위험요인을 평가하며, 조치 효과를 검토하고 결과를 근로자와 공유한다.",
+      "manual_guidance": [
+        "사건(재해, 아차사고) 보고-조사-원인분석-시정조치-효과 확인 흐름을 기술하고 「SMS-SP07 사건조사 절차서」와 「SMS-CP07 시정조치 절차서」를 참조하도록 한다",
+        "조사와 시정조치 결과를 근로자와 공유하는 방법을 명시한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "사건·부적합의 성격과 후속 조치"
+        },
+        {
+          "kind": "retain",
+          "name": "조치와 시정조치의 결과(효과 포함)"
+        }
+      ],
+      "linked_procedures": [
+        "SP07",
+        "CP07"
+      ],
+      "coverage_keywords": [
+        "사건",
+        "시정조치",
+        "시정 조치"
+      ],
+      "kr_context": [
+        "산업재해 발생 보고 기한과 재해 기록 보존 의무를 반영한다"
+      ]
+    },
+    {
+      "id": "10.3",
+      "title_ko": "지속적 개선",
+      "title_ko_status": "official",
+      "parent": "10",
+      "level": 2,
+      "merge_key": "improvement.continual",
+      "phase": 3,
+      "mandatory": true,
+      "outline_role": "section",
+      "verification": "body_verified",
+      "requirement_summary": "안전보건성과 향상, 안전보건 문화 조성, 근로자 참여 촉진, 개선 결과의 근로자 공유를 통해 시스템의 적절성·충분성·효과성을 계속 높인다.",
+      "manual_guidance": [
+        "개선 과제 선정·추적 방법과 근로자 공유 방법을 기술한다"
+      ],
+      "required_artifacts": [],
+      "documented_info": [
+        {
+          "kind": "retain",
+          "name": "지속적 개선의 증거"
+        }
+      ],
+      "linked_procedures": [
+        "CP01"
+      ],
+      "coverage_keywords": [
+        "지속적 개선"
+      ],
+      "kr_context": []
+    }
+  ],
+  "procedures": [
+    {
+      "id": "CP00",
+      "name": "리스크관리 절차서",
+      "iso_clauses": [
+        "6.1"
+      ],
+      "merge_key": "proc.risk",
+      "process_category": "MGT",
+      "department": "안전보건팀",
+      "input": "내외부 이슈, 근로자·이해관계자 요구, 위험성평가 결과, 법적 요구사항, 잠재 비상 상황",
+      "output": "리스크 및 기회 평가표, 조치계획, 효과성 평가 결과",
+      "records": "리스크 및 기회 평가표, 조치계획서",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "CP01",
+      "name": "경영 계획수립 및 검토 절차서",
+      "iso_clauses": [
+        "5.1",
+        "9.3"
+      ],
+      "merge_key": "proc.planning_review",
+      "process_category": "MGT",
+      "department": "경영지원팀",
+      "input": "안전보건방침, 안전보건목표 실적, 사건 통계, 준수평가 결과, 내부심사 결과, 근로자 협의 결과",
+      "output": "경영계획, 경영검토 회의록, 개선 지시사항",
+      "records": "경영계획서, 경영검토 회의록",
+      "retention": "3년",
+      "media": "전자문서/회의록"
+    },
+    {
+      "id": "CP02",
+      "name": "조직 및 업무분장 절차서",
+      "iso_clauses": [
+        "5.3"
+      ],
+      "merge_key": "proc.organization",
+      "process_category": "MGT",
+      "department": "경영지원팀",
+      "input": "조직도, 직무기술서, 업무분장 변경 요청, 법정 선임 요건",
+      "output": "조직도, 업무분장표, 권한 위임표, 안전보건 선임 현황",
+      "records": "조직도, 업무분장표, 직무기술서, 선임 보고 기록",
+      "retention": "개정 후 3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "CP03",
+      "name": "교육훈련 절차서",
+      "iso_clauses": [
+        "7.2"
+      ],
+      "merge_key": "proc.training",
+      "process_category": "SUP",
+      "department": "인사/교육담당부서",
+      "input": "역량 기준, 위험성평가 결과, 법정 안전보건교육 요구, 직무별 자격 요건",
+      "output": "연간 교육계획, 교육 결과, 적격성 평가 결과, 인식 교육 기록",
+      "records": "교육계획서, 교육참석부, 역량평가표, 안전보건교육 기록",
+      "retention": "3년",
+      "media": "전자문서/서명부"
+    },
+    {
+      "id": "CP04",
+      "name": "의사소통 관리 절차서",
+      "iso_clauses": [
+        "7.4"
+      ],
+      "merge_key": "proc.communication",
+      "process_category": "SUP",
+      "department": "안전보건팀",
+      "input": "내부 공지사항, 외부 이해관계자 요구, 협력업체·방문자 안전 안내, 법적 보고 요구",
+      "output": "의사소통 계획, 회의록, 공지 기록, 외부 의견 처리 기록",
+      "records": "의사소통 계획표, 회의록, 안전 공지 기록",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "CP05",
+      "name": "문서화된 정보관리 절차서",
+      "iso_clauses": [
+        "7.5"
+      ],
+      "merge_key": "proc.documented_info",
+      "process_category": "SUP",
+      "department": "안전보건팀",
+      "input": "문서 제·개정 요청, 기록 생성 기준, 법정 보존 요구사항",
+      "output": "문서목록, 기록목록, 배포/회수 이력, 보존 기준",
+      "records": "문서관리대장, 기록관리대장, 문서 배포대장",
+      "retention": "최신본 유지 및 폐기 후 3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "CP06",
+      "name": "내부심사 절차서",
+      "iso_clauses": [
+        "9.2"
+      ],
+      "merge_key": "proc.internal_audit",
+      "process_category": "IMP",
+      "department": "안전보건팀",
+      "input": "연간 내부심사 계획, ISO 45001 요구사항, 이전 심사 결과",
+      "output": "내부심사 보고서, 부적합 보고서, 시정조치 요구",
+      "records": "내부심사 계획서, 체크리스트, 심사보고서",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "CP07",
+      "name": "시정조치 절차서",
+      "iso_clauses": [
+        "10.2"
+      ],
+      "merge_key": "proc.corrective_action",
+      "process_category": "IMP",
+      "department": "안전보건팀/해당부서",
+      "input": "부적합, 사건 조사 결과, 내부심사 지적, 준수평가 미흡, 근로자 제안",
+      "output": "시정조치 계획, 원인분석, 조치 결과, 효과성 확인",
+      "records": "시정조치 요구서, 원인분석서, 효과성 확인 기록",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "SP01",
+      "name": "위험성평가 절차서",
+      "iso_clauses": [
+        "6.1.2",
+        "6.1.4",
+        "8.1.2"
+      ],
+      "merge_key": "proc.hazard_risk_assessment",
+      "process_category": "MGT",
+      "department": "안전보건팀",
+      "input": "공정·작업 목록, 기계·설비·물질 정보, 재해·아차사고 이력, 변경 계획, 근로자 의견",
+      "output": "위험요인 목록, 위험성 결정 결과, 감소대책과 이행 결과",
+      "records": "위험성평가표, 감소대책 이행 기록, 근로자 참여 기록",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "SP02",
+      "name": "법규 및 기타 요구사항 관리 절차서",
+      "iso_clauses": [
+        "6.1.3",
+        "9.1.2"
+      ],
+      "merge_key": "proc.compliance",
+      "process_category": "MGT",
+      "department": "안전보건팀",
+      "input": "법령 제·개정 정보, 감독기관 지시, 원청·고객 요구",
+      "output": "법규 및 기타 요구사항 등록부, 준수평가 결과, 미흡 사항 조치계획",
+      "records": "법규 등록부, 준수평가표",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "SP03",
+      "name": "근로자 협의·참여 절차서",
+      "iso_clauses": [
+        "5.4"
+      ],
+      "merge_key": "proc.worker_participation",
+      "process_category": "MGT",
+      "department": "안전보건팀",
+      "input": "협의·참여 주제, 근로자 제안·아차사고 신고, 위원회 안건",
+      "output": "회의 결과, 제안·신고 처리 결과, 참여 실적",
+      "records": "산업안전보건위원회(협의체) 회의록, 제안·신고 처리대장",
+      "retention": "3년",
+      "media": "전자문서/회의록"
+    },
+    {
+      "id": "SP04",
+      "name": "비상시 대비 및 대응 절차서",
+      "iso_clauses": [
+        "8.2"
+      ],
+      "merge_key": "proc.emergency",
+      "process_category": "CORE",
+      "department": "안전보건팀",
+      "input": "잠재 비상 상황, 비상 자원(소화설비, 응급장비), 비상연락망",
+      "output": "비상대응 계획, 훈련 결과, 사후 평가 결과",
+      "records": "비상대응 계획서, 훈련 결과 보고서, 비상 상황 보고서",
+      "retention": "3년",
+      "media": "전자문서/훈련사진"
+    },
+    {
+      "id": "SP05",
+      "name": "도급·계약자·조달 안전관리 절차서",
+      "iso_clauses": [
+        "8.1.4"
+      ],
+      "merge_key": "proc.contractor_procurement",
+      "process_category": "SUP",
+      "department": "안전보건팀/구매부서",
+      "input": "도급·외주 작업 계획, 수급인 안전보건 수준 평가 기준, 구매품 안전 요건",
+      "output": "수급인 평가 결과, 작업 전 안전교육·작업허가 기록, 협의체·합동점검 결과",
+      "records": "수급인 안전보건 평가표, 협의체 회의록, 합동점검표",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "SP06",
+      "name": "변경관리 절차서",
+      "iso_clauses": [
+        "8.1.3"
+      ],
+      "merge_key": "proc.change_management",
+      "process_category": "CORE",
+      "department": "안전보건팀/해당부서",
+      "input": "설비·공정·물질·조직 변경 요청, 법규 변경 정보",
+      "output": "변경 위험성평가 결과, 승인 결과, 변경 후 확인 결과",
+      "records": "변경관리 요청·승인서, 수시 위험성평가표",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "SP07",
+      "name": "사건조사 절차서",
+      "iso_clauses": [
+        "10.2"
+      ],
+      "merge_key": "proc.incident_investigation",
+      "process_category": "IMP",
+      "department": "안전보건팀",
+      "input": "재해·아차사고 보고, 현장 조사 자료, 관계자 진술",
+      "output": "사건 조사 보고서, 원인분석, 재발방지 대책",
+      "records": "사건 보고서, 산업재해 조사 기록, 재발방지 대책 이행 기록",
+      "retention": "3년",
+      "media": "전자문서"
+    },
+    {
+      "id": "SP08",
+      "name": "안전보건 운용관리 절차서",
+      "iso_clauses": [
+        "8.1.1",
+        "8.1.2",
+        "9.1.1"
+      ],
+      "merge_key": "proc.ohs_operation",
+      "process_category": "CORE",
+      "department": "안전보건팀/생산부서",
+      "input": "위험성평가 결과, 위험작업 목록, 작업허가 기준, 설비·보호구 점검 기준",
+      "output": "작업허가 기록, 안전점검 결과, 보호구 지급·관리 기록, 성과 모니터링 결과",
+      "records": "작업허가서, 안전점검표, 보호구 지급대장, 작업환경측정·건강진단 결과",
+      "retention": "3년 또는 법정 보존기간",
+      "media": "전자문서/현장기록"
+    }
+  ]
+}

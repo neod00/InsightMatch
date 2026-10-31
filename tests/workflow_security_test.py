@@ -2691,10 +2691,18 @@ class TestWorkflowSecurity(unittest.TestCase):
             yield 'data: [PHASE_COMPLETE:2]\n\n'
             yield 'data: [DONE]\n\n'
 
+        # 7절 이어 생성은 1단계 저장본이 있어야 한다(FR-47) — 1단계 미리보기가 끝난 상태로 둔다
+        manual = ManualGeneration.query.get(data['manual_id'])
+        manual.phase1_markdown = '## 1. 적용범위\n\n1단계 미리보기'
+        manual.status = 'phase_1_completed'
+        db.session.commit()
+
         url = f"/api/generate-iso?manual_id={data['manual_id']}&stream_token={data['stream_token']}&continue_from=7"
         with patch('index.generate_iso_manual_stream', fake_stream):
             blocked = self.client.get(url).get_data(as_text=True)
         self.assertIn('사업자등록번호 확인 후', blocked)
+        # 막힌 시도는 선점·상태 변경이 없다 → 번호 등록 뒤 같은 토큰으로 바로 이어진다
+        self.assertEqual(ManualGeneration.query.get(data['manual_id']).status, 'phase_1_completed')
         self.assertIsNone(ManualGeneration.query.get(data['manual_id']).phase2_markdown)
 
         # 번호를 등록하면 같은 세션으로 이어서 받을 수 있다
