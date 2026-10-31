@@ -2148,3 +2148,292 @@ a.hm-help-item:hover .go { transform: translateX(3px) rotate(-45deg); }
 
 /* 16-11 매칭 요청 패널: 컨설턴트별 제안 금액 표시(버튼이 아니라 읽기 전용 값) */
 .hm-admin .hm-ci-actions .hm-ci-proposal { margin-left: auto; align-self: center; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary, #4a4b45); white-space: nowrap; }
+
+/* =========================================================
+   17. AI MANUAL — AI 매뉴얼 생성기(ai-manual.html)에서 추가.
+   1~16 의 규칙은 바꾸지 않는다. 여기 규칙은 전부 body.hm-manual 아래로 범위를 묶는다.
+   스크립트 계약 클래스(checkbox-group·checkbox-chip(.active)·iso-std-chip·iso-edition-row·iso-note·iso-schedule*·
+   coverage-*·md-viewer·streaming-cursor·download-group(.visible)·download-menu(.open)·btn-generate(.loading)·
+   upsell-card·empty-state·phase-indicator(.is-done)·btn-pause(.is-resume))는 이름 그대로 B안 모양으로 정의.
+     17-1 토큰·머리·단계        17-2 입력 카드·칩·규격·일정   17-3 결과 패널·본문(md-viewer)
+     17-4 다운로드·커버리지     17-5 다음 단계 카드(upsell)·전문가 검토 띠  17-6 오류 배너·RESPONSIVE
+   ========================================================= */
+
+/* 17-1 토큰 · 머리 · 단계 */
+body.hm-manual {
+  /* 스크립트가 innerHTML 안에서 쓰는 예전 변수 이름 */
+  --danger: var(--error);
+}
+.mn-head { padding-top: 56px; padding-bottom: 28px; }
+.mn-head .hm-h1 { margin-top: 14px; max-width: 18em; }
+.mn-head .hm-lead { margin-top: 14px; max-width: 40em; }
+.mn-head .hm-lead strong { color: var(--ink); }
+.mn-head-links { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-top: 22px; }
+.mn-head-links .mn-sample-label { font-size: 14px; font-weight: 600; color: var(--muted); }
+.mn-head-links .hm-chip-tag { transition: box-shadow .15s; }
+.mn-head-links a.hm-chip-tag:hover { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.mn-steps { margin-top: 28px; }
+.mn-steps > li small { font-weight: 500; color: var(--muted); }
+.mn-steps > li b { color: inherit; }
+.mn-grid {
+  display: grid; grid-template-columns: minmax(340px, 410px) minmax(0, 1fr);
+  gap: 28px; align-items: start; padding-bottom: 8px;
+}
+
+/* 17-2 입력 카드 · 칩 · 규격 · 일정 */
+.mn-form {
+  position: sticky; top: calc(var(--header-h) + 16px);
+  max-height: calc(100vh - var(--header-h) - 32px); overflow-y: auto; overscroll-behavior: contain;
+  padding: 28px 28px 26px; border-radius: var(--r-lg);
+}
+.mn-form .hm-form-head { margin-bottom: 20px; }
+.mn-form .hm-form-head h2 { font-size: 22px; }
+.mn-form form { display: grid; gap: 20px; }
+.mn-form .hm-field-hint { margin-top: -2px; }
+.mn-form .hm-label-note { font-weight: 500; color: var(--muted); }
+.mn-form .mn-form-submit { display: flex; align-items: center; gap: 10px; }
+
+body.hm-manual .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; }
+body.hm-manual .checkbox-chip {
+  position: relative; display: inline-flex; align-items: center; gap: 6px;
+  min-height: 40px; padding: 0 16px; border-radius: var(--pill);
+  background: var(--white); box-shadow: inset 0 0 0 1.5px var(--line);
+  font-size: 14px; font-weight: 600; color: var(--char); line-height: 1.3;
+  cursor: pointer; user-select: none; transition: background-color .15s, box-shadow .15s;
+}
+body.hm-manual .checkbox-chip:hover { box-shadow: inset 0 0 0 1.5px #BFC2B6; }
+body.hm-manual .checkbox-chip.active { background: var(--lime); box-shadow: inset 0 0 0 1.5px var(--ink); color: var(--ink); }
+/* 실제 input 은 칩 전체를 덮는 투명 오버레이 — 키보드 초점·스크린리더는 그대로 받는다 */
+body.hm-manual .checkbox-chip input {
+  position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0;
+  opacity: 0; cursor: pointer; display: block;
+}
+body.hm-manual .checkbox-chip:focus-within { outline: 3px solid var(--ink); outline-offset: 2px; }
+body.hm-manual .checkbox-chip.is-disabled { opacity: .45; cursor: not-allowed; box-shadow: inset 0 0 0 1.5px var(--line); }
+body.hm-manual .checkbox-chip.is-disabled input { cursor: not-allowed; }
+body.hm-manual .iso-std-chip .iso-std-sub { font-size: 12.5px; font-weight: 500; color: var(--muted); }
+body.hm-manual .iso-std-chip.active .iso-std-sub { color: var(--char); }
+
+body.hm-manual .iso-edition-panel { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+body.hm-manual .iso-edition-panel:empty { display: none; }
+body.hm-manual .iso-edition-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  padding: 10px 14px; border-radius: var(--r-sm); background: var(--surface);
+}
+body.hm-manual .iso-edition-name { min-width: 92px; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+body.hm-manual .iso-edition-options { display: flex; flex-wrap: wrap; gap: 6px; }
+body.hm-manual .iso-edition-row .checkbox-chip { min-height: 34px; padding: 0 14px; font-size: 13.5px; }
+body.hm-manual .iso-edition-fixed { font-size: 13.5px; font-weight: 600; color: var(--muted); }
+
+body.hm-manual .iso-note { margin-top: 10px; font-size: 13px; line-height: 1.6; color: var(--muted); }
+body.hm-manual .iso-note.is-ims {
+  padding: 10px 14px; border-radius: var(--r-sm); background: var(--lime-soft);
+  box-shadow: inset 0 0 0 1px rgba(14,15,12,.14); color: var(--ink); font-weight: 600;
+}
+body.hm-manual .iso-note.is-warn { color: var(--error); font-weight: 600; }
+
+body.hm-manual .iso-schedule-area { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+body.hm-manual .iso-schedule-area:empty { display: none; }
+body.hm-manual .iso-schedule {
+  padding: 12px 14px; border-radius: var(--r-sm); background: var(--white);
+  border: 1px solid var(--line); font-size: 13px;
+}
+body.hm-manual .iso-schedule.is-urgent { background: var(--error-soft); border-color: var(--error-line); }
+body.hm-manual .iso-schedule-title {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
+  margin-bottom: 6px; font-size: 14px; font-weight: 700; color: var(--ink);
+}
+body.hm-manual .iso-schedule-badge {
+  padding: 1px 10px; border-radius: var(--pill); background: var(--error); color: #fff;
+  font-size: 12px; font-weight: 700; line-height: 1.6;
+}
+body.hm-manual .iso-schedule-list { margin: 0; }
+body.hm-manual .iso-schedule-item { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 3px 0; color: var(--char); }
+body.hm-manual .iso-schedule-item dt { line-height: 1.5; }
+body.hm-manual .iso-schedule-item dd { margin: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+body.hm-manual .iso-schedule-item.is-key { color: var(--ink); font-weight: 700; }
+body.hm-manual .iso-schedule-source { margin-top: 2px; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+
+/* 생성 버튼 — 로딩 중에는 글자·화살표를 숨기고 스피너만 보인다 */
+body.hm-manual .btn-generate { flex: 1; justify-content: space-between; width: 100%; }
+body.hm-manual .btn-generate .spinner {
+  display: none; width: 22px; height: 22px; border-radius: 50%;
+  border: 2.5px solid rgba(14,15,12,.25); border-top-color: var(--ink); animation: hm-spin .8s linear infinite;
+}
+body.hm-manual .btn-generate.loading { justify-content: center; padding: 0 30px; }
+body.hm-manual .btn-generate.loading .spinner { display: block; }
+body.hm-manual .btn-generate.loading .btn-text,
+body.hm-manual .btn-generate.loading .hm-arrow { display: none; }
+body.hm-manual .btn-generate:disabled { opacity: .8; }
+body.hm-manual .btn-generate:disabled:hover { background: var(--lime); transform: none; }
+body.hm-manual .btn-pause {
+  flex: 0 0 52px; width: 52px; height: 52px; border-radius: 50%;
+  background: var(--ink); color: var(--lime); font-size: 16px; font-weight: 700; line-height: 1;
+  align-items: center; justify-content: center;
+}
+body.hm-manual .btn-pause:hover { background: var(--char); }
+body.hm-manual .btn-pause.is-resume { background: var(--lime); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+
+/* 17-3 결과 패널 · 본문 */
+.mn-result { min-width: 0; border-radius: var(--r-lg); background: var(--white); border: 1px solid var(--line); min-height: 420px; }
+.mn-result .result-header {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px;
+  padding: 18px 28px; border-bottom: 1px solid var(--line);
+}
+.mn-result .result-header h3 { font-size: 18px; font-weight: 800; letter-spacing: -.02em; }
+.mn-result .result-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+body.hm-manual .phase-indicator {
+  padding: 4px 12px; border-radius: var(--pill); background: var(--ink); color: var(--lime);
+  font-size: 13px; font-weight: 700; line-height: 1.5; white-space: nowrap;
+}
+body.hm-manual .phase-indicator.is-done { background: var(--lime); color: var(--ink); box-shadow: inset 0 0 0 1px rgba(14,15,12,.18); }
+body.hm-manual .result-stats { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+body.hm-manual .empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 360px; padding: 40px 24px; text-align: center; color: var(--muted);
+}
+body.hm-manual .empty-state .mn-empty-ic {
+  width: 72px; height: 72px; margin-bottom: 18px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--lime-soft); color: var(--ink);
+}
+body.hm-manual .empty-state .mn-empty-ic svg { width: 32px; height: 32px; }
+body.hm-manual .empty-state p { font-size: 15.5px; line-height: 1.7; }
+body.hm-manual .empty-state strong { color: var(--ink); }
+body.hm-manual .empty-state .mn-empty-hint { margin-top: 10px; font-size: 13.5px; }
+
+body.hm-manual .md-viewer {
+  position: relative; max-height: 78vh; overflow: auto; padding: 28px 32px;
+  color: var(--char); font-size: 15.5px; line-height: 1.8;
+}
+body.hm-manual .md-viewer > h1:first-child { margin-top: 0; }
+body.hm-manual .md-viewer h1 { margin: 36px 0 16px; padding-bottom: 10px; border-bottom: 2px solid var(--ink); font-size: 26px; font-weight: 800; letter-spacing: -.03em; line-height: 1.3; color: var(--ink); }
+body.hm-manual .md-viewer h2 { margin: 30px 0 12px; font-size: 20px; font-weight: 800; letter-spacing: -.02em; line-height: 1.35; color: var(--ink); }
+body.hm-manual .md-viewer h3 { margin: 22px 0 10px; font-size: 17px; font-weight: 700; color: var(--ink); }
+body.hm-manual .md-viewer h4 { margin: 18px 0 8px; font-size: 15.5px; font-weight: 700; color: var(--char); }
+body.hm-manual .md-viewer p { margin-bottom: 12px; }
+body.hm-manual .md-viewer ul, body.hm-manual .md-viewer ol { margin: 8px 0 16px; padding-left: 1.4em; }
+body.hm-manual .md-viewer ul { list-style: disc; }
+body.hm-manual .md-viewer ol { list-style: decimal; }
+body.hm-manual .md-viewer li { margin-bottom: 4px; }
+body.hm-manual .md-viewer li::marker { color: var(--muted); }
+body.hm-manual .md-viewer strong { color: var(--ink); }
+body.hm-manual .md-viewer table { width: 100%; margin: 16px 0; border-collapse: collapse; font-size: 14px; line-height: 1.6; }
+body.hm-manual .md-viewer th { padding: 10px 12px; border: 1px solid var(--line); background: var(--surface); text-align: left; font-weight: 700; color: var(--ink); }
+body.hm-manual .md-viewer td { padding: 9px 12px; border: 1px solid var(--line); vertical-align: top; }
+body.hm-manual .md-viewer hr { margin: 24px 0; border-top-width: 1px; border-color: var(--line); }
+body.hm-manual .md-viewer code { padding: 2px 6px; border-radius: 6px; background: var(--surface); font-size: .9em; }
+body.hm-manual .md-viewer pre { overflow-x: auto; margin: 12px 0 16px; padding: 14px 16px; border-radius: var(--r-sm); background: var(--surface); font-size: 13.5px; line-height: 1.6; }
+body.hm-manual .md-viewer pre code { padding: 0; background: none; }
+body.hm-manual .md-viewer .mermaid { margin: 16px 0; overflow-x: auto; text-align: center; }
+body.hm-manual .md-viewer .mn-stream-msg { color: var(--muted); }
+body.hm-manual .streaming-cursor::after { content: "\258A"; margin-left: 2px; color: var(--ink); animation: mn-blink .8s infinite; }
+@keyframes mn-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+body.hm-manual .md-viewer::-webkit-scrollbar { width: 8px; }
+body.hm-manual .md-viewer::-webkit-scrollbar-track { background: transparent; }
+body.hm-manual .md-viewer::-webkit-scrollbar-thumb { background: #D4D6CC; border-radius: 4px; }
+body.hm-manual .md-viewer::-webkit-scrollbar-thumb:hover { background: #A9AC9F; }
+
+/* 17-4 다운로드 · 커버리지 */
+body.hm-manual .download-group { position: relative; display: none; }
+body.hm-manual .download-group.visible { display: block; }
+body.hm-manual .btn-download-trigger { display: inline-flex; align-items: center; gap: 8px; }
+body.hm-manual .btn-download-trigger.btn-exporting { opacity: .6; pointer-events: none; }
+body.hm-manual .download-menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 50; display: none; min-width: 210px;
+  padding: 6px; border-radius: var(--r-sm); background: var(--white);
+  border: 1px solid var(--line); box-shadow: 0 14px 40px rgba(14, 15, 12, .18);
+}
+body.hm-manual .download-menu.open { display: block; animation: hm-pop .2s var(--ease); }
+body.hm-manual .download-menu button {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border-radius: 12px;
+  font-size: 14.5px; font-weight: 600; color: var(--ink); text-align: left; transition: background-color .15s;
+}
+body.hm-manual .download-menu button:hover { background: var(--lime-soft); }
+body.hm-manual .download-menu .tag {
+  min-width: 46px; padding: 2px 8px; border-radius: var(--pill); background: var(--ink); color: var(--lime);
+  font-family: var(--font-en); font-size: 11.5px; font-weight: 700; text-align: center; letter-spacing: .02em;
+}
+body.hm-manual .download-menu .divider { display: none; }
+
+body.hm-manual .coverage-panel { padding: 12px 28px; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+body.hm-manual .coverage-details > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; list-style: none; cursor: pointer; }
+body.hm-manual .coverage-details > summary::-webkit-details-marker { display: none; }
+body.hm-manual .coverage-badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 12px; border-radius: var(--pill);
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--line);
+  font-size: 13px; font-weight: 700; color: var(--char);
+}
+body.hm-manual .coverage-badge.is-ok { background: var(--lime-soft); box-shadow: inset 0 0 0 1px var(--success-line); color: var(--success); }
+body.hm-manual .coverage-badge.is-gap { background: #FFF4DC; box-shadow: inset 0 0 0 1px #EBCB86; color: #7A5200; }
+body.hm-manual .coverage-more { font-size: 13px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+body.hm-manual .coverage-list { margin: 8px 0 0 18px; list-style: disc; font-size: 13.5px; line-height: 1.65; color: var(--char); }
+body.hm-manual .coverage-list-title { margin-top: 10px; font-size: 13px; font-weight: 700; color: var(--ink); }
+body.hm-manual .coverage-refs { color: var(--muted); }
+
+/* 17-5 다음 단계 카드(upsell) · 전문가 검토 띠 — 본문 아래 흐름 안에 놓는다(본문을 덮지 않는다) */
+.mn-result .upsell-card { margin: 0; padding: 32px 28px 28px; border-top: 1px solid var(--line); }
+.mn-upsell-head { max-width: 40em; }
+.mn-upsell-head h3 { margin-top: 12px; font-size: clamp(20px, 2vw, 25px); font-weight: 800; letter-spacing: -.03em; line-height: 1.3; }
+.mn-upsell-head p { margin-top: 8px; font-size: 15px; color: var(--muted); line-height: 1.65; }
+.mn-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
+.mn-choice {
+  position: relative; display: flex; flex-direction: column; min-width: 0;
+  padding: 26px 24px 24px; border-radius: var(--r-md); background: var(--surface);
+}
+.mn-choice .mn-choice-tag { font-family: var(--font-en); font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--muted); }
+.mn-choice h4 { margin-top: 6px; font-size: 20px; font-weight: 800; letter-spacing: -.025em; line-height: 1.3; }
+.mn-choice ul { margin: 14px 0 20px; display: grid; gap: 8px; font-size: 14.5px; line-height: 1.5; }
+.mn-choice li { display: flex; gap: 8px; align-items: flex-start; }
+.mn-choice li::before {
+  content: ""; width: 18px; height: 18px; margin-top: 2px; border-radius: 50%; flex-shrink: 0;
+  background: var(--ink) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.2 8.3l2.5 2.5 5-5.2' fill='none' stroke='%23C3FB79' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat;
+}
+.mn-choice .mn-choice-act { margin-top: auto; }
+.mn-choice .mn-choice-act .hm-btn { width: 100%; justify-content: space-between; }
+.mn-choice .mn-choice-note { margin-top: 10px; font-size: 13px; color: var(--muted); line-height: 1.5; }
+/* 추천(전문가 검토 + 매칭): 어두운 면 + 라임 */
+.mn-choice.is-pick { background: var(--d-bg); color: var(--d-text); }
+.mn-choice.is-pick .mn-choice-tag { color: var(--lime); }
+.mn-choice.is-pick h4 { color: #fff; }
+.mn-choice.is-pick li::before { background-color: var(--lime); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.2 8.3l2.5 2.5 5-5.2' fill='none' stroke='%230E0F0C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+.mn-choice.is-pick .mn-choice-note { color: var(--d-muted); }
+.mn-choice.is-pick:focus-within { outline: 3px solid var(--lime); outline-offset: 2px; }
+.mn-upsell-foot { margin-top: 16px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+.mn-expert {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px 28px;
+  margin: 0 28px 28px; padding: 24px 28px; border-radius: var(--r-md); background: var(--d-bg); color: var(--d-text);
+}
+.mn-expert h3 { font-size: 19px; font-weight: 800; letter-spacing: -.025em; line-height: 1.35; color: #fff; }
+.mn-expert p { margin-top: 6px; max-width: 34em; font-size: 14.5px; color: var(--d-muted); line-height: 1.6; }
+.mn-expert-act { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* 17-6 오류 배너 · RESPONSIVE */
+.mn-banner { margin: 24px 0 8px; padding: 18px 20px; border-radius: var(--r-sm); background: var(--error-soft); border: 1px solid var(--error-line); color: #8E2318; font-size: 14.5px; line-height: 1.6; }
+.mn-banner strong { color: #8E2318; font-size: 15.5px; }
+.mn-banner p { margin-top: 8px; color: var(--char); }
+.mn-banner p.mn-banner-err { color: var(--error); font-weight: 600; }
+.mn-banner .hm-btn { margin-top: 14px; }
+
+@media (max-width: 1100px) {
+  .mn-grid { grid-template-columns: minmax(0, 1fr); }
+  .mn-form { position: static; max-height: none; overflow: visible; }
+}
+@media (max-width: 900px) {
+  .mn-steps { grid-auto-flow: row; grid-auto-columns: minmax(0, 1fr); }
+  .mn-steps > li { justify-content: flex-start; padding: 7px 14px 7px 7px; }
+  .mn-steps .hm-steps-label { display: block; white-space: normal; }
+  .mn-choices { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .mn-head { padding-top: 36px; }
+  .mn-form { padding: 22px 20px 20px; }
+  .mn-result .result-header { padding: 16px 20px; }
+  body.hm-manual .coverage-panel { padding: 12px 20px; }
+  body.hm-manual .md-viewer { padding: 22px 20px; font-size: 15px; }
+  .mn-result .upsell-card { padding: 26px 20px 22px; }
+  .mn-expert { margin: 0 16px 20px; padding: 22px 20px; }
+  .mn-expert-act, .mn-expert-act .hm-btn { width: 100%; }
+  .mn-expert-act .hm-btn { justify-content: space-between; }
+}
