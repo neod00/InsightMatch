@@ -24,12 +24,18 @@ from sqlalchemy import and_, case, func, text
 from sqlalchemy.exc import IntegrityError
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, CronRun, ErrorLog, Inquiry, Review, User, Project, Milestone, Post, Company, Notification, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry, parse_text_or_json_list
+from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, CronRun, ErrorLog, Inquiry, Review, User, Project, Milestone, Post, Company, Notification, ContractSignature, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry, parse_text_or_json_list
 from services import MatchingService, ProposalService, EmailService
 from services.iso_manual_service import generate_iso_manual_stream
 from services import standards_loader as manual_standards
 from services import manual_outline as manual_outline_engine
 from services import manual_coverage
+from services.business_check import (
+    ACTIVE as BUSINESS_ACTIVE,
+    business_status_rejection_message,
+    check_business_status,
+    normalize_business_number,
+)
 
 # Load environment variables
 # Load from project root directory
@@ -1196,8 +1202,64 @@ def is_allowed_proposal_file_url(file_url):
     return (
         parsed_file_url.scheme == 'https'
         and parsed_file_url.netloc == parsed_supabase_url.netloc
-        and parsed_file_url.path.startswith('/storage/v1/object/public/proposals/')
+        and parsed_file_url.path.startswith(PROPOSAL_PUBLIC_PREFIX)
     )
+
+# 제안서 파일은 비공개 버킷에 두고, 열람할 때마다 짧게 유효한 서명 URL 을 발급한다.
+# DB 에는 업로드 때 만든 공개 형식 URL 이 그대로 저장돼 있어, 객체 이름만 꺼내 서명한다
+# (버킷을 비공개로 바꿔도 DB 이전이 필요 없다).
+PROPOSAL_PUBLIC_PREFIX = '/storage/v1/object/public/proposals/'
+PROPOSAL_SIGNED_URL_TTL = 300  # 초
+_PROPOSAL_OBJECT_NAME_RE = re.compile(r'^[A-Za-z0-9_.-]+$')
+
+def proposal_object_name(file_url, project_id):
+    """저장된 제안서 URL 에서 버킷 안의 객체 이름을 꺼낸다. 이 프로젝트의 파일이 아니면 None.
+
+    서명은 서비스 키로 하므로, 다른 프로젝트의 파일이나 `../` 같은 경로를 가리키는 URL 로
+    남의 제안서를 열람하지 못하도록 이름 형식과 프로젝트 번호 접두어(`{project_id}_`)를 검사한다.
+    """
+    if not file_url or not is_allowed_proposal_file_url(file_url):
+        return None
+    name = urlparse(file_url).path[len(PROPOSAL_PUBLIC_PREFIX):]
+    if not _PROPOSAL_OBJECT_NAME_RE.match(name) or '..' in name:
+        return None
+    if not name.startswith(f'{project_id}_'):
+        return None
+    return name
+
+def create_proposal_signed_url(object_name):
+    """제안서 파일을 잠깐 열 수 있는 URL 을 만든다.
+
+    SUPABASE_SERVICE_ROLE_KEY 가 없으면 공개 URL 을 돌려준다(버킷이 아직 공개인 동안만 열린다).
+    키가 있으면 서명 URL 을 발급하며, 실패하면 예외를 던진다.
+    """
+    import requests
+
+    supabase_url = get_supabase_url()
+    service_key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '').strip()
+    if not service_key:
+        return f"{supabase_url}{PROPOSAL_PUBLIC_PREFIX}{object_name}"
+
+    response = requests.post(
+        f"{supabase_url}/storage/v1/object/sign/proposals/{object_name}",
+        headers={
+            'Authorization': f'Bearer {service_key}',
+            'apikey': service_key,
+            'Content-Type': 'application/json',
+        },
+        json={'expiresIn': PROPOSAL_SIGNED_URL_TTL},
+        timeout=10,
+    )
+    if response.status_code != 200:
+        raise RuntimeError(f'signed url request failed: {response.status_code}')
+    signed = (response.json() or {}).get('signedURL')
+    if not signed:
+        raise RuntimeError('signed url missing in response')
+    if signed.startswith('http'):
+        return signed
+    if signed.startswith('/storage/v1'):
+        return f"{supabase_url}{signed}"
+    return f"{supabase_url}/storage/v1{signed}"
 
 def is_allowed_profile_image_url(file_url):
     if not file_url:
@@ -1286,7 +1348,7 @@ def is_valid_email(email):
     return re.match(pattern, email) is not None
 
 # --- 정산·세금계산서 정보 검증 (A안: NGB 원청 구조의 외주비 지급에 필요) ---
-PARTNER_AGREEMENT_VERSION = '1.0'
+PARTNER_AGREEMENT_VERSION = '1.1'  # 1.1: 기본 지급률 80% 명시, 건별 발주(수락 절차 없음). 1.0 원문은 partner-agreement-v1.0.html
 ALLOWED_BUSINESS_TYPES = {'business', 'individual'}
 
 
@@ -1304,6 +1366,50 @@ def is_valid_biz_reg_no(value):
     total += (int(digits[8]) * 5) // 10
     check = (10 - (total % 10)) % 10
     return check == int(digits[9])
+
+
+# --- 기업 사업자등록번호 (가입 때 선택, 견적 요청·AI 매뉴얼 전 필수) ---
+
+def apply_company_business_number(user, raw_value):
+    """기업 사용자의 사업자등록번호를 검증해 user 에 적어 둔다(커밋은 호출부).
+
+    형식(체크섬) → 국세청 상태조회 순으로 확인한다. 휴업·폐업·미등록이면 거절하고,
+    국세청 조회가 안 되면(키 없음·장애) 막지 않고 'unchecked' 로 남겨 관리자가 본다.
+    반환: 문제 없으면 None, 거절이면 (응답, 상태코드).
+    """
+    digits = normalize_business_number(raw_value)
+    if not is_valid_biz_reg_no(digits):
+        return jsonify({'code': 'BUSINESS_NUMBER_INVALID',
+                        'message': '사업자등록번호 10자리를 정확히 입력해 주세요.'}), 400
+
+    status = check_business_status(digits)
+    rejection = business_status_rejection_message(status)
+    if rejection:
+        return jsonify({'code': f'BUSINESS_{status.upper()}', 'message': rejection}), 400
+
+    user.biz_reg_no = digits
+    user.biz_status = 'verified' if status == BUSINESS_ACTIVE else 'unchecked'
+    user.biz_checked_at = _naive_utc_now()
+    return None
+
+
+def company_business_info(user):
+    return {
+        'biz_reg_no': user.biz_reg_no or '',
+        'biz_status': user.biz_status or '',
+        'biz_checked_at': user.biz_checked_at.isoformat() if user.biz_checked_at else None,
+    }
+
+
+def require_company_business_number(action_label):
+    """기업 사용자가 사업자등록번호를 아직 안 넣었으면 화면이 입력 창을 띄울 수 있게 코드로 알린다."""
+    user = getattr(g, 'current_user', None)
+    if not user or user.role != 'company' or user.biz_reg_no:
+        return None
+    return jsonify({
+        'code': 'BUSINESS_NUMBER_REQUIRED',
+        'message': f'{action_label} 전에 회사 사업자등록번호를 한 번 입력해 주세요.',
+    }), 400
 
 
 def validate_settlement_fields(data):
@@ -1620,6 +1726,16 @@ def signup():
         role=role,
         phone=phone
     )
+
+    # 기업 사업자등록번호는 가입 때 선택. 넣었으면 국세청으로 확인하고, 틀리면 가입 전에 알려 준다.
+    biz_raw = str(data.get('biz_reg_no') or '').strip()
+    if role == 'company' and biz_raw:
+        if not check_rate_limit('bizcheck', limit=20, window_minutes=60):
+            return jsonify({'message': '사업자번호 확인 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.'}), 429
+        biz_error = apply_company_business_number(new_user, biz_raw)
+        if biz_error:
+            return biz_error
+
     db.session.add(new_user)
     db.session.commit()
     
@@ -1706,8 +1822,28 @@ def login():
             'employees': company.employees if company else '',
             # 컨설턴트가 아니면 항상 False (undefined 로 새어나가지 않게 한다)
             'has_consultant_profile': has_consultant_profile,
+            **(company_business_info(user) if user.role == 'company' else {}),
         }
     })
+
+
+@app.route('/api/me/business-number', methods=['GET', 'PUT'])
+@token_required
+def my_business_number():
+    """기업 담당자 본인의 사업자등록번호 조회·등록(변경)."""
+    user = g.current_user
+    if user.role != 'company':
+        return jsonify({'message': '기업 회원만 사업자등록번호를 등록할 수 있습니다.'}), 403
+    if request.method == 'GET':
+        return jsonify(company_business_info(user))
+
+    if not check_rate_limit('bizcheck', limit=20, window_minutes=60):
+        return jsonify({'message': '사업자번호 확인 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.'}), 429
+    biz_error = apply_company_business_number(user, (request.json or {}).get('biz_reg_no'))
+    if biz_error:
+        return biz_error
+    db.session.commit()
+    return jsonify({'message': '사업자등록번호가 확인되었습니다.', **company_business_info(user)})
 
 # --- Password Reset Endpoints ---
 @app.route('/api/auth/request-reset', methods=['POST'])
@@ -2188,6 +2324,8 @@ def create_iso_manual_session():
     role_error = require_manual_user()
     if role_error:
         return role_error
+    # 1단계 미리보기(표지~6절)는 가입만으로 만든다(유입 최대화). 사업자등록번호는 전체 받기
+    # (7절 이후 이어 생성 · PDF/Word 다운로드) 때 확인한다 — generate_iso_manual / export_iso_manual.
 
     form_data, errors = validate_manual_form_data(request.get_json(silent=True) or {})
     if errors:
@@ -2376,6 +2514,15 @@ def generate_iso_manual():
                 yield "data: [DONE]\n\n"
             return Response(unsupported_phase_error(), mimetype='text/event-stream',
                            headers={'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*'})
+        # 전체 받기(2·3단계)는 사업자등록번호를 확인한 기업만. 화면이 먼저 입력 창을 띄우고, 여기서 한 번 더 막는다.
+        # 자격 확인이라 앞 단계 검증(FR-47)보다 먼저 본다. 어느 쪽이든 선점·재시도 차감·LLM 호출 전에 끝난다.
+        owner = User.query.get(manual.user_id) if manual.user_id else None
+        if owner and owner.role == 'company' and not owner.biz_reg_no:
+            def business_number_required():
+                yield "data: [ERROR] 전체 매뉴얼은 사업자등록번호 확인 후 받을 수 있습니다.\n\n"
+                yield "data: [DONE]\n\n"
+            return Response(business_number_required(), mimetype='text/event-stream',
+                           headers={'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*'})
         # 앞 단계 검증(FR-47): 7절 이어쓰기는 1단계, 9절 이어쓰기는 1·2단계 저장본이 있어야 한다.
         # 없으면 LLM 호출·상태 변경 없이 SSE 에러로 끝낸다.
         if not manual.phase1_markdown or (continue_from_int == 9 and not manual.phase2_markdown):
@@ -2546,6 +2693,10 @@ def export_iso_manual():
         role_error = require_manual_user()
         if role_error:
             return role_error
+        # 다운로드는 전체 받기에 포함된다 — 사업자등록번호 확인 후.
+        biz_error = require_company_business_number('매뉴얼 다운로드')
+        if biz_error:
+            return biz_error
 
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
@@ -2891,6 +3042,8 @@ def handle_projects():
                 'consultant_experience': consultant_info.experience if consultant_info else None,
                 'company_id': p.company_id,
                 'company_name': company_user.name if company_user else 'Unknown Company',
+                # 컨설턴트 카드의 '사업자 확인됨' 표시용. 번호 자체는 내려주지 않는다.
+                'company_business_verified': bool(company_user and company_user.biz_status in ('verified', 'manual')),
                 'start_date': p.start_date.isoformat() if p.start_date else None,
                 'created_at': p.created_at.isoformat() if p.created_at else None,
                 # BUG-029 Fix: 불필요한 getattr 제거
@@ -2946,7 +3099,7 @@ def handle_projects():
         db.session.add(new_project)
         db.session.commit()
         
-        defaults = ["Kick-off Meeting", "Gap Analysis", "Documentation", "Internal Audit", "Final Certification"]
+        defaults = DEFAULT_MILESTONE_TITLES
         for title in defaults:
             m = Milestone(project_id=new_project.id, title=title)
             db.session.add(m)
@@ -2980,20 +3133,44 @@ def delete_project(project_id):
 @token_required
 def download_proposal(project_id):
     project = get_active_project_or_404(project_id)
-    forbidden = require_project_participant(project)
-    if forbidden:
-        return forbidden
-    
-    # 1. 컨설턴트가 직접 업로드한 원본 파일이 있는 경우 해당 파일로 리다이렉트
-    if project.proposal_file_url and is_allowed_proposal_file_url(project.proposal_file_url):
+    # 프로젝트 당사자와 관리자만 열람할 수 있다. 관리자 열람은 매번 기록한다(약관·방침에 고지).
+    is_admin = g.current_user.role == 'admin'
+    if not is_admin:
+        forbidden = require_project_participant(project)
+        if forbidden:
+            return forbidden
+
+    # 1. 컨설턴트가 직접 업로드한 원본 파일이 있는 경우: 잠깐 유효한 주소로 보낸다.
+    #    ?format=json 이면 주소만 JSON 으로 준다(인증 헤더가 필요해 화면이 fetch 로 호출한다).
+    object_name = proposal_object_name(project.proposal_file_url, project.id)
+    if object_name:
+        try:
+            file_url = create_proposal_signed_url(object_name)
+        except Exception as e:
+            print(f"[Proposal] signed url failed for project {project.id}: {e}")
+            return jsonify({'message': '제안서 파일을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'}), 502
+        if is_admin:
+            log_admin_action('proposal_file_view', 'project', project.id, {
+                'consultant_id': project.consultant_id,
+                'company_id': project.company_id,
+            })
+            db.session.commit()
+        if request.args.get('format') == 'json':
+            return jsonify({'url': file_url, 'expires_in': PROPOSAL_SIGNED_URL_TTL})
         from flask import redirect
-        return redirect(project.proposal_file_url)
-    
+        return redirect(file_url)
+
     # 2. 업로드된 파일이 없는 경우 시스템 요약 제안서 생성
+    if is_admin:
+        log_admin_action('proposal_summary_view', 'project', project.id, {
+            'consultant_id': project.consultant_id,
+            'company_id': project.company_id,
+        })
+        db.session.commit()
     consultant = Consultant.query.get(project.consultant_id)
     company_user = User.query.get(project.company_id)
     company_name = company_user.name if company_user else "Client"
-    
+
     pdf_buffer = proposal_service.generate_proposal(project, consultant, company_name)
     
     return send_file(
@@ -3022,7 +3199,7 @@ def sign_contract(project_id):
     
     # 계약 후 마일스톤이 없으면 생성
     if not project.milestones:
-        defaults = ["Kick-off Meeting", "Gap Analysis", "Documentation", "Internal Audit", "Final Certification"]
+        defaults = DEFAULT_MILESTONE_TITLES
         for title in defaults:
             m = Milestone(project_id=project.id, title=title)
             db.session.add(m)
@@ -3223,7 +3400,7 @@ def create_contract_draft(project_id):
 @app.route('/api/projects/<int:project_id>/contract/sign', methods=['POST'])
 @token_required
 def sign_contract_step(project_id):
-    """계약서 서명 (기업 또는 전문가)"""
+    """계약서 서명 (기업 또는 컨설턴트). 서명 순간의 원문·해시·접속 정보를 ContractSignature 에 남긴다."""
     project = get_active_project_or_404(project_id)
     if not is_project_participant(project):
         return jsonify({'message': '해당 프로젝트의 당사자만 계약서에 서명할 수 있습니다.'}), 403
@@ -3232,13 +3409,37 @@ def sign_contract_step(project_id):
         return jsonify({'message': '계약서가 준비된 프로젝트만 서명할 수 있습니다.'}), 400
     
     signer = 'company' if is_project_company(project) else 'consultant'
-    
+
+    # 이미 서명했으면 시각을 덮어쓰지 않는다(서명 기록은 한 번만).
+    if (project.company_signed_at if signer == 'company' else project.consultant_signed_at):
+        return jsonify({'code': 'ALREADY_SIGNED', 'message': '이미 서명했습니다.'}), 400
+
+    # 화면에 보여 준 원문과 지금 서명할 원문이 같아야 한다. (보고 있는 사이 내용이 바뀌었으면 다시 확인)
+    text, version = contract_text_for_signing(project)
+    expected_hash = contract_hash(text)
+    if (request.json or {}).get('contract_hash') != expected_hash:
+        return jsonify({'code': 'CONTRACT_CHANGED',
+                        'message': '계약서 내용이 바뀌었습니다. 다시 확인한 뒤 서명해 주세요.'}), 409
+
     now = datetime.datetime.now(datetime.timezone.utc)
-    
+
     if signer == 'company':
         project.company_signed_at = now
     else:
         project.consultant_signed_at = now
+
+    db.session.add(ContractSignature(
+        project_id=project.id,
+        signer_role=signer,
+        user_id=g.current_user.id,
+        signer_name=g.current_user.name,
+        contract_version=version,
+        contract_hash=expected_hash,
+        contract_text=text,
+        ip_address=_client_ip(),
+        user_agent=(request.headers.get('User-Agent') or '')[:300],
+        signed_at=now.replace(tzinfo=None),
+    ))
     
     # 양측 모두 서명 완료 시
     if project.company_signed_at and project.consultant_signed_at:
@@ -3248,7 +3449,7 @@ def sign_contract_step(project_id):
         
         # 마일스톤 생성
         if not project.milestones:
-            defaults = ["Kick-off Meeting", "Gap Analysis", "Documentation", "Internal Audit", "Final Certification"]
+            defaults = DEFAULT_MILESTONE_TITLES
             for title in defaults:
                 m = Milestone(project_id=project.id, title=title)
                 db.session.add(m)
@@ -3281,7 +3482,7 @@ def sign_contract_step(project_id):
             print(f"[Notification] Contract signed notification failed: {e}")
     else:
         project.status = 'awaiting_signature'
-        other_party = '전문가' if signer == 'company' else '기업'
+        other_party = '컨설턴트' if signer == 'company' else '기업'
         message = f'서명이 완료되었습니다. {other_party}의 서명을 기다리고 있습니다.'
     
     db.session.commit()
@@ -3293,6 +3494,140 @@ def sign_contract_step(project_id):
         'consultant_signed': project.consultant_signed_at is not None
     })
 
+# --- 계약서 본문 (서버가 만들고, 서명 순간의 원문을 증거로 남긴다) ---
+# 본문은 A안(기업 ↔ NGB) 구조로 다시 써야 한다(변호사 검토 예정). 그 전까지의 임시 문안 버전.
+CONTRACT_TEMPLATE_VERSION = '0.2-draft'  # 0.2: 제4조(대금 지급) 추가
+
+
+def _format_biz_no(value):
+    d = normalize_business_number(value)
+    return f'{d[:3]}-{d[3:5]}-{d[5:]}' if len(d) == 10 else d
+
+
+# --- 대금 지급 일정 (기본 선금 50 · 잔금 50, 관리자가 서명 전에 프로젝트별로 조정) ---
+DEFAULT_PAYMENT_SCHEDULE = (
+    {'label': '선금', 'percent': 50, 'due': '계약 체결 후 7일 이내'},
+    {'label': '잔금', 'percent': 50, 'due': '갑의 완료 확인 후 7일 이내'},
+)
+MAX_PAYMENT_INSTALLMENTS = 5
+
+
+def project_payment_schedule(project):
+    if project.payment_schedule:
+        try:
+            items = json.loads(project.payment_schedule)
+            if isinstance(items, list) and items:
+                return items
+        except (TypeError, ValueError):
+            pass
+    return [dict(item) for item in DEFAULT_PAYMENT_SCHEDULE]
+
+
+def validate_payment_schedule(items):
+    """반환: (정리된 목록, 오류 문구). 비율은 정수, 합계 100."""
+    if not isinstance(items, list) or not 1 <= len(items) <= MAX_PAYMENT_INSTALLMENTS:
+        return None, f'지급 단계는 1~{MAX_PAYMENT_INSTALLMENTS}개여야 합니다.'
+    cleaned = []
+    for item in items:
+        if not isinstance(item, dict):
+            return None, '지급 단계 형식이 올바르지 않습니다.'
+        label = str(item.get('label') or '').strip()
+        due = str(item.get('due') or '').strip()
+        try:
+            percent = int(item.get('percent'))
+        except (TypeError, ValueError):
+            return None, '비율은 숫자로 입력해 주세요.'
+        if not label or len(label) > 20:
+            return None, '단계 이름은 1~20자로 입력해 주세요.'
+        if not due or len(due) > 60:
+            return None, '지급 시점은 1~60자로 입력해 주세요.'
+        if not 1 <= percent <= 100:
+            return None, '비율은 1~100 사이여야 합니다.'
+        cleaned.append({'label': label, 'percent': percent, 'due': due})
+    if sum(item['percent'] for item in cleaned) != 100:
+        return None, '비율의 합계가 100%여야 합니다.'
+    return cleaned, None
+
+
+def payment_schedule_lines(project):
+    """계약서에 넣을 지급 조항 줄. 금액은 원 단위로 내리고 끝전은 마지막 단계에 붙인다."""
+    schedule = project_payment_schedule(project)
+    price = project.proposal_price or 0
+    amounts = [price * item['percent'] // 100 for item in schedule]
+    if price and amounts:
+        amounts[-1] += price - sum(amounts)
+    lines = []
+    for i, (item, amount) in enumerate(zip(schedule, amounts), start=1):
+        money = f'({amount:,}원)' if price else ''
+        lines.append(f"{i}. {item['label']} {item['percent']}%{money}: {item['due']}")
+    return lines
+
+
+def contract_is_locked(project):
+    """서명이 하나라도 있거나 체결된 계약은 지급 일정을 바꾸지 않는다(변경계약으로만)."""
+    return bool(project.company_signed_at or project.consultant_signed_at
+                or project.status in ('contracted', 'in_progress', 'completed')
+                or ContractSignature.query.filter_by(project_id=project.id).first())
+
+
+def build_contract_text(project):
+    """계약서 원문(평문). 화면 표시·해시·증거 보관에 같은 문자열을 쓴다."""
+    company_user = User.query.get(project.company_id)
+    company_row = Company.query.filter_by(user_id=project.company_id).first() if project.company_id else None
+    consultant = Consultant.query.get(project.consultant_id)
+
+    company_label = ((company_user.company_name if company_user else '') or (company_row.name if company_row else '')
+                     or '기업')
+    party_a = company_label
+    if company_user and company_user.biz_reg_no:
+        party_a += f' (사업자등록번호 {_format_biz_no(company_user.biz_reg_no)})'
+    if company_user and company_user.name:
+        party_a += f', 담당자 {company_user.name}'
+    party_b = consultant.name if consultant else '컨설턴트'
+    if consultant and consultant.company_name:
+        party_b += f' ({consultant.company_name})'
+    price = f'{project.proposal_price:,}원' if project.proposal_price else '별도 협의'
+    duration = project.proposal_duration or '별도 협의 기간'
+
+    lines = [
+        'ISO 인증 컨설팅 용역 계약서',
+        '',
+        '제1조 (계약 당사자)',
+        f'갑(의뢰인): {party_a}',
+        f'을(컨설턴트): {party_b}',
+        '갑의 담당자는 갑을 대리하여 이 계약에 서명한다.',
+        '제2조 (용역 내용)',
+        f'본 계약의 대상 용역은 「{project.title}」으로 한다.',
+        '제3조 (계약 금액)',
+        f'본 용역의 총 계약금액은 {price}으로 한다.',
+        '제4조 (대금 지급)',
+        '갑은 계약금액을 다음과 같이 나누어 지급한다.',
+        *payment_schedule_lines(project),
+        '제5조 (수행 기간)',
+        f'본 용역의 수행 기간은 계약 체결일로부터 {duration}으로 한다.',
+        '제6조 (비밀 유지)',
+        '갑과 을은 본 계약의 수행 과정에서 취득한 상대방의 비밀 정보를 제3자에게 누설하거나 본 계약 외의 목적으로 사용하지 않는다.',
+        '제7조 (전자 서명)',
+        '갑과 을은 InsightMatch 서비스에서 「서명하기」를 눌러 이 계약에 서명하며, 서비스는 서명 시각과 서명한 계약서 원문을 보관한다.',
+    ]
+    if project.contract_special_terms:
+        lines += ['특약 사항', project.contract_special_terms.strip()]
+    lines += ['', f'(계약서 문안 버전 {CONTRACT_TEMPLATE_VERSION})']
+    return '\n'.join(lines)
+
+
+def contract_text_for_signing(project):
+    """서명할 원문: 첫 서명이 있으면 그 원문을 그대로(두 사람이 같은 내용에 서명), 없으면 지금 내용으로 만든다."""
+    first = ContractSignature.query.filter_by(project_id=project.id).order_by(ContractSignature.id).first()
+    if first:
+        return first.contract_text, first.contract_version
+    return build_contract_text(project), CONTRACT_TEMPLATE_VERSION
+
+
+def contract_hash(text):
+    return hashlib.sha256(text.encode('utf-8')).hexdigest()
+
+
 @app.route('/api/projects/<int:project_id>/contract/preview', methods=['GET'])
 @token_required
 def get_contract_preview(project_id):
@@ -3301,23 +3636,33 @@ def get_contract_preview(project_id):
     forbidden = require_project_participant(project)
     if forbidden:
         return forbidden
-    
+
     company_user = User.query.get(project.company_id)
     consultant = Consultant.query.get(project.consultant_id)
-    
+    text, version = contract_text_for_signing(project)
+    signatures = ContractSignature.query.filter_by(project_id=project.id).order_by(ContractSignature.id).all()
+
     return jsonify({
         'project_id': project.id,
         'title': project.title,
         'company_name': company_user.name if company_user else '기업',
         'company_company_name': company_user.company_name if company_user else '',
-        'consultant_name': consultant.name if consultant else '전문가',
+        'consultant_name': consultant.name if consultant else '컨설턴트',
         'consultant_company_name': consultant.company_name if consultant else '',
         'proposal_price': project.proposal_price,
         'proposal_duration': project.proposal_duration,
         'special_terms': project.contract_special_terms,
         'company_signed_at': project.company_signed_at.isoformat() if project.company_signed_at else None,
         'consultant_signed_at': project.consultant_signed_at.isoformat() if project.consultant_signed_at else None,
-        'status': project.status
+        'status': project.status,
+        # 화면은 이 원문을 그대로 보여 주고, 서명할 때 contract_hash 를 돌려보낸다.
+        'contract_text': text,
+        'contract_version': version,
+        'contract_hash': contract_hash(text),
+        'signatures': [s.to_dict() for s in signatures],
+        # 서명 기록 기능(2026-10-29) 이전에 체결된 계약은 서명 당시 원문이 보관돼 있지 않다.
+        # 이때 contract_text 는 지금 정보로 다시 만든 문안이라, 화면이 그렇다고 알려 준다.
+        'text_is_signed_original': bool(signatures),
     })
 
 # ========================================
@@ -3352,6 +3697,9 @@ def submit_proposal(project_id):
 
     proposal_file_url = data.get('proposal_file_url', '')
     if not is_allowed_proposal_file_url(proposal_file_url):
+        return jsonify({'message': 'Invalid proposal file URL'}), 400
+    # 서명 URL 은 서비스 키로 발급하므로, 이 프로젝트에 올린 파일만 연결할 수 있다.
+    if proposal_file_url and not proposal_object_name(proposal_file_url, project.id):
         return jsonify({'message': 'Invalid proposal file URL'}), 400
 
     proposal_duration = (data.get('proposal_duration') or '').strip()
@@ -3423,11 +3771,19 @@ def submit_proposal(project_id):
 def get_proposal(project_id):
     """특정 프로젝트의 제안서 상세 조회"""
     project = get_active_project_or_404(project_id)
-    forbidden = require_project_participant(project)
-    if forbidden:
-        return forbidden
+    if g.current_user.role == 'admin':
+        # 관리자 열람은 기록한다(약관·방침에 고지).
+        log_admin_action('proposal_view', 'project', project.id, {
+            'consultant_id': project.consultant_id,
+            'company_id': project.company_id,
+        })
+        db.session.commit()
+    else:
+        forbidden = require_project_participant(project)
+        if forbidden:
+            return forbidden
     consultant = Consultant.query.get(project.consultant_id)
-    
+
     return jsonify({
         'project_id': project.id,
         'consultant_id': project.consultant_id,
@@ -3812,6 +4168,15 @@ PROJECT_COMPLETABLE_STATUSES = ('contracted', 'in_progress')
 
 # 마일스톤에 허용되는 상태 (models.Milestone.status 주석과 동일)
 MILESTONE_STATUSES = ('pending', 'in_progress', 'completed')
+# 계약 시 자동으로 만드는 진행 단계 (PRD 5.6 '프로젝트 진행 – 라이트 버전'의 단계).
+# 예전 영어 기본값으로 만들어진 프로젝트는 models.Milestone.to_dict 가 한국어로 바꿔 보여 준다.
+DEFAULT_MILESTONE_TITLES = (
+    '진단·갭 분석',
+    '문서·절차 구축',
+    '법규·리스크 평가',
+    '내부심사·시정조치',
+    '경영검토·인증심사 준비',
+)
 
 
 @app.route('/api/projects/<int:project_id>/complete', methods=['POST'])
@@ -4537,6 +4902,9 @@ def add_consultant_to_request():
     data = request.json
     if g.current_user.role != 'company':
         return jsonify({'message': '기업 담당자만 컨설턴트를 추가할 수 있습니다.'}), 403
+    biz_error = require_company_business_number('견적 요청')
+    if biz_error:
+        return biz_error
 
     user_id = str(g.current_user.id)  # BUG-001 Fix: JWT에서 추출
     consultant_id = data.get('consultant_id')
@@ -4805,7 +5173,12 @@ def get_admin_jobs():
                     'consultant_name': consultant.name if consultant else 'Unknown',
                     'created_at': p.created_at.isoformat() if p.created_at else None,
                     'proposal_price': p.proposal_price,
-                    'proposal_submitted_at': p.proposal_submitted_at.isoformat() if p.proposal_submitted_at else None
+                    'proposal_submitted_at': p.proposal_submitted_at.isoformat() if p.proposal_submitted_at else None,
+                    # 관리자 화면의 "제안서 보기" 버튼 표시용. 파일 주소는 내려주지 않는다.
+                    'has_proposal': bool(p.proposal_submitted_at),
+                    # 관리자 '지급 일정' 편집용. 서명이 시작되면 잠긴다.
+                    'payment_schedule': project_payment_schedule(p),
+                    'payment_schedule_locked': contract_is_locked(p),
                 })
             
             # Sort related projects by created_at descending
@@ -4838,7 +5211,11 @@ def get_admin_jobs():
                     'contact_email': contact_email
                 },
                 'related_projects': related_projects,
-                'project_count': len(related_projects)
+                'project_count': len(related_projects),
+                # 관리자가 사업자 확인 상태를 보고, 미확인·공공기관 등은 직접 확인한다.
+                'company_user_id': user.id if user else None,
+                'company_biz_reg_no': (user.biz_reg_no or '') if user else '',
+                'company_biz_status': (user.biz_status or '') if user else '',
             })
         
         # Sort by created_at descending
@@ -5161,6 +5538,71 @@ def revoke_consultant_verification(consultant_id):
     db.session.commit()
     return jsonify({'message': 'Consultant verification revoked', 'verified': False, 'status': consultant.status})
 
+@app.route('/api/admin/users/<int:user_id>/business-number', methods=['POST'])
+@admin_required
+def admin_set_company_business_number(user_id):
+    """관리자: 기업 사업자등록번호를 다시 조회하거나 직접 확인 처리한다.
+
+    - mode='recheck': 국세청에 다시 조회(장애로 '미확인'이 된 건)
+    - mode='manual': 공공기관·비영리단체(고유번호)처럼 국세청 조회가 안 되는 곳을 서류로 확인한 뒤 등록.
+      형식(체크섬)만 검사하며, 조치는 관리자 기록에 남는다.
+    """
+    user = User.query.get_or_404(user_id)
+    if user.role != 'company':
+        return jsonify({'message': '기업 회원만 사업자등록번호를 가질 수 있습니다.'}), 400
+    data = request.json or {}
+    mode = data.get('mode')
+    raw = data.get('biz_reg_no') or user.biz_reg_no
+
+    if mode == 'recheck':
+        biz_error = apply_company_business_number(user, raw)
+        if biz_error:
+            return biz_error
+    elif mode == 'manual':
+        digits = normalize_business_number(raw)
+        if not is_valid_biz_reg_no(digits):
+            return jsonify({'code': 'BUSINESS_NUMBER_INVALID',
+                            'message': '사업자등록번호(고유번호) 10자리를 정확히 입력해 주세요.'}), 400
+        user.biz_reg_no = digits
+        user.biz_status = 'manual'
+        user.biz_checked_at = _naive_utc_now()
+    else:
+        return jsonify({'message': "mode 는 'recheck' 또는 'manual' 이어야 합니다."}), 400
+
+    log_admin_action(f'business_number_{mode}', 'user', user.id, {'biz_status': user.biz_status})
+    db.session.commit()
+    return jsonify({'message': '사업자등록번호를 저장했습니다.', **company_business_info(user)})
+
+
+@app.route('/api/admin/projects/<int:project_id>/payment-schedule', methods=['GET', 'PUT'])
+@admin_required
+def admin_project_payment_schedule(project_id):
+    """관리자: 프로젝트 대금 지급 일정 조회·조정. 서명이 시작되면 바꿀 수 없다(변경계약으로만)."""
+    project = get_active_project_or_404(project_id)
+    if request.method == 'GET':
+        return jsonify({'payment_schedule': project_payment_schedule(project),
+                        'locked': contract_is_locked(project),
+                        'is_default': not project.payment_schedule})
+
+    if contract_is_locked(project):
+        return jsonify({'code': 'PAYMENT_SCHEDULE_LOCKED',
+                        'message': '서명이 시작된 계약은 지급 일정을 바꿀 수 없습니다. 변경계약으로 진행해 주세요.'}), 409
+    data = request.json or {}
+    if data.get('reset'):
+        project.payment_schedule = None
+    else:
+        cleaned, error = validate_payment_schedule(data.get('payment_schedule'))
+        if error:
+            return jsonify({'message': error}), 400
+        project.payment_schedule = json.dumps(cleaned, ensure_ascii=False)
+    log_admin_action('payment_schedule_update', 'project', project.id,
+                     {'payment_schedule': project_payment_schedule(project)})
+    db.session.commit()
+    return jsonify({'message': '지급 일정을 저장했습니다.',
+                    'payment_schedule': project_payment_schedule(project), 'locked': False,
+                    'is_default': not project.payment_schedule})
+
+
 @app.route('/api/admin/consultants/<int:consultant_id>/restore', methods=['POST'])
 @admin_required
 def restore_consultant(consultant_id):
@@ -5181,10 +5623,28 @@ def restore_consultant(consultant_id):
     return jsonify({'message': 'Consultant restored to pending', 'status': consultant.status})
 
 # --- Consultant Detail Endpoint ---
+def can_view_unlisted_consultant(consultant):
+    """공개 목록에 없는(검증 전·취소 등) 컨설턴트를 볼 수 있는 사람: 관리자, 본인,
+    그 컨설턴트와 프로젝트를 진행한(삭제되지 않은) 기업. 견적을 받은 기업이 상대 프로필을 못 보던 문제를 막는다."""
+    user = getattr(g, 'current_user', None)
+    if not user:
+        return False
+    if user.role == 'admin' or _same_id(consultant.user_id, user.id):
+        return True
+    if user.role != 'company':
+        return False
+    return db.session.query(Project.id).filter(
+        Project.consultant_id == consultant.id,
+        Project.company_id == user.id,
+        Project.deleted_at.is_(None),
+    ).first() is not None
+
+
 @app.route('/api/consultants/<int:consultant_id>', methods=['GET'])
+@token_optional
 def get_consultant_detail(consultant_id):
     consultant = Consultant.query.get_or_404(consultant_id)
-    if not (consultant.verified or consultant.status == 'verified'):
+    if not (consultant.verified or consultant.status == 'verified') and not can_view_unlisted_consultant(consultant):
         return jsonify({'message': 'Consultant not found'}), 404
     
     return jsonify({
@@ -5216,6 +5676,9 @@ def request_quotes():
     data = request.json
     if g.current_user.role != 'company':
         return jsonify({'message': '기업 담당자만 견적 요청을 생성할 수 있습니다.'}), 403
+    biz_error = require_company_business_number('견적 요청')
+    if biz_error:
+        return biz_error
 
     consultant_ids = data.get('consultant_ids', [])
     analysis_context = data.get('analysis_context') or {}  # Ensure it's not None
@@ -5450,7 +5913,9 @@ def request_quotes():
                     timeline=analysis_context.get('timeline', 'flexible'),
                     budget=analysis_context.get('budget', 'unknown'),
                     additional_notes=analysis_context.get('additional_notes'),
-                    project_id=project_id
+                    project_id=project_id,
+                    # 기본값(www.insightmatch.com)은 보유하지 않은 도메인이라 링크가 죽는다.
+                    dashboard_url=f'{frontend_base_url()}/dashboard.html'
                 )
                 email_results.append({
                     'consultant_id': consultant.id,
@@ -5562,21 +6027,45 @@ def get_post(post_id):
         return jsonify({'message': 'Post deleted', 'id': post_id})
 
 # --- SEO Endpoints ---
+# 검색엔진은 루트의 /sitemap.xml · /robots.txt 를 찾는다. vercel.json 이 이 두 경로를 이 함수로 보내고,
+# 예전 /api/ 경로도 그대로 둔다. 도메인은 BASE_URL 환경 변수를 따른다(도메인을 바꾸면 이 값만 바꾼다).
+SITEMAP_PAGES = (
+    # (경로, 갱신 주기, 우선순위) — 로그인·대시보드·관리자 같은 비공개 화면과 약관 초안은 넣지 않는다.
+    ('/', 'daily', '1.0'),
+    ('/ai-manual.html', 'weekly', '0.9'),
+    ('/iso-9001-manual-sample.html', 'weekly', '0.8'),
+    ('/iso-14001-manual-sample.html', 'weekly', '0.8'),
+    ('/iso-45001-manual-sample.html', 'weekly', '0.8'),
+    ('/blog.html', 'daily', '0.7'),
+    ('/signup.html', 'monthly', '0.5'),
+    ('/consultant-faq.html', 'monthly', '0.5'),
+    ('/contact.html', 'monthly', '0.4'),
+)
+ROBOTS_DISALLOW = (
+    '/api/', '/admin.html', '/dashboard.html', '/login.html', '/reset-password.html',
+    '/forgot-password.html', '/find-email.html', '/logos.html',
+)
+
+
+def _site_base_url():
+    return (os.environ.get('BASE_URL') or 'https://insight-match.vercel.app').rstrip('/')
+
+
 @app.route('/api/sitemap.xml')
+@app.route('/sitemap.xml')
 def sitemap():
-    base_url = os.environ.get('BASE_URL', 'https://insight-match.vercel.app')
-    pages = ['/', '/index.html', '/login.html', '/signup.html', '/blog.html']
-    
+    base_url = _site_base_url()
+
     sitemap_xml = ['<?xml version="1.0" encoding="UTF-8"?>']
     sitemap_xml.append('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')
-    
-    for page in pages:
+
+    for page, changefreq, priority in SITEMAP_PAGES:
         sitemap_xml.append('<url>')
         sitemap_xml.append(f'<loc>{base_url}{page}</loc>')
-        sitemap_xml.append('<changefreq>daily</changefreq>')
-        sitemap_xml.append('<priority>0.8</priority>')
+        sitemap_xml.append(f'<changefreq>{changefreq}</changefreq>')
+        sitemap_xml.append(f'<priority>{priority}</priority>')
         sitemap_xml.append('</url>')
-        
+
     posts = Post.query.filter(Post.deleted_at.is_(None)).all()
     for post in posts:
         sitemap_xml.append('<url>')
@@ -5585,18 +6074,18 @@ def sitemap():
         sitemap_xml.append('<changefreq>weekly</changefreq>')
         sitemap_xml.append('<priority>0.6</priority>')
         sitemap_xml.append('</url>')
-        
+
     sitemap_xml.append('</urlset>')
     return Response('\n'.join(sitemap_xml), mimetype='text/xml')
 
+
 @app.route('/api/robots.txt')
+@app.route('/robots.txt')
 def robots():
-    base_url = os.environ.get('BASE_URL', 'https://insight-match.vercel.app')
-    lines = [
-        "User-agent: *",
-        "Allow: /",
-        f"Sitemap: {base_url}/api/sitemap.xml"
-    ]
+    base_url = _site_base_url()
+    lines = ['User-agent: *', 'Allow: /']
+    lines += [f'Disallow: {path}' for path in ROBOTS_DISALLOW]
+    lines.append(f'Sitemap: {base_url}/sitemap.xml')
     return Response('\n'.join(lines), mimetype='text/plain')
 
 # --- Blog Posts API ---
@@ -7391,6 +7880,8 @@ FUNNEL_LIMITATIONS = [
     '설문을 시작만 하고 이탈한 사용자는 DB에 기록이 남지 않습니다. 첫 단계는 "방문"이 아니라 "설문 완료"입니다.',
     '1~2단계는 설문 건수, 3단계부터는 견적 요청 건수가 단위입니다. 설문 1건이 여러 컨설턴트에게 견적을 요청하면 견적 건수가 더 많아집니다.',
     '기간 필터는 생성 시각 기준입니다. 최근에 시작된 건은 아직 뒷단계에 도달할 시간이 없어 전환율이 낮게 나옵니다.',
+    'AI 매뉴얼 단계는 사용자 수가 단위이고, 첫 단계는 "방문"이 아니라 "매뉴얼 생성 시작(로그인한 기업)"입니다. '
+    '작성 예시 페이지 방문과 가입 전 이탈은 기록되지 않습니다.',
 ]
 
 
@@ -7485,6 +7976,37 @@ def get_funnel_stats():
         .scalar() or 0
     )
 
+    # ── 4회차: AI 매뉴얼 (사용자 단위) ──
+    #   매뉴얼은 로그인한 기업만 만들 수 있으므로 첫 단계는 '세션 생성'이다.
+    #   견적 요청은 매뉴얼을 만든 시점 이후에 같은 사용자가 만든 프로젝트만 센다(코호트 정렬).
+    def _has_text(column):
+        return and_(column.isnot(None), func.length(column) > 0)
+
+    manual_filters = [ManualGeneration.created_at >= since]
+    manual_row = db.session.query(
+        func.count(func.distinct(ManualGeneration.user_id)).label('started'),
+        func.count(func.distinct(case((_has_text(ManualGeneration.phase1_markdown), ManualGeneration.user_id), else_=None))).label('preview'),
+        func.count(func.distinct(case((_has_text(ManualGeneration.phase2_markdown), ManualGeneration.user_id), else_=None))).label('full'),
+    ).filter(*manual_filters).one()
+    manual_started = int(manual_row.started or 0)
+    manual_preview = int(manual_row.preview or 0)
+    manual_full = int(manual_row.full or 0)
+    manual_with_quote = int(
+        db.session.query(func.count(func.distinct(ManualGeneration.user_id)))
+        .select_from(ManualGeneration)
+        .join(Project, and_(Project.company_id == ManualGeneration.user_id,
+                            Project.created_at >= ManualGeneration.created_at))
+        .filter(*manual_filters)
+        .filter(Project.deleted_at.is_(None))
+        .scalar() or 0
+    )
+    manual_funnel = [
+        _funnel_stage('manual_started', '매뉴얼 생성 시작', manual_started, None, '명'),
+        _funnel_stage('manual_preview_done', '1단계 미리보기 완료 (표지~6절)', manual_preview, manual_started, '명'),
+        _funnel_stage('manual_full_done', '전체 받기 (7절 이후 생성)', manual_full, manual_preview, '명'),
+        _funnel_stage('manual_to_quote', '견적 요청으로 이어짐', manual_with_quote, manual_started, '명'),
+    ]
+
     # 1~2단계: 설문 단위
     survey_funnel = [
         _funnel_stage('survey_completed', '설문 완료 (= 매칭 실행)', surveys, None, '설문'),
@@ -7505,6 +8027,7 @@ def get_funnel_stats():
         'since': since.isoformat(),
         'surveyFunnel': survey_funnel,
         'projectFunnel': project_funnel,
+        'manualFunnel': manual_funnel,
         # 본류가 아닌 분기들 — 단계로 세면 퍼널이 왜곡되므로 따로 낸다.
         # (협상은 선택 단계이고, 취소는 이탈이지 진행이 아니다)
         'side': {

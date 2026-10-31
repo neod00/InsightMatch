@@ -49,6 +49,9 @@ class TestWorkflowSecurity(unittest.TestCase):
             role='company',
             name='Company User',
             company_name='Buyer Co',
+            # 견적 요청·AI 매뉴얼은 사업자등록번호가 있어야 한다. other_company 는 일부러 비워 둔다.
+            biz_reg_no='1234567891',
+            biz_status='verified',
         )
         self.other_company = User(
             email='other@example.com',
@@ -236,18 +239,22 @@ class TestWorkflowSecurity(unittest.TestCase):
 
         company_sign = self.client.post(
             f'/api/projects/{project_id}/contract/sign',
-            json={},
+            json={'contract_hash': self._contract_hash(project_id, self.company)},
             headers=auth_headers(self.company),
         )
         self.assertEqual(company_sign.status_code, 200)
         consultant_sign = self.client.post(
             f'/api/projects/{project_id}/contract/sign',
-            json={},
+            json={'contract_hash': self._contract_hash(project_id, second_consultant_user)},
             headers=auth_headers(second_consultant_user),
         )
         self.assertEqual(consultant_sign.status_code, 200)
         db.session.refresh(project)
         self.assertEqual(project.status, 'contracted')
+        # 계약 시 PRD 5.6 의 한국어 진행 단계가 만들어진다
+        from index import DEFAULT_MILESTONE_TITLES
+        self.assertEqual([m.title for m in project.milestones], list(DEFAULT_MILESTONE_TITLES))
+        self.assertEqual(DEFAULT_MILESTONE_TITLES[0], '진단·갭 분석')
 
         first = Milestone(project_id=project_id, title='Gap analysis')
         second = Milestone(project_id=project_id, title='Internal audit')
@@ -320,6 +327,219 @@ class TestWorkflowSecurity(unittest.TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.get_json()['message'], 'Invalid proposal file URL')
+
+    # --- 제안서 파일: 비공개 버킷 + 서명 URL, 관리자 열람 기록 ---------------------------
+
+    SUPABASE_TEST_URL = 'https://proj.supabase.co'
+
+    def _set_proposal_file(self, name=None):
+        name = name or f'{self.project.id}_{self.consultant_user.id}_1700000000.pdf'
+        self.project.proposal_file_url = f'{self.SUPABASE_TEST_URL}/storage/v1/object/public/proposals/{name}'
+        db.session.commit()
+        return name
+
+    def _signing_env(self, service_key='service-test-key'):
+        env = {'SUPABASE_URL': self.SUPABASE_TEST_URL, 'SUPABASE_SERVICE_ROLE_KEY': service_key}
+        return patch.dict(os.environ, env)
+
+    def _fake_sign_response(self, signed_path='/object/sign/proposals/x.pdf?token=abc'):
+        class FakeResponse:
+            status_code = 200
+            def json(self_inner):
+                return {'signedURL': signed_path}
+        return FakeResponse()
+
+    def test_proposal_download_returns_signed_url_to_participants(self):
+        name = self._set_proposal_file()
+        for user in (self.company, self.consultant_user):
+            with self._signing_env(), patch('requests.post', return_value=self._fake_sign_response(
+                    f'/object/sign/proposals/{name}?token=abc')) as mock_post:
+                response = self.client.get(
+                    f'/api/projects/{self.project.id}/proposal/download?format=json',
+                    headers=auth_headers(user),
+                )
+            self.assertEqual(response.status_code, 200, response.get_data(as_text=True))
+            data = response.get_json()
+            self.assertEqual(data['url'], f'{self.SUPABASE_TEST_URL}/storage/v1/object/sign/proposals/{name}?token=abc')
+            self.assertNotIn('/public/', data['url'])
+            # 서명은 서비스 키로, 객체 이름 그대로 요청한다
+            args, kwargs = mock_post.call_args
+            self.assertTrue(args[0].endswith(f'/object/sign/proposals/{name}'))
+            self.assertEqual(kwargs['headers']['Authorization'], 'Bearer service-test-key')
+        self.assertEqual(AdminActionLog.query.count(), 0)  # 당사자 열람은 관리자 기록 대상이 아니다
+
+    def test_proposal_download_redirects_without_json_format(self):
+        name = self._set_proposal_file()
+        with self._signing_env(), patch('requests.post', return_value=self._fake_sign_response(
+                f'/object/sign/proposals/{name}?token=abc')):
+            response = self.client.get(
+                f'/api/projects/{self.project.id}/proposal/download',
+                headers=auth_headers(self.company),
+            )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/object/sign/proposals/', response.headers['Location'])
+
+    def test_proposal_download_rejects_outsiders(self):
+        self._set_proposal_file()
+        outsider_consultant_user = User(email='outsider-c@example.com', password_hash='x',
+                                        role='consultant', name='Outsider Consultant')
+        db.session.add(outsider_consultant_user)
+        db.session.commit()
+        with self._signing_env(), patch('requests.post') as mock_post:
+            for user in (self.other_company, outsider_consultant_user):
+                response = self.client.get(
+                    f'/api/projects/{self.project.id}/proposal/download?format=json',
+                    headers=auth_headers(user),
+                )
+                self.assertEqual(response.status_code, 403)
+            response = self.client.get(f'/api/projects/{self.project.id}/proposal/download?format=json')
+            self.assertEqual(response.status_code, 401)
+        mock_post.assert_not_called()
+
+    def test_admin_can_open_proposal_and_every_view_is_logged(self):
+        name = self._set_proposal_file()
+        with self._signing_env(), patch('requests.post', return_value=self._fake_sign_response(
+                f'/object/sign/proposals/{name}?token=abc')):
+            file_response = self.client.get(
+                f'/api/projects/{self.project.id}/proposal/download?format=json',
+                headers=auth_headers(self.admin_user),
+            )
+        detail_response = self.client.get(
+            f'/api/projects/{self.project.id}/proposal',
+            headers=auth_headers(self.admin_user),
+        )
+
+        self.assertEqual(file_response.status_code, 200)
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertEqual(detail_response.get_json()['proposal_price'], 5000000)
+        actions = {log.action: log for log in AdminActionLog.query.all()}
+        self.assertEqual(set(actions), {'proposal_file_view', 'proposal_view'})
+        for log in actions.values():
+            self.assertEqual(log.admin_user_id, self.admin_user.id)
+            self.assertEqual(log.target_type, 'project')
+            self.assertEqual(log.target_id, str(self.project.id))
+
+    def test_admin_summary_pdf_view_is_logged_when_no_file_uploaded(self):
+        response = self.client.get(
+            f'/api/projects/{self.project.id}/proposal/download',
+            headers=auth_headers(self.admin_user),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, 'application/pdf')
+        self.assertEqual([log.action for log in AdminActionLog.query.all()], ['proposal_summary_view'])
+
+    def test_summary_pdf_embeds_korean_font(self):
+        """요약 제안서 PDF 는 저장소의 나눔고딕을 넣어 만든다.
+
+        예전에는 Windows 의 맑은 고딕만 찾아서 운영 서버(리눅스)에서는 Helvetica 로 찍혀 한글이 ■ 로 깨졌다.
+        """
+        self.project.proposal_message = '한글 메시지 ' * 40  # 폭 기준 줄바꿈도 함께 확인
+        db.session.commit()
+        response = self.client.get(
+            f'/api/projects/{self.project.id}/proposal/download',
+            headers=auth_headers(self.company),
+        )
+        self.assertEqual(response.status_code, 200)
+        pdf = response.get_data()
+        self.assertIn(b'NanumGothic', pdf)
+        self.assertNotIn(b'/BaseFont /Helvetica', pdf)
+
+    def test_summary_pdf_wraps_korean_text_within_page_width(self):
+        from reportlab.lib.pagesizes import letter
+        from reportlab.pdfbase import pdfmetrics
+        from services.proposal_service import ProposalService, BODY_FONT, _register_fonts
+
+        _register_fonts()
+        max_width = letter[0] - 120
+        lines = ProposalService()._wrap_text('가나다라마바사아자차카타파하' * 20 + '\n\n짧은 줄', max_width, BODY_FONT, 11)
+        self.assertGreater(len(lines), 3)
+        self.assertEqual(lines[-2:], ['', '짧은 줄'])
+        for line in lines:
+            self.assertLessEqual(pdfmetrics.stringWidth(line, BODY_FONT, 11), max_width)
+
+    def test_proposal_signed_url_failure_returns_502_without_leaking_details(self):
+        self._set_proposal_file()
+
+        class FailedResponse:
+            status_code = 400
+            text = 'secret internal detail'
+            def json(self_inner):
+                return {}
+
+        with self._signing_env(), patch('requests.post', return_value=FailedResponse()):
+            response = self.client.get(
+                f'/api/projects/{self.project.id}/proposal/download?format=json',
+                headers=auth_headers(self.company),
+            )
+        self.assertEqual(response.status_code, 502)
+        self.assertNotIn('secret', response.get_data(as_text=True))
+
+    def test_proposal_download_without_service_key_keeps_working_while_bucket_is_public(self):
+        """서비스 키를 넣기 전(버킷이 아직 공개)에도 배포가 안전해야 한다."""
+        name = self._set_proposal_file()
+        with patch.dict(os.environ, {'SUPABASE_URL': self.SUPABASE_TEST_URL, 'SUPABASE_SERVICE_ROLE_KEY': ''}), \
+                patch('requests.post') as mock_post:
+            response = self.client.get(
+                f'/api/projects/{self.project.id}/proposal/download?format=json',
+                headers=auth_headers(self.company),
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()['url'],
+                         f'{self.SUPABASE_TEST_URL}/storage/v1/object/public/proposals/{name}')
+        mock_post.assert_not_called()
+
+    def test_proposal_object_name_rejects_other_projects_and_path_tricks(self):
+        """서비스 키로 서명하므로 남의 프로젝트 파일·상위 경로를 가리키는 URL 은 거부한다."""
+        from index import proposal_object_name
+
+        base = f'{self.SUPABASE_TEST_URL}/storage/v1/object/public/proposals/'
+        pid = self.project.id
+        with patch.dict(os.environ, {'SUPABASE_URL': self.SUPABASE_TEST_URL}):
+            self.assertEqual(proposal_object_name(f'{base}{pid}_7_1700000000.pdf', pid), f'{pid}_7_1700000000.pdf')
+            self.assertIsNone(proposal_object_name(f'{base}{pid + 1}_7_1700000000.pdf', pid))   # 다른 프로젝트
+            self.assertIsNone(proposal_object_name(f'{base}{pid}_../profiles/a.png', pid))       # 상위 경로
+            self.assertIsNone(proposal_object_name(f'{base}{pid}_7/other.pdf', pid))             # 하위 경로
+            self.assertIsNone(proposal_object_name(f'{base}{pid}_7_1%2e%2e%2fother.pdf', pid))   # 인코딩된 경로
+            self.assertIsNone(proposal_object_name('', pid))
+            self.assertIsNone(proposal_object_name(f'https://evil.example/storage/v1/object/public/proposals/{pid}_7_1.pdf', pid))
+
+    def test_submit_proposal_rejects_file_of_another_project(self):
+        base = f'{self.SUPABASE_TEST_URL}/storage/v1/object/public/proposals/'
+        with patch.dict(os.environ, {'SUPABASE_URL': self.SUPABASE_TEST_URL}):
+            rejected = self.client.post(
+                f'/api/projects/{self.project.id}/submit-proposal',
+                json={'proposal_price': 7000000, 'proposal_duration': '2 months',
+                      'proposal_file_url': f'{base}{self.other_candidate.id}_9_1700000000.pdf'},
+                headers=auth_headers(self.consultant_user),
+            )
+            accepted = self.client.post(
+                f'/api/projects/{self.project.id}/submit-proposal',
+                json={'proposal_price': 7000000, 'proposal_duration': '2 months',
+                      'proposal_file_url': f'{base}{self.project.id}_{self.consultant_user.id}_1700000000.pdf'},
+                headers=auth_headers(self.consultant_user),
+            )
+        self.assertEqual(rejected.status_code, 400)
+        self.assertEqual(accepted.status_code, 200, accepted.get_data(as_text=True))
+
+    def test_admin_job_list_flags_projects_with_a_submitted_proposal(self):
+        # 같은 컨설턴트·규격의 프로젝트는 목록에서 하나로 합쳐지므로 하나만 남기고 확인한다.
+        db.session.delete(self.other_candidate)
+        self.project.proposal_submitted_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        db.session.commit()
+
+        def related_projects():
+            response = self.client.get('/api/admin/jobs', headers=auth_headers(self.admin_user))
+            self.assertEqual(response.status_code, 200)
+            return [p for job in response.get_json() for p in job.get('related_projects', [])]
+
+        related = related_projects()
+        self.assertEqual([p['project_id'] for p in related], [self.project.id])
+        self.assertTrue(related[0]['has_proposal'])
+        self.assertNotIn('proposal_file_url', related[0])
+
+        self.project.proposal_submitted_at = None
+        db.session.commit()
+        self.assertFalse(related_projects()[0]['has_proposal'])
 
     def test_proposal_upload_requires_assigned_consultant(self):
         data = {
@@ -442,6 +662,206 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.get_json()['contracted_count'], 1)
 
+    def _contract_hash(self, project_id, user):
+        """서명하려면 화면에 보인 계약서 원문의 해시를 함께 보내야 한다."""
+        preview = self.client.get(f'/api/projects/{project_id}/contract/preview', headers=auth_headers(user))
+        self.assertEqual(preview.status_code, 200)
+        return preview.get_json()['contract_hash']
+
+    def test_robots_and_sitemap_are_served_from_the_site_root(self):
+        """검색엔진은 /robots.txt · /sitemap.xml 을 찾는다. 공개 페이지만 알리고 비공개 화면은 막는다."""
+        with patch.dict(os.environ, {'BASE_URL': 'https://example.test/'}):
+            robots = self.client.get('/robots.txt')
+            old_robots = self.client.get('/api/robots.txt')
+            sitemap = self.client.get('/sitemap.xml')
+            old_sitemap = self.client.get('/api/sitemap.xml')
+
+        self.assertEqual(robots.status_code, 200)
+        self.assertEqual(robots.get_data(as_text=True), old_robots.get_data(as_text=True))
+        text = robots.get_data(as_text=True)
+        self.assertIn('Allow: /', text)
+        for private in ('/api/', '/admin.html', '/dashboard.html', '/login.html'):
+            self.assertIn(f'Disallow: {private}', text)
+        self.assertIn('Sitemap: https://example.test/sitemap.xml', text)  # 끝의 '/' 가 겹치지 않는다
+
+        body = sitemap.get_data(as_text=True)
+        self.assertEqual(sitemap.status_code, 200)
+        self.assertEqual(body, old_sitemap.get_data(as_text=True))
+        self.assertIn('xml', sitemap.mimetype)
+        for page in ('/', '/ai-manual.html', '/iso-9001-manual-sample.html', '/iso-14001-manual-sample.html',
+                     '/iso-45001-manual-sample.html', '/blog.html'):
+            self.assertIn(f'<loc>https://example.test{page}</loc>', body)
+        for hidden in ('/login.html', '/admin.html', '/dashboard.html', '/index.html', '/terms.html'):
+            self.assertNotIn(f'https://example.test{hidden}<', body)
+
+    def test_sitemap_lists_published_blog_posts_but_not_deleted_ones(self):
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        live = Post(title='공개 글', content='본문')
+        gone = Post(title='삭제된 글', content='본문', deleted_at=now)
+        db.session.add_all([live, gone])
+        db.session.commit()
+        with patch.dict(os.environ, {'BASE_URL': 'https://example.test'}):
+            body = self.client.get('/sitemap.xml').get_data(as_text=True)
+        self.assertIn(f'/blog_detail.html?id={live.id}</loc>', body)
+        self.assertNotIn(f'/blog_detail.html?id={gone.id}</loc>', body)
+
+    def test_vercel_routes_send_root_sitemap_and_robots_to_the_api(self):
+        with open(os.path.join(os.path.dirname(__file__), '..', 'vercel.json'), encoding='utf-8') as f:
+            config = json.load(f)
+        import re
+        routes = {r['src']: r['dest'] for r in config['routes']}
+        matching = [dest for src, dest in routes.items() if re.fullmatch(src, 'sitemap.xml') or re.fullmatch(src.lstrip('/'), 'sitemap.xml')]
+        self.assertIn('/api/index.py', matching)
+        self.assertTrue(any(re.fullmatch(src.lstrip('/'), 'robots.txt') and dest == '/api/index.py' for src, dest in routes.items()))
+        # 정적 HTML 라우트가 이 두 경로를 가로채지 않는다
+        first = next(src for src in routes if re.fullmatch(src.lstrip('/'), 'robots.txt'))
+        self.assertIn('sitemap', first)
+
+    def test_contract_includes_default_50_50_payment_schedule(self):
+        text = self.client.get(f'/api/projects/{self.project.id}/contract/preview',
+                               headers=auth_headers(self.company)).get_json()['contract_text']
+        self.assertIn('제4조 (대금 지급)', text)
+        self.assertIn('1. 선금 50%(2,500,000원): 계약 체결 후 7일 이내', text)
+        self.assertIn('2. 잔금 50%(2,500,000원): 갑의 완료 확인 후 7일 이내', text)
+        self.assertIn('제7조 (전자 서명)', text)
+
+    def test_admin_adjusts_payment_schedule_before_signing_only(self):
+        url = f'/api/admin/projects/{self.project.id}/payment-schedule'
+        schedule = [{'label': '선금', 'percent': 30, 'due': '계약 체결 후 7일 이내'},
+                    {'label': '중도금', 'percent': 30, 'due': '문서 구축 완료 후 7일 이내'},
+                    {'label': '잔금', 'percent': 40, 'due': '완료 확인 후 7일 이내'}]
+
+        # 관리자만
+        self.assertEqual(self.client.put(url, json={'payment_schedule': schedule},
+                                         headers=auth_headers(self.company)).status_code, 403)
+        # 합계 100 이 아니면 거절
+        bad = self.client.put(url, json={'payment_schedule': schedule[:2]}, headers=auth_headers(self.admin_user))
+        self.assertEqual(bad.status_code, 400)
+        self.assertIn('100%', bad.get_json()['message'])
+
+        ok = self.client.put(url, json={'payment_schedule': schedule}, headers=auth_headers(self.admin_user))
+        self.assertEqual(ok.status_code, 200, ok.get_json())
+        self.assertFalse(ok.get_json()['is_default'])
+        text = self.client.get(f'/api/projects/{self.project.id}/contract/preview',
+                               headers=auth_headers(self.company)).get_json()['contract_text']
+        # 5,000,000원의 30/30/40
+        self.assertIn('1. 선금 30%(1,500,000원)', text)
+        self.assertIn('2. 중도금 30%(1,500,000원): 문서 구축 완료 후 7일 이내', text)
+        self.assertIn('3. 잔금 40%(2,000,000원)', text)
+        self.assertEqual(AdminActionLog.query.filter_by(action='payment_schedule_update').count(), 1)
+
+        # 서명이 시작되면 잠긴다
+        self.client.post(f'/api/projects/{self.project.id}/contract/draft', json={}, headers=auth_headers(self.company))
+        self.client.post(f'/api/projects/{self.project.id}/contract/sign',
+                         json={'contract_hash': self._contract_hash(self.project.id, self.company)},
+                         headers=auth_headers(self.company))
+        locked = self.client.put(url, json={'reset': True}, headers=auth_headers(self.admin_user))
+        self.assertEqual(locked.status_code, 409)
+        self.assertEqual(locked.get_json()['code'], 'PAYMENT_SCHEDULE_LOCKED')
+        self.assertTrue(self.client.get(url, headers=auth_headers(self.admin_user)).get_json()['locked'])
+
+    def test_payment_amounts_put_remainder_on_last_installment(self):
+        from index import payment_schedule_lines
+        self.project.proposal_price = 1000001
+        self.project.payment_schedule = json.dumps([
+            {'label': '선금', 'percent': 33, 'due': 'a'}, {'label': '중도금', 'percent': 33, 'due': 'b'},
+            {'label': '잔금', 'percent': 34, 'due': 'c'}], ensure_ascii=False)
+        lines = payment_schedule_lines(self.project)
+        self.assertEqual(lines, ['1. 선금 33%(330,000원): a', '2. 중도금 33%(330,000원): b', '3. 잔금 34%(340,001원): c'])
+
+    def test_concluded_contract_stays_viewable_by_both_parties_with_signed_original(self):
+        """체결된 계약서는 양측이 다시 볼 수 있고, 서명 당시 원문이 그대로 나온다. 무관한 사람은 못 본다."""
+        self.client.post(f'/api/projects/{self.project.id}/contract/draft', json={}, headers=auth_headers(self.company))
+        for user in (self.company, self.consultant_user):
+            self.client.post(f'/api/projects/{self.project.id}/contract/sign',
+                             json={'contract_hash': self._contract_hash(self.project.id, user)},
+                             headers=auth_headers(user))
+        self.assertEqual(Project.query.get(self.project.id).status, 'contracted')
+
+        # 체결 뒤에 회사명이 바뀌어도 서명한 원문이 그대로 보인다
+        self.company.company_name = 'Renamed After Signing'
+        db.session.commit()
+        bodies = [self.client.get(f'/api/projects/{self.project.id}/contract/preview', headers=auth_headers(u)).get_json()
+                  for u in (self.company, self.consultant_user)]
+        for body in bodies:
+            self.assertEqual(body['status'], 'contracted')
+            self.assertTrue(body['text_is_signed_original'])
+            self.assertIn('갑(의뢰인): Buyer Co', body['contract_text'])
+            self.assertNotIn('Renamed After Signing', body['contract_text'])
+            self.assertEqual([s['signer_role'] for s in body['signatures']], ['company', 'consultant'])
+        self.assertEqual(bodies[0]['contract_hash'], bodies[1]['contract_hash'])
+
+        # 당사자가 아니면 볼 수 없다
+        self.assertEqual(self.client.get(f'/api/projects/{self.project.id}/contract/preview',
+                                         headers=auth_headers(self.other_company)).status_code, 403)
+
+    def test_contract_signed_before_evidence_existed_is_flagged_as_rebuilt(self):
+        """서명 기록 기능 이전에 체결된 계약은 서명 당시 원문이 없다 — 화면이 현재 정보로 만든 문안임을 알려야 한다."""
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        self.project.status = 'contracted'
+        self.project.company_signed_at = now
+        self.project.consultant_signed_at = now
+        db.session.commit()
+        body = self.client.get(f'/api/projects/{self.project.id}/contract/preview',
+                               headers=auth_headers(self.company)).get_json()
+        self.assertFalse(body['text_is_signed_original'])
+        self.assertEqual(body['signatures'], [])
+        self.assertIn('갑(의뢰인)', body['contract_text'])
+
+    def test_contract_signing_records_evidence_and_blocks_resign(self):
+        """서명마다 원문·버전·해시·서명자·접속 정보를 남기고, 두 사람은 같은 원문에 서명한다. 재서명은 막는다."""
+        from models import ContractSignature
+        self.client.post(f'/api/projects/{self.project.id}/contract/draft', json={'special_terms': '부가세 별도'},
+                         headers=auth_headers(self.company))
+
+        preview = self.client.get(f'/api/projects/{self.project.id}/contract/preview',
+                                  headers=auth_headers(self.company)).get_json()
+        text = preview['contract_text']
+        self.assertIn('갑(의뢰인): Buyer Co (사업자등록번호 123-45-67891), 담당자 Company User', text)
+        self.assertIn('을(컨설턴트): ISO Expert', text)
+        self.assertIn('특약 사항\n부가세 별도', text)
+        self.assertNotIn('전문가', text)
+
+        # 화면에 보인 원문과 다른 해시로는 서명할 수 없다
+        stale = self.client.post(f'/api/projects/{self.project.id}/contract/sign', json={'contract_hash': 'x' * 64},
+                                 headers=auth_headers(self.company))
+        self.assertEqual(stale.status_code, 409)
+        self.assertEqual(stale.get_json()['code'], 'CONTRACT_CHANGED')
+
+        first = self.client.post(f'/api/projects/{self.project.id}/contract/sign',
+                                 json={'contract_hash': preview['contract_hash']},
+                                 headers={**auth_headers(self.company), 'User-Agent': 'pytest-browser'})
+        self.assertEqual(first.status_code, 200)
+        self.assertIn('컨설턴트의 서명을 기다리고', first.get_json()['message'])
+
+        # 다시 서명해도 시각이 바뀌지 않는다
+        signed_at = Project.query.get(self.project.id).company_signed_at
+        again = self.client.post(f'/api/projects/{self.project.id}/contract/sign',
+                                 json={'contract_hash': preview['contract_hash']}, headers=auth_headers(self.company))
+        self.assertEqual(again.get_json()['code'], 'ALREADY_SIGNED')
+        self.assertEqual(Project.query.get(self.project.id).company_signed_at, signed_at)
+
+        # 첫 서명 뒤에 회사 정보가 바뀌어도 두 번째 서명자는 첫 서명과 같은 원문을 본다
+        self.company.company_name = 'Renamed Co'
+        db.session.commit()
+        second_preview = self.client.get(f'/api/projects/{self.project.id}/contract/preview',
+                                         headers=auth_headers(self.consultant_user)).get_json()
+        self.assertEqual(second_preview['contract_text'], text)
+        second = self.client.post(f'/api/projects/{self.project.id}/contract/sign',
+                                  json={'contract_hash': second_preview['contract_hash']},
+                                  headers=auth_headers(self.consultant_user))
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(Project.query.get(self.project.id).status, 'contracted')
+
+        rows = ContractSignature.query.filter_by(project_id=self.project.id).order_by(ContractSignature.id).all()
+        self.assertEqual([r.signer_role for r in rows], ['company', 'consultant'])
+        self.assertEqual({r.contract_hash for r in rows}, {preview['contract_hash']})
+        self.assertEqual(rows[0].contract_text, text)
+        self.assertEqual(rows[0].user_agent, 'pytest-browser')
+        self.assertEqual(rows[0].signer_name, 'Company User')
+        self.assertIsNotNone(rows[0].ip_address)
+        self.assertEqual(len(second_preview['signatures']), 1)
+
     def test_contract_signer_is_derived_from_authenticated_user(self):
         self.client.post(
             f'/api/projects/{self.project.id}/contract/draft',
@@ -453,7 +873,7 @@ class TestWorkflowSecurity(unittest.TestCase):
 
         response = self.client.post(
             f'/api/projects/{self.project.id}/contract/sign',
-            json={'signer': 'consultant'},
+            json={'signer': 'consultant', 'contract_hash': self._contract_hash(self.project.id, self.company)},
             headers=auth_headers(self.company),
         )
         self.assertEqual(response.status_code, 200)
@@ -467,7 +887,7 @@ class TestWorkflowSecurity(unittest.TestCase):
 
         response = self.client.post(
             f'/api/projects/{self.project.id}/contract/sign',
-            json={'signer': 'company'},
+            json={'signer': 'company', 'contract_hash': self._contract_hash(self.project.id, self.consultant_user)},
             headers=auth_headers(self.consultant_user),
         )
         self.assertEqual(response.status_code, 200)
@@ -801,6 +1221,8 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertEqual(created.biz_reg_no, '1234567891')
         self.assertEqual(created.bank_name, '신한은행')
         self.assertIsNotNone(created.partner_agreed_at)
+        # 기본 지급률 80%·건별 발주를 담은 1.1 에 동의한 것으로 기록된다
+        self.assertEqual(created.partner_agreement_version, '1.1')
         # 계좌번호 마스킹 확인 (뒤 4자리만 노출)
         self.assertTrue(created.masked_account().endswith('6789'))
         self.assertIn('*', created.masked_account())
@@ -972,6 +1394,36 @@ class TestWorkflowSecurity(unittest.TestCase):
         consultant.verified = True
         consultant.status = 'verified'
         db.session.commit()
+
+    def test_unlisted_consultant_detail_visible_to_project_company_admin_and_self_only(self):
+        """검증 전·취소된 컨설턴트도 견적을 주고받은 기업은 프로필을 볼 수 있어야 한다.
+
+        (대시보드 '프로필 보기'가 '컨설턴트 정보를 불러올 수 없습니다'로 실패하던 문제)
+        공개 목록 밖이므로 익명·무관한 기업·다른 컨설턴트에게는 계속 404.
+        """
+        self.consultant.verified = False
+        self.consultant.status = 'revoked'
+        outsider = User(email='outsider-c2@example.com', password_hash='x', role='consultant', name='Outsider')
+        db.session.add(outsider)
+        db.session.commit()
+        path = f'/api/consultants/{self.consultant.id}'
+
+        for headers, expected in (
+            ({}, 404),
+            (auth_headers(self.other_company), 404),
+            (auth_headers(outsider), 404),
+            (auth_headers(self.company), 200),          # self.project 의 기업
+            (auth_headers(self.admin_user), 200),
+            (auth_headers(self.consultant_user), 200),  # 본인
+        ):
+            response = self.client.get(path, headers=headers)
+            self.assertEqual(response.status_code, expected, headers)
+
+        # 프로젝트를 지운(soft delete) 기업은 더 이상 볼 수 없다
+        for p in (self.project, self.other_candidate):
+            p.deleted_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        db.session.commit()
+        self.assertEqual(self.client.get(path, headers=auth_headers(self.company)).status_code, 404)
 
     def test_consultant_detail_survives_plaintext_profile_fields(self):
         """등록 폼과 같은 '평문 여러 줄'로 등록해도 상세 조회가 200 이어야 한다.
@@ -1507,6 +1959,9 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertEqual(blocked.get_json().get('code'), 'DAILY_LIMIT_EXCEEDED')
 
         # 한도는 사용자별 — 다른 기업은 영향받지 않는다
+        self.other_company.biz_reg_no = '2208112341'
+        self.other_company.biz_status = 'verified'
+        db.session.commit()
         other = self.client.post(
             '/api/iso-manual/session',
             json=self._manual_payload(),
@@ -2187,6 +2642,197 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertEqual(kwargs['standards'], ['ISO 9001'])
         self.assertEqual(kwargs['industry'], 'Manufacturing')
 
+    # --- 기업 사업자등록번호 (가입 선택, 견적 요청·AI 매뉴얼 전 필수, 국세청 상태조회) -------------
+
+    def _nts(self, code=None, status_code=200, error=None):
+        """국세청 상태조회 응답 흉내. code: '01' 계속 / '02' 휴업 / '03' 폐업 / '' 미등록."""
+        class FakeResponse:
+            def __init__(self):
+                self.status_code = status_code
+            def json(self_inner):
+                return {'data': [{'b_no': '1234567891', 'b_stt_cd': code}]}
+        if error:
+            return patch('services.business_check.requests.post', side_effect=error)
+        return patch('services.business_check.requests.post', return_value=FakeResponse())
+
+    def test_business_status_interpretation_matches_nts_codes(self):
+        from services.business_check import check_business_status
+        with patch.dict(os.environ, {'NTS_BUSINESS_API_KEY': 'k'}):
+            for code, expected in (('01', 'active'), ('02', 'suspended'), ('03', 'closed'), ('', 'not_found')):
+                with self._nts(code):
+                    self.assertEqual(check_business_status('123-45-67891'), expected, code)
+            with self._nts(status_code=500):
+                self.assertEqual(check_business_status('1234567891'), 'unavailable')
+            with self._nts(error=TimeoutError('slow')):
+                self.assertEqual(check_business_status('1234567891'), 'unavailable')
+        with patch.dict(os.environ, {'NTS_BUSINESS_API_KEY': ''}), self._nts('01') as mock_post:
+            self.assertEqual(check_business_status('1234567891'), 'unavailable')
+            mock_post.assert_not_called()
+
+    def test_quote_request_and_manual_download_require_business_number(self):
+        for path, payload in (
+            ('/api/quotes/request', {'consultant_ids': [self.consultant.id], 'analysis_context': {}}),
+            ('/api/projects/add-consultant', {'consultant_id': self.consultant.id, 'title': 'ISO 9001 Project'}),
+            ('/api/export-iso', {'markdown': '# 매뉴얼', 'format': 'docx'}),
+        ):
+            response = self.client.post(path, json=payload, headers=auth_headers(self.other_company))
+            self.assertEqual(response.status_code, 400, path)
+            self.assertEqual(response.get_json()['code'], 'BUSINESS_NUMBER_REQUIRED', path)
+
+    def test_manual_preview_needs_no_business_number_but_full_manual_does(self):
+        """유입 최대화: 1단계 미리보기는 가입만으로, 전체 받기(7절 이후)는 사업자등록번호 확인 후."""
+        session = self.client.post('/api/iso-manual/session', json=self._manual_payload(),
+                                   headers=auth_headers(self.other_company))
+        self.assertEqual(session.status_code, 201, session.get_json())
+        data = session.get_json()
+
+        def fake_stream(form_data):
+            yield 'data: ## 7. 지원\\n\\n전체 매뉴얼\n\n'
+            yield 'data: [PHASE_COMPLETE:2]\n\n'
+            yield 'data: [DONE]\n\n'
+
+        # 7절 이어 생성은 1단계 저장본이 있어야 한다(FR-47) — 1단계 미리보기가 끝난 상태로 둔다
+        manual = ManualGeneration.query.get(data['manual_id'])
+        manual.phase1_markdown = '## 1. 적용범위\n\n1단계 미리보기'
+        manual.status = 'phase_1_completed'
+        db.session.commit()
+
+        url = f"/api/generate-iso?manual_id={data['manual_id']}&stream_token={data['stream_token']}&continue_from=7"
+        with patch('index.generate_iso_manual_stream', fake_stream):
+            blocked = self.client.get(url).get_data(as_text=True)
+        self.assertIn('사업자등록번호 확인 후', blocked)
+        # 막힌 시도는 선점·상태 변경이 없다 → 번호 등록 뒤 같은 토큰으로 바로 이어진다
+        self.assertEqual(ManualGeneration.query.get(data['manual_id']).status, 'phase_1_completed')
+        self.assertIsNone(ManualGeneration.query.get(data['manual_id']).phase2_markdown)
+
+        # 번호를 등록하면 같은 세션으로 이어서 받을 수 있다
+        self.other_company.biz_reg_no = '2208112341'
+        self.other_company.biz_status = 'verified'
+        db.session.commit()
+        with patch('index.generate_iso_manual_stream', fake_stream):
+            allowed = self.client.get(url).get_data(as_text=True)
+        self.assertNotIn('사업자등록번호 확인 후', allowed)
+        self.assertIn('전체 매뉴얼', ManualGeneration.query.get(data['manual_id']).phase2_markdown or '')
+
+    def test_admin_manual_generation_does_not_need_business_number(self):
+        response = self.client.post('/api/iso-manual/session', json=self._manual_payload(),
+                                    headers=auth_headers(self.admin_user))
+        self.assertEqual(response.status_code, 201)
+
+    def test_company_registers_business_number_after_nts_check(self):
+        with patch.dict(os.environ, {'NTS_BUSINESS_API_KEY': 'k'}), self._nts('01') as mock_post:
+            response = self.client.put('/api/me/business-number', json={'biz_reg_no': '220-81-12341'},
+                                       headers=auth_headers(self.other_company))
+        self.assertEqual(response.status_code, 200, response.get_json())
+        self.assertEqual(response.get_json()['biz_status'], 'verified')
+        user = User.query.get(self.other_company.id)
+        self.assertEqual(user.biz_reg_no, '2208112341')
+        # 국세청에는 번호만 보낸다
+        self.assertEqual(mock_post.call_args.kwargs['json'], {'b_no': ['2208112341']})
+
+        # 등록 후에는 AI 매뉴얼을 쓸 수 있다
+        ok = self.client.post('/api/iso-manual/session', json=self._manual_payload(),
+                              headers=auth_headers(self.other_company))
+        self.assertEqual(ok.status_code, 201)
+
+    def test_business_number_rejections(self):
+        headers = auth_headers(self.other_company)
+        bad = self.client.put('/api/me/business-number', json={'biz_reg_no': '1234567890'}, headers=headers)
+        self.assertEqual(bad.get_json()['code'], 'BUSINESS_NUMBER_INVALID')
+        with patch.dict(os.environ, {'NTS_BUSINESS_API_KEY': 'k'}):
+            for code, expected in (('', 'BUSINESS_NOT_FOUND'), ('03', 'BUSINESS_CLOSED'), ('02', 'BUSINESS_SUSPENDED')):
+                with self._nts(code):
+                    response = self.client.put('/api/me/business-number', json={'biz_reg_no': '2208112341'},
+                                               headers=headers)
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.get_json()['code'], expected)
+        self.assertIsNone(User.query.get(self.other_company.id).biz_reg_no)
+
+    def test_business_number_saved_as_unchecked_when_nts_is_down(self):
+        with patch.dict(os.environ, {'NTS_BUSINESS_API_KEY': 'k'}), self._nts(status_code=503):
+            response = self.client.put('/api/me/business-number', json={'biz_reg_no': '2208112341'},
+                                       headers=auth_headers(self.other_company))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()['biz_status'], 'unchecked')
+
+    def test_only_company_users_have_business_number(self):
+        response = self.client.put('/api/me/business-number', json={'biz_reg_no': '2208112341'},
+                                   headers=auth_headers(self.consultant_user))
+        self.assertEqual(response.status_code, 403)
+
+    def test_signup_business_number_is_optional_but_checked_when_given(self):
+        base = {'password': 'password123', 'name': '담당자', 'company_name': '새회사', 'role': 'company'}
+        without = self.client.post('/api/auth/signup', json={**base, 'email': 'nobiz@example.com'})
+        self.assertEqual(without.status_code, 201)
+        with patch.dict(os.environ, {'NTS_BUSINESS_API_KEY': 'k'}):
+            with self._nts('03'):
+                closed = self.client.post('/api/auth/signup', json={**base, 'email': 'closed@example.com',
+                                                                    'biz_reg_no': '2208112341'})
+            with self._nts('01'):
+                good = self.client.post('/api/auth/signup', json={**base, 'email': 'good@example.com',
+                                                                  'biz_reg_no': '2208112341'})
+        self.assertEqual(closed.status_code, 400)
+        self.assertIsNone(User.query.filter_by(email='closed@example.com').first())
+        self.assertEqual(good.status_code, 201)
+        self.assertEqual(User.query.filter_by(email='good@example.com').first().biz_status, 'verified')
+
+    def test_login_payload_and_consultant_view_expose_business_status(self):
+        from werkzeug.security import generate_password_hash
+        self.company.password_hash = generate_password_hash('password123')
+        db.session.commit()
+        login = self.client.post('/api/auth/login', json={'email': self.company.email, 'password': 'password123'})
+        self.assertEqual(login.get_json()['user']['biz_status'], 'verified')
+        projects = self.client.get('/api/projects', headers=auth_headers(self.consultant_user)).get_json()
+        self.assertTrue(all(p['company_business_verified'] for p in projects))
+        self.assertNotIn('biz_reg_no', json.dumps(projects))  # 컨설턴트에게 번호는 안 보낸다
+
+    def test_admin_can_recheck_or_manually_confirm_business_number(self):
+        url = f'/api/admin/users/{self.other_company.id}/business-number'
+        manual = self.client.post(url, json={'mode': 'manual', 'biz_reg_no': '1018100001'},
+                                  headers=auth_headers(self.admin_user))
+        self.assertEqual(manual.status_code, 200)
+        self.assertEqual(manual.get_json()['biz_status'], 'manual')
+        with patch.dict(os.environ, {'NTS_BUSINESS_API_KEY': 'k'}), self._nts('01'):
+            recheck = self.client.post(url, json={'mode': 'recheck'}, headers=auth_headers(self.admin_user))
+        self.assertEqual(recheck.get_json()['biz_status'], 'verified')
+        self.assertEqual([log.action for log in AdminActionLog.query.order_by(AdminActionLog.id).all()],
+                         ['business_number_manual', 'business_number_recheck'])
+        forbidden = self.client.post(url, json={'mode': 'manual', 'biz_reg_no': '1018100001'},
+                                     headers=auth_headers(self.company))
+        self.assertEqual(forbidden.status_code, 403)
+
+    def test_quote_request_email_links_to_frontend_base_url(self):
+        """견적 요청 메일의 대시보드 링크가 메서드 기본값(www.insightmatch.com)으로 빠지면 안 된다.
+
+        그 도메인은 보유하지 않아 DNS 가 없고, 컨설턴트가 링크를 눌러도 아무 데도 가지 않는다.
+        """
+        from index import email_service
+
+        quote_user = User(email='quote-consultant@example.com', password_hash='x',
+                          role='consultant', name='Quote Consultant User')
+        db.session.add(quote_user)
+        db.session.flush()
+        quote_consultant = Consultant(user_id=quote_user.id, name='Quote Expert',
+                                      verified=True, status='verified')
+        db.session.add(quote_consultant)
+        db.session.commit()
+
+        with patch.dict(os.environ, {'BASE_URL': 'https://app.example.test'}), \
+                patch.object(email_service, 'send_quote_request_to_consultant', autospec=True,
+                             return_value={'success': True}) as mock_send, \
+                patch.object(email_service, 'send_quote_confirmation_to_company', autospec=True,
+                             return_value={'success': True}):
+            response = self.client.post(
+                '/api/quotes/request',
+                json={'consultant_ids': [quote_consultant.id], 'analysis_context': {}},
+                headers=auth_headers(self.company),
+            )
+
+        self.assertEqual(response.status_code, 201, response.get_json())
+        mock_send.assert_called_once()
+        self.assertEqual(mock_send.call_args.kwargs.get('dashboard_url'),
+                         'https://app.example.test/dashboard.html')
+
     def test_standard_codes_are_normalized_for_email(self):
         """L0: 저장된 진단 맥락에는 [{'code': ...}] 형태가 섞여 들어올 수 있다.
 
@@ -2663,6 +3309,17 @@ class TestWorkflowSecurity(unittest.TestCase):
             404,
         )
 
+    def test_legacy_english_milestone_titles_are_shown_in_korean(self):
+        """예전 영어 기본 단계명은 DB 를 바꾸지 않고 응답에서만 한국어로 보인다. 직접 입력한 이름은 그대로."""
+        for title in ('Kick-off Meeting', 'Gap Analysis', 'Final Certification', '사내 교육'):
+            db.session.add(Milestone(project_id=self.project.id, title=title))
+        db.session.commit()
+
+        projects = self.client.get('/api/projects', headers=auth_headers(self.company)).get_json()
+        titles = [m['title'] for p in projects if p['id'] == self.project.id for m in p['milestones']]
+        self.assertEqual(titles, ['착수 회의', '진단·갭 분석', '인증심사', '사내 교육'])
+        self.assertEqual(Milestone.query.filter_by(title='Kick-off Meeting').count(), 1)  # 저장값은 그대로
+
     def test_milestone_status_update_requires_participant_and_valid_status(self):
         """L0: 마일스톤 status 를 바꾸는 코드가 없어 항상 pending 이었다."""
         project = self._contracted_project(status='contracted')
@@ -2932,6 +3589,53 @@ class TestWorkflowSecurity(unittest.TestCase):
                                    headers=auth_headers(self.admin_user))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()['days'], 365)
+
+    def _seed_manual_rows(self):
+        """기업 2명: A 는 1단계+전체 받기까지 했고 이후 견적 요청, B 는 세션만 만들고 이탈."""
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        earlier = now - datetime.timedelta(hours=2)
+        def manual(mid, user, p1=None, p2=None, created=None):
+            row = ManualGeneration(id=mid, user_id=user.id, token_hash='h', token_expires_at=now,
+                                   form_data='{}', phase1_markdown=p1, phase2_markdown=p2, created_at=created or earlier)
+            db.session.add(row)
+        manual('m-a1', self.company, p1='# 1~6절', p2='# 7~10절')
+        manual('m-a2', self.company, p1='# 1~6절')            # 같은 사람의 두 번째 세션 — 사람은 한 번만 센다
+        manual('m-b1', self.other_company)                    # 세션만 만들고 이탈
+        db.session.commit()
+
+    def test_funnel_stats_includes_ai_manual_stages_in_users(self):
+        self._seed_manual_rows()
+        # self.company 는 setUp 에서 견적(프로젝트)을 만들었고 그것은 이 매뉴얼(2시간 전)보다 뒤 — 견적으로 이어진 1명
+        data, _ = self._funnel()
+        stages = {s['key']: s for s in data['manualFunnel']}
+        self.assertEqual([s['key'] for s in data['manualFunnel']],
+                         ['manual_started', 'manual_preview_done', 'manual_full_done', 'manual_to_quote'])
+        self.assertEqual(stages['manual_started']['count'], 2)
+        self.assertEqual(stages['manual_preview_done']['count'], 1)
+        self.assertEqual(stages['manual_full_done']['count'], 1)
+        self.assertEqual(stages['manual_to_quote']['count'], 1)
+        self.assertEqual(stages['manual_preview_done']['rateFromPrev'], 50.0)
+        self.assertTrue(all(s['unit'] == '명' for s in data['manualFunnel']))
+
+    def test_manual_funnel_counts_only_quotes_made_after_the_manual(self):
+        self._seed_manual_rows()
+        now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        # other_company 의 견적은 매뉴얼(2시간 전)보다 먼저(3시간 전) — 매뉴얼에서 이어진 것이 아니다
+        db.session.add(Project(company_id=self.other_company.id, consultant_id=self.consultant.id, title='매뉴얼 전 견적',
+                               session_id='before-manual', status='proposal_pending',
+                               created_at=now - datetime.timedelta(hours=3)))
+        db.session.commit()
+        data, _ = self._funnel()
+        stages = {s['key']: s for s in data['manualFunnel']}
+        self.assertEqual(stages['manual_to_quote']['count'], 1)           # self.company 만
+        self.assertEqual(stages['manual_to_quote']['rateFromPrev'], 50.0)  # 시작한 2명 중 1명
+
+    def test_manual_funnel_has_no_data_does_not_divide_by_zero(self):
+        data, _ = self._funnel()
+        for stage in data['manualFunnel']:
+            self.assertEqual(stage['count'], 0)
+        self.assertIsNone(data['manualFunnel'][1]['rateFromPrev'])
+        self.assertTrue(any('AI 매뉴얼' in text for text in data['limitations']))
 
     def test_funnel_stats_states_its_measurement_limits(self):
         """파생 집계의 한계를 응답이 스스로 밝혀야 한다 (숨기면 전환율을 오해한다)."""

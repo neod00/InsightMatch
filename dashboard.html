@@ -29,6 +29,7 @@
     <!-- 아이콘: 스크립트가 그리는 HTML 이 data-lucide 를 쓰고 lucide.createIcons() 를 부르므로
          lucide 는 남기되 메인페이지와 같은 고정 버전으로 로드한다(@latest 금지). -->
     <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+    <script src="business-number.js"></script>
 
     <!-- B안 공통 스타일(15절: 앱 셸·대시보드). Tailwind CDN·style.css 는 로드하지 않는다.
          예전에 로드하던 Supabase JS 는 이 페이지에서 쓰는 곳이 없어 뺐다(업로드는 서버 API 경유). -->
@@ -137,6 +138,15 @@
                 <i data-lucide="user"></i>
                 내 프로필
             </button>
+        </div>
+
+        <!-- 기업 사업자 정보 (기업 회원에게만 스크립트가 표시) -->
+        <div id="biz-number-card" class="hm-dash-card hidden" style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
+            <div style="min-width:0;">
+                <strong style="display:block;margin-bottom:4px;">사업자등록번호</strong>
+                <span data-biz-value style="font-size:14px;color:var(--muted, #6b6c66);"></span>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" data-biz-action onclick="editBusinessNumber()">등록하기</button>
         </div>
 
         <!-- 요청 목록 탭 -->
@@ -663,7 +673,7 @@
             <div class="modal-header">
                 <h3 id="contract-modal-h">
                     <i data-lucide="file-signature"></i>
-                    ISO 컨설팅 표준 계약서
+                    <span id="contract-modal-title">ISO 컨설팅 표준 계약서</span>
                 </h3>
                 <button type="button" onclick="closeContractModal()" class="hm-icon-btn is-plain" aria-label="닫기">
                     <i data-lucide="x"></i>
@@ -959,6 +969,44 @@
                 headerTitle.textContent = '내 견적 요청';
                 headerDesc.textContent = '전문가에게 요청한 견적 현황을 확인하세요.';
                 if (actionBtn) actionBtn.style.display = 'flex';
+                if (user.role === 'company') renderBusinessNumberCard();
+            }
+        }
+
+        // --- 기업 사업자등록번호 (견적 요청·AI 매뉴얼 전 필수, 국세청 상태조회) ---
+        const BIZ_STATUS_TEXT = {
+            verified: '국세청 확인 완료',
+            manual: '관리자 확인 완료',
+            unchecked: '국세청 조회 대기 — 관리자가 확인합니다'
+        };
+
+        async function renderBusinessNumberCard() {
+            const card = document.getElementById('biz-number-card');
+            if (!card) return;
+            let info = { biz_reg_no: '', biz_status: '' };
+            try {
+                const res = await authFetch(`${API_BASE_URL}/api/me/business-number`);
+                if (res.ok) info = await res.json();
+            } catch (e) { /* 표시만 못 할 뿐 다른 기능에는 영향 없음 */ }
+
+            const has = Boolean(info.biz_reg_no);
+            const number = has && window.InsightBiz ? window.InsightBiz.formatNumber(info.biz_reg_no) : '';
+            card.querySelector('[data-biz-value]').textContent = has
+                ? `${number} · ${BIZ_STATUS_TEXT[info.biz_status] || '확인 상태 미상'}`
+                : '아직 등록하지 않았습니다. 견적 요청과 AI 매뉴얼 전체 받기 전에 한 번 등록해 주세요.';
+            card.querySelector('[data-biz-action]').textContent = has ? '변경' : '등록하기';
+            card.classList.remove('hidden');
+        }
+
+        async function editBusinessNumber() {
+            if (!window.InsightBiz) return;
+            const saved = await window.InsightBiz.open({
+                apiBase: API_BASE_URL,
+                message: '회사 사업자등록번호를 입력하면 국세청에 영업 상태를 조회해 확인합니다.'
+            });
+            if (saved) {
+                showNotification('사업자등록번호가 확인되었습니다.', 'success');
+                renderBusinessNumberCard();
             }
         }
 
@@ -1224,6 +1272,7 @@
                             <div class="quote-request-title">${escapeHtml(project.title)}</div>
                             <div class="quote-request-meta">
                                 <span><i data-lucide="building"></i> ${escapeHtml(project.company_name || '기업 고객')}</span>
+                                ${project.company_business_verified ? '<span title="국세청 또는 관리자가 영업 중인 사업자임을 확인했습니다"><i data-lucide="badge-check"></i> 사업자 확인됨</span>' : ''}
                                 <span><i data-lucide="calendar"></i> ${requestDate} 요청</span>
                             </div>
                         </div>
@@ -1371,6 +1420,12 @@
                                     메시지
                                 </button>
                                 <button class="btn btn-primary" onclick="enterProjectRoom(${project.id})">프로젝트 관리</button>
+                            ` : ''}
+                            ${['contracted', 'in_progress', 'completed'].includes(project.status) ? `
+                                <button class="btn btn-secondary" onclick="openContractModal(${Number(project.id)})">
+                                    <i data-lucide="file-signature" style="width: 16px; height: 16px;"></i>
+                                    계약서 보기
+                                </button>
                             ` : ''}
                         </div>
                     </div>
@@ -1620,7 +1675,7 @@
                         ${proposalFileUrl ? `
                         <div class="proposal-preview-row">
                             <span class="proposal-label">첨부 파일</span>
-                            <a href="${proposalFileUrl}" target="_blank" rel="noopener noreferrer" class="proposal-value highlight">첨부된 파일 보기</a>
+                            <a href="#" onclick="downloadProposal(${Number(project.id)}); return false;" class="proposal-value highlight">첨부된 파일 보기</a>
                         </div>
                         ` : ''}
                     </div>
@@ -1680,6 +1735,12 @@
                             일정 확인
                         </button>
                         ` : ''}
+                        ` : ''}
+                        ${['contracted', 'in_progress', 'completed'].includes(project.status) ? `
+                        <button class="btn btn-secondary btn-sm" onclick="openContractModal(${Number(project.id)})">
+                            <i data-lucide="file-signature" style="width: 14px; height: 14px;"></i>
+                            계약서 보기
+                        </button>
                         ` : ''}
                     </div>
                 </div>
@@ -1759,6 +1820,8 @@
                     }
                 `;
 
+                // 같은 모달을 '진행 현황'과 함께 쓰므로 제목을 매번 맞춘다.
+                setModalTitle('컨설턴트 프로필');
                 document.getElementById('consultant-modal').classList.remove('hidden');
                 lucide.createIcons();
 
@@ -1772,8 +1835,46 @@
             document.getElementById('consultant-modal').classList.add('hidden');
         }
 
+        function setModalTitle(text) {
+            document.querySelector('#consultant-modal .modal-header h3').textContent = text;
+            document.querySelector('#consultant-modal .modal-content').setAttribute('aria-label', text);
+        }
+
+        // 제안서 열기/내려받기. 파일 주소는 로그인 정보가 있어야 받을 수 있어(주소 이동만으로는 인증 헤더가 안 붙는다)
+        // fetch 로 요청한 뒤, 잠깐 유효한 주소(JSON)나 요약 PDF(파일)를 연다.
         async function downloadProposal(projectId) {
-            window.location.href = `${API_BASE_URL}/api/projects/${projectId}/proposal/download`;
+            // 팝업 차단을 피하려면 클릭 직후에 창을 먼저 열어 둬야 한다.
+            const popup = window.open('', '_blank');
+            if (popup) popup.opener = null;
+            try {
+                const res = await authFetch(`${API_BASE_URL}/api/projects/${Number(projectId)}/proposal/download?format=json`);
+                if (!res.ok) {
+                    let message = '제안서를 불러오지 못했습니다.';
+                    try { message = (await res.json()).message || message; } catch (e) { /* 본문 없음 */ }
+                    if (popup) popup.close();
+                    showNotification(message, 'error');
+                    return;
+                }
+                if ((res.headers.get('content-type') || '').includes('application/json')) {
+                    const data = await res.json();
+                    if (popup) popup.location.href = data.url; else window.location.href = data.url;
+                    return;
+                }
+                const blob = await res.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = `proposal_${Number(projectId)}.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+                if (popup) popup.close();
+            } catch (error) {
+                if (popup) popup.close();
+                console.error('제안서 열기 실패:', error);
+                showNotification('제안서를 불러오지 못했습니다.', 'error');
+            }
         }
 
         async function selectConsultant(projectId) {
@@ -1862,6 +1963,8 @@
         // 계약서 관련 함수
         // ========================================
 
+        let currentContractHash = '';
+
         async function openContractModal(projectId) {
             document.getElementById('contract-project-id').value = projectId;
             document.getElementById('contract-modal').classList.remove('hidden');
@@ -1870,43 +1973,20 @@
                 const response = await authFetch(`${API_BASE_URL}/api/projects/${projectId}/contract/preview`);
                 const data = await response.json();
 
-                // 계약서 미리보기 렌더링
-                document.getElementById('contract-preview').innerHTML = `
-                    <div style="text-align: center; margin-bottom: 20px;">
-                        <strong style="font-size: 1.1rem;">ISO 인증 컨설팅 용역 계약서</strong>
-                    </div>
-                    
-                    <p><strong>제1조 (계약 당사자)</strong></p>
-                    <p style="margin-left: 16px;">
-                        갑(의뢰인): <strong>${escapeHtml(data.company_name)}</strong> ${data.company_company_name ? `(${escapeHtml(data.company_company_name)})` : ''}<br>
-                        을(수행자): <strong>${escapeHtml(data.consultant_name)}</strong> ${data.consultant_company_name ? `(${escapeHtml(data.consultant_company_name)})` : ''}
-                    </p>
-                    
-                    <p><strong>제2조 (용역 내용)</strong></p>
-                    <p style="margin-left: 16px;">
-                        본 계약의 대상 용역은 <strong>${escapeHtml(data.title)}</strong>으로 한다.
-                    </p>
-                    
-                    <p><strong>제3조 (계약 금액)</strong></p>
-                    <p style="margin-left: 16px;">
-                        본 용역의 총 계약금액은 <strong>${data.proposal_price ? data.proposal_price.toLocaleString() + '원' : '별도 협의'}</strong>으로 한다.
-                    </p>
-                    
-                    <p><strong>제4조 (수행 기간)</strong></p>
-                    <p style="margin-left: 16px;">
-                        본 용역의 수행 기간은 계약 체결일로부터 <strong>${escapeHtml(data.proposal_duration || '별도 협의 기간')}</strong>으로 한다.
-                    </p>
-                    
-                    <p><strong>제5조 (비밀 유지)</strong></p>
-                    <p style="margin-left: 16px;">
-                        갑과 을은 본 계약의 수행 과정에서 취득한 상대방의 비밀 정보를 제3자에게 누설하거나 본 계약 외의 목적으로 사용하지 않는다.
-                    </p>
-                    
-                    ${data.special_terms ? `
-                    <p><strong>특약 사항</strong></p>
-                    <p style="margin-left: 16px; white-space: pre-wrap;">${escapeHtml(data.special_terms)}</p>
-                    ` : ''}
-                `;
+                // 계약서 미리보기 렌더링 — 서버가 만든 원문을 그대로 보여 준다(서명 시 이 원문의 해시를 보내 같은 내용임을 확인).
+                currentContractHash = data.contract_hash || '';
+                const contractLines = String(data.contract_text || '').split('\n');
+                document.getElementById('contract-preview').innerHTML = contractLines.map((line, index) => {
+                    if (index === 0) return `<div style="text-align: center; margin-bottom: 20px;"><strong style="font-size: 1.1rem;">${escapeHtml(line)}</strong></div>`;
+                    if (!line.trim()) return '';
+                    if (/^(제\d+조 |특약 사항)/.test(line)) return `<p><strong>${escapeHtml(line)}</strong></p>`;
+                    if (/^\(계약서 문안 버전/.test(line)) return `<p style="margin-top: 16px; font-size: 12px; color: var(--muted);">${escapeHtml(line)}</p>`;
+                    return `<p style="margin-left: 16px; white-space: pre-wrap;">${escapeHtml(line)}</p>`;
+                }).join('');
+
+                // 체결된 계약은 읽기 전용(서명 버튼 없음, 서명 기록 표시)
+                const readOnly = ['contracted', 'in_progress', 'completed'].includes(data.status);
+                document.getElementById('contract-modal-title').textContent = readOnly ? '체결된 계약서' : 'ISO 컨설팅 표준 계약서';
 
                 // 서명 상태 표시
                 const companySigned = data.company_signed_at;
@@ -1923,16 +2003,20 @@
                         </div>
                         <div class="hm-sign ${consultantSigned ? 'is-done' : ''}">
                             <i data-lucide="${consultantSigned ? 'check-circle' : 'circle'}"></i>
-                            <div>전문가 서명 ${consultantSigned ? '완료' : '대기'}</div>
+                            <div>컨설턴트 서명 ${consultantSigned ? '완료' : '대기'}</div>
                         </div>
                     </div>
                 `;
 
                 // 이미 내가 서명한 경우 버튼 비활성화
                 const signBtn = document.getElementById('contract-sign-btn');
-                if (mySignStatus) {
+                signBtn.classList.toggle('hidden', readOnly);
+                if (readOnly) {
+                    document.getElementById('contract-signature-status').insertAdjacentHTML('beforeend', renderContractEvidence(data));
+                } else if (mySignStatus) {
+                    // 누를 수 있는 버튼처럼 보이지 않도록 상태 문구로 바꾼다.
                     signBtn.disabled = true;
-                    signBtn.textContent = '서명 완료';
+                    signBtn.textContent = otherSignStatus ? '양측 서명 완료' : '내 서명 완료 · 상대 서명 대기';
                     signBtn.style.opacity = '0.5';
                 } else {
                     signBtn.disabled = false;
@@ -1946,6 +2030,25 @@
                 console.error(error);
                 document.getElementById('contract-preview').innerHTML = '<p style="color: var(--error);">계약서를 불러오지 못했습니다.</p>';
             }
+        }
+
+        // 체결된 계약의 서명 기록: 누가·언제·어떤 문안 버전·원문 확인값. 사용자 입력값은 모두 escapeHtml.
+        function renderContractEvidence(data) {
+            const roleText = { company: '기업', consultant: '컨설턴트' };
+            const rows = (data.signatures || []).map(s => `
+                <li>${escapeHtml(roleText[s.signer_role] || '')} · ${escapeHtml(s.signer_name || '')} ·
+                    ${escapeHtml(s.signed_at ? new Date(s.signed_at + (/[zZ]|[+-]\d\d:\d\d$/.test(s.signed_at) ? '' : 'Z')).toLocaleString('ko-KR') : '')} ·
+                    문안 ${escapeHtml(s.contract_version || '')} ·
+                    원문 확인값 <code title="${escapeAttr(s.contract_hash || '')}">${escapeHtml(String(s.contract_hash || '').slice(0, 12))}…</code></li>`).join('');
+            if (rows) {
+                return `<div class="hm-note is-info" style="margin-top:16px;"><i data-lucide="shield-check"></i>
+                    <span>서명 당시의 계약서 원문이 그대로 보관되어 있고, 위 내용은 그 원문입니다.<ul style="margin:8px 0 0;padding-left:18px;">${rows}</ul></span></div>`;
+            }
+            const when = [data.company_signed_at, data.consultant_signed_at].filter(Boolean).length
+                ? '서명 시각만 기록되어 있고' : '';
+            return `<div class="hm-note is-warn" style="margin-top:16px;"><i data-lucide="info"></i>
+                <span>이 계약은 서명 기록 기능 이전에 체결되어 ${when} 서명 당시의 원문이 보관되어 있지 않습니다.
+                위 내용은 현재 정보로 다시 만든 문안이라 실제 서명한 문안과 다를 수 있습니다.</span></div>`;
         }
 
         function closeContractModal() {
@@ -1962,7 +2065,8 @@
                 const response = await authFetch(`${API_BASE_URL}/api/projects/${projectId}/contract/sign`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ signer })
+                    // 화면에 보인 원문의 해시. 그사이 내용이 바뀌었으면 서버가 409 로 알려 준다.
+                    body: JSON.stringify({ signer, contract_hash: currentContractHash })
                 });
 
                 const data = await response.json();
@@ -1971,6 +2075,9 @@
                     showNotification(data.message, 'success');
                     closeContractModal();
                     fetchProjects();
+                } else if (response.status === 409) {
+                    showNotification(data.message || '계약서 내용이 바뀌었습니다. 다시 확인해 주세요.', 'error');
+                    openContractModal(projectId);
                 } else {
                     showNotification(data.message || '서명에 실패했습니다.', 'error');
                 }
@@ -2079,9 +2186,102 @@
             }
         }
 
-        function viewProjectProgress(projectId) {
-            // TODO: 프로젝트 상세 페이지로 이동
-            showNotification('프로젝트 상세 페이지는 준비 중입니다.', 'info');
+        // --- 진행 현황 (계약 후 마일스톤) ---
+        // 기업·컨설턴트 모두 마일스톤 상태를 바꿀 수 있다(서버 권한: 프로젝트 당사자 양측, 계약 이후).
+        const MILESTONE_STATUS_TEXT = { pending: '대기', in_progress: '진행 중', completed: '완료' };
+        const SCHEDULE_STATUS_TEXT = { pending: '일정 미정', proposed: '일정 제안됨 (확인 대기)', confirmed: '일정 확정' };
+        let progressProjectId = null;
+
+        function renderProjectProgress(project) {
+            const milestones = Array.isArray(project.milestones) ? project.milestones : [];
+            const done = milestones.filter(m => m.status === 'completed').length;
+            const percent = milestones.length ? Math.round((done / milestones.length) * 100) : 0;
+            const editable = ['contracted', 'in_progress', 'completed'].includes(project.status);
+            const counterpart = user.role === 'consultant'
+                ? (project.company_name || '기업 고객')
+                : (project.consultant_name || '컨설턴트');
+
+            const rows = milestones.map(m => {
+                const status = MILESTONE_STATUS_TEXT[m.status] ? m.status : 'pending';
+                const due = m.due_date ? new Date(m.due_date).toLocaleDateString('ko-KR') : '날짜 미정';
+                const options = Object.entries(MILESTONE_STATUS_TEXT).map(([value, label]) =>
+                    `<option value="${value}" ${value === status ? 'selected' : ''}>${label}</option>`).join('');
+                return `
+                    <div class="milestone-schedule-item">
+                        <span>
+                            ${escapeHtml(m.title)}
+                            <small style="display:block;margin-top:2px;font-weight:400;color:var(--muted);">${escapeHtml(due)}</small>
+                        </span>
+                        <select aria-label="${escapeAttr(m.title)} 상태" ${editable ? '' : 'disabled'}
+                            onchange="updateMilestoneStatus(${Number(project.id)}, ${Number(m.id)}, this.value)"
+                            style="min-height:40px;padding:0 10px;border:1.5px solid var(--line);border-radius:12px;background:var(--white);font-size:14px;">
+                            ${options}
+                        </select>
+                    </div>`;
+            }).join('');
+
+            document.getElementById('modal-body').innerHTML = `
+                <div style="margin-bottom:20px;">
+                    <h4 style="margin:0 0 4px;font-size:18px;">${escapeHtml(project.title)}</h4>
+                    <p style="margin:0;color:var(--muted);font-size:14px;">${escapeHtml(counterpart)} · ${escapeHtml(SCHEDULE_STATUS_TEXT[project.schedule_status] || SCHEDULE_STATUS_TEXT.pending)}</p>
+                </div>
+                <div style="margin-bottom:20px;">
+                    <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:8px;">
+                        <span>진행률</span><strong>${percent}% (${done}/${milestones.length})</strong>
+                    </div>
+                    <div role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"
+                        style="height:10px;border-radius:999px;background:var(--line);overflow:hidden;">
+                        <div style="width:${percent}%;height:100%;background:var(--lime);"></div>
+                    </div>
+                </div>
+                ${milestones.length
+                    ? `<div>${rows}</div>
+                       <p style="margin:16px 0 0;font-size:13px;color:var(--muted);">단계를 시작하거나 마치면 상태를 바꿔 주세요. 상대방 화면에도 바로 반영됩니다.</p>`
+                    : '<p class="hm-empty-note">아직 마일스톤이 없습니다. 계약이 체결되면 기본 단계가 만들어집니다.</p>'}
+            `;
+        }
+
+        async function viewProjectProgress(projectId) {
+            progressProjectId = Number(projectId);
+            let project = (typeof allProjects !== 'undefined' ? allProjects : []).find(p => p.id === progressProjectId);
+            if (!project) {
+                try {
+                    const res = await authFetch(`${API_BASE_URL}/api/projects?user_id=${user.id}`);
+                    if (res.ok) project = (await res.json()).find(p => p.id === progressProjectId);
+                } catch (e) { /* 아래에서 안내 */ }
+            }
+            if (!project) {
+                showNotification('프로젝트 정보를 불러올 수 없습니다.', 'error');
+                return;
+            }
+            renderProjectProgress(project);
+            setModalTitle('진행 현황');
+            document.getElementById('consultant-modal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        async function updateMilestoneStatus(projectId, milestoneId, status) {
+            try {
+                const res = await authFetch(`${API_BASE_URL}/api/projects/${Number(projectId)}/milestones/${Number(milestoneId)}/status`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    showNotification(data.message || '상태를 바꾸지 못했습니다.', 'error');
+                } else {
+                    showNotification('진행 상태를 저장했습니다.', 'success');
+                }
+            } catch (error) {
+                showNotification('서버 연결에 실패했습니다.', 'error');
+            }
+            // 카드와 모달을 서버 값으로 다시 그린다(실패했으면 원래 값으로 되돌아간다).
+            await fetchProjects();
+            if (progressProjectId === Number(projectId)) {
+                const project = allProjects.find(p => p.id === Number(projectId));
+                if (project) renderProjectProgress(project);
+            }
         }
 
         function logout() {
@@ -2545,7 +2745,7 @@
             if (!user) return;
 
             try {
-                const response = await authFetch(`${API_BASE_URL}/api/projects/add-consultant`, {
+                const sendAddRequest = () => authFetch(`${API_BASE_URL}/api/projects/add-consultant`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2555,6 +2755,12 @@
                         session_id: currentAddSessionId // 세션 ID 추가
                     })
                 });
+                let response = await sendAddRequest();
+                // 사업자등록번호가 없으면 입력 창을 띄우고, 확인되면 같은 요청을 다시 보낸다.
+                if (window.InsightBiz && await window.InsightBiz.handle(response, { apiBase: API_BASE_URL })) {
+                    response = await sendAddRequest();
+                    renderBusinessNumberCard();
+                }
 
                 if (response.ok) {
                     showNotification(`${consultantName}에게 견적 요청을 추가했습니다.`, 'success');
@@ -2870,7 +3076,8 @@
 
         // 프로젝트 방 입장 (계약 후)
         window.enterProjectRoom = function (projectId) {
-            showNotification('프로젝트 관리 페이지는 준비 중입니다.', 'info');
+            // 컨설턴트의 '프로젝트 관리'도 같은 진행 현황(마일스톤) 화면을 연다.
+            viewProjectProgress(projectId);
         };
 
         // 내 제안 보기

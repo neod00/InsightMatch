@@ -65,6 +65,13 @@ class User(db.Model):
     # 이전에 발급된 JWT는 즉시 무효가 된다.
     token_version = db.Column(db.Integer, nullable=False, default=0, server_default='0')
 
+    # ── 기업 사업자등록번호 (기업 회원만 사용) ──
+    # 가입 때는 선택, 견적 요청·AI 매뉴얼 전체 받기(7절 이후·다운로드) 전에는 필수. 국세청 상태조회로 확인한다.
+    # ⚠️ 운영 DB 는 create_all 이 열을 추가하지 않는다 — migrations/README.md 의 ALTER TABLE 을 먼저 실행할 것.
+    biz_reg_no = db.Column(db.String(20), nullable=True)      # 숫자 10자리
+    biz_status = db.Column(db.String(20), nullable=True)      # 'verified'(계속사업자) | 'unchecked'(조회 불가·관리자 확인) | 'manual'(관리자 직접 확인)
+    biz_checked_at = db.Column(db.DateTime, nullable=True)    # 마지막 확인 시각
+
     # ── 회원 탈퇴(소프트 삭제) 시각. NULL 이면 정상 계정 ──
     #
     # 행을 지우지 않는 이유: user.id 를 참조하는 곳이 너무 많다.
@@ -276,6 +283,34 @@ class AdminActionLog(db.Model):
             'createdAt': self.created_at.isoformat() if self.created_at else None
         }
 
+class ContractSignature(db.Model):
+    """계약서 서명 증거 (추가만 하고 고치거나 지우지 않는다).
+
+    서명 시각만 남기던 때에는 '무엇에 서명했는지'를 입증할 수 없었다(계약서 문구는 화면이 그때그때 만들었다).
+    서명 순간의 계약서 원문·버전·해시와 서명자·접속 정보를 그대로 남긴다.
+    두 번째 서명자는 첫 서명자와 같은 원문(같은 해시)에만 서명할 수 있다.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id'), nullable=False, index=True)
+    signer_role = db.Column(db.String(20), nullable=False)        # 'company' | 'consultant'
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    signer_name = db.Column(db.String(100))                        # 서명 당시 이름 (나중에 바뀌어도 남는다)
+    contract_version = db.Column(db.String(40), nullable=False)
+    contract_hash = db.Column(db.String(64), nullable=False)       # 원문 SHA-256
+    contract_text = db.Column(db.Text, nullable=False)             # 서명한 원문 그대로
+    ip_address = db.Column(db.String(64))
+    user_agent = db.Column(db.String(300))
+    signed_at = db.Column(db.DateTime, default=utc_now, nullable=False)
+
+    def to_dict(self):
+        return {
+            'signer_role': self.signer_role,
+            'signer_name': self.signer_name,
+            'contract_version': self.contract_version,
+            'contract_hash': self.contract_hash,
+            'signed_at': self.signed_at.isoformat() if self.signed_at else None,
+        }
+
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -373,6 +408,10 @@ class Project(db.Model):
     # ⑥ 계약서 (Contract) 관련 필드
     contract_pdf_url = db.Column(db.String(500))  # 생성된 계약서 PDF URL
     contract_special_terms = db.Column(db.Text)  # 특약 사항
+    # 대금 지급 일정 JSON: [{"label": "선금", "percent": 50, "due": "계약 체결 후 7일 이내"}, ...]
+    # 비어 있으면 기본(선금 50 · 잔금 50). 관리자가 서명 전에만 바꿀 수 있고, 계약서 본문에 그대로 들어간다.
+    # ⚠️ 운영 DB 는 migrations/README.md 의 ALTER TABLE 을 배포 전에 실행할 것.
+    payment_schedule = db.Column(db.Text)
     company_signed_at = db.Column(db.DateTime)  # 기업 서명 시간
     consultant_signed_at = db.Column(db.DateTime)  # 전문가 서명 시간
     
@@ -415,11 +454,20 @@ class Milestone(db.Model):
     title = db.Column(db.String(200), nullable=False)
     status = db.Column(db.String(50), default='pending') # pending, in_progress, completed
     due_date = db.Column(db.DateTime)
-    
+
+    # 2026-10 이전에 계약된 프로젝트는 영어 기본 단계명으로 저장돼 있다. DB 는 그대로 두고 보여 줄 때만 바꾼다.
+    LEGACY_TITLE_KO = {
+        'Kick-off Meeting': '착수 회의',
+        'Gap Analysis': '진단·갭 분석',
+        'Documentation': '문서·절차 구축',
+        'Internal Audit': '내부심사·시정조치',
+        'Final Certification': '인증심사',
+    }
+
     def to_dict(self):
         return {
             'id': self.id,
-            'title': self.title,
+            'title': self.LEGACY_TITLE_KO.get(self.title, self.title),
             'status': self.status,
             'due_date': self.due_date.isoformat() if self.due_date else None
         }

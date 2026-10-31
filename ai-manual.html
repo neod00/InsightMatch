@@ -18,6 +18,7 @@
     <!-- Marked.js for Markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.3/dist/purify.min.js"></script>
+    <script src="business-number.js"></script>
 
     <!-- Mermaid.js for Process Map (부록 B) diagram rendering -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
@@ -746,6 +747,7 @@
                             <button class="btn-unlock" onclick="unlockFullManual()" style="font-size:0.9rem;padding:12px 20px;">
                                 잠금 해제 →
                             </button>
+                            <p style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;">사업자등록번호 확인 후 이어서 생성됩니다</p>
                         </div>
                         <!-- Option B: 전문가 검토 (추천) -->
                         <div style="border:2px solid var(--primary);border-radius:12px;padding:20px;text-align:center;position:relative;background:rgba(197,168,128,0.05);">
@@ -1100,7 +1102,10 @@
         }
 
         function initIsoSelector() {
-            isoPreset = parseIsoPreset(new URLSearchParams(window.location.search));
+            // 가입 후 돌아와 되살린 선택이 있으면 그것을, 없으면 URL 프리셋을 쓴다
+            isoPreset = (restoredIsoPreset && restoredIsoPreset.length)
+                ? restoredIsoPreset
+                : parseIsoPreset(new URLSearchParams(window.location.search));
             if (isoPreset.length) applyIsoPreset();
             if (!Object.keys(isoSelected).length) {
                 // 기본: ISO 9001 (기존 select 기본값과 동일), edition 은 옵션의 기본값
@@ -1303,6 +1308,68 @@
         })();
 
         // ========== Form Submit ==========
+        // 가입하러 갔다 돌아와도 입력한 내용이 남도록 폼을 sessionStorage 에 잠깐 보관한다(탭을 닫으면 사라짐).
+        // id 가 있는 입력은 id 로, 체크박스는 같은 묶음의 순서로 저장해서 폼 구성이 바뀌어도 동작한다.
+        const MANUAL_DRAFT_KEY = 'manual_form_draft_v1';
+        // 규격·개정판 선택은 화면 체크 상태가 아니라 isoSelected 가 기준이다. 되살린 선택은 initIsoSelector()
+        // 가 URL 프리셋 대신 쓰도록 여기 담아 두고, 옵션 API 가 오면 프리셋과 같은 규칙으로 다시 맞춘다.
+        let restoredIsoPreset = null;  // [{ key, edition|null }]
+        function saveManualDraft() {
+            try {
+                const draft = { fields: {}, checks: {}, iso: [] };
+                document.querySelectorAll('#iso-form input[id], #iso-form select[id], #iso-form textarea[id]').forEach(el => {
+                    if (el.type === 'checkbox' || el.type === 'radio') draft.checks[el.id] = el.checked;
+                    else draft.fields[el.id] = el.value;
+                });
+                document.querySelectorAll('#iso-form .checkbox-group').forEach(group => {
+                    if (!group.id || group.id === 'target-iso-group') return;  // 규격은 아래 draft.iso 로 따로 저장
+                    draft.checks[group.id] = Array.from(group.querySelectorAll('input[type="checkbox"]')).map(cb => cb.checked);
+                });
+                // 사용자가 직접 고른 개정판만 기억한다(기본값이었으면 null → 돌아왔을 때 그때의 기본 개정판을 쓴다)
+                draft.iso = ISO_STD_ORDER.filter(k => isoSelected[k])
+                    .map(k => ({ key: k, edition: isoSelected[k].picked ? isoSelected[k].edition : null }));
+                sessionStorage.setItem(MANUAL_DRAFT_KEY, JSON.stringify(draft));
+            } catch (e) { /* 저장소를 못 쓰면 입력은 유지되지 않을 뿐 생성에는 영향 없음 */ }
+        }
+
+        function restoreManualDraft() {
+            let draft = null;
+            try { draft = JSON.parse(sessionStorage.getItem(MANUAL_DRAFT_KEY) || 'null'); } catch (e) { draft = null; }
+            if (!draft) return false;
+            try { sessionStorage.removeItem(MANUAL_DRAFT_KEY); } catch (e) { /* 무시 */ }
+            Object.entries(draft.fields || {}).forEach(([id, value]) => {
+                const el = document.getElementById(id);
+                if (el && typeof value === 'string') el.value = value;
+            });
+            Object.entries(draft.checks || {}).forEach(([id, value]) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (Array.isArray(value)) {
+                    el.querySelectorAll('input[type="checkbox"]').forEach((cb, i) => {
+                        cb.checked = Boolean(value[i]);
+                        if (cb.parentElement) cb.parentElement.classList.toggle('active', cb.checked);
+                    });
+                } else if (el.type === 'checkbox' || el.type === 'radio') {
+                    el.checked = Boolean(value);
+                }
+            });
+            if (Array.isArray(draft.iso)) {
+                const seen = new Set();
+                restoredIsoPreset = draft.iso.filter(p => p && ISO_STD_ORDER.includes(p.key) && !seen.has(p.key) && seen.add(p.key))
+                    .map(p => ({ key: p.key, edition: /^\d{4}$/.test(String(p.edition || '')) ? String(p.edition) : null }))
+                    .slice(0, 3);
+            }
+            return true;
+        }
+        // 입력한 내용을 되살렸고 로그인된 상태면 이어서 만들 수 있다고 알린다.
+        if (restoreManualDraft() && localStorage.getItem('token')) {
+            const note = document.createElement('p');
+            note.setAttribute('role', 'status');
+            note.style.cssText = 'margin:0 0 12px;padding:10px 14px;border-radius:10px;background:rgba(16,185,129,0.12);font-size:0.85rem;';
+            note.textContent = "가입이 끝났습니다. 입력하신 내용을 그대로 두었으니 '생성하기'를 눌러 이어서 진행해 주세요.";
+            document.getElementById('iso-form').prepend(note);
+        }
+
         document.getElementById('iso-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             if (isGenerating) return;
@@ -1326,10 +1393,13 @@
                 return;
             }
 
-            // 로그인 체크
+            // 로그인 체크 — 처음 온 분이 로그인 화면에서 막히지 않게 '무료 가입'으로 보내고, 입력한 내용은 돌아와서 이어 쓴다.
             const token = localStorage.getItem('token');
             if (!token) {
-                if (confirm('회원 로그인이 필요합니다.\n\n로그인 페이지로 이동하시겠습니까?')) {
+                saveManualDraft();
+                if (confirm('무료 회원가입 후 매뉴얼 초안을 만들 수 있습니다.\n\n지금 입력한 내용은 가입 후 돌아오면 그대로 남아 있습니다.\n회원가입 페이지로 이동하시겠습니까?\n(이미 회원이라면 [취소]를 누르고 로그인해 주세요)')) {
+                    window.location.href = 'signup.html?role=company&redirect=' + encodeURIComponent('ai-manual.html');
+                } else {
                     window.location.href = 'login.html?redirect=ai-manual.html';
                 }
                 return;
@@ -1348,7 +1418,7 @@
             });
 
             try {
-                const sessionResponse = await fetch(`${API_BASE_URL}/api/iso-manual/session`, {
+                const createSession = () => fetch(`${API_BASE_URL}/api/iso-manual/session`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1365,6 +1435,11 @@
                         reasons
                     })
                 });
+                let sessionResponse = await createSession();
+                // 기업 회원은 사업자등록번호 확인 후 이용할 수 있다. 없으면 입력 창을 띄우고 다시 시도한다.
+                if (window.InsightBiz && await window.InsightBiz.handle(sessionResponse, { apiBase: API_BASE_URL })) {
+                    sessionResponse = await createSession();
+                }
 
                 if (!sessionResponse.ok) {
                     const err = await sessionResponse.json().catch(() => ({}));
@@ -1699,7 +1774,26 @@
         }
 
         // ========== Unlock Full Manual (이어서 생성) ==========
-        function unlockFullManual() {
+        // 전체 받기(7절 이후 · 다운로드)는 사업자등록번호를 확인한 기업만. 1단계 미리보기는 가입만으로 된다.
+        async function ensureBusinessNumberForFullManual() {
+            let user = null;
+            try { user = JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { user = null; }
+            if (!user || user.role !== 'company') return true;  // 관리자 등은 면제
+            if (user.biz_reg_no) return true;
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/me/business-number`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                if (res.ok && (await res.json()).biz_reg_no) return true;
+            } catch (e) { /* 아래 입력 창으로 진행 */ }
+            if (!window.InsightBiz) return false;
+            return window.InsightBiz.open({
+                apiBase: API_BASE_URL,
+                message: '전체 매뉴얼(7~10절·부록)과 PDF·Word 다운로드는 사업자등록번호를 확인한 기업에 제공됩니다. 처음 한 번만 입력하면 됩니다.'
+            });
+        }
+
+        async function unlockFullManual() {
             // TODO: Polar 결제 연동 후 이 함수 호출
             // 현재는 테스트 모드로 바로 이어서 생성
             if (!lastFormParams) {
@@ -1711,6 +1805,8 @@
                 alert('매뉴얼 생성 세션이 없습니다. 먼저 매뉴얼을 생성해주세요.');
                 return;
             }
+
+            if (!(await ensureBusinessNumberForFullManual())) return;
 
             // 전체 버전 플래그 ON → Phase 2 자동 트리거용
             isFullVersion = true;
@@ -1794,7 +1890,7 @@
             trigger.classList.add('btn-exporting');
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/export-iso`, {
+                const requestExport = () => fetch(`${API_BASE_URL}/api/export-iso`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1808,6 +1904,11 @@
                         manual_id: currentManualId
                     })
                 });
+                let response = await requestExport();
+                // 다운로드는 사업자등록번호 확인 후 — 없으면 입력 창을 띄우고 다시 시도한다.
+                if (window.InsightBiz && await window.InsightBiz.handle(response, { apiBase: API_BASE_URL })) {
+                    response = await requestExport();
+                }
 
                 if (!response.ok) {
                     const err = await response.json().catch(() => ({}));

@@ -69,10 +69,13 @@ class ManualRetryTestBase(unittest.TestCase):
         self.ctx = app.app_context()
         self.ctx.push()
         db.create_all()
+        # 전체 받기(2·3단계)·다운로드는 사업자등록번호 확인 기업만(main #22) — 재시도·선점·내보내기 동작만 보기 위해 둘 다 등록
         self.company = User(email='c1@example.com', password_hash='x', role='company',
-                            name='C1', company_name='Buyer Co')
+                            name='C1', company_name='Buyer Co',
+                            biz_reg_no='2208112341', biz_status='verified')
         self.other = User(email='c2@example.com', password_hash='x', role='company',
-                          name='C2', company_name='Other Co')
+                          name='C2', company_name='Other Co',
+                          biz_reg_no='1018200009', biz_status='verified')
         self.consultant = User(email='k@example.com', password_hash='x', role='consultant', name='K')
         self.admin = User(email='a@example.com', password_hash='x', role='admin', name='A')
         db.session.add_all([self.company, self.other, self.consultant, self.admin])

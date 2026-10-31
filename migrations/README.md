@@ -452,3 +452,65 @@ WHERE schemaname = 'public' ORDER BY rowsecurity, tablename;
 
 > 주의: Supabase SQL Editor는 여러 문장을 한 트랜잭션으로 실행한다.
 > 존재하지 않는 테이블을 대상으로 하면 **전체가 롤백**되므로 `IF EXISTS` 를 붙일 것.
+
+## 2026-10-29 — 기업 사업자등록번호 (`user.biz_reg_no` 등 3개 열)
+
+가입 때 선택, 견적 요청·AI 매뉴얼 생성 전 필수. 국세청 사업자 상태조회(`NTS_BUSINESS_API_KEY`)로 확인한다.
+**코드 배포 전에 실행** — 열이 없으면 `user` 를 읽는 모든 요청이 500 이 난다(create_all 은 기존 테이블에 열을 추가하지 않음).
+로컬 SQLite 도 같은 이유로 열을 직접 추가하거나 DB 를 새로 만들어야 한다.
+
+```sql
+ALTER TABLE public."user" ADD COLUMN IF NOT EXISTS biz_reg_no     VARCHAR(20) NULL;  -- 숫자 10자리
+ALTER TABLE public."user" ADD COLUMN IF NOT EXISTS biz_status     VARCHAR(20) NULL;  -- verified | unchecked | manual
+ALTER TABLE public."user" ADD COLUMN IF NOT EXISTS biz_checked_at TIMESTAMP   NULL;  -- 마지막 확인 시각
+
+-- 확인: 3행
+SELECT column_name, data_type, is_nullable FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = 'user'
+  AND column_name IN ('biz_reg_no', 'biz_status', 'biz_checked_at');
+
+-- 되돌리기
+-- ALTER TABLE public."user" DROP COLUMN IF EXISTS biz_reg_no, DROP COLUMN IF EXISTS biz_status, DROP COLUMN IF EXISTS biz_checked_at;
+```
+
+## 2026-10-29 — 계약서 서명 증거 (`contract_signature` 신규 테이블)
+
+서명 순간의 계약서 원문·버전·SHA-256·서명자·IP·User-Agent 를 남긴다(추가만, 수정·삭제 없음).
+create_all 이 첫 요청 때 테이블을 만들지만 **RLS 는 직접 켜야 하므로** 배포 전에 아래를 실행한다.
+
+```sql
+CREATE TABLE IF NOT EXISTS public.contract_signature (
+    id               SERIAL PRIMARY KEY,
+    project_id       INTEGER      NOT NULL REFERENCES public.project(id),
+    signer_role      VARCHAR(20)  NOT NULL,          -- company | consultant
+    user_id          INTEGER      NOT NULL REFERENCES public."user"(id),
+    signer_name      VARCHAR(100) NULL,
+    contract_version VARCHAR(40)  NOT NULL,
+    contract_hash    VARCHAR(64)  NOT NULL,          -- 원문 SHA-256
+    contract_text    TEXT         NOT NULL,          -- 서명한 원문 그대로
+    ip_address       VARCHAR(64)  NULL,
+    user_agent       VARCHAR(300) NULL,
+    signed_at        TIMESTAMP    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_contract_signature_project_id ON public.contract_signature (project_id);
+ALTER TABLE IF EXISTS public.contract_signature ENABLE ROW LEVEL SECURITY;
+
+-- 확인: rowsecurity = true
+SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public' AND tablename = 'contract_signature';
+```
+
+## 2026-10-29 — 대금 지급 일정 (`project.payment_schedule` 열)
+
+기본은 선금 50 · 잔금 50(열이 비어 있으면 기본). 관리자가 서명 전까지 프로젝트별로 조정하고, 계약서 제4조(대금 지급)에 그대로 들어간다.
+**코드 배포 전에 실행** — 열이 없으면 `project` 를 읽는 요청이 500 이 난다.
+
+```sql
+ALTER TABLE public.project ADD COLUMN IF NOT EXISTS payment_schedule TEXT NULL;  -- JSON [{label, percent, due}]
+
+-- 확인: 1행
+SELECT column_name, data_type FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = 'project' AND column_name = 'payment_schedule';
+
+-- 되돌리기
+-- ALTER TABLE public.project DROP COLUMN IF EXISTS payment_schedule;
+```

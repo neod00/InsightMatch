@@ -120,6 +120,12 @@
                                 <option value="300명 이상">300명 이상</option>
                             </select>
                         </div>
+                        <div class="form-group hm-field" id="biz-reg-no-group">
+                            <label for="bizRegNo">사업자등록번호 <small>(선택)</small></label>
+                            <input type="text" id="bizRegNo" inputmode="numeric" placeholder="000-00-00000" autocomplete="off"
+                                maxlength="12" aria-describedby="biz-reg-no-hint">
+                            <p class="hm-field-hint" id="biz-reg-no-hint">견적 요청과 AI 매뉴얼 전체 받기 전에 꼭 필요합니다. 지금 넣으면 국세청에 영업 상태를 조회해 확인하며, 나중에 입력해도 됩니다.</p>
+                        </div>
                         <div class="form-group hm-field">
                             <label for="email">이메일</label>
                             <input type="text" id="email" required placeholder="name@company.com" autocomplete="email">
@@ -296,7 +302,14 @@
             document.getElementById('employees-group').style.display = isCompany ? '' : 'none';
             document.getElementById('industry').required = isCompany;
             document.getElementById('employees').required = isCompany;
+            document.getElementById('biz-reg-no-group').style.display = isCompany ? '' : 'none';
         }
+
+        // 사업자등록번호 입력 시 000-00-00000 형태로 맞춘다
+        document.getElementById('bizRegNo').addEventListener('input', (e) => {
+            const d = e.target.value.replace(/\D/g, '').slice(0, 10);
+            e.target.value = d.length <= 3 ? d : d.length <= 5 ? `${d.slice(0, 3)}-${d.slice(3)}` : `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}`;
+        });
 
         roleInputs.forEach(input => {
             input.addEventListener('change', updateCompanyNameRequired);
@@ -314,7 +327,10 @@
         if (afterSignupRedirect.includes('consultant_register.html')) {
             const notice = document.createElement('div');
             notice.className = 'hm-alert hm-alert-info hm-auth-notice';
-            notice.innerHTML = '<strong>초대 링크로 오셨습니다.</strong><br>컨설턴트 계정을 만든 뒤 프로필 등록으로 이동합니다.';
+            // 초대 링크(…?invite=)로 온 경우와 로그인 화면의 컨설턴트 가입 링크로 온 경우를 구분한다.
+            notice.innerHTML = afterSignupRedirect.includes('invite=')
+                ? '<strong>초대 링크로 오셨습니다.</strong><br>컨설턴트 계정을 만든 뒤 프로필 등록으로 이동합니다.'
+                : '<strong>컨설턴트 가입</strong><br>계정을 만들고 로그인하면 전문가 프로필 등록으로 이어집니다.';
             const form = document.getElementById('signup-form');
             form.parentNode.insertBefore(notice, form);
         }
@@ -366,11 +382,13 @@
 
                 const industry = document.getElementById('industry').value;
                 const employees = document.getElementById('employees').value;
+                // 기업만 보낸다. 비워 두면 가입 후 견적 요청·AI 매뉴얼 때 입력한다.
+                const bizRegNo = role === 'company' ? document.getElementById('bizRegNo').value.replace(/\D/g, '') : '';
 
                 const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, company_name: companyName, email, password, role, phone, industry, employees })
+                    body: JSON.stringify({ name, company_name: companyName, email, password, role, phone, industry, employees, biz_reg_no: bizRegNo })
                 });
 
                 const data = await response.json();
