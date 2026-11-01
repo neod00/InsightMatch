@@ -24,6 +24,12 @@
         .register-container { max-width: 960px; margin: 0 auto; padding-top: 16px; padding-bottom: 72px; }
         .register-container > .hm-alert { margin-top: 24px; }
         .register-container > .hm-alert > span { min-width: 0; }
+        /* 거부 후 재등록 안내 (이전 제출값을 불러왔을 때만 스크립트가 끼워 넣는다) */
+        .register-container > .reg-resubmit { margin: 24px 0 20px; }
+        .reg-resubmit .hm-note-title svg { color: var(--error); }
+        .reg-resubmit-reason { white-space: pre-line; overflow-wrap: anywhere; }
+        .reg-resubmit-date { font-weight: 400; color: var(--muted); font-size: 13px; }
+        #resubmit-settlement-hint { justify-self: start; }
 
         /* 단계 표시 + 단계 내용 (스크립트가 .step-item/.step-content 에 active·completed 를 붙인다) */
         .step-progress { margin-bottom: 32px; }
@@ -1006,7 +1012,160 @@
                 emailInput.readOnly = true;
             }
 
+            // 거부된 프로필이면 이전 제출값을 불러와 보완 재제출을 돕는다 (pending/verified 는 그대로)
+            prefillRejectedProfile(token);
+
             return true;
+        }
+
+        // ===== 거부 후 재등록: 이전 제출값 불러오기 =====
+        const REG_API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+            ? 'http://localhost:5000' : '';
+
+        // 이 폼에 입력 칸이 없는 항목(역할·프로젝트 유형·조직 규모). 재제출 때 그대로 돌려보내
+        // 보완본 제출이 기존 값을 빈 배열로 덮어쓰지 않게 한다.
+        let priorProfileExtras = null;
+
+        async function prefillRejectedProfile(token) {
+            let profile = null;
+            try {
+                const res = await fetch(`${REG_API_BASE}/api/consultants/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) return;  // 404 = 아직 제출 전(첫 등록). 그 밖의 오류는 제출 시점에 안내된다.
+                profile = await res.json();
+            } catch (e) {
+                console.warn('[Register] 이전 프로필 조회 실패:', e);
+                return;
+            }
+            if (!profile || profile.status !== 'rejected') return;
+
+            applyProfileToForm(profile);
+            showResubmitNotice(profile);
+        }
+
+        function setIfEmpty(selector, value) {
+            const el = document.querySelector(selector);
+            if (el && !el.value && value != null && String(value).trim()) el.value = String(value).trim();
+        }
+
+        // to_dict 는 자격·프로젝트 이력을 배열로 준다(평문은 줄 단위로 쪼갠 것). textarea 에는 줄바꿈으로 되돌린다.
+        function listToLines(list) {
+            if (!Array.isArray(list)) return typeof list === 'string' ? list : '';
+            return list.map(item => {
+                if (item == null) return '';
+                if (typeof item === 'object') return Object.values(item).filter(v => v != null && v !== '').join(' - ');
+                return String(item);
+            }).filter(line => line.trim()).join('\n');
+        }
+
+        // 저장된 ISO 키를 체크박스 value 로 맞춘다. 예: 'ISO 9001:2015' → '9001', 'ISO 14064-1' → '14064', 'IATF 16949' → 'IATF16949'
+        function normalizeIsoCode(key) {
+            return String(key || '').toUpperCase().replace(/\s+/g, '')
+                .replace(/^ISO\/IEC/, '').replace(/^ISO/, '')
+                .replace(/:\d{4}$/, '').replace(/-\d+$/, '');
+        }
+
+        function checkBoxes(name, values) {
+            const wanted = new Set(values.map(v => String(v).trim()).filter(Boolean));
+            document.querySelectorAll(`input[name="${name}"]`).forEach(cb => {
+                const label = cb.parentElement ? cb.parentElement.textContent.trim() : '';
+                if (wanted.has(cb.value) || wanted.has(label)) cb.checked = true;
+            });
+        }
+
+        function applyProfileToForm(p) {
+            // 기본 정보 (이름·이메일은 계정 값으로 이미 채워져 읽기 전용)
+            setIfEmpty('input[name="phone"]', p.phone);
+            setIfEmpty('input[name="company_name"]', p.companyName);
+            const years = parseInt(p.experience, 10);
+            if (years > 0) setIfEmpty('input[name="experience"]', years);
+
+            // 활동 지역 ('서울,경기' 형태)
+            checkBoxes('regions', String(p.regions || '').split(','));
+            document.getElementById('region-counter').textContent =
+                `${document.querySelectorAll('input[name="regions"]:checked').length}개 선택`;
+
+            // ISO 규격 ({code: true} 또는 예전 형식 {code: [역할...]})
+            const iso = p.isoExperience && typeof p.isoExperience === 'object' ? p.isoExperience : {};
+            Object.keys(iso).forEach(key => {
+                if (!iso[key]) return;
+                const cb = document.getElementById(`iso_${key}`) || document.getElementById(`iso_${normalizeIsoCode(key)}`);
+                if (cb) cb.checked = true;
+            });
+            updateISOCount();
+
+            // 산업군
+            checkBoxes('industry_experience', Array.isArray(p.industryExperience) ? p.industryExperience : []);
+            document.getElementById('industry-counter').textContent =
+                `${document.querySelectorAll('input[name="industry_experience"]:checked').length}개 선택`;
+
+            // 자격 상세·프로젝트 이력·한줄 소개
+            setIfEmpty('textarea[name="detailed_certifications"]', listToLines(p.detailedCertifications));
+            setIfEmpty('textarea[name="major_projects"]', listToLines(p.recentProjects));
+            setIfEmpty('input[name="match_reason"]', p.matchReason);
+
+            // 프로필 사진 (이미 공개 프로필에 쓰이는 URL 이므로 다시 내려받아도 된다)
+            const imgUrl = String(p.profileImageUrl || '');
+            if (/^https?:\/\//i.test(imgUrl)) {
+                document.getElementById('profile-image-url').value = imgUrl;
+                const preview = document.getElementById('photo-preview');
+                const img = document.createElement('img');
+                img.alt = '이전에 등록한 프로필 사진';
+                img.src = imgUrl;
+                preview.replaceChildren(img);
+            }
+
+            priorProfileExtras = {
+                roles: Array.isArray(p.roles) ? p.roles : [],
+                project_types: Array.isArray(p.projectTypes) ? p.projectTypes : [],
+                org_size_experience: Array.isArray(p.orgSizeExperience) ? p.orgSizeExperience : []
+            };
+        }
+
+        function showResubmitNotice(p) {
+            const notice = document.createElement('div');
+            notice.className = 'hm-note is-info reg-resubmit';
+            notice.id = 'resubmit-notice';
+            notice.setAttribute('role', 'status');
+
+            const title = document.createElement('p');
+            title.className = 'hm-note-title';
+            title.innerHTML = ICONS.alert;
+            title.appendChild(document.createTextNode('이전에 제출하신 내용을 불러왔습니다'));
+            notice.appendChild(title);
+
+            const box = document.createElement('div');
+            box.className = 'hm-note-box';
+            const label = document.createElement('p');
+            const rejectedAt = p.rejectedAt ? new Date(p.rejectedAt).toLocaleDateString('ko-KR') : '';
+            label.innerHTML = `<strong>승인되지 않은 사유</strong>${rejectedAt ? ` <span class="reg-resubmit-date">(${escapeHtml(rejectedAt)})</span>` : ''}`;
+            const reason = document.createElement('p');
+            reason.className = 'reg-resubmit-reason';
+            reason.textContent = p.rejectionReason || '사유가 기재되지 않았습니다. 문의하기로 확인해 주세요.';
+            box.append(label, reason);
+            notice.appendChild(box);
+
+            const guide = document.createElement('p');
+            guide.textContent = '위 사유를 참고해 내용을 보완한 뒤 다시 제출해주세요. 제출하면 다시 관리자 검토를 거칩니다.';
+            notice.appendChild(guide);
+            const sub = document.createElement('small');
+            sub.textContent = '정산 정보(사업자·계좌)는 보안상 불러오지 않으니 다시 입력해주시고, 기본 협력계약 동의도 다시 체크해주세요.';
+            notice.appendChild(sub);
+
+            const card = document.querySelector('.register-container > .reg-card');
+            if (card) card.parentNode.insertBefore(notice, card);
+
+            // 정산 정보 칸 바로 위에도 같은 안내를 둔다 (3단계에서 다시 보게 되는 위치)
+            const settleHint = document.querySelector('#biz-fields');
+            if (settleHint && !document.getElementById('resubmit-settlement-hint')) {
+                const hint = document.createElement('p');
+                hint.id = 'resubmit-settlement-hint';
+                hint.className = 'hm-note is-info is-inline';
+                hint.innerHTML = ICONS.alert;
+                hint.appendChild(document.createTextNode('보안상 이전 정산 정보는 불러오지 않았습니다. 다시 입력해주세요.'));
+                settleHint.parentNode.insertBefore(hint, settleHint.previousElementSibling || settleHint);
+            }
         }
 
         // ===== Form Submit =====
@@ -1070,7 +1229,10 @@
 
                 // 기본 협력계약 동의 + 초대 토큰
                 partner_agreement_agreed: document.querySelector('input[name="partner_agreement_agreed"]').checked,
-                invite_token: getInviteToken()
+                invite_token: getInviteToken(),
+
+                // 거부 후 재제출: 폼에 칸이 없는 기존 값은 그대로 유지한다
+                ...(priorProfileExtras || {})
             };
 
             try {

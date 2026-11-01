@@ -2105,6 +2105,12 @@ a.hm-help-item:hover .go { transform: translateX(3px) rotate(-45deg); }
 .hm-admin #approve-check-count, .hm-admin #reject-reason-length { margin-top: 10px; }
 .hm-admin .hm-note-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 0; }
 .hm-admin .hm-note-row > svg { margin-top: 3px; }
+/* 검증 취소·복구 패널 (prompt()/confirm() 대체) */
+.hm-admin #revoke-reason-length { margin-top: 10px; }
+.hm-admin #revoke-reason-length.is-over { color: var(--error); }
+.hm-admin .hm-restore-list { display: grid; gap: 8px; margin: 0; padding-left: 20px; font-size: 14.5px; line-height: 1.55; color: var(--char); list-style: disc; }
+.hm-admin .hm-restore-list strong { color: var(--ink); }
+.hm-admin #restore-current-reason { margin-top: 14px; white-space: pre-line; overflow-wrap: anywhere; }
 
 /* 16-10 RESPONSIVE (16 전용) */
 @media (max-width: 1023px) {

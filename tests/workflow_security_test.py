@@ -1889,6 +1889,38 @@ class TestWorkflowSecurity(unittest.TestCase):
             type='consultant_verification_revoked',
         ).first())
 
+    def test_review_result_notifications_are_in_korean(self):
+        """승인·거부·검증취소·복구 인앱 알림 문구가 한국어이고 사유를 포함한다."""
+        import re
+        checklist = {'checklist': {
+            'identity_verified': True, 'iso_credentials_verified': True,
+            'project_history_verified': True, 'contact_verified': True}}
+        steps = [
+            # 거부 사유는 체크박스 여러 개가 줄바꿈으로 이어져 온다 → 알림에는 ' / ' 로 한 줄 표기
+            ('reject', {'reason': '자격증 사본이 흐립니다' + chr(10) + '경력 증빙 누락'}, 'consultant_rejected'),
+            ('restore', None, 'consultant_restored'),
+            ('approve', checklist, 'consultant_approved'),
+            ('revoke', {'reason': '인증서 유효기간 만료'}, 'consultant_verification_revoked'),
+        ]
+        for action, body, ntype in steps:
+            kwargs = {'headers': auth_headers(self.admin_user)}
+            if body is not None:
+                kwargs['json'] = body
+            resp = self.client.post(f'/api/admin/consultants/{self.consultant.id}/{action}', **kwargs)
+            self.assertEqual(resp.status_code, 200, action)
+
+            n = Notification.query.filter_by(
+                user_id=self.consultant_user.id, type=ntype).order_by(Notification.id.desc()).first()
+            self.assertIsNotNone(n, ntype)
+            for text in (n.title, n.message):
+                self.assertRegex(text, r'[가-힣]', f'{ntype}: 한국어가 아님')
+                self.assertIsNone(re.search(r'\b(Consultant|profile|reason|approved|rejected)\b', text),
+                                  f'{ntype}: 영어 문구가 남아 있음 — {text}')
+            if body and 'reason' in body:
+                expected = ' / '.join(body['reason'].splitlines())
+                self.assertIn(f'사유: {expected}', n.message)
+                self.assertNotIn(chr(10), n.message)
+
     def test_admin_can_read_consultant_review_history(self):
         log = AdminActionLog(
             admin_user_id=self.admin_user.id,
@@ -2347,6 +2379,68 @@ class TestWorkflowSecurity(unittest.TestCase):
 
         # 기존 토큰은 더 이상 통하지 않아야 한다
         self.assertEqual(self.client.get('/api/notifications', headers=headers).status_code, 401)
+
+    def test_password_reset_revokes_existing_admin_tokens(self):
+        """관리자 경로(require_admin_request)도 token_version 을 검사한다.
+
+        일반 API 는 token_required 가 tv 를 비교하지만 관리자 API 는 별도 관문이라,
+        검사가 빠지면 비밀번호를 바꿔도 탈취된 관리자 토큰이 만료까지 통한다.
+        """
+        from werkzeug.security import generate_password_hash
+        self.admin_user.password_hash = generate_password_hash('adminpass123')
+        db.session.commit()
+
+        # 실제 로그인 경로로 발급된 토큰에 tv 가 실려 있어야 한다
+        login = self.client.post('/api/auth/login', json={
+            'email': self.admin_user.email, 'password': 'adminpass123'})
+        self.assertEqual(login.status_code, 200)
+        old_token = login.get_json()['token']
+        payload = jwt.decode(old_token, app.config['SECRET_KEY'], algorithms=['HS256'])
+        self.assertIn('tv', payload)
+        headers = {'Authorization': f'Bearer {old_token}'}
+        self.assertEqual(self.client.get('/api/admin/action-logs', headers=headers).status_code, 200)
+
+        reset = PasswordResetToken(
+            user_id=self.admin_user.id,
+            token='admin-reset-token',
+            expires_at=datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=30),
+        )
+        db.session.add(reset)
+        db.session.commit()
+        resp = self.client.post('/api/auth/reset-password', json={
+            'token': 'admin-reset-token', 'new_password': 'brandnewpass123'})
+        self.assertEqual(resp.status_code, 200)
+
+        stale = self.client.get('/api/admin/action-logs', headers=headers)
+        self.assertEqual(stale.status_code, 401)
+        self.assertIn('세션이 만료', stale.get_json()['message'])
+        # 쓰기 계열 관리자 API 도 같은 관문을 지난다
+        self.assertEqual(self.client.post(
+            f'/api/admin/consultants/{self.consultant.id}/restore', headers=headers).status_code, 401)
+
+        # 새 비밀번호로 다시 로그인하면 정상 동작한다
+        relogin = self.client.post('/api/auth/login', json={
+            'email': self.admin_user.email, 'password': 'brandnewpass123'})
+        self.assertEqual(relogin.status_code, 200)
+        fresh = {'Authorization': f"Bearer {relogin.get_json()['token']}"}
+        self.assertEqual(self.client.get('/api/admin/action-logs', headers=fresh).status_code, 200)
+
+    def test_admin_token_with_stale_version_is_rejected(self):
+        """token_version 이 오르면(탈퇴·재설정 등) 이전 버전의 관리자 토큰은 401."""
+        headers = auth_headers(self.admin_user)  # tv 없음 = 0
+        self.assertEqual(self.client.get('/api/admin/action-logs', headers=headers).status_code, 200)
+
+        self.admin_user.token_version = (self.admin_user.token_version or 0) + 1
+        db.session.commit()
+        self.assertEqual(self.client.get('/api/admin/action-logs', headers=headers).status_code, 401)
+
+        current = jwt.encode({
+            'user_id': self.admin_user.id,
+            'tv': self.admin_user.token_version,
+            'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1),
+        }, app.config['SECRET_KEY'], algorithm='HS256')
+        self.assertEqual(self.client.get(
+            '/api/admin/action-logs', headers={'Authorization': f'Bearer {current}'}).status_code, 200)
 
     def test_prompt_injection_input_is_neutralized(self):
         """H-6: 사용자 입력의 지시문·프롬프트 구조 위조 시도가 무력화된다."""

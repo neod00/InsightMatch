@@ -31,7 +31,7 @@
     <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
 
     <!-- B안 공통 스타일(15절 앱 셸 + 16절 관리자). style.css 는 로드하지 않는다. -->
-    <link rel="stylesheet" href="brand.css?v=6">
+    <link rel="stylesheet" href="brand.css?v=7">
 </head>
 
 <body class="hm-body hm-app hm-admin">
@@ -664,6 +664,88 @@
             <button class="btn btn-primary is-grow" type="button" id="confirm-approve-btn" onclick="confirmApprove()" disabled>
                 <i data-lucide="check-circle"></i>
                 승인 처리
+            </button>
+        </div>
+    </div>
+
+    <!-- Revoke Panel (검증 취소 — 사유 필수, 서버 get_required_reason 한도 500자) -->
+    <div class="side-panel-overlay" id="revoke-panel-overlay" onclick="closeRevokePanel()"></div>
+    <div class="side-panel is-narrow" id="revoke-panel" role="dialog" aria-labelledby="revoke-panel-title">
+        <div class="side-panel-header is-danger">
+            <div class="side-panel-heading">
+                <h3 id="revoke-panel-title">
+                    <i data-lucide="shield-off"></i>
+                    검증 취소
+                </h3>
+                <p id="revoke-consultant-name"></p>
+            </div>
+            <button class="close-panel-btn" type="button" onclick="closeRevokePanel()" title="닫기" aria-label="닫기">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="side-panel-body">
+            <input type="hidden" id="revoke-consultant-id" value="">
+
+            <div class="hm-field hm-reject-memo">
+                <label for="revoke-reason">검증 취소 사유 <span class="hm-req" aria-hidden="true">*</span></label>
+                <textarea id="revoke-reason" rows="6" maxlength="1000" aria-describedby="revoke-reason-length"
+                    placeholder="예: 제출한 심사원 자격의 유효기간이 만료되었습니다. 갱신된 자격증 사본을 제출해주시면 재심사하겠습니다."
+                    oninput="updateRevokeReasonLength()"></textarea>
+                <p id="revoke-reason-length" class="hm-field-count">0 / 500자</p>
+            </div>
+
+            <div id="revoke-panel-error" class="hm-note is-error" role="alert" style="display: none;"></div>
+
+            <div class="hm-note is-warn hm-note-row">
+                <i data-lucide="info"></i>
+                <p>검증을 취소하면 이 컨설턴트는 신규 매칭 대상에서 바로 제외되고, 사유가 담긴 알림과 이메일이 전달됩니다. 진행 중인 프로젝트는 그대로 유지됩니다.</p>
+            </div>
+        </div>
+        <div class="side-panel-footer">
+            <button class="btn btn-secondary" type="button" onclick="closeRevokePanel()">취소</button>
+            <button class="btn btn-danger is-grow" type="button" id="confirm-revoke-btn" onclick="confirmRevoke()">
+                <i data-lucide="shield-off"></i>
+                검증 취소 처리
+            </button>
+        </div>
+    </div>
+
+    <!-- Restore Panel (거부·검증취소 → 승인 대기로 복구) -->
+    <div class="side-panel-overlay" id="restore-panel-overlay" onclick="closeRestorePanel()"></div>
+    <div class="side-panel is-narrow" id="restore-panel" role="dialog" aria-labelledby="restore-panel-title">
+        <div class="side-panel-header">
+            <div class="side-panel-heading">
+                <h3 id="restore-panel-title">
+                    <i data-lucide="rotate-ccw"></i>
+                    승인 대기로 복구
+                </h3>
+                <p id="restore-consultant-name"></p>
+            </div>
+            <button class="close-panel-btn" type="button" onclick="closeRestorePanel()" title="닫기" aria-label="닫기">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="side-panel-body">
+            <input type="hidden" id="restore-consultant-id" value="">
+
+            <fieldset class="hm-reject-fieldset">
+                <legend class="hm-reject-legend">복구하면 이렇게 됩니다</legend>
+                <ul class="hm-restore-list">
+                    <li>상태가 <strong>승인 대기</strong>로 돌아가 승인 대기 목록에 다시 나타납니다.</li>
+                    <li>기록된 거부·검증취소 사유는 지워집니다. 이전 처리 내역은 관리자 감사 기록에 남습니다.</li>
+                    <li>컨설턴트에게 '재검토 대기 상태로 전환' 알림과 이메일이 전달됩니다.</li>
+                    <li>복구만으로 매칭 대상이 되지는 않습니다. 다시 승인해야 매칭에 포함됩니다.</li>
+                </ul>
+                <p id="restore-current-reason" class="hm-field-hint" style="display: none;"></p>
+            </fieldset>
+
+            <div id="restore-panel-error" class="hm-note is-error" role="alert" style="display: none;"></div>
+        </div>
+        <div class="side-panel-footer">
+            <button class="btn btn-secondary" type="button" onclick="closeRestorePanel()">취소</button>
+            <button class="btn btn-primary is-grow" type="button" id="confirm-restore-btn" onclick="confirmRestore()">
+                <i data-lucide="rotate-ccw"></i>
+                승인 대기로 복구
             </button>
         </div>
     </div>
@@ -2164,8 +2246,49 @@
                 }
             }
 
-            async function restoreConsultant(id) {
-                if (!confirm('이 컨설턴트를 승인 대기 상태로 복구하시겠습니까?')) return;
+            // ===== 복구 패널 (예전 confirm() 대체) =====
+            // 무엇이 바뀌는지(승인 대기로 복귀·사유 삭제·컨설턴트 알림)를 보여 주고 확인받는다.
+            function restoreConsultant(id) {
+                const consultant = allConsultantsAdmin.find(c => c.id == id);
+                document.getElementById('restore-consultant-id').value = id;
+                document.getElementById('restore-consultant-name').textContent =
+                    consultant ? `${consultant.name} 전문가` : '';
+                const current = document.getElementById('restore-current-reason');
+                const reason = consultant && consultant.rejectionReason;
+                current.textContent = reason ? `현재 기록된 사유: ${reason}` : '';
+                current.style.display = reason ? '' : 'none';
+                showPanelError('restore-panel-error', '');
+                openRestorePanel();
+            }
+
+            function openRestorePanel() {
+                document.getElementById('restore-panel-overlay').classList.add('active');
+                document.getElementById('restore-panel').classList.add('active');
+                document.body.style.overflow = 'hidden';
+                lucide.createIcons();
+            }
+
+            function closeRestorePanel() {
+                document.getElementById('restore-panel-overlay').classList.remove('active');
+                document.getElementById('restore-panel').classList.remove('active');
+                document.body.style.overflow = '';
+            }
+
+            // 패널 안 오류 문구 (토스트는 금방 사라지므로 처리 실패 이유를 패널에 남긴다)
+            function showPanelError(elementId, message) {
+                const box = document.getElementById(elementId);
+                if (!box) return;
+                box.textContent = message || '';
+                box.style.display = message ? '' : 'none';
+            }
+
+            async function confirmRestore() {
+                const id = document.getElementById('restore-consultant-id').value;
+                const confirmBtn = document.getElementById('confirm-restore-btn');
+                const originalHTML = confirmBtn.innerHTML;
+                confirmBtn.innerHTML = '<span class="loading-spinner"></span> 처리 중...';
+                confirmBtn.disabled = true;
+                showPanelError('restore-panel-error', '');
 
                 try {
                     const response = await authFetch(`/api/admin/consultants/${id}/restore`, {
@@ -2174,15 +2297,21 @@
                     });
 
                     if (response.ok) {
+                        closeRestorePanel();
                         showNotification('컨설턴트가 승인 대기 상태로 복구되었습니다.', 'success');
                         fetchConsultantsAdmin();
-                    } else {
-                        const data = await response.json();
-                        showNotification(data.message || '처리 중 오류가 발생했습니다.', 'error');
+                    } else if (response.status !== 401) {
+                        // 401 은 authFetch 가 로그인 화면으로 보낸다
+                        const data = await response.json().catch(() => ({}));
+                        showPanelError('restore-panel-error', data.message || '처리 중 오류가 발생했습니다.');
                     }
                 } catch (error) {
                     console.error('Error:', error);
-                    showNotification('서버 연결에 실패했습니다.', 'error');
+                    showPanelError('restore-panel-error', '서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.');
+                } finally {
+                    confirmBtn.innerHTML = originalHTML;
+                    confirmBtn.disabled = false;
+                    lucide.createIcons();
                 }
             }
 
@@ -2271,27 +2400,84 @@
                 }
             }
 
-            async function revokeVerification(id) {
-                const reason = prompt('검증취소 사유를 입력해주세요.');
-                if (!reason || !reason.trim()) return;
+            // ===== 검증 취소 패널 (예전 prompt() 대체) =====
+            // 여러 줄 사유 + 글자 수 표시. 한도는 거부 사유와 같은 REJECT_REASON_MAX_LENGTH(서버 get_required_reason).
+            function revokeVerification(id) {
+                const consultant = allConsultantsAdmin.find(c => c.id == id);
+                document.getElementById('revoke-consultant-id').value = id;
+                document.getElementById('revoke-consultant-name').textContent =
+                    consultant ? `${consultant.name} 전문가` : '';
+                document.getElementById('revoke-reason').value = '';
+                updateRevokeReasonLength();
+                showPanelError('revoke-panel-error', '');
+                openRevokePanel();
+            }
+
+            function openRevokePanel() {
+                document.getElementById('revoke-panel-overlay').classList.add('active');
+                document.getElementById('revoke-panel').classList.add('active');
+                document.body.style.overflow = 'hidden';
+                lucide.createIcons();
+                setTimeout(() => document.getElementById('revoke-reason').focus(), 50);
+            }
+
+            function closeRevokePanel() {
+                document.getElementById('revoke-panel-overlay').classList.remove('active');
+                document.getElementById('revoke-panel').classList.remove('active');
+                document.body.style.overflow = '';
+            }
+
+            function updateRevokeReasonLength() {
+                const counter = document.getElementById('revoke-reason-length');
+                const length = document.getElementById('revoke-reason').value.trim().length;
+                counter.textContent = `${length} / ${REJECT_REASON_MAX_LENGTH}자`;
+                counter.classList.toggle('is-over', length > REJECT_REASON_MAX_LENGTH);
+            }
+
+            async function confirmRevoke() {
+                const id = document.getElementById('revoke-consultant-id').value;
+                const reason = document.getElementById('revoke-reason').value.trim();
+
+                if (!reason) {
+                    showPanelError('revoke-panel-error', '검증 취소 사유를 입력해주세요.');
+                    document.getElementById('revoke-reason').focus();
+                    return;
+                }
+                if (reason.length > REJECT_REASON_MAX_LENGTH) {
+                    showPanelError('revoke-panel-error',
+                        `사유가 너무 깁니다 (현재 ${reason.length}자 / 최대 ${REJECT_REASON_MAX_LENGTH}자). 줄여서 다시 입력해주세요.`);
+                    return;
+                }
+
+                const confirmBtn = document.getElementById('confirm-revoke-btn');
+                const originalHTML = confirmBtn.innerHTML;
+                confirmBtn.innerHTML = '<span class="loading-spinner"></span> 처리 중...';
+                confirmBtn.disabled = true;
+                showPanelError('revoke-panel-error', '');
 
                 try {
                     const response = await authFetch(`/api/admin/consultants/${id}/revoke`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ reason: reason.trim() })
+                        body: JSON.stringify({ reason })
                     });
 
                     if (response.ok) {
+                        closeRevokePanel();
                         showNotification('검증이 취소되었습니다.', 'success');
                         fetchConsultantsAdmin();
-                    } else {
-                        const data = await response.json();
-                        showNotification(data.message || '처리 중 오류가 발생했습니다.', 'error');
+                    } else if (response.status !== 401) {
+                        // 401 은 authFetch 가 로그인 화면으로 보낸다. 그 외(400 등)는 서버 문구를 패널에 보여준다.
+                        const data = await response.json().catch(() => ({}));
+                        showPanelError('revoke-panel-error', data.message || '처리 중 오류가 발생했습니다.');
                     }
                 } catch (error) {
                     console.error('Error:', error);
-                    showNotification('서버 연결에 실패했습니다.', 'error');
+                    showPanelError('revoke-panel-error', '서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.');
+                } finally {
+                    confirmBtn.innerHTML = originalHTML;
+                    confirmBtn.disabled = false;
+                    lucide.createIcons();
                 }
             }
 
@@ -2828,11 +3014,11 @@
                         검증 승인하기
                     </button>
                 ` : panelStatus === 'verified' ? `
-                    <button type="button" class="btn btn-danger-soft" onclick="revokeVerification(${cid}); closeSidePanel();">
+                    <button type="button" class="btn btn-danger-soft" onclick="closeSidePanel(); revokeVerification(${cid});">
                         검증 취소
                     </button>
                 ` : panelStatus === 'rejected' || panelStatus === 'revoked' ? `
-                    <button type="button" class="btn btn-outline is-grow" onclick="restoreConsultant(${cid}); closeSidePanel();">
+                    <button type="button" class="btn btn-outline is-grow" onclick="closeSidePanel(); restoreConsultant(${cid});">
                         <i data-lucide="rotate-ccw"></i>
                         승인 대기로 복구
                     </button>

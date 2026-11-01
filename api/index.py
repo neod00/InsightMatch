@@ -969,6 +969,11 @@ def require_admin_request():
     # 여기에 넣지 않으면 관리자 API 만 탈퇴 후에도 열려 있게 된다.
     if getattr(current_user, 'deleted_at', None) is not None:
         return jsonify({'message': '탈퇴한 계정입니다.'}), 401
+    # 토큰 폐기 검사 (token_required 와 동일). 비밀번호 재설정·탈퇴로 token_version 이
+    # 오르면 기존 관리자 토큰도 즉시 무효여야 한다. 이 검사가 없으면 탈취된 관리자
+    # 토큰이 비밀번호를 바꾼 뒤에도 만료(최대 24시간)까지 관리자 API 에서 통한다.
+    if payload.get('tv', 0) != (current_user.token_version or 0):
+        return jsonify({'message': '세션이 만료되었습니다. 다시 로그인해주세요.'}), 401
     if current_user.role != 'admin':
         return jsonify({'message': 'Admin role required'}), 403
 
@@ -1033,6 +1038,14 @@ def get_consultant_contact_email(consultant):
     user = User.query.get(consultant.user_id) if consultant.user_id else None
     email = (user.email if user else None) or consultant.email
     return (email or '').strip() or None
+
+
+def review_reason_one_line(reason):
+    """인앱 알림용 사유 표기. 거부 사유는 체크박스 여러 개를 줄바꿈으로 이어 저장하는데,
+    알림 목록은 줄바꿈을 공백으로 뭉개 문장이 이어 붙어 보이므로 ' / ' 로 잇는다.
+    (메일은 줄바꿈을 <br> 로 살리므로 원문 reason 을 그대로 넘긴다)"""
+    lines = [line.strip() for line in str(reason or '').splitlines() if line.strip()]
+    return ' / '.join(lines)
 
 
 def notify_consultant_review_result(consultant, notification_type, title, message, reason=None):
@@ -5520,8 +5533,8 @@ def approve_consultant(consultant_id):
     notify_consultant_review_result(
         consultant,
         'consultant_approved',
-        'Consultant profile approved',
-        'Your consultant profile has been approved and is now eligible for matching.'
+        '전문가 등록이 승인되었습니다',
+        '제출하신 전문가 프로필 검토가 완료되어 등록이 승인되었습니다. 이제 기업의 견적 요청 매칭 대상에 포함됩니다.'
     )
     db.session.commit()
     return jsonify({'message': 'Consultant approved successfully', 'verified': True})
@@ -5543,8 +5556,8 @@ def reject_consultant(consultant_id):
     notify_consultant_review_result(
         consultant,
         'consultant_rejected',
-        'Consultant profile rejected',
-        f'Rejection reason: {reason}',
+        '전문가 등록 검토 결과 안내',
+        f'제출하신 전문가 프로필을 검토했으나 이번에는 승인해드리지 못했습니다. 보완 후 다시 등록해주시면 재검토해드립니다. 사유: {review_reason_one_line(reason)}',
         reason=reason
     )
     db.session.commit()
@@ -5567,8 +5580,8 @@ def revoke_consultant_verification(consultant_id):
     notify_consultant_review_result(
         consultant,
         'consultant_verification_revoked',
-        'Consultant verification revoked',
-        f'Revocation reason: {reason}',
+        '전문가 인증 자격이 해제되었습니다',
+        f'전문가 인증 자격이 해제되어 신규 매칭 대상에서 제외됩니다. 사유가 해소되면 재심사를 요청하실 수 있습니다. 사유: {review_reason_one_line(reason)}',
         reason=reason
     )
     db.session.commit()
@@ -5652,8 +5665,8 @@ def restore_consultant(consultant_id):
     notify_consultant_review_result(
         consultant,
         'consultant_restored',
-        'Consultant profile restored for review',
-        'Your consultant profile has been restored to pending review.'
+        '전문가 프로필이 재검토 대기 상태가 되었습니다',
+        '전문가 프로필이 재검토 대기 상태로 전환되었습니다. 관리자 검토가 끝나면 결과를 다시 안내드립니다.'
     )
     db.session.commit()
     return jsonify({'message': 'Consultant restored to pending', 'status': consultant.status})

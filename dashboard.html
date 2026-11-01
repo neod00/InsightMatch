@@ -798,12 +798,58 @@
             if (window.innerWidth >= 768) closeMobileMenu();
         });
 
+        // ----- 세션 만료 처리 (admin.html 과 같은 방식) -----
+        // login.html 이 읽어 안내 문구로 보여주는 키. 즉시 이동하면 토스트가 안 보이므로
+        // 이동 전에 sessionStorage 에 남겨 둔다.
+        const AUTH_NOTICE_KEY = 'auth_notice';
+        const SESSION_EXPIRED_MESSAGE = '세션이 만료되었습니다. 다시 로그인해주세요.';
+        let sessionRedirecting = false;
+
+        function redirectToLoginWithNotice(message = SESSION_EXPIRED_MESSAGE) {
+            if (sessionRedirecting) return;  // 동시에 여러 요청이 401 을 받아도 한 번만 이동
+            sessionRedirecting = true;
+            // token·user 를 함께 지운다. user 만 남으면 다른 페이지가 '로그인된 것처럼'
+            // 이름을 그리다 401 을 만난다.
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            try { sessionStorage.setItem(AUTH_NOTICE_KEY, message); } catch (e) { /* 저장 불가 환경 */ }
+            window.location.href = 'login.html?redirect=dashboard.html';
+        }
+
+        // JWT payload 디코드 (서명 검증은 서버 몫 — 여기서는 만료 사전 확인용)
+        function decodeJwtPayload(rawToken) {
+            try {
+                const part = String(rawToken).split('.')[1];
+                if (!part) return null;
+                const base64 = part.replace(/-/g, '+').replace(/_/g, '/')
+                    .padEnd(Math.ceil(part.length / 4) * 4, '=');
+                return JSON.parse(atob(base64));
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function isTokenUsable(rawToken) {
+            const payload = decodeJwtPayload(rawToken);
+            if (!payload) return false;  // 깨진 토큰
+            if (typeof payload.exp !== 'number') return true;  // exp 없으면 서버 판단에 맡긴다
+            return payload.exp * 1000 > Date.now();
+        }
+
         // Auth Check
-        const user = JSON.parse(localStorage.getItem('user'));
+        let user = null;
+        try {
+            user = JSON.parse(localStorage.getItem('user') || 'null');
+        } catch (e) {
+            user = null;
+        }
         const token = localStorage.getItem('token');
 
         if (!user || !token) {
             window.location.href = 'login.html';
+        } else if (!isTokenUsable(token)) {
+            // 만료·손상된 토큰으로 화면을 그리면 이름만 보이고 목록·기능이 조용히 실패한다
+            redirectToLoginWithNotice();
         }
 
         document.getElementById('user-name').textContent = `${user.name}님`;
@@ -829,13 +875,22 @@
             return '';
         })();
 
-        // JWT 인증 헬퍼
-        function authFetch(url, options = {}) {
+        // JWT 인증 헬퍼 — 401 이면 세션 만료 안내와 함께 로그인으로 보낸다
+        async function authFetch(url, options = {}) {
+            if (sessionRedirecting) {
+                // 이미 로그인 화면으로 이동 중이면 요청을 보내지 않는다
+                // (실패 토스트가 이동 직전에 번쩍이지 않도록 응답을 주지 않고 대기)
+                return new Promise(() => {});
+            }
             const headers = options.headers || {};
             if (token) {
                 headers['Authorization'] = `Bearer ${token}`;
             }
-            return fetch(url, { ...options, headers });
+            const response = await fetch(url, { ...options, headers });
+            if (response.status === 401) {
+                redirectToLoginWithNotice();
+            }
+            return response;
         }
 
         function escapeHtml(value) {
