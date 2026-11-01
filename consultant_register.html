@@ -545,6 +545,8 @@
         </div>
     </footer>
 
+    <!-- 세션 만료 공용 헬퍼 (InsightAuth: 만료 사전 확인 · 역할 힌트를 실어 로그인으로 이동) -->
+    <script src="auth-session.js?v=1"></script>
     <script>
         // ===== ISO 규격 데이터 =====
         const ISO_CATEGORIES = [
@@ -940,6 +942,12 @@
                     body: formData
                 });
 
+                if (response.status === 401) {
+                    // 입력해 둔 내용을 임시 저장하고 로그인으로 (사진은 다시 선택하도록 안내)
+                    redirectForExpiredSession({ photoPending: true });
+                    return;
+                }
+
                 const result = await response.json();
 
                 if (response.ok && result.success) {
@@ -959,9 +967,7 @@
 
             // 초대 링크로 온 경우 돌아올 주소에 토큰을 실어 보낸다
             const inviteToken = getInviteToken();
-            const returnTo = encodeURIComponent(
-                inviteToken ? `consultant_register.html?invite=${inviteToken}` : 'consultant_register.html'
-            );
+            const returnTo = encodeURIComponent(registerReturnPath());
 
             if (!user || !token) {
                 if (inviteToken) {
@@ -977,6 +983,13 @@
                         window.location.href = `login.html?redirect=${returnTo}`;
                     }, 2000);
                 }
+                return false;
+            }
+
+            // 만료·손상된 토큰이면 입력을 시작하기 전에 안내와 함께 로그인으로 보낸다
+            // (긴 폼을 다 채운 뒤 제출 순간에 튕기지 않게)
+            if (window.InsightAuth && !window.InsightAuth.isTokenUsable(token)) {
+                window.InsightAuth.redirectToLogin({ redirect: registerReturnPath() });
                 return false;
             }
 
@@ -1012,10 +1025,188 @@
                 emailInput.readOnly = true;
             }
 
+            // 세션 만료로 로그인하러 갔다 돌아온 경우: 입력하던 내용을 되살린다
+            const restoredDraft = restoreRegisterDraft(user);
+            if (restoredDraft) showDraftRestoredNotice(restoredDraft);
+
             // 거부된 프로필이면 이전 제출값을 불러와 보완 재제출을 돕는다 (pending/verified 는 그대로)
-            prefillRejectedProfile(token);
+            // 되살린 입력이 있으면 그쪽이 우선이다 (사용자가 방금 고친 내용)
+            prefillRejectedProfile(token, { draftRestored: !!restoredDraft });
 
             return true;
+        }
+
+        // 로그인 후 돌아올 주소 (초대 링크면 토큰을 실어 보낸다)
+        function registerReturnPath() {
+            const inviteToken = getInviteToken();
+            return inviteToken
+                ? `consultant_register.html?invite=${encodeURIComponent(inviteToken)}`
+                : 'consultant_register.html';
+        }
+
+        // ===== 세션 만료 대비: 입력 임시 저장 =====
+        // 이 탭의 sessionStorage 에만 잠깐 둔다(탭을 닫으면 사라짐). 다시 로그인해 돌아오면 한 번 되살리고 지운다.
+        // 정산 정보(사업자 구분·사업자등록번호·상호·대표자·은행·계좌번호·예금주)와 계약 동의는 저장하지 않는다.
+        // 이름·이메일은 계정 값으로 채워지므로 저장하지 않는다.
+        const REGISTER_DRAFT_KEY = 'consultant_register_draft_v1';
+        const REGISTER_DRAFT_TTL_MS = 12 * 60 * 60 * 1000;
+        const REGISTER_DRAFT_INPUTS = ['phone', 'company_name', 'experience', 'match_reason'];
+        const REGISTER_DRAFT_TEXTAREAS = ['detailed_certifications', 'major_projects'];
+        const REGISTER_DRAFT_CHECK_GROUPS = ['regions', 'industry_experience'];
+
+        function collectRegisterDraft() {
+            const draft = { fields: {}, checks: {}, iso: [], photoUrl: '' };
+            REGISTER_DRAFT_INPUTS.forEach(name => {
+                const el = document.querySelector(`input[name="${name}"]`);
+                if (el) draft.fields[name] = el.value;
+            });
+            REGISTER_DRAFT_TEXTAREAS.forEach(name => {
+                const el = document.querySelector(`textarea[name="${name}"]`);
+                if (el) draft.fields[name] = el.value;
+            });
+            REGISTER_DRAFT_CHECK_GROUPS.forEach(name => {
+                draft.checks[name] = Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map(cb => cb.value);
+            });
+            draft.iso = Array.from(document.querySelectorAll('input[name^="iso_"]:checked')).map(cb => cb.value);
+            const photoUrl = document.getElementById('profile-image-url').value;
+            if (/^https?:\/\//i.test(photoUrl)) draft.photoUrl = photoUrl;
+            return draft;
+        }
+
+        function draftHasContent(draft) {
+            return Object.values(draft.fields).some(v => String(v || '').trim())
+                || Object.values(draft.checks).some(list => list.length)
+                || draft.iso.length > 0 || !!draft.photoUrl;
+        }
+
+        /** 입력을 임시 저장한다. 저장했으면 true (입력이 비었거나 저장소를 못 쓰면 false). */
+        function saveRegisterDraft(options) {
+            try {
+                const draft = collectRegisterDraft();
+                if (!draftHasContent(draft)) return false;
+                let user = null;
+                try { user = JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { user = null; }
+                if (!user || user.id == null) return false;  // 누구의 입력인지 모르면 남기지 않는다
+                draft.v = 1;
+                draft.owner = String(user.id);
+                draft.savedAt = Date.now();
+                draft.step = currentStep;
+                draft.photoPending = !!(options && options.photoPending);
+                sessionStorage.setItem(REGISTER_DRAFT_KEY, JSON.stringify(draft));
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        // 저장해 둔 입력을 꺼낸다(한 번만). 다른 계정으로 로그인했거나 오래된 것이면 버린다.
+        function takeRegisterDraft(user) {
+            let draft = null;
+            try {
+                draft = JSON.parse(sessionStorage.getItem(REGISTER_DRAFT_KEY) || 'null');
+                sessionStorage.removeItem(REGISTER_DRAFT_KEY);
+            } catch (e) {
+                return null;
+            }
+            if (!draft || typeof draft !== 'object' || draft.v !== 1) return null;
+            if (!user || String(user.id) !== String(draft.owner)) return null;
+            if (!Number.isFinite(draft.savedAt) || Date.now() - draft.savedAt > REGISTER_DRAFT_TTL_MS) return null;
+            return draft;
+        }
+
+        function restoreRegisterDraft(user) {
+            const draft = takeRegisterDraft(user);
+            if (!draft) return null;
+
+            const fields = draft.fields && typeof draft.fields === 'object' ? draft.fields : {};
+            REGISTER_DRAFT_INPUTS.forEach(name => {
+                const el = document.querySelector(`input[name="${name}"]`);
+                if (el && typeof fields[name] === 'string') el.value = fields[name];
+            });
+            REGISTER_DRAFT_TEXTAREAS.forEach(name => {
+                const el = document.querySelector(`textarea[name="${name}"]`);
+                if (el && typeof fields[name] === 'string') el.value = fields[name];
+            });
+
+            // 체크 상태는 저장한 그대로 맞춘다 (사용자가 해제한 칸이 다시 켜지지 않게)
+            const checks = draft.checks && typeof draft.checks === 'object' ? draft.checks : {};
+            REGISTER_DRAFT_CHECK_GROUPS.forEach(name => {
+                const wanted = new Set(Array.isArray(checks[name]) ? checks[name].map(String) : []);
+                document.querySelectorAll(`input[name="${name}"]`).forEach(cb => { cb.checked = wanted.has(cb.value); });
+            });
+            const isoWanted = new Set(Array.isArray(draft.iso) ? draft.iso.map(String) : []);
+            document.querySelectorAll('input[name^="iso_"]').forEach(cb => { cb.checked = isoWanted.has(cb.value); });
+
+            document.getElementById('region-counter').textContent =
+                `${document.querySelectorAll('input[name="regions"]:checked').length}개 선택`;
+            document.getElementById('industry-counter').textContent =
+                `${document.querySelectorAll('input[name="industry_experience"]:checked').length}개 선택`;
+            updateISOCount();
+
+            const photoUrl = String(draft.photoUrl || '');
+            if (/^https?:\/\//i.test(photoUrl)) {
+                document.getElementById('profile-image-url').value = photoUrl;
+                const img = document.createElement('img');
+                img.alt = '등록 중이던 프로필 사진';
+                img.src = photoUrl;
+                document.getElementById('photo-preview').replaceChildren(img);
+            }
+
+            // 작성하던 단계로 돌아간다 (각 단계는 넘어갈 때 이미 검사를 통과했다)
+            const step = parseInt(draft.step, 10);
+            if (step >= 1 && step <= totalSteps && step !== currentStep) {
+                currentStep = step;
+                updateStepUI();
+            }
+            return draft;
+        }
+
+        function showDraftRestoredNotice(draft) {
+            const notice = document.createElement('div');
+            notice.className = 'hm-alert hm-alert-success';
+            notice.id = 'draft-restored-notice';
+            notice.setAttribute('role', 'status');
+            notice.innerHTML = ICONS.check;
+            const text = document.createElement('span');
+            const title = document.createElement('strong');
+            title.textContent = '입력하던 내용을 되살렸습니다';
+            text.appendChild(title);
+            text.appendChild(document.createTextNode(
+                ' — 세션이 만료되기 전에 작성하신 내용입니다. 정산 정보는 보안상 저장하지 않았으니 다시 입력해주세요.'
+                + ' 기본 협력계약 동의도 다시 체크해주세요.'
+                + (draft.photoPending ? ' 업로드하지 못한 프로필 사진은 다시 선택해주세요.' : '')
+            ));
+            notice.appendChild(text);
+
+            const card = document.querySelector('.register-container > .reg-card');
+            if (card) card.parentNode.insertBefore(notice, card);
+
+            // 정산 정보 칸 바로 위에도 같은 안내를 둔다 (3단계에서 다시 보게 되는 위치)
+            const settle = document.querySelector('#biz-fields');
+            if (settle && !document.getElementById('resubmit-settlement-hint')) {
+                const hint = document.createElement('p');
+                hint.id = 'resubmit-settlement-hint';
+                hint.className = 'hm-note is-info is-inline';
+                hint.innerHTML = ICONS.alert;
+                hint.appendChild(document.createTextNode('보안상 정산 정보는 임시 저장하지 않았습니다. 다시 입력해주세요.'));
+                settle.parentNode.insertBefore(hint, settle.previousElementSibling || settle);
+            }
+        }
+
+        // 세션 만료(401·토큰 만료): 입력을 임시 저장한 뒤 안내와 함께 로그인으로 보낸다.
+        // 로그인 화면은 역할 힌트로 '컨설턴트' 탭을 열고, 로그인하면 이 페이지로 돌아온다.
+        function redirectForExpiredSession(options) {
+            if (window.InsightAuth && window.InsightAuth.isRedirecting()) return;
+            const saved = saveRegisterDraft(options);  // user 가 지워지기 전에 저장한다
+            const message = saved
+                ? '세션이 만료되었습니다. 다시 로그인하면 입력하던 내용을 이어서 작성할 수 있습니다.'
+                : undefined;
+            if (window.InsightAuth) {
+                window.InsightAuth.redirectToLogin({ redirect: registerReturnPath(), message });
+                return;
+            }
+            showNotification('세션이 만료되었습니다. 다시 로그인해주세요.', 'error');
+            setTimeout(() => { window.location.href = `login.html?redirect=${encodeURIComponent(registerReturnPath())}`; }, 1500);
         }
 
         // ===== 거부 후 재등록: 이전 제출값 불러오기 =====
@@ -1026,12 +1217,18 @@
         // 보완본 제출이 기존 값을 빈 배열로 덮어쓰지 않게 한다.
         let priorProfileExtras = null;
 
-        async function prefillRejectedProfile(token) {
+        async function prefillRejectedProfile(token, options) {
+            const draftRestored = !!(options && options.draftRestored);
             let profile = null;
             try {
                 const res = await fetch(`${REG_API_BASE}/api/consultants/me`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+                if (res.status === 401) {
+                    // 서버에서 토큰이 무효(폐기 등)로 판정됐다 — 입력을 지키고 로그인으로
+                    redirectForExpiredSession();
+                    return;
+                }
                 if (!res.ok) return;  // 404 = 아직 제출 전(첫 등록). 그 밖의 오류는 제출 시점에 안내된다.
                 profile = await res.json();
             } catch (e) {
@@ -1040,8 +1237,14 @@
             }
             if (!profile || profile.status !== 'rejected') return;
 
-            applyProfileToForm(profile);
-            showResubmitNotice(profile);
+            if (draftRestored) {
+                // 되살린 입력이 우선 — 이전 제출값으로 덮지 않는다. 폼에 칸이 없는 값과 (비어 있으면) 사진만 이어받는다.
+                priorProfileExtras = profileExtras(profile);
+                applyProfilePhoto(profile, { onlyIfEmpty: true });
+            } else {
+                applyProfileToForm(profile);
+            }
+            showResubmitNotice(profile, { draftRestored });
         }
 
         function setIfEmpty(selector, value) {
@@ -1105,25 +1308,34 @@
             setIfEmpty('textarea[name="major_projects"]', listToLines(p.recentProjects));
             setIfEmpty('input[name="match_reason"]', p.matchReason);
 
-            // 프로필 사진 (이미 공개 프로필에 쓰이는 URL 이므로 다시 내려받아도 된다)
-            const imgUrl = String(p.profileImageUrl || '');
-            if (/^https?:\/\//i.test(imgUrl)) {
-                document.getElementById('profile-image-url').value = imgUrl;
-                const preview = document.getElementById('photo-preview');
-                const img = document.createElement('img');
-                img.alt = '이전에 등록한 프로필 사진';
-                img.src = imgUrl;
-                preview.replaceChildren(img);
-            }
+            applyProfilePhoto(p);
+            priorProfileExtras = profileExtras(p);
+        }
 
-            priorProfileExtras = {
+        // 프로필 사진 (이미 공개 프로필에 쓰이는 URL 이므로 다시 내려받아도 된다)
+        function applyProfilePhoto(p, options) {
+            const imgUrl = String(p.profileImageUrl || '');
+            if (!/^https?:\/\//i.test(imgUrl)) return;
+            const input = document.getElementById('profile-image-url');
+            if (options && options.onlyIfEmpty && input.value) return;
+            input.value = imgUrl;
+            const preview = document.getElementById('photo-preview');
+            const img = document.createElement('img');
+            img.alt = '이전에 등록한 프로필 사진';
+            img.src = imgUrl;
+            preview.replaceChildren(img);
+        }
+
+        function profileExtras(p) {
+            return {
                 roles: Array.isArray(p.roles) ? p.roles : [],
                 project_types: Array.isArray(p.projectTypes) ? p.projectTypes : [],
                 org_size_experience: Array.isArray(p.orgSizeExperience) ? p.orgSizeExperience : []
             };
         }
 
-        function showResubmitNotice(p) {
+        function showResubmitNotice(p, options) {
+            const draftRestored = !!(options && options.draftRestored);
             const notice = document.createElement('div');
             notice.className = 'hm-note is-info reg-resubmit';
             notice.id = 'resubmit-notice';
@@ -1132,7 +1344,10 @@
             const title = document.createElement('p');
             title.className = 'hm-note-title';
             title.innerHTML = ICONS.alert;
-            title.appendChild(document.createTextNode('이전에 제출하신 내용을 불러왔습니다'));
+            // 되살린 입력이 있으면 이전 제출값은 불러오지 않았으므로 제목을 바꾼다
+            title.appendChild(document.createTextNode(draftRestored
+                ? '이전 심사에서 승인되지 않은 사유를 확인해주세요'
+                : '이전에 제출하신 내용을 불러왔습니다'));
             notice.appendChild(title);
 
             const box = document.createElement('div');
@@ -1179,10 +1394,11 @@
                 return;
             }
 
+            // 다른 탭에서 로그아웃했거나 작성하는 동안 토큰이 만료됐으면 보내지 않고,
+            // 입력을 임시 저장한 뒤 로그인으로 보낸다 (다시 로그인하면 되살린다)
             const token = localStorage.getItem('token');
-            if (!token) {
-                showNotification('세션이 만료되었습니다. 다시 로그인해주세요.', 'error');
-                setTimeout(() => window.location.href = 'login.html', 1500);
+            if (!token || (window.InsightAuth && !window.InsightAuth.isTokenUsable(token))) {
+                redirectForExpiredSession();
                 return;
             }
 
@@ -1252,9 +1468,15 @@
                     body: JSON.stringify(data)
                 });
 
+                if (response.status === 401) {
+                    redirectForExpiredSession();  // 버튼은 이동할 때까지 '처리 중' 으로 둔다
+                    return;
+                }
+
                 const result = await response.json();
 
                 if (response.ok) {
+                    try { sessionStorage.removeItem(REGISTER_DRAFT_KEY); } catch (e) { /* 무시 */ }
                     // Update localStorage
                     const currentUser = JSON.parse(localStorage.getItem('user'));
                     if (currentUser) {

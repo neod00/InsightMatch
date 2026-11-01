@@ -800,13 +800,17 @@
                 });
                 let response = await sendQuoteRequest();
                 // 사업자등록번호가 없으면 입력 창을 띄우고, 확인되면 같은 요청을 다시 보낸다.
-                if (window.InsightBiz && await window.InsightBiz.handle(response)) {
+                // 번호 저장(PUT)이 401 이면 아래 401 안내와 같게 처리한다.
+                let bizUnauthorized = false;
+                if (window.InsightBiz && await window.InsightBiz.handle(response, {
+                    onUnauthorized: () => { bizUnauthorized = true; }
+                })) {
                     response = await sendQuoteRequest();
                 }
                 let data = {};
                 try { data = await response.json(); } catch (e) { data = {}; }
 
-                if (response.status === 401) {
+                if (bizUnauthorized || response.status === 401) {
                     closeConsultPanel();
                     setConsultStatus('error', '로그인이 만료되었습니다. 다시 로그인해 주세요.', { href: loginUrlBackHere(), label: '로그인' });
                 } else if (response.ok) {

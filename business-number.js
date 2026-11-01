@@ -7,6 +7,10 @@
  *   let res = await send();
  *   if (await InsightBiz.handle(res, { apiBase: API_BASE_URL })) res = await send();
  *
+ * 저장(PUT)이 401(로그인 만료)이면 창을 닫고 false 를 돌려준 뒤 options.onUnauthorized() 를 부른다.
+ * 페이지마다 입력을 지키는 방식이 달라서(임시 저장 후 로그인 이동 / 화면 유지 후 안내) 처리는 호출하는 쪽이 정한다.
+ * onUnauthorized 를 넘기지 않으면 창 안에 '다시 로그인' 안내만 보여 준다(입력은 그대로).
+ *
  * 어느 페이지(새 디자인·옛 디자인)에서도 쓰도록 스타일을 스스로 넣는다. 의존성 없음.
  */
 (function () {
@@ -116,6 +120,17 @@
                     if (res.ok) {
                         rememberOnUser(data);
                         close(true);
+                        return;
+                    }
+                    if (res.status === 401) {
+                        if (typeof opts.onUnauthorized === 'function') {
+                            close(false);
+                            try { opts.onUnauthorized(res); } catch (e) { console.warn('[InsightBiz] onUnauthorized 실패:', e); }
+                            return;
+                        }
+                        error.textContent = '로그인이 만료되었습니다. 다시 로그인한 뒤 시도해 주세요.';
+                        okBtn.disabled = false;
+                        okBtn.textContent = '확인';
                         return;
                     }
                     error.textContent = data.message || '사업자등록번호를 확인하지 못했습니다.';

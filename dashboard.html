@@ -808,12 +808,24 @@
         function redirectToLoginWithNotice(message = SESSION_EXPIRED_MESSAGE) {
             if (sessionRedirecting) return;  // 동시에 여러 요청이 401 을 받아도 한 번만 이동
             sessionRedirecting = true;
+            // 지우기 전에 역할을 읽어 로그인 화면에 넘긴다 (컨설턴트면 '컨설턴트' 탭이 열린다)
+            const roleHint = readRoleHint();
             // token·user 를 함께 지운다. user 만 남으면 다른 페이지가 '로그인된 것처럼'
             // 이름을 그리다 401 을 만난다.
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             try { sessionStorage.setItem(AUTH_NOTICE_KEY, message); } catch (e) { /* 저장 불가 환경 */ }
-            window.location.href = 'login.html?redirect=dashboard.html';
+            window.location.href = 'login.html?redirect=dashboard.html' + (roleHint ? `&role=${roleHint}` : '');
+        }
+
+        // login.html 이 받는 역할 힌트 (company / consultant / admin 만)
+        function readRoleHint() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('user') || 'null');
+                return saved && ['company', 'consultant', 'admin'].includes(saved.role) ? saved.role : '';
+            } catch (e) {
+                return '';
+            }
         }
 
         // JWT payload 디코드 (서명 검증은 서버 몫 — 여기서는 만료 사전 확인용)
@@ -1065,7 +1077,8 @@
             if (!window.InsightBiz) return;
             const saved = await window.InsightBiz.open({
                 apiBase: API_BASE_URL,
-                message: '회사 사업자등록번호를 입력하면 국세청에 영업 상태를 조회해 확인합니다.'
+                message: '회사 사업자등록번호를 입력하면 국세청에 영업 상태를 조회해 확인합니다.',
+                onUnauthorized: () => redirectToLoginWithNotice()  // 저장(PUT)이 401 이면 다른 요청과 같게 로그인으로
             });
             if (saved) {
                 showNotification('사업자등록번호가 확인되었습니다.', 'success');
@@ -2863,10 +2876,14 @@
                 });
                 let response = await sendAddRequest();
                 // 사업자등록번호가 없으면 입력 창을 띄우고, 확인되면 같은 요청을 다시 보낸다.
-                if (window.InsightBiz && await window.InsightBiz.handle(response, { apiBase: API_BASE_URL })) {
+                if (window.InsightBiz && await window.InsightBiz.handle(response, {
+                    apiBase: API_BASE_URL,
+                    onUnauthorized: () => redirectToLoginWithNotice()
+                })) {
                     response = await sendAddRequest();
                     renderBusinessNumberCard();
                 }
+                if (sessionRedirecting) return;  // 로그인으로 이동 중이면 실패 토스트를 띄우지 않는다
 
                 if (response.ok) {
                     showNotification(`${consultantName}에게 견적 요청을 추가했습니다.`, 'success');

@@ -189,11 +189,17 @@
         const urlParams = new URLSearchParams(window.location.search);
         const redirectTo = safeRedirectTarget(urlParams.get('redirect'));
 
+        // 세션 만료로 넘어온 페이지가 알려 주는 역할 힌트 (?role=). 정해진 값만 받는다.
+        const ROLE_HINTS = ['company', 'consultant', 'admin'];
+        const roleHint = ROLE_HINTS.includes(urlParams.get('role')) ? urlParams.get('role') : null;
+
         // 현재 선택된 로그인 타입
         let currentLoginRole = 'company';
 
-        // 전문가 프로필 등록에서 넘어온 경우 컨설턴트 탭으로 연다(회원가입 링크도 컨설턴트 가입으로 바뀐다).
-        if (redirectTo && redirectTo.startsWith('/consultant_register.html')) {
+        // 컨설턴트 탭으로 여는 경우: 역할 힌트가 consultant 이거나, 힌트 없이 전문가 프로필 등록에서 넘어온 경우
+        // (회원가입 링크도 컨설턴트 가입으로 바뀐다)
+        if (roleHint === 'consultant'
+            || (!roleHint && redirectTo && redirectTo.startsWith('/consultant_register.html'))) {
             document.addEventListener('DOMContentLoaded', () => switchLoginTab('consultant'));
         }
 
@@ -312,9 +318,10 @@
             if (message) showAuthNotice(String(message).slice(0, 200));
         })();
 
-        // 관리자 화면에서 튕겨 온 경우 관리자 로그인 탭을 바로 연다
+        // 관리자 화면에서 튕겨 온 경우(또는 역할 힌트가 admin) 관리자 로그인 탭을 바로 연다
         // (redirectTo 는 safeRedirectTarget 이 '/admin.html' 같은 경로로 정규화한 값)
-        if (redirectTo && redirectTo.startsWith('/admin.html')) {
+        if (roleHint === 'admin'
+            || (!roleHint && redirectTo && redirectTo.startsWith('/admin.html'))) {
             showAdminLogin();
         }
 

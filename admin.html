@@ -806,12 +806,18 @@
             function redirectToLoginWithNotice(message = SESSION_EXPIRED_MESSAGE) {
                 if (sessionRedirecting) return;
                 sessionRedirecting = true;
+                // 지우기 전에 역할을 읽어 로그인 화면에 넘긴다 (관리자 탭이 열린다)
+                let roleHint = '';
+                try {
+                    const saved = JSON.parse(localStorage.getItem('user') || 'null');
+                    if (saved && ['company', 'consultant', 'admin'].includes(saved.role)) roleHint = saved.role;
+                } catch (e) { roleHint = ''; }
                 // script.js 의 authFetch 와 같게 token·user 를 함께 지운다.
                 // user 만 남으면 다른 페이지가 '로그인된 것처럼' 이름을 그리다 401 을 만난다.
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
                 try { sessionStorage.setItem(AUTH_NOTICE_KEY, message); } catch (e) { /* 저장 불가 환경 */ }
-                window.location.href = 'login.html?redirect=admin.html';
+                window.location.href = 'login.html?redirect=admin.html' + (roleHint ? `&role=${roleHint}` : '');
             }
 
             // JWT payload 디코드 (서명 검증은 서버 몫 — 여기서는 만료 사전 확인용)

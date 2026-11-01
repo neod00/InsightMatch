@@ -89,17 +89,27 @@ async function authFetch(url, options = {}) {
 
     // Handle 401 Unauthorized - token expired or invalid
     if (response.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        showSessionExpiredModal();
+        handleSessionExpired();
         throw new Error('Session expired');
     }
 
     return response;
 }
 
+// token·user 를 지우고 만료 안내 창을 띄운다. 역할은 지우기 전에 읽어 로그인 화면에 넘긴다(해당 탭이 열린다).
+function handleSessionExpired() {
+    let role = '';
+    try {
+        const saved = JSON.parse(localStorage.getItem('user') || 'null');
+        if (saved && ['company', 'consultant', 'admin'].includes(saved.role)) role = saved.role;
+    } catch (e) { role = ''; }
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    showSessionExpiredModal(role);
+}
+
 // Session Expired Modal
-function showSessionExpiredModal() {
+function showSessionExpiredModal(role) {
     // Check if modal already exists
     if (document.getElementById('session-expired-overlay')) return;
 
@@ -117,14 +127,18 @@ function showSessionExpiredModal() {
             <h3 id="session-expired-title">세션이 만료되었습니다</h3>
             <p>보안을 위해 자동으로 로그아웃되었습니다.<br>다시 로그인해주세요.</p>
             <div class="session-modal-actions">
-                <button type="button" onclick="window.location.href='login.html'">로그인 페이지로 이동</button>
+                <button type="button">로그인 페이지로 이동</button>
             </div>
         </div>
     `;
 
     document.body.appendChild(overlay);
     const loginBtn = overlay.querySelector('button');
-    if (loginBtn) loginBtn.focus();
+    if (loginBtn) {
+        const loginHref = role ? `login.html?role=${encodeURIComponent(role)}` : 'login.html';
+        loginBtn.addEventListener('click', () => { window.location.href = loginHref; });
+        loginBtn.focus();
+    }
 }
 
 // Login Required Modal - for accessing protected features
@@ -1409,8 +1423,16 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             let response = await sendQuoteRequest();
             // 사업자등록번호가 없으면 입력 창을 띄우고, 확인되면 같은 요청을 다시 보낸다.
-            if (window.InsightBiz && await window.InsightBiz.handle(response)) {
+            // 번호 저장(PUT)이 401 이면 authFetch 의 401 과 같게 만료 안내 창을 띄운다.
+            let bizUnauthorized = false;
+            if (window.InsightBiz && await window.InsightBiz.handle(response, {
+                onUnauthorized: () => { bizUnauthorized = true; }
+            })) {
                 response = await sendQuoteRequest();
+            }
+            if (bizUnauthorized) {
+                handleSessionExpired();
+                throw new Error('Session expired');
             }
 
             if (response.ok) {
@@ -1448,6 +1470,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error('Quote request error:', error);
+            // 세션 만료는 만료 안내 창이 이미 떴다 — '서버 연결 실패' 토스트를 겹쳐 띄우지 않는다
+            if (error && error.message === 'Session expired') return;
             showNotification('서버 연결에 실패했습니다. 다시 시도해주세요.', 'error');
         } finally {
             if (requestBtn) {
