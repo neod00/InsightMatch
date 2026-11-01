@@ -2094,6 +2094,15 @@ a.hm-help-item:hover .go { transform: translateX(3px) rotate(-45deg); }
 .hm-admin .reject-reason-option:has(input:checked) .reason-text { color: var(--ink); }
 .hm-admin .reject-reason-option:has(input:focus-visible) { outline: 3px solid var(--ink); outline-offset: 2px; }
 .hm-admin .hm-reject-memo { margin-bottom: 18px; }
+/* 체크박스형(거부 사유 복수 선택·승인 확인 항목) — 라디오와 같은 카드에 사각 표시만 다르게 그린다 */
+.hm-admin .reason-check { position: relative; width: 20px; height: 20px; border-radius: 5px; flex-shrink: 0; background: var(--white); box-shadow: inset 0 0 0 1.5px #A9AC9F; transition: background-color .15s, box-shadow .15s; }
+.hm-admin .reason-check::after { content: ''; position: absolute; left: 7px; top: 3px; width: 5px; height: 10px; border: solid var(--white); border-width: 0 2px 2px 0; transform: rotate(45deg) scale(0); transition: transform .15s; }
+.hm-admin .reject-reason-option:has(input:checked) .reason-check { background: var(--ink); box-shadow: none; }
+.hm-admin .reject-reason-option:has(input:checked) .reason-check::after { transform: rotate(45deg) scale(1); }
+.hm-admin .reason-text small { display: block; margin-top: 2px; font-size: 13px; font-weight: 500; color: var(--muted); }
+.hm-admin .hm-reject-legend-hint { font-size: 13px; font-weight: 500; color: var(--muted); }
+.hm-admin .hm-approve-hint { margin: -4px 0 14px; }
+.hm-admin #approve-check-count, .hm-admin #reject-reason-length { margin-top: 10px; }
 .hm-admin .hm-note-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 0; }
 .hm-admin .hm-note-row > svg { margin-top: 3px; }
 

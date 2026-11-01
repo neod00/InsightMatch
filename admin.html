@@ -555,37 +555,37 @@
             <input type="hidden" id="reject-consultant-id" value="">
 
             <fieldset class="hm-reject-fieldset">
-                <legend class="hm-reject-legend">거부 사유 선택</legend>
+                <legend class="hm-reject-legend">거부 사유 선택 <small class="hm-reject-legend-hint">(여러 개 선택 가능)</small></legend>
 
                 <div id="reject-reasons" class="hm-reason-list">
                     <label class="reject-reason-option">
-                        <input type="radio" name="reject_reason" value="자격증/경력 증빙 서류 미제출">
-                        <span class="reason-radio"></span>
+                        <input type="checkbox" name="reject_reason" value="자격증/경력 증빙 서류 미제출">
+                        <span class="reason-check"></span>
                         <span class="reason-text">자격증/경력 증빙 서류 미제출</span>
                     </label>
                     <label class="reject-reason-option">
-                        <input type="radio" name="reject_reason" value="ISO 전문 분야 미기재 또는 부정확">
-                        <span class="reason-radio"></span>
+                        <input type="checkbox" name="reject_reason" value="ISO 전문 분야 미기재 또는 부정확">
+                        <span class="reason-check"></span>
                         <span class="reason-text">ISO 전문 분야 미기재 또는 부정확</span>
                     </label>
                     <label class="reject-reason-option">
-                        <input type="radio" name="reject_reason" value="연락처 정보 불완전 (이메일/전화번호)">
-                        <span class="reason-radio"></span>
+                        <input type="checkbox" name="reject_reason" value="연락처 정보 불완전 (이메일/전화번호)">
+                        <span class="reason-check"></span>
                         <span class="reason-text">연락처 정보 불완전 (이메일/전화번호)</span>
                     </label>
                     <label class="reject-reason-option">
-                        <input type="radio" name="reject_reason" value="프로필 정보 부족 (경력, 산업 경험 등)">
-                        <span class="reason-radio"></span>
+                        <input type="checkbox" name="reject_reason" value="프로필 정보 부족 (경력, 산업 경험 등)">
+                        <span class="reason-check"></span>
                         <span class="reason-text">프로필 정보 부족 (경력, 산업 경험 등)</span>
                     </label>
                     <label class="reject-reason-option">
-                        <input type="radio" name="reject_reason" value="등록 정책 위반">
-                        <span class="reason-radio"></span>
+                        <input type="checkbox" name="reject_reason" value="등록 정책 위반">
+                        <span class="reason-check"></span>
                         <span class="reason-text">등록 정책 위반</span>
                     </label>
                     <label class="reject-reason-option">
-                        <input type="radio" name="reject_reason" value="custom" id="custom-reason-radio">
-                        <span class="reason-radio"></span>
+                        <input type="checkbox" name="reject_reason" value="custom" id="custom-reason-check">
+                        <span class="reason-check"></span>
                         <span class="reason-text">기타 (직접 입력)</span>
                     </label>
                 </div>
@@ -593,7 +593,9 @@
 
             <div class="hm-field hm-reject-memo">
                 <label for="reject-custom-reason">상세 사유 또는 추가 메모</label>
-                <textarea id="reject-custom-reason" rows="4" placeholder="추가 설명을 입력하세요... (선택사항)"></textarea>
+                <textarea id="reject-custom-reason" rows="4" placeholder="추가 설명을 입력하세요... ('기타' 선택 시 필수)"
+                    oninput="updateRejectReasonLength()"></textarea>
+                <p id="reject-reason-length" class="hm-field-count">0 / 500자</p>
             </div>
 
             <div class="hm-note is-warn hm-note-row">
@@ -606,6 +608,62 @@
             <button class="btn btn-danger is-grow" type="button" id="confirm-reject-btn" onclick="confirmReject()">
                 <i data-lucide="user-x"></i>
                 거부 처리
+            </button>
+        </div>
+    </div>
+
+    <!-- Approval Panel (확인 항목 4개를 관리자가 직접 체크 — 체크 값이 그대로 감사 로그에 남는다) -->
+    <div class="side-panel-overlay" id="approve-panel-overlay" onclick="closeApprovePanel()"></div>
+    <div class="side-panel is-narrow" id="approve-panel" role="dialog" aria-labelledby="approve-panel-title">
+        <div class="side-panel-header">
+            <div class="side-panel-heading">
+                <h3 id="approve-panel-title">
+                    <i data-lucide="user-check"></i>
+                    컨설턴트 승인
+                </h3>
+                <p id="approve-consultant-name"></p>
+            </div>
+            <button class="close-panel-btn" type="button" onclick="closeApprovePanel()" title="닫기" aria-label="닫기">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="side-panel-body">
+            <input type="hidden" id="approve-consultant-id" value="">
+
+            <fieldset class="hm-reject-fieldset">
+                <legend class="hm-reject-legend">승인 전 필수 확인 항목</legend>
+                <p class="hm-field-hint hm-approve-hint">실제로 확인한 항목만 체크하세요. 4개 항목을 모두 확인해야 승인할 수 있으며, 체크 내용은 감사 로그에 남습니다.</p>
+
+                <div id="approve-checklist" class="hm-reason-list">
+                    <label class="reject-reason-option">
+                        <input type="checkbox" name="approve_check" value="identity_verified" onchange="updateApproveButton()">
+                        <span class="reason-check"></span>
+                        <span class="reason-text">신원/계정 확인<small>본인 이름·계정 이메일이 제출 정보와 일치</small></span>
+                    </label>
+                    <label class="reject-reason-option">
+                        <input type="checkbox" name="approve_check" value="iso_credentials_verified" onchange="updateApproveButton()">
+                        <span class="reason-check"></span>
+                        <span class="reason-text">ISO 자격 및 경력 확인<small>심사원 자격·전문 규격·경력 연수 증빙 확인</small></span>
+                    </label>
+                    <label class="reject-reason-option">
+                        <input type="checkbox" name="approve_check" value="project_history_verified" onchange="updateApproveButton()">
+                        <span class="reason-check"></span>
+                        <span class="reason-text">주요 프로젝트 이력 확인<small>기재한 수행 이력이 구체적이고 사실과 부합</small></span>
+                    </label>
+                    <label class="reject-reason-option">
+                        <input type="checkbox" name="approve_check" value="contact_verified" onchange="updateApproveButton()">
+                        <span class="reason-check"></span>
+                        <span class="reason-text">연락처 확인<small>이메일·전화번호로 연락 가능 여부 확인</small></span>
+                    </label>
+                </div>
+                <p id="approve-check-count" class="hm-field-count">0 / 4 확인</p>
+            </fieldset>
+        </div>
+        <div class="side-panel-footer">
+            <button class="btn btn-secondary" type="button" onclick="closeApprovePanel()">취소</button>
+            <button class="btn btn-primary is-grow" type="button" id="confirm-approve-btn" onclick="confirmApprove()" disabled>
+                <i data-lucide="check-circle"></i>
+                승인 처리
             </button>
         </div>
     </div>
@@ -657,11 +715,58 @@
             let consultantPage = 1;
             const consultantPageSize = 8;
 
+            // login.html 이 읽어 안내 문구로 보여주는 키 (즉시 이동하면 토스트가 안 보이므로
+            // 이동 전에 sessionStorage 에 남겨 둔다)
+            const AUTH_NOTICE_KEY = 'auth_notice';
+            const SESSION_EXPIRED_MESSAGE = '세션이 만료되었습니다. 다시 로그인해주세요.';
+            let sessionRedirecting = false;
+
+            function redirectToLoginWithNotice(message = SESSION_EXPIRED_MESSAGE) {
+                if (sessionRedirecting) return;
+                sessionRedirecting = true;
+                // script.js 의 authFetch 와 같게 token·user 를 함께 지운다.
+                // user 만 남으면 다른 페이지가 '로그인된 것처럼' 이름을 그리다 401 을 만난다.
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                try { sessionStorage.setItem(AUTH_NOTICE_KEY, message); } catch (e) { /* 저장 불가 환경 */ }
+                window.location.href = 'login.html?redirect=admin.html';
+            }
+
+            // JWT payload 디코드 (서명 검증은 서버 몫 — 여기서는 만료 사전 확인용)
+            function decodeJwtPayload(token) {
+                try {
+                    const part = String(token).split('.')[1];
+                    if (!part) return null;
+                    const base64 = part.replace(/-/g, '+').replace(/_/g, '/')
+                        .padEnd(Math.ceil(part.length / 4) * 4, '=');
+                    return JSON.parse(atob(base64));
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            function isTokenUsable(token) {
+                const payload = decodeJwtPayload(token);
+                if (!payload) return false;  // 깨진 토큰
+                if (typeof payload.exp !== 'number') return true;  // exp 없으면 서버 판단에 맡긴다
+                return payload.exp * 1000 > Date.now();
+            }
+
             function ensureAdminAccess() {
                 const token = localStorage.getItem('token');
-                const user = JSON.parse(localStorage.getItem('user') || 'null');
+                let user = null;
+                try {
+                    user = JSON.parse(localStorage.getItem('user') || 'null');
+                } catch (e) {
+                    user = null;
+                }
                 if (!token || !user) {
                     window.location.href = 'login.html?redirect=admin.html';
+                    return false;
+                }
+                if (!isTokenUsable(token)) {
+                    // 이미 만료된 토큰으로 화면을 그리면 첫 관리자 액션에서 아무 안내 없이 튕긴다
+                    redirectToLoginWithNotice();
                     return false;
                 }
                 if (user.role !== 'admin') {
@@ -679,10 +784,7 @@
                 };
                 const response = await fetch(url, { ...options, headers });
                 if (response.status === 401) {
-                    // token 만 지우면 user 가 남아 로그인 상태로 오인되므로 둘 다 지운다 (대시보드와 같은 처리)
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('user');
-                    window.location.href = 'login.html?redirect=admin.html';
+                    redirectToLoginWithNotice();
                 } else if (response.status === 403) {
                     showNotification('관리자 권한이 필요합니다.', 'error');
                     setTimeout(() => { window.location.href = 'dashboard.html'; }, 1200);
@@ -1853,7 +1955,7 @@
                     const rejectionInfo = status === 'rejected' ? `
                         <div class="hm-reject-info">
                             <b>거부 사유:</b>
-                            <span>${escapeHtml(consultant.rejectionReason || '사유 미기재')}</span>
+                            <span class="hm-pre-line">${escapeHtml(consultant.rejectionReason || '사유 미기재')}</span>
                             ${consultant.rejectedAt ? `<small>거부일: ${escapeHtml(new Date(consultant.rejectedAt).toLocaleDateString('ko-KR'))}</small>` : ''}
                         </div>
                     ` : '';
@@ -1970,6 +2072,7 @@
                 // Reset form
                 document.querySelectorAll('input[name="reject_reason"]').forEach(r => r.checked = false);
                 document.getElementById('reject-custom-reason').value = '';
+                updateRejectReasonLength();
 
                 // Open panel
                 openRejectPanel();
@@ -1988,28 +2091,45 @@
                 document.body.style.overflow = '';
             }
 
+            // 서버 get_required_reason 의 최대 길이와 같아야 한다
+            const REJECT_REASON_MAX_LENGTH = 500;
+
+            // 선택한 사유들을 줄바꿈으로 잇고, 메모가 있으면 마지막 줄에 덧붙인다.
+            // '기타(직접 입력)'를 고르면 메모가 곧 그 사유이므로 메모가 필수다.
+            function buildRejectReason() {
+                const checked = Array.from(document.querySelectorAll('input[name="reject_reason"]:checked'));
+                const customSelected = checked.some(cb => cb.value === 'custom');
+                const memo = document.getElementById('reject-custom-reason').value.trim();
+                const lines = checked.filter(cb => cb.value !== 'custom').map(cb => cb.value);
+                if (memo) lines.push(memo);
+                return { reason: lines.join('\n'), checkedCount: checked.length, customSelected, memo };
+            }
+
+            function updateRejectReasonLength() {
+                const counter = document.getElementById('reject-reason-length');
+                if (!counter) return;
+                const { reason } = buildRejectReason();
+                counter.textContent = `${reason.length} / ${REJECT_REASON_MAX_LENGTH}자`;
+                counter.style.color = reason.length > REJECT_REASON_MAX_LENGTH ? 'var(--error)' : 'var(--text-muted)';
+            }
+
+            document.getElementById('reject-reasons').addEventListener('change', updateRejectReasonLength);
+
             async function confirmReject() {
                 const id = document.getElementById('reject-consultant-id').value;
-                const selectedReason = document.querySelector('input[name="reject_reason"]:checked');
-                const customReason = document.getElementById('reject-custom-reason').value.trim();
+                const { reason, checkedCount, customSelected, memo } = buildRejectReason();
 
-                if (!selectedReason) {
-                    showNotification('거부 사유를 선택해주세요.', 'error');
+                if (checkedCount === 0) {
+                    showNotification('거부 사유를 하나 이상 선택해주세요.', 'error');
                     return;
                 }
-
-                let reason = selectedReason.value;
-
-                // If custom is selected, use the textarea value
-                if (reason === 'custom') {
-                    if (!customReason) {
-                        showNotification('거부 사유를 직접 입력해주세요.', 'error');
-                        return;
-                    }
-                    reason = customReason;
-                } else if (customReason) {
-                    // Append additional notes if provided
-                    reason = reason + ' - ' + customReason;
+                if (customSelected && !memo) {
+                    showNotification("'기타'를 선택했다면 상세 사유를 직접 입력해주세요.", 'error');
+                    return;
+                }
+                if (reason.length > REJECT_REASON_MAX_LENGTH) {
+                    showNotification(`거부 사유가 너무 깁니다 (현재 ${reason.length}자 / 최대 ${REJECT_REASON_MAX_LENGTH}자). 메모를 줄여주세요.`, 'error');
+                    return;
                 }
 
                 // Show loading state
@@ -2029,8 +2149,10 @@
                         closeRejectPanel();
                         showNotification('컨설턴트 등록이 거부되었습니다.', 'success');
                         fetchConsultantsAdmin();
-                    } else {
-                        showNotification('처리 중 오류가 발생했습니다.', 'error');
+                    } else if (response.status !== 401) {
+                        // 401 은 authFetch 가 로그인 화면으로 보낸다. 그 외(400 등)는 서버 문구를 그대로 보여준다.
+                        const data = await response.json().catch(() => ({}));
+                        showNotification(data.message || '처리 중 오류가 발생했습니다.', 'error');
                     }
                 } catch (error) {
                     console.error('Error:', error);
@@ -2064,15 +2186,65 @@
                 }
             }
 
-            async function approveConsultant(id) {
-                if (!confirm('승인 전 필수 확인 항목을 모두 확인했습니까?\n\n- 신원/계정 확인\n- ISO 자격 및 경력 확인\n- 주요 프로젝트 이력 확인\n- 연락처 확인')) return;
+            // Approval Panel Functions
+            // 체크리스트 4개를 관리자가 직접 하나씩 확인해야 승인 버튼이 열린다.
+            // 예전에는 confirm() 한 번으로 4개 항목을 무조건 true 로 보내, 감사 로그에
+            // 확인하지 않은 항목까지 '확인됨'으로 남았다.
+            function approveConsultant(id) {
+                const consultant = allConsultantsAdmin.find(c => c.id == id);
+                document.getElementById('approve-consultant-id').value = id;
+                document.getElementById('approve-consultant-name').textContent =
+                    consultant ? `${consultant.name} 전문가` : '';
+                document.querySelectorAll('input[name="approve_check"]').forEach(cb => { cb.checked = false; });
+                updateApproveButton();
+                openApprovePanel();
+            }
 
-                const checklist = {
-                    identity_verified: true,
-                    iso_credentials_verified: true,
-                    project_history_verified: true,
-                    contact_verified: true
-                };
+            function openApprovePanel() {
+                document.getElementById('approve-panel-overlay').classList.add('active');
+                document.getElementById('approve-panel').classList.add('active');
+                document.body.style.overflow = 'hidden';
+                lucide.createIcons();
+            }
+
+            function closeApprovePanel() {
+                document.getElementById('approve-panel-overlay').classList.remove('active');
+                document.getElementById('approve-panel').classList.remove('active');
+                document.body.style.overflow = '';
+            }
+
+            // 실제 체크 값을 그대로 보낸다 (서버 validate_approval_checklist 가 최종 판정)
+            function getApproveChecklist() {
+                const checklist = {};
+                document.querySelectorAll('input[name="approve_check"]').forEach(cb => {
+                    checklist[cb.value] = cb.checked;
+                });
+                return checklist;
+            }
+
+            function updateApproveButton() {
+                const boxes = Array.from(document.querySelectorAll('input[name="approve_check"]'));
+                const checkedCount = boxes.filter(cb => cb.checked).length;
+                const allChecked = boxes.length > 0 && checkedCount === boxes.length;
+                document.getElementById('confirm-approve-btn').disabled = !allChecked;
+                const counter = document.getElementById('approve-check-count');
+                counter.textContent = `${checkedCount} / ${boxes.length} 확인`;
+                counter.style.color = allChecked ? 'var(--primary)' : 'var(--text-muted)';
+            }
+
+            async function confirmApprove() {
+                const id = document.getElementById('approve-consultant-id').value;
+                const checklist = getApproveChecklist();
+                if (!Object.values(checklist).every(Boolean)) {
+                    showNotification('승인 전 확인 항목을 모두 체크해주세요.', 'error');
+                    updateApproveButton();
+                    return;
+                }
+
+                const confirmBtn = document.getElementById('confirm-approve-btn');
+                const originalHTML = confirmBtn.innerHTML;
+                confirmBtn.innerHTML = '<div class="loading-spinner" style="width: 18px; height: 18px;"></div> 처리 중...';
+                confirmBtn.disabled = true;
 
                 try {
                     const response = await authFetch(`/api/admin/consultants/${id}/approve`, {
@@ -2082,15 +2254,20 @@
                     });
 
                     if (response.ok) {
+                        closeApprovePanel();
                         showNotification('컨설턴트가 승인되었습니다.', 'success');
                         fetchConsultantsAdmin();
-                    } else {
-                        const data = await response.json();
+                    } else if (response.status !== 401) {
+                        const data = await response.json().catch(() => ({}));
                         showNotification(data.message || '승인 처리 중 오류가 발생했습니다.', 'error');
                     }
                 } catch (error) {
                     console.error('Error:', error);
                     showNotification('서버 연결에 실패했습니다.', 'error');
+                } finally {
+                    confirmBtn.innerHTML = originalHTML;
+                    lucide.createIcons();
+                    updateApproveButton();
                 }
             }
 
@@ -2646,7 +2823,7 @@
                 </a>
                 ` : ''}
                 ${panelStatus === 'pending' ? `
-                    <button type="button" class="btn btn-primary is-grow" onclick="approveConsultant(${cid}); closeSidePanel();">
+                    <button type="button" class="btn btn-primary is-grow" onclick="closeSidePanel(); approveConsultant(${cid});">
                         <i data-lucide="check-circle"></i>
                         검증 승인하기
                     </button>

@@ -282,6 +282,42 @@
             document.querySelector('.login-tabs').style.display = 'flex';
         }
 
+        // 세션 만료 등으로 다른 페이지가 로그인 화면으로 보낸 경우, 그 이유를 보여준다.
+        // (admin.html 의 authFetch / ensureAdminAccess 가 이동 직전에 sessionStorage 에 남긴다.
+        //  즉시 이동하면 그 페이지의 토스트는 사용자 눈에 보이지 않는다)
+        // 이 페이지는 lucide 를 로드하지 않으므로 아이콘은 인라인 SVG(ICONS) 를 쓴다.
+        function showAuthNotice(message) {
+            const existing = document.getElementById('auth-notice');
+            if (existing) existing.remove();
+
+            const notice = document.createElement('div');
+            notice.id = 'auth-notice';
+            notice.className = 'hm-alert hm-alert-info';
+            notice.setAttribute('role', 'status');
+            notice.innerHTML = ICONS.alert;
+            const text = document.createElement('span');
+            text.textContent = message;  // 저장소 값이므로 HTML 로 해석되지 않게 넣는다
+            notice.appendChild(text);
+
+            const form = document.getElementById('login-form');
+            form.parentNode.insertBefore(notice, form);
+        }
+
+        (function consumeAuthNotice() {
+            let message = null;
+            try {
+                message = sessionStorage.getItem('auth_notice');
+                if (message) sessionStorage.removeItem('auth_notice');  // 1회만 보여준다
+            } catch (e) { /* 저장소 접근 불가 환경 */ }
+            if (message) showAuthNotice(String(message).slice(0, 200));
+        })();
+
+        // 관리자 화면에서 튕겨 온 경우 관리자 로그인 탭을 바로 연다
+        // (redirectTo 는 safeRedirectTarget 이 '/admin.html' 같은 경로로 정규화한 값)
+        if (redirectTo && redirectTo.startsWith('/admin.html')) {
+            showAdminLogin();
+        }
+
         // Mobile Menu Toggle
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
         const mobileNav = document.getElementById('mobile-nav');

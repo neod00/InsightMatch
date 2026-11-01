@@ -1493,7 +1493,13 @@ def register_consultant_validated():
 
     user_id = g.current_user.id
     existing = Consultant.query.filter_by(user_id=user_id).first()
-    if existing and not is_placeholder_consultant_profile(existing):
+    # 거부(rejected)된 프로필은 '보완 후 재제출'을 허용한다.
+    # 거부 메일이 "보완 후 다시 등록해주시면 재검토" 라고 안내하고 CTA 로 이 등록
+    # 페이지를 여는데, 여기서 409 를 내면 관리자가 '복구'를 눌러주기 전까지
+    # 컨설턴트가 영원히 멈춰 있었다. pending(심사 중)·verified(승인됨)·
+    # revoked(관리자의 의도적 자격 해제)는 계속 막는다.
+    is_resubmission = bool(existing) and existing.status == 'rejected'
+    if existing and not is_resubmission and not is_placeholder_consultant_profile(existing):
         return jsonify({'message': 'Consultant profile already exists.', 'consultant_id': existing.id}), 409
 
     data = request.json or {}
@@ -1622,6 +1628,14 @@ def register_consultant_validated():
         # 껍데기가 실수로 승인된 상태였더라도 verified/status 를 함께 덮어써
         # 실제 제출 내용은 반드시 다시 심사를 거치게 한다.
         new_consultant = existing
+        if is_resubmission:
+            # 재제출은 같은 계정의 '보완본'이다. 이미 쌓인 평점·리뷰 수·신뢰 점수는
+            # 신규 기본값으로 초기화하지 않는다(거부 처리가 trust_score 를 이미
+            # 50 이하로 낮춰 두었다). 거부 사유는 지워 '심사 대기'로 되돌린다.
+            for preserved in ('rating', 'reviews', 'trust_score'):
+                profile_values.pop(preserved, None)
+            new_consultant.rejection_reason = None
+            new_consultant.rejected_at = None
         for field, value in profile_values.items():
             setattr(new_consultant, field, value)
     else:
@@ -1648,15 +1662,29 @@ def register_consultant_validated():
     # 이벤트라 하루 뒤 다이제스트로 미루지 않고 즉시 보낸다.
     # 등록은 이미 커밋됐으므로 통지 실패가 등록을 되돌리면 안 된다.
     try:
+        if is_resubmission:
+            notif_title = '전문가 재심사 요청 — 심사 대기'
+            notif_message = f'{name}님이 거부 사유를 보완해 재심사를 요청했습니다. 심사가 필요합니다.'
+            email_subject = f'전문가 재심사 요청 — {name}'
+            email_heading = '전문가 재심사 요청'
+            email_summary = '이전에 거부된 전문가가 프로필을 보완해 다시 제출했습니다. 재심사를 기다리고 있습니다.'
+            route_label = '재심사 요청 (거부 후 재제출)'
+        else:
+            notif_title = '신규 전문가 등록 — 심사 대기'
+            notif_message = f'{name}님이 전문가 등록을 신청했습니다. 심사가 필요합니다.'
+            email_subject = f'신규 전문가 심사 대기 — {name}'
+            email_heading = '신규 전문가 등록 신청'
+            email_summary = '새 전문가 등록 신청이 접수되어 심사를 기다리고 있습니다.'
+            route_label = '초대 링크 경유' if invite else '직접 등록'
         notify_admins(
             'consultant_pending_review',
-            '신규 전문가 등록 — 심사 대기',
-            f'{name}님이 전문가 등록을 신청했습니다. 심사가 필요합니다.',
+            notif_title,
+            notif_message,
             link='/admin.html',
             email_spec={
-                'subject_label': f'신규 전문가 심사 대기 — {name}',
-                'heading': '신규 전문가 등록 신청',
-                'summary': '새 전문가 등록 신청이 접수되어 심사를 기다리고 있습니다.',
+                'subject_label': email_subject,
+                'heading': email_heading,
+                'summary': email_summary,
                 'rows': [
                     ('이름', name),
                     ('소속', company_name or '-'),
@@ -1664,7 +1692,7 @@ def register_consultant_validated():
                     ('경력', f'{experience_years}년'),
                     ('연락처', phone),
                     ('이메일', email),
-                    ('초대 링크', '초대 링크 경유' if invite else '직접 등록'),
+                    ('등록 경로', route_label),
                 ],
                 'cta_label': '관리자 화면에서 심사하기 →',
             },
@@ -1673,6 +1701,13 @@ def register_consultant_validated():
     except Exception as e:
         db.session.rollback()
         record_email_failure('consultant_pending_review', e, commit=True)
+
+    if is_resubmission:
+        return jsonify({
+            'message': '보완한 프로필로 재심사를 요청했습니다. 관리자 검토 후 결과를 이메일로 안내해드립니다.',
+            'consultant_id': new_consultant.id,
+            'resubmitted': True,
+        }), 201
 
     return jsonify({
         'message': 'Consultant registration submitted for admin review.',
@@ -2984,6 +3019,7 @@ def register_consultant():
         print(f"[Consultant Register] Error: {str(e)}")
         print(traceback.format_exc())
         return jsonify({'message': f'등록 처리 중 오류가 발생했습니다: {str(e)}'}), 500
+
 
 # --- Project Endpoints ---
 @app.route('/api/projects', methods=['GET', 'POST'])

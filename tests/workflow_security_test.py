@@ -1329,6 +1329,146 @@ class TestWorkflowSecurity(unittest.TestCase):
             Consultant.query.filter_by(user_id=user.id).first().regions, 'Seoul')
 
     # ------------------------------------------------------------------
+    # 거부된 전문가의 '보완 후 재제출' (거부 메일 CTA → 등록 페이지)
+    # ------------------------------------------------------------------
+    def _register_then_reject(self, email, reason='자격증 증빙 미제출\nISO 분야 부정확'):
+        user = self._new_consultant_user(email)
+        first = self.client.post('/api/consultants/register',
+                                 json=self._reg_payload(email),
+                                 headers=auth_headers(user))
+        self.assertEqual(first.status_code, 201, first.get_json())
+        consultant_id = first.get_json()['consultant_id']
+
+        rejected = self.client.post(
+            f'/api/admin/consultants/{consultant_id}/reject',
+            json={'reason': reason},
+            headers=auth_headers(self.admin_user))
+        self.assertEqual(rejected.status_code, 200, rejected.get_json())
+        profile = Consultant.query.get(consultant_id)
+        self.assertEqual(profile.status, 'rejected')
+        self.assertEqual(profile.rejection_reason, reason)
+        return user, consultant_id
+
+    def test_rejected_consultant_can_resubmit_for_review(self):
+        """거부된 전문가는 보완해 다시 제출할 수 있어야 한다.
+
+        거부 메일은 "보완 후 다시 등록해주시면 재검토" 라고 안내하는데 등록 API 가
+        409 를 내 관리자가 '복구'를 눌러주기 전까지 영원히 막혀 있었다.
+        재제출은 같은 행을 재사용하고, 심사 대기로 되돌리며, 거부 사유를 지운다.
+        """
+        from index import email_service
+
+        email = 'resubmit@example.com'
+        user, consultant_id = self._register_then_reject(email)
+        Notification.query.filter_by(type='consultant_pending_review').delete()
+        db.session.commit()
+
+        with patch.object(email_service, 'send_admin_alert', autospec=True,
+                          return_value={'success': True}) as mock_alert:
+            resubmitted = self.client.post(
+                '/api/consultants/register',
+                json=self._reg_payload(email, regions='Busan',
+                                       recent_projects='보완한 프로젝트 이력'),
+                headers=auth_headers(user))
+
+        self.assertEqual(resubmitted.status_code, 201, resubmitted.get_json())
+        body = resubmitted.get_json()
+        self.assertEqual(body['consultant_id'], consultant_id)
+        self.assertIs(body.get('resubmitted'), True)
+
+        rows = Consultant.query.filter_by(user_id=user.id).all()
+        self.assertEqual(len(rows), 1)
+        profile = rows[0]
+        self.assertEqual(profile.id, consultant_id)
+        self.assertEqual(profile.status, 'pending')
+        self.assertFalse(profile.verified)
+        self.assertIsNone(profile.rejection_reason)
+        self.assertIsNone(profile.rejected_at)
+        # 제출값이 실제로 덮어써졌다
+        self.assertEqual(profile.regions, 'Busan')
+        self.assertEqual(profile.recent_projects, '보완한 프로젝트 이력')
+
+        # 관리자에게 '재심사 요청' 임이 드러나는 통지가 간다
+        notifications = Notification.query.filter_by(type='consultant_pending_review').all()
+        self.assertEqual({n.user_id for n in notifications}, {self.admin_user.id})
+        self.assertIn('재심사', notifications[0].title)
+        self.assertEqual(mock_alert.call_count, 1)
+        self.assertIn('재심사', mock_alert.call_args.kwargs['subject_label'])
+
+    def test_resubmission_preserves_rating_and_reviews(self):
+        """재제출이 기존 평점·리뷰 수를 신규 기본값으로 초기화하면 안 된다."""
+        email = 'resubmit-keep@example.com'
+        user, consultant_id = self._register_then_reject(email)
+        profile = Consultant.query.get(consultant_id)
+        profile.rating = 4.2
+        profile.reviews = 7
+        profile.trust_score = 45
+        db.session.commit()
+
+        resubmitted = self.client.post('/api/consultants/register',
+                                       json=self._reg_payload(email),
+                                       headers=auth_headers(user))
+        self.assertEqual(resubmitted.status_code, 201, resubmitted.get_json())
+        profile = Consultant.query.get(consultant_id)
+        self.assertEqual(profile.rating, 4.2)
+        self.assertEqual(profile.reviews, 7)
+        self.assertEqual(profile.trust_score, 45)
+
+    def test_pending_verified_revoked_profiles_still_block_resubmission(self):
+        """재제출 허용은 'rejected' 에만 적용된다.
+
+        pending(심사 중)·verified(승인됨)·revoked(관리자의 자격 해제)는
+        계속 409 여야 한다 — revoked 복구는 관리자 '복구' 버튼의 몫이다.
+        """
+        for status in ('pending', 'verified', 'revoked'):
+            with self.subTest(status=status):
+                email = f'block-{status}@example.com'
+                user = self._new_consultant_user(email)
+                first = self.client.post('/api/consultants/register',
+                                         json=self._reg_payload(email),
+                                         headers=auth_headers(user))
+                self.assertEqual(first.status_code, 201)
+                profile = Consultant.query.get(first.get_json()['consultant_id'])
+                profile.status = status
+                profile.verified = status == 'verified'
+                if status == 'revoked':
+                    profile.rejection_reason = 'Revoked by admin'
+                db.session.commit()
+
+                second = self.client.post(
+                    '/api/consultants/register',
+                    json=self._reg_payload(email, regions='Busan'),
+                    headers=auth_headers(user))
+                self.assertEqual(second.status_code, 409)
+                profile = Consultant.query.get(profile.id)
+                self.assertEqual(profile.status, status)
+                self.assertEqual(profile.regions, 'Seoul')
+
+    def test_my_profile_exposes_rejection_reason_to_owner(self):
+        """대시보드 거부 안내 배너용: 본인 프로필(GET /api/consultants/me)에 거부 사유가 실린다.
+
+        GET /api/consultants 는 승인된 전문가만 보여주므로, 거부된 본인 프로필과
+        사유는 이 엔드포인트로만 볼 수 있다.
+        """
+        email = 'status-owner@example.com'
+        reason = '자격증 증빙 미제출\nISO 분야 부정확'
+        user, consultant_id = self._register_then_reject(email, reason=reason)
+
+        resp = self.client.get('/api/consultants/me', headers=auth_headers(user))
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_json()
+        self.assertEqual(body['id'], consultant_id)
+        self.assertEqual(body['status'], 'rejected')
+        self.assertEqual(body['rejectionReason'], reason)
+        self.assertIsNotNone(body['rejectedAt'])
+
+        # 컨설턴트가 아닌 계정에는 프로필이 없다
+        self.assertEqual(
+            self.client.get('/api/consultants/me', headers=auth_headers(self.company)).status_code, 404)
+        # 비로그인은 401
+        self.assertEqual(self.client.get('/api/consultants/me').status_code, 401)
+
+    # ------------------------------------------------------------------
     # 로그인 응답의 has_consultant_profile (등록 페이지 리다이렉트 분기)
     # ------------------------------------------------------------------
     def _signup_and_login(self, email, role='consultant', **extra):
