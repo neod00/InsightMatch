@@ -13,8 +13,8 @@
   "source_note": "자체 작성 요약이며 ISO/KS 표준 원문 문장을 포함하지 않는다. 조항 번호와 짧은 제목만 사실 정보로 사용했다. 인증 심사 전에는 표준 원문과 대조 검토가 필요하다.",
   "published_at": "2015-09",
   "authored_by": "product-agent (AI 초안, 2026-10-25)",
-  "reviewed_by": "InsightMatch 운영자(사용자 본인) — 결정 목록 승인, 조항별 검토 아님",
-  "reviewed_at": "2026-10-25",
+  "reviewed_by": "InsightMatch 운영자(사용자 본인) — 결정 목록 승인 + T1d 원문 대조 반영 항목 확인(대조·판단은 Claude, 사용자 위임 승인)",
+  "reviewed_at": "2026-11-03",
   "clauses": [
     {
       "id": "4",
@@ -262,7 +262,7 @@
       "mandatory": true,
       "outline_role": "section",
       "verification": "body_verified",
-      "requirement_summary": "최고경영자는 회사의 목적과 상황에 맞고, 목표 설정의 틀이 되며, 요구사항 충족과 지속적 개선 의지를 담은 품질방침을 세운다. 방침은 문서로 유지하고 조직 안에 전달해 이해·적용되게 하며, 필요하면 이해관계자에게 제공한다.",
+      "requirement_summary": "최고경영자는 회사의 목적과 상황에 맞고 전략 방향을 뒷받침하며, 목표 설정의 틀이 되고, 요구사항 충족과 지속적 개선 의지를 담은 품질방침을 세운다. 방침은 문서로 유지하고 조직 안에 전달해 이해·적용되게 하며, 필요하면 이해관계자에게 제공한다.",
       "manual_guidance": [
         "{policy_noun} 선언문(최고경영자 명의)을 제시하고 전달 수단(게시, 교육, 홈페이지)과 검토 주기를 기술한다"
       ],
@@ -293,7 +293,7 @@
       "mandatory": false,
       "outline_role": "fold",
       "verification": "body_verified",
-      "requirement_summary": "방침에 담을 요소(목적 부합, 목표의 틀, 요구사항 충족 의지, 지속적 개선 의지)를 갖춰 수립한다.",
+      "requirement_summary": "방침에 담을 요소(목적·상황 부합, 전략 방향 지원, 목표의 틀, 요구사항 충족 의지, 지속적 개선 의지)를 갖춰 수립한다.",
       "manual_guidance": [],
       "required_artifacts": [],
       "documented_info": [],
@@ -335,10 +335,11 @@
       "mandatory": true,
       "outline_role": "section",
       "verification": "body_verified",
-      "requirement_summary": "시스템 관련 역할마다 책임과 권한을 배정하고 조직 안에 알린다. 특히 요구사항 적합성 보장, 프로세스 출력 달성, 성과 보고, 고객중시 촉진, 변경 시 시스템 무결성 유지를 맡을 사람을 지정한다.",
+      "requirement_summary": "시스템 관련 역할마다 책임과 권한을 배정하고 조직 안에 알린다. 특히 요구사항 적합성 보장, 프로세스 출력 달성, 시스템 성과와 개선 기회를 최고경영자에게 보고하는 일, 고객중시 촉진, 변경 시 시스템 무결성 유지를 맡을 사람을 지정한다.",
       "manual_guidance": [
         "조직도와 역할·책임·권한(R&R) 매트릭스를 제시한다",
-        "경영시스템 관리책임자의 권한과 보고 경로를 명시한다"
+        "경영시스템 관리책임자의 권한과 보고 경로를 명시한다",
+        "R&R 매트릭스에 성과 보고와 개선 기회 보고 담당을 각각 표시한다"
       ],
       "required_artifacts": [
         "조직도",
