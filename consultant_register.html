@@ -1024,6 +1024,11 @@
                 emailInput.value = user.email;
                 emailInput.readOnly = true;
             }
+            // 가입 때 넣은 휴대폰 번호를 채워 둔다(수정 가능)
+            const phoneInput = document.querySelector('input[name="phone"]');
+            if (phoneInput && user.phone && !phoneInput.value) {
+                phoneInput.value = user.phone;
+            }
 
             // 세션 만료로 로그인하러 갔다 돌아온 경우: 입력하던 내용을 되살린다
             const restoredDraft = restoreRegisterDraft(user);

@@ -1711,6 +1711,12 @@
                                     일정 제안하기
                                 </button>
                             ` : ''}
+                            ${isContracted && scheduleStatus === 'proposed' ? `
+                                <button class="btn btn-secondary" onclick="openMessageModal(${project.id}, '${escapeAttr(project.title || '').replace(/'/g, "\\'")}')">
+                                    <i data-lucide="message-circle" style="width: 16px; height: 16px;"></i>
+                                    메시지
+                                </button>
+                            ` : ''}
                             ${isInProgress || (isContracted && scheduleStatus === 'confirmed') ? `
                                 <button class="btn btn-secondary" onclick="openMessageModal(${project.id}, '${escapeAttr(project.title || '').replace(/'/g, "\\'")}')">
                                     <i data-lucide="message-circle" style="width: 16px; height: 16px;"></i>
@@ -2752,9 +2758,9 @@
 
                 // 서버가 token_version 을 올려 기존 토큰은 이미 무효다.
                 // 로컬 저장소도 함께 비워야 화면이 로그인 상태로 남지 않는다.
-                alert(data.message || '탈퇴가 완료되었습니다.');
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
+                await showInfoModal('탈퇴 완료', `<p>${escapeHtml(data.message || '탈퇴가 완료되었습니다.')}</p>`);
                 window.location.href = 'index.html';
             } catch (error) {
                 showWithdrawError('서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.');
@@ -2864,6 +2870,31 @@
                         resolve(false);
                     }
                 };
+            });
+        }
+
+        // 확인 버튼 하나짜리 안내 창 (브라우저 기본 alert 대신). bodyHtml 은 호출부가 escape 한 값만 넣는다.
+        function showInfoModal(title, bodyHtml, okLabel = '확인') {
+            return new Promise((resolve) => {
+                const existing = document.getElementById('custom-info-modal');
+                if (existing) existing.remove();
+                const modal = document.createElement('div');
+                modal.id = 'custom-info-modal';
+                modal.className = 'hm-confirm-overlay';
+                modal.innerHTML = `
+                    <div class="hm-confirm" role="dialog" aria-modal="true">
+                        <h3>${escapeHtml(title)}</h3>
+                        <div>${bodyHtml}</div>
+                        <div class="hm-modal-foot">
+                            <button id="info-ok-btn" class="btn btn-primary">${escapeHtml(okLabel)}</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                const close = () => { modal.remove(); resolve(); };
+                document.getElementById('info-ok-btn').onclick = close;
+                modal.onclick = (e) => { if (e.target === modal) close(); };
+                document.getElementById('info-ok-btn').focus();
             });
         }
 
@@ -3363,8 +3394,9 @@
                 proposed_date: document.getElementById(`schedule-date-${m.id}`)?.value || null
             })).filter(s => s.proposed_date);
 
-            if (schedule.length === 0) {
-                showNotification('최소 한 개 이상의 일정을 입력해주세요.', 'error');
+            // 서버는 모든 단계에 날짜가 있어야 받는다(일부만 정한 일정은 확정 후 진행 현황이 비어 보였다)
+            if (schedule.length !== currentScheduleMilestones.length) {
+                showNotification('모든 진행 단계에 날짜를 넣어주세요.', 'error');
                 return;
             }
 
@@ -3477,7 +3509,14 @@
                 const response = await authFetch(`${API_BASE_URL}/api/projects/${projectId}/proposal`);
                 const proposal = await response.json();
 
-                alert(`제안 금액: ${proposal.proposal_price?.toLocaleString() || '-'}원\n예상 기간: ${proposal.proposal_duration || '-'}\n메시지: ${proposal.proposal_message || '-'}`);
+                const priceText = proposal.proposal_price ? `${Number(proposal.proposal_price).toLocaleString()}원` : '-';
+                await showInfoModal('내 제안', `
+                    <dl class="hm-sum-list">
+                        <div><dt>제안 금액</dt><dd>${escapeHtml(priceText)}</dd></div>
+                        <div><dt>예상 기간</dt><dd>${escapeHtml(proposal.proposal_duration || '-')}</dd></div>
+                        <div><dt>메시지</dt><dd style="white-space: pre-line;">${escapeHtml(proposal.proposal_message || '-')}</dd></div>
+                    </dl>
+                `, '닫기');
             } catch (error) {
                 showNotification('제안 정보를 불러올 수 없습니다.', 'error');
             }

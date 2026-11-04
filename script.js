@@ -61,6 +61,12 @@ function industryLabel(code) {
     return code;
 }
 
+// "Manufacturing, Construction" 같은 목록 문자열을 한글 목록으로 (컨설턴트 전문 분야 표시용)
+function industryListLabel(value) {
+    if (!value) return '';
+    return String(value).split(',').map(v => v.trim()).filter(Boolean).map(industryLabel).join(', ');
+}
+
 // ========== Privacy Protection: Name Masking ==========
 // Mask consultant names for non-logged-in users
 function maskName(name) {
@@ -753,13 +759,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const aiBanner = document.getElementById('ai-manual-banner');
         if (aiBanner) {
             const selectedStandards = result.selected_standards || [];
-            // 설문은 2026판 표기('ISO 9001:2026')를 쓰지만 AI 매뉴얼은 2015판 원문 기준이다.
-            // 규격 번호로 접어서 AI 매뉴얼이 지원하는 표기로 바꿔 넘긴다.
-            const MANUAL_ISO_BY_NUMBER = { '9001': 'ISO 9001:2015', '14001': 'ISO 14001:2015', '45001': 'ISO 45001:2018' };
+            // AI 매뉴얼이 지원하는 규격(9001·14001·45001)만 골라, 설문에서 고른 판(2026·2015 등)을 그대로 넘긴다.
+            // 예전에는 2015판으로 바꿔 넘겨, 2026판을 고른 기업도 매뉴얼 화면에서 2015판이 선택돼 있었다.
+            // 넘긴 판을 쓸 수 없으면 ai-manual.html 이 그 규격의 기본 판으로 바꾼다.
+            const MANUAL_NUMBERS = ['9001', '14001', '45001'];
             const isoStandards = [...new Set(selectedStandards
-                .map(s => (String(s).split(':')[0].match(/\d{4,5}/) || [])[0])
-                .map(num => MANUAL_ISO_BY_NUMBER[num])
-                .filter(Boolean))];
+                .map(s => String(s).trim())
+                .filter(s => MANUAL_NUMBERS.includes((s.match(/\d{4,5}/) || [])[0])))];
             if (isoStandards.length > 0) {
                 aiBanner.classList.remove('hidden');
                 const bannerStdEl = document.getElementById('banner-iso-standard');
@@ -773,7 +779,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     manualParams.set('company_name', result.company_name || '');
                     manualParams.set('industry', result.industry || '');
                     manualParams.set('employees', result.employees || '');
-                    manualParams.set('target_iso', isoStandards[0] || 'ISO 9001:2015');
+                    manualParams.set('target_isos', isoStandards.slice(0, 3).join(','));
                     linkEl.href = `ai-manual.html?${manualParams.toString()}`;
                 }
             } else {
@@ -1218,7 +1224,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span>${displayName}</span>
                                 ${verifiedBadge}
                             </h4>
-                            <span class="consultant-specialty">${escapeHtml(c.specialty || '종합')} 전문</span>
+                            <span class="consultant-specialty">${escapeHtml(industryListLabel(c.specialty) || '종합')} 전문</span>
                         </div>
                     </div>
                     <div class="consultant-select-checkbox">
@@ -1581,7 +1587,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <tbody>
                         <tr>
                             <th scope="row">전문 분야</th>
-                            ${consultants.map(c => `<td>${escapeHtml(c.specialty || '종합')}</td>`).join('')}
+                            ${consultants.map(c => `<td>${escapeHtml(industryListLabel(c.specialty) || '종합')}</td>`).join('')}
                         </tr>
                         <tr>
                             <th scope="row">경력</th>
