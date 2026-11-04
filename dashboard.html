@@ -701,6 +701,17 @@
                 </button>
             </div>
             <input type="hidden" id="counter-project-id">
+            <!-- 비교하며 입력하도록 지금 조건을 보여 준다(2차 점검 R2-09) -->
+            <div class="hm-kv-box">
+                <div>
+                    <span>내 제안</span>
+                    <span id="counter-current">-</span>
+                </div>
+                <div>
+                    <span>기업 희망</span>
+                    <span id="counter-requested">-</span>
+                </div>
+            </div>
             <div class="hm-modal-form">
                 <div class="hm-field">
                     <label for="counter-price">역제안 금액</label>
@@ -1619,7 +1630,11 @@
                                 <button class="btn btn-primary btn-sm" onclick="respondNegotiation(${project.id}, 'accept')">
                                     <i data-lucide="check"></i> 수락
                                 </button>
-                                <button class="btn btn-outline btn-sm" onclick="openCounterOfferModal(${project.id})">
+                                <button class="btn btn-outline btn-sm" onclick="openCounterOfferModal(${project.id}, this)"
+                                    data-current-price="${escapeAttr(String(project.proposal_price ?? ''))}"
+                                    data-current-duration="${escapeAttr(project.proposal_duration || '')}"
+                                    data-requested-price="${escapeAttr(String(project.negotiation_data?.requested_price ?? ''))}"
+                                    data-requested-duration="${escapeAttr(project.negotiation_data?.requested_duration || '')}">
                                     <i data-lucide="refresh-cw"></i> 역제안
                                 </button>
                                 <button class="btn btn-ghost btn-sm is-danger" onclick="respondNegotiation(${project.id}, 'reject')">
@@ -2527,7 +2542,17 @@
             }
         }
 
-        function openCounterOfferModal(projectId) {
+        function openCounterOfferModal(projectId, sourceButton) {
+            const d = (sourceButton && sourceButton.dataset) || {};
+            const terms = (price, duration) => {
+                const parts = [];
+                const n = Number(price);
+                if (price !== undefined && price !== '' && Number.isFinite(n) && n > 0) parts.push(formatWon(n));
+                if (duration) parts.push(duration);
+                return parts.length ? parts.join(' · ') : '-';
+            };
+            document.getElementById('counter-current').textContent = terms(d.currentPrice, d.currentDuration);
+            document.getElementById('counter-requested').textContent = terms(d.requestedPrice, d.requestedDuration);
             document.getElementById('counter-project-id').value = projectId;
             document.getElementById('counter-price').value = '';
             document.getElementById('counter-duration').value = '';
@@ -2839,6 +2864,27 @@
 
         // ===== Custom Confirm Modal =====
         // okLabel 을 주면 확인 버튼이 일반(주요) 버튼으로 바뀐다. 생략하면 기존처럼 빨간 '삭제'.
+        // ESC 를 누르면 맨 위에 떠 있는 창 하나를 닫는다(2차 점검 R2-10).
+        // 확인·안내 창은 바깥 클릭과 같게 '취소'로 닫히고, 일반 창은 바깥(overlay)의 닫기 함수를 그대로 쓴다.
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing) return;
+            const confirmLayer = document.getElementById('custom-confirm-modal');
+            if (confirmLayer) { document.getElementById('confirm-cancel-btn')?.click(); e.preventDefault(); return; }
+            const infoLayer = document.getElementById('custom-info-modal');
+            if (infoLayer) { document.getElementById('info-ok-btn')?.click(); e.preventDefault(); return; }
+            const openModals = [...document.querySelectorAll('.modal:not(.hidden)')]
+                .filter(m => m.offsetParent !== null || getComputedStyle(m).position === 'fixed');
+            if (openModals.length) {
+                const top = openModals.reduce((a, b) =>
+                    (parseInt(getComputedStyle(b).zIndex, 10) || 0) >= (parseInt(getComputedStyle(a).zIndex, 10) || 0) ? b : a);
+                const overlay = top.querySelector(':scope > .modal-overlay');
+                if (overlay) { overlay.click(); e.preventDefault(); }
+                return;
+            }
+            const panelOverlay = document.getElementById('project-detail-overlay');
+            if (panelOverlay && panelOverlay.classList.contains('open')) { panelOverlay.click(); e.preventDefault(); }
+        });
+
         function showConfirmModal(title, message, okLabel) {
             return new Promise((resolve) => {
                 // Remove any existing confirm modal

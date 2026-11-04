@@ -1556,6 +1556,41 @@
                 return isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString('ko-KR');
             }
 
+            // 관리자 화면에 DB 원문(영어 코드)이 그대로 보이던 곳을 한국어로 바꾼다(2차 점검 R2-07).
+            // 업종 코드는 dashboard.html 의 INDUSTRY_LABELS 와 같다.
+            const ADMIN_INDUSTRY_LABELS = {
+                'IT/Software': 'IT/소프트웨어', 'Manufacturing': '제조업', 'Automotive': '자동차/부품',
+                'Electronics': '전자/반도체', 'Chemical': '화학/소재', 'Medical': '의료/바이오',
+                'Food': '식품/음료', 'Construction': '건설/토목', 'Energy': '에너지/발전',
+                'Nuclear': '원자력', 'Logistics': '물류/유통', 'Finance': '금융/보험',
+                'Service': '서비스업', 'Public': '공공기관', 'Other': '기타', 'General': '종합'
+            };
+            // "Manufacturing, Chemical" 같은 목록 문자열도 한 번에 바꾼다
+            function adminIndustryText(value) {
+                if (!value) return '';
+                return String(value).split(',').map(v => v.trim()).filter(Boolean)
+                    .map(v => ADMIN_INDUSTRY_LABELS[v] || v).join(', ');
+            }
+            const ADMIN_PROJECT_STATUS_LABELS = {
+                planning: '견적 대기', proposal_pending: '견적 대기', proposal_submitted: '제안 완료',
+                reviewing: '검토 중', negotiating: '조건 협의 중', pending_contract: '계약서 검토',
+                awaiting_signature: '서명 대기', contracted: '계약 완료', in_progress: '진행 중',
+                completed: '완료', not_selected: '미선정', cancelled_by_company: '기업 취소',
+                declined_by_consultant: '컨설턴트 거절'
+            };
+            function projectStatusText(status) {
+                return ADMIN_PROJECT_STATUS_LABELS[status] || status || '';
+            }
+            const PROFILE_FIELD_LABELS = {
+                settlement: '정산 정보', bio: '자기소개', phone: '연락처', email: '이메일',
+                companyName: '소속 회사/기관', profileImageUrl: '프로필 사진',
+                introductionVideoUrl: '소개 영상 링크', specialty: '전문 분야', regions: '활동 지역'
+            };
+            const CONSULTANT_ACTION_LABELS = {
+                approve_consultant: '승인', reject_consultant: '거부',
+                revoke_consultant: '검증 취소', restore_consultant: '승인 대기로 복구'
+            };
+
             // --- Analysis Jobs ---
             async function fetchJobs() {
                 try {
@@ -1656,9 +1691,9 @@
                         // Grouping logic for standard-centric view
                         const groupedByStandard = {};
                         projects.forEach(p => {
-                            // Extract ISO standard from title
-                            const isoMatch = p.title ? p.title.match(/(ISO[\s\/]?\w+[:\s]?\d*)/i) : null;
-                            const isoStandard = isoMatch ? isoMatch[1].trim().toUpperCase() : '기타/미지정';
+                            // 서버가 제목에서 뽑은 규격 목록으로 묶는다(2규격 요청은 "ISO 9001:2026, ISO 14001:2026" 한 묶음)
+                            const isoStandard = (Array.isArray(p.standards) && p.standards.length)
+                                ? p.standards.join(', ') : '기타/미지정';
 
                             if (!groupedByStandard[isoStandard]) {
                                 groupedByStandard[isoStandard] = [];
@@ -1680,13 +1715,7 @@
                                 </div>
                                 <ul>
                                     ${stdProjects.map(p => {
-                                const statusText = p.status === 'contracted' ? '계약 완료'
-                                    : p.status === 'in_progress' ? '진행중'
-                                        : p.status === 'proposal_pending' ? '견적 대기'
-                                            : p.status === 'proposal_submitted' ? '견적 발송 완료'
-                                                : p.status === 'awaiting_signature' ? '서명 대기'
-                                                    : p.status === 'completed' ? '완료'
-                                                        : p.status;
+                                const statusText = projectStatusText(p.status);
 
                                 const statusClass = p.status === 'in_progress' || p.status === 'contracted' ? 'is-active' : '';
                                 const consultantName = String(p.consultant_name || '');
@@ -1726,7 +1755,8 @@
                     }
 
                     const jobMailto = safeMailto(intake.contact_email);
-                    const timelineText = intake.timeline === 'urgent' ? '긴급' : intake.timeline === 'flexible' ? '유연함' : intake.timeline || '신규 인증';
+                    // 서버가 '3개월 이내' 같은 한국어로 보낸다. 예전엔 늘 비어 '신규 인증'이 '프로젝트 유형'으로 보였다(R2-11).
+                    const timelineText = intake.timeline === 'urgent' ? '긴급' : intake.timeline === 'flexible' ? '유연함' : intake.timeline || '미지정';
 
                     let detailHtml = `
                     <div class="detail-view" id="detail-${jobIdAttr}">
@@ -1749,8 +1779,12 @@
                                 <div class="detail-item-value">${escapeHtml(intake.employees || '미지정')}</div>
                             </div>
                             <div class="detail-item">
-                                <div class="detail-item-label">프로젝트 유형</div>
+                                <div class="detail-item-label">희망 일정</div>
                                 <div class="detail-item-value">${escapeHtml(timelineText)}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-item-label">지역</div>
+                                <div class="detail-item-value">${escapeHtml(intake.region || '미지정')}</div>
                             </div>
                         </div>
 
@@ -2028,7 +2062,7 @@
                     let industryList = consultant.industryExperience || [];
                     const consultantName = escapeHtml(consultant.name || 'Consultant');
                     const consultantInitial = escapeHtml(consultant.avatar || consultant.name?.[0] || '?');
-                    const consultantSpecialty = escapeHtml(consultant.specialty || '종합');
+                    const consultantSpecialty = escapeHtml(adminIndustryText(consultant.specialty) || '종합');
                     const consultantExperience = escapeHtml(consultant.experience || '-');
                     const safeProfileImage = safeImageUrl(consultant.profileImageUrl);
 
@@ -2131,7 +2165,7 @@
                         </div>
                         <div class="approval-info-item">
                             <label>산업 경험</label>
-                            <span>${industryList.length > 0 ? industryList.map(escapeHtml).join(', ') : '-'}</span>
+                            <span>${industryList.length > 0 ? industryList.map(v => escapeHtml(adminIndustryText(v))).join(', ') : '-'}</span>
                         </div>
                         <div class="approval-info-item">
                             <label>신뢰 점수</label>
@@ -2523,16 +2557,16 @@
                     const actionHtml = actions.length
                         ? actions.slice(0, 8).map(item => `
                             <div class="hm-history-item">
-                                <b>${escapeHtml(item.action)}</b>
-                                <small>${escapeHtml(item.adminName || 'Unknown')} · ${escapeHtml(item.createdAt || '')}</small>
+                                <b>${escapeHtml(CONSULTANT_ACTION_LABELS[item.action] || item.action)}</b>
+                                <small>${escapeHtml(item.adminName || '알 수 없음')} · ${escapeHtml(formatErrorTime(item.createdAt))}</small>
                             </div>
                         `).join('')
                         : '<p class="hm-admin-empty">심사 이력이 없습니다.</p>';
                     const changeHtml = changes.length
                         ? changes.slice(0, 8).map(item => `
                             <div class="hm-history-item">
-                                <b>${escapeHtml(item.fieldName)}</b>
-                                <small>${escapeHtml(item.changedByName || 'System')} · ${escapeHtml(item.changedAt || '')}</small>
+                                <b>${escapeHtml(PROFILE_FIELD_LABELS[item.fieldName] || item.fieldName)}</b>
+                                <small>${escapeHtml(item.changedByName || '시스템')} · ${escapeHtml(formatErrorTime(item.changedAt))}</small>
                             </div>
                         `).join('')
                         : '<p class="hm-admin-empty">프로필 변경 이력이 없습니다.</p>';
@@ -2807,7 +2841,7 @@
                 if (!consultant) return;
                 const consultantName = escapeHtml(consultant.name || 'Consultant');
                 const consultantInitial = escapeHtml(consultant.avatar || consultant.name?.[0] || '?');
-                const consultantSpecialty = escapeHtml(consultant.specialty || '종합');
+                const consultantSpecialty = escapeHtml(adminIndustryText(consultant.specialty) || '종합');
                 const consultantExperience = escapeHtml(consultant.experience || '-');
                 const consultantCompany = escapeHtml(consultant.companyName || '');
                 const consultantEmail = escapeHtml(consultant.email || '미등록');
@@ -2830,9 +2864,9 @@
                                 : role === 'Auditor' ? '심사원'
                                     : role === 'Consultant' ? '컨설턴트'
                                         : role === 'Trainer' ? '교육강사'
-                                            : role || '미지정';
+                                            : (typeof role === 'string' && role.trim() && role !== 'true') ? role : '';
                             return `<span class="detail-tag">
-                            <b>ISO ${escapeHtml(code)}</b>&nbsp;<span class="hm-tag-sub">(${escapeHtml(roleText)})</span>
+                            <b>ISO ${escapeHtml(code)}</b>${roleText ? `&nbsp;<span class="hm-tag-sub">(${escapeHtml(roleText)})</span>` : ''}
                         </span>`;
                         }).join('');
                     } else {
@@ -3001,7 +3035,7 @@
                         <i data-lucide="factory"></i>
                         경험 산업군
                     </h4>
-                    <div class="detail-tags">${renderTags(industryList)}</div>
+                    <div class="detail-tags">${renderTags(industryList.map(adminIndustryText))}</div>
                 </div>
 
                 <!-- 프로젝트 유형/조직 규모 -->
@@ -3190,7 +3224,7 @@
                             const avatarContent = profileImage
                                 ? `<img src="${escapeAttr(profileImage)}" alt="">`
                                 : escapeHtml(consultantName.charAt(0) || '?');
-                            const statusText = p.status === 'contracted' ? '계약 완료' : p.status === 'proposal_submitted' ? '제안 완료' : p.status;
+                            const statusText = projectStatusText(p.status);
                             const statusClass = /^[a-z_]+$/.test(String(p.status || '')) ? `status-${p.status}` : '';
                             // 지급 일정 편집기가 읽는 값 (서명이 시작되면 잠김)
                             PAYMENT_SCHEDULES[Number(p.project_id)] = {

@@ -330,7 +330,7 @@ class TestWorkflowSecurity(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.get_json()['message'], 'Invalid proposal file URL')
+        self.assertEqual(response.get_json()['message'], '제안서 파일 주소가 올바르지 않습니다.')
 
     # --- 제안서 파일: 비공개 버킷 + 서명 URL, 관리자 열람 기록 ---------------------------
 
@@ -1142,7 +1142,7 @@ class TestWorkflowSecurity(unittest.TestCase):
             headers=auth_headers(new_user),
         )
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.get_json()['message'], 'Invalid profile image URL')
+        self.assertEqual(response.get_json()['message'], '프로필 사진 주소가 올바르지 않습니다.')
 
         response = self.client.post(
             '/api/consultants/register',
@@ -1327,7 +1327,7 @@ class TestWorkflowSecurity(unittest.TestCase):
             headers=auth_headers(user))
         self.assertEqual(second.status_code, 409)
         self.assertEqual(
-            second.get_json()['message'], 'Consultant profile already exists.')
+            second.get_json()['message'], '이미 등록된 전문가 프로필이 있습니다.')
 
         # 기존 내용이 덮어써지지 않았는지 확인
         self.assertEqual(Consultant.query.filter_by(user_id=user.id).count(), 1)

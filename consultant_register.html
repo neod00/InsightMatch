@@ -1029,6 +1029,11 @@
             if (phoneInput && user.phone && !phoneInput.value) {
                 phoneInput.value = user.phone;
             }
+            // 가입 때 넣은 회사명도 소속 칸에 채워 둔다(수정 가능, 2차 점검 R2-06)
+            const companyInput = document.querySelector('input[name="company_name"]');
+            if (companyInput && user.company_name && !companyInput.value) {
+                companyInput.value = user.company_name;
+            }
 
             // 세션 만료로 로그인하러 갔다 돌아온 경우: 입력하던 내용을 되살린다
             const restoredDraft = restoreRegisterDraft(user);
