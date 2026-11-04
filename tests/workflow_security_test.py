@@ -261,12 +261,18 @@ class TestWorkflowSecurity(unittest.TestCase):
 
         day_1 = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)).date().isoformat()
         day_2 = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=28)).date().isoformat()
+        # 일정은 이 프로젝트의 모든 진행 단계에 한 번씩 정한다(일부만 정한 제안은 400).
+        # 계약 때 자동으로 만든 단계 + 위에서 더한 두 단계에 순서대로 날짜를 준다.
+        all_milestones = Milestone.query.filter_by(project_id=project_id).order_by(Milestone.id).all()
+        others = [m for m in all_milestones if m.id not in (first.id, second.id)]
+        schedule_items = [{'milestone_id': m.id, 'proposed_date': day_1} for m in others]
+        schedule_items += [
+            {'milestone_id': first.id, 'proposed_date': day_1},
+            {'milestone_id': second.id, 'proposed_date': day_2},
+        ]
         schedule_response = self.client.post(
             f'/api/projects/{project_id}/propose-schedule',
-            json={'schedule': [
-                {'milestone_id': first.id, 'proposed_date': day_1},
-                {'milestone_id': second.id, 'proposed_date': day_2},
-            ]},
+            json={'schedule': schedule_items},
             headers=auth_headers(second_consultant_user),
         )
         self.assertEqual(schedule_response.status_code, 200)

@@ -401,9 +401,11 @@
                         showSuccess('회원가입이 완료되었습니다! 로그인 페이지로 이동합니다.');
                     }
                     setTimeout(() => {
-                        window.location.href = afterSignupRedirect
-                            ? `login.html?redirect=${encodeURIComponent(afterSignupRedirect)}`
-                            : 'login.html';
+                        // 가입한 계정 유형으로 로그인 탭을 연다(예전엔 컨설턴트도 '기업 회원' 탭으로 열렸다)
+                        const roleParam = role === 'consultant' ? 'role=consultant' : '';
+                        const redirectParam = afterSignupRedirect ? `redirect=${encodeURIComponent(afterSignupRedirect)}` : '';
+                        const query = [roleParam, redirectParam].filter(Boolean).join('&');
+                        window.location.href = query ? `login.html?${query}` : 'login.html';
                     }, 2000);
                 } else {
                     showError(data.message || '회원가입에 실패했습니다.');

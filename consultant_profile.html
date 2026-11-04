@@ -513,7 +513,9 @@
             // Basic Info
             document.getElementById('profile-avatar').textContent = c.avatar || c.name[0];
             document.getElementById('profile-name').textContent = c.name;
-            document.getElementById('profile-specialty').textContent = `${c.specialty || '종합'} 전문`;
+            // 전문 분야는 "Manufacturing, Construction" 처럼 영문 코드 목록으로 저장돼 있다. 한글로 바꿔 보여 준다.
+            const specialtyText = (c.specialty || '').split(',').map(v => v.trim()).filter(Boolean).map(translateIndustry).join(', ');
+            document.getElementById('profile-specialty').textContent = `${specialtyText || '종합'} 전문`;
             document.getElementById('profile-experience').textContent = `경력 ${c.experience || '정보없음'}`;
             // 리뷰 0건이면 숫자를 쓰지 않는다.
             // rating 시드가 0.0 이라 "평점 0점" 으로 나가는데, 이는 '평가 없음'이
@@ -681,7 +683,15 @@
                 'Medical': '의료/바이오',
                 'Service': '서비스/유통',
                 'Public': '공공기관',
-                'IT': 'IT/소프트웨어'
+                'IT': 'IT/소프트웨어',
+                'Electronics': '전자/반도체',
+                'Food': '식품/음료',
+                'Energy': '에너지/발전',
+                'Nuclear': '원자력',
+                'Logistics': '물류/유통',
+                'Finance': '금융/보험',
+                'Other': '기타',
+                'General': '일반'
             };
             return translations[industry] || industry;
         }

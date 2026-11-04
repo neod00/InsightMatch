@@ -14,3 +14,16 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'api')))
 
 os.environ['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+
+# 외부 서비스 차단.
+# api/index.py 는 import 시 load_dotenv() 로 저장소의 .env(운영 키)를 읽는다. 아무것도 막지 않으면
+# 테스트가 실제 Supabase 저장소에 파일을 올리고(2026-11-04 실제 발생), 실제 SMTP 로 메일을 보내며,
+# 국세청·공공데이터·AI API 를 부른다. load_dotenv 는 이미 있는 환경변수를 덮어쓰지 않으므로
+# 여기서 빈 값으로 먼저 박아 둔다. 값이 필요한 테스트는 patch.dict(os.environ, {...}) 로 직접 넣는다.
+for _key in (
+    'SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_DB_URL', 'DATABASE_URL',
+    'SMTP_HOST', 'SMTP_USER', 'SMTP_PASSWORD',
+    'OPENAI_API_KEY', 'GOOGLE_API_KEY', 'NTS_BUSINESS_API_KEY', 'DATA_GO_KR_API_KEY',
+):
+    os.environ[_key] = ''
+os.environ['FLASK_SKIP_DOTENV'] = '1'

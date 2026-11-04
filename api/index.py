@@ -244,8 +244,26 @@ def _client_ip():
     return (request.remote_addr or 'unknown')[:64]
 
 
-def check_rate_limit(scope, limit, window_minutes):
-    """IP 기준 호출량 제한. 허용되면 True, 초과면 False.
+LOGIN_IP_LIMIT = 50        # IP당 15분
+LOGIN_ACCOUNT_LIMIT = 10   # 계정(이메일)당 15분
+
+KST = datetime.timezone(datetime.timedelta(hours=9))
+
+
+def format_kst(value, fmt='%Y-%m-%d %H:%M'):
+    """DB 시각(naive UTC)을 한국 시간 문자열로. 메일처럼 사람이 읽는 곳에 쓴다."""
+    if not value:
+        return ''
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=datetime.timezone.utc)
+    return value.astimezone(KST).strftime(fmt)
+
+
+def check_rate_limit(scope, limit, window_minutes, subject=None):
+    """호출량 제한. 허용되면 True, 초과면 False.
+
+    기본은 IP 기준이다. subject 를 주면(예: 로그인 이메일) IP 대신 그 값으로 센다.
+    subject 는 해시해 저장하므로 이메일 원문이 남지 않는다.
 
     무인증 공개 엔드포인트가 무제한 호출되어 DB가 오염되거나 자원이
     고갈되는 것을 막는다. 실패 시(예: 테이블 미생성) 서비스는 계속 동작한다.
@@ -253,7 +271,11 @@ def check_rate_limit(scope, limit, window_minutes):
     try:
         now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
         cutoff = now - datetime.timedelta(minutes=window_minutes)
-        key = f"{scope}:{_client_ip()}"
+        if subject:
+            digest = hashlib.sha256(str(subject).encode('utf-8')).hexdigest()[:40]
+            key = f"{scope}:{digest}"
+        else:
+            key = f"{scope}:{_client_ip()}"
 
         # 오래된 기록 정리 (24시간 초과분)
         RateLimitEntry.query.filter(
@@ -504,6 +526,28 @@ def normalize_standard_codes(value):
         if code:
             codes.append(code)
     return codes
+
+
+@app.errorhandler(404)
+@app.errorhandler(405)
+def handle_not_found(error):
+    """API 주소가 없거나 지원하지 않는 방식이면 HTML 오류 페이지 대신 JSON 으로 답한다.
+
+    없는 API 를 POST 로 부르면 정적 파일 라우트(GET 전용)에 걸려 405 HTML 이 나갔다.
+    화면 코드는 JSON 을 기대하므로 /api/ 아래는 JSON 으로 통일한다.
+    """
+    if request.path.startswith('/api/'):
+        # 실제로 있는 API 에 다른 방식(예: 리뷰 DELETE)으로 온 것이면 405 를 유지한다.
+        # 정적 파일 라우트(GET 전용)에만 걸린 것이면 그런 API 가 없는 것이므로 404 로 답한다.
+        if getattr(error, 'code', None) == 405:
+            try:
+                endpoint, _ = app.url_map.bind('').match(request.path, method='GET')
+            except Exception:
+                endpoint = None
+            if endpoint and endpoint != 'serve_static':
+                return jsonify({'message': '이 API 가 지원하지 않는 요청 방식입니다.'}), 405
+        return jsonify({'message': '요청한 API 를 찾을 수 없습니다.'}), 404
+    return error
 
 
 @app.errorhandler(Exception)
@@ -1343,6 +1387,45 @@ def intake_label(kind, value):
     return INTAKE_LABELS.get(kind, {}).get(value, value)
 
 
+def company_display_name(company_user, default='기업'):
+    """기업을 부를 때 쓸 이름: 회사명, 없으면 담당자 이름.
+
+    예전에는 곳곳에서 company_user.name(담당자 이름)을 회사명 자리에 써서
+    "김담당에서 견적을 요청했습니다", 컨설턴트 카드의 회사명 자리에 사람 이름이 나왔다.
+    """
+    if not company_user:
+        return default
+    return (company_user.company_name or '').strip() or (company_user.name or '').strip() or default
+
+
+_DESCRIPTION_LABEL_KINDS = {
+    '업종': 'industry', '직원 수': 'employees', '인증 상태': 'cert_status',
+    '희망 일정': 'timeline', '예산': 'budget', '인증 사유': 'reasons',
+}
+
+
+def localize_request_description(text):
+    """이미 저장된 요청 글 속 설문 코드값을 화면에 보낼 때 한국어로 바꾼다(DB 는 그대로).
+
+    INTAKE_LABELS 도입 전에 만든 요청은 "업종: Manufacturing", "예산: unknown",
+    "인증 사유: customer_demand" 처럼 저장돼 있다. 줄 머리말로 종류를 알아 바꾸고,
+    표에 없는 값(사람이 쓴 글)은 그대로 둔다.
+    """
+    if not isinstance(text, str) or not text:
+        return text
+    out = []
+    for line in text.split('\n'):
+        head, sep, value = line.partition(': ')
+        kind = _DESCRIPTION_LABEL_KINDS.get(head.strip()) if sep else None
+        if kind == 'reasons':
+            parts = [v.strip() for v in value.split(',')]
+            value = ', '.join(intake_label('reasons', v) or v for v in parts if v)
+        elif kind:
+            value = intake_label(kind, value.strip()) or value
+        out.append(f'{head}{sep}{value}' if sep else line)
+    return '\n'.join(out)
+
+
 def merged_request_context(analysis_context, session_id):
     """견적 요청에 쓸 설문 값을 모은다.
 
@@ -2003,13 +2086,18 @@ def login():
     data = request_json_object(required=False)
     if data is None:
         return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
-    email = data.get('email', '').strip().lower()  # BUG-004 Fix: 이메일 정규화
-    password = data.get('password')
+    email = body_str(data, 'email').strip().lower()  # BUG-004 Fix: 이메일 정규화
+    password = body_str(data, 'password')
 
-    # 무차별 대입(brute force) 방어: IP당 로그인 시도 횟수 제한
-    if not check_rate_limit('login', limit=10, window_minutes=15):
+    # 무차별 대입(brute force) 방어.
+    # - 계정(이메일)마다 15분에 10회: 한 계정의 비밀번호를 계속 맞혀 보는 공격을 막는다.
+    # - IP마다 15분에 50회: 여러 계정을 돌아가며 시도하는 것을 막되, 사무실처럼 여러 사람이
+    #   같은 공인 IP를 쓰는 곳에서 정상 로그인이 막히지 않게 넉넉히 둔다(예전엔 IP당 10회).
+    if not check_rate_limit('login', limit=LOGIN_IP_LIMIT, window_minutes=15) or (
+            email and not check_rate_limit('login_account', limit=LOGIN_ACCOUNT_LIMIT,
+                                           window_minutes=15, subject=email)):
         return jsonify({
-            'message': '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.',
+            'message': '로그인 시도가 너무 많습니다. 15분쯤 뒤에 다시 시도해주세요.',
             'code': 'RATE_LIMITED',
         }), 429
 
@@ -2056,6 +2144,7 @@ def login():
             'id': user.id,
             'name': user.name,
             'email': user.email,
+            'phone': user.phone or '',
             'role': user.role,
             'company_name': user.company_name or '',
             'industry': company.industry if company else '',
@@ -3310,14 +3399,14 @@ def handle_projects():
                 'consultant_specialty': consultant_info.specialty if consultant_info else None,
                 'consultant_experience': consultant_info.experience if consultant_info else None,
                 'company_id': p.company_id,
-                'company_name': company_user.name if company_user else 'Unknown Company',
+                'company_name': company_display_name(company_user),
                 # 컨설턴트 카드의 '사업자 확인됨' 표시용. 번호 자체는 내려주지 않는다.
                 'company_business_verified': bool(company_user and company_user.biz_status in ('verified', 'manual')),
                 'start_date': iso_utc(p.start_date),
                 'created_at': iso_utc(p.created_at),
                 # BUG-029 Fix: 불필요한 getattr 제거
                 # 컨설턴트 카드의 '요청 사항'·'조건 협의' 상자가 읽는 값. 빠져 있어서 늘 기본 문구만 보였다.
-                'description': p.description,
+                'description': localize_request_description(p.description),
                 'negotiation_status': p.negotiation_status,
                 'negotiation_data': json.loads(p.negotiation_data) if p.negotiation_data else None,
                 'proposal_price': p.proposal_price,
@@ -3447,7 +3536,7 @@ def download_proposal(project_id):
         db.session.commit()
     consultant = Consultant.query.get(project.consultant_id)
     company_user = User.query.get(project.company_id)
-    company_name = company_user.name if company_user else "Client"
+    company_name = company_display_name(company_user)
 
     pdf_buffer = proposal_service.generate_proposal(project, consultant, company_name)
     
@@ -3558,7 +3647,7 @@ def request_negotiation(project_id):
         consultant = Consultant.query.get(project.consultant_id)
         if consultant and consultant.user_id:
             company_user = User.query.get(project.company_id)
-            company_name = company_user.name if company_user else '기업'
+            company_name = company_display_name(company_user)
             notification = Notification(
                 user_id=consultant.user_id,
                 type='negotiation_requested',
@@ -3898,7 +3987,29 @@ def sign_contract_step(project_id):
 
 # --- 계약서 본문 (서버가 만들고, 서명 순간의 원문을 증거로 남긴다) ---
 # 본문은 A안(기업 ↔ NGB) 구조로 다시 써야 한다(변호사 검토 예정). 그 전까지의 임시 문안 버전.
-CONTRACT_TEMPLATE_VERSION = '0.2-draft'  # 0.2: 제4조(대금 지급) 추가
+CONTRACT_TEMPLATE_VERSION = '0.3-draft'  # 0.2: 제4조(대금 지급) 추가 / 0.3: 조사 교정(「…」로, 3개월로)
+
+# 숫자를 읽었을 때 받침: 0영 1일 3삼 6육 7칠 8팔 → 받침 있음(1·7·8 은 ㄹ)
+_DIGIT_FINAL = {'0': 'other', '1': 'rieul', '3': 'other', '6': 'other', '7': 'rieul', '8': 'rieul'}
+
+
+def josa_euro(word):
+    """'(으)로' 중 알맞은 것. 받침이 없거나 ㄹ 받침이면 '로', 그 밖의 받침이면 '으로'.
+
+    계약서가 「…프로젝트」으로, 3개월으로 처럼 틀린 조사를 쓰던 문제를 고친다.
+    끝의 괄호·따옴표·공백은 건너뛰고 마지막 글자로 판단한다(영문은 '로').
+    """
+    text = str(word or '').rstrip(' 」』)]"\'')
+    if not text:
+        return '로'
+    last = text[-1]
+    code = ord(last) - 0xAC00
+    if 0 <= code < 11172:
+        final = code % 28
+        return '로' if final in (0, 8) else '으로'  # 8 = ㄹ
+    if last.isdigit():
+        return '으로' if _DIGIT_FINAL.get(last) == 'other' else '로'
+    return '로'
 
 
 def _format_biz_no(value):
@@ -3999,14 +4110,14 @@ def build_contract_text(project):
         f'을(컨설턴트): {party_b}',
         '갑의 담당자는 갑을 대리하여 이 계약에 서명한다.',
         '제2조 (용역 내용)',
-        f'본 계약의 대상 용역은 「{project.title}」으로 한다.',
+        f'본 계약의 대상 용역은 「{project.title}」{josa_euro(project.title)} 한다.',
         '제3조 (계약 금액)',
-        f'본 용역의 총 계약금액은 {price}으로 한다.',
+        f'본 용역의 총 계약금액은 {price}{josa_euro(price)} 한다.',
         '제4조 (대금 지급)',
         '갑은 계약금액을 다음과 같이 나누어 지급한다.',
         *payment_schedule_lines(project),
         '제5조 (수행 기간)',
-        f'본 용역의 수행 기간은 계약 체결일로부터 {duration}으로 한다.',
+        f'본 용역의 수행 기간은 계약 체결일로부터 {duration}{josa_euro(duration)} 한다.',
         '제6조 (비밀 유지)',
         '갑과 을은 본 계약의 수행 과정에서 취득한 상대방의 비밀 정보를 제3자에게 누설하거나 본 계약 외의 목적으로 사용하지 않는다.',
         '제7조 (전자 서명)',
@@ -4047,7 +4158,7 @@ def get_contract_preview(project_id):
     return jsonify({
         'project_id': project.id,
         'title': project.title,
-        'company_name': company_user.name if company_user else '기업',
+        'company_name': company_display_name(company_user),
         'company_company_name': company_user.company_name if company_user else '',
         'consultant_name': consultant.name if consultant else '컨설턴트',
         'consultant_company_name': consultant.company_name if consultant else '',
@@ -4265,7 +4376,7 @@ def get_project_detail(project_id):
     # 기업명 결정 (우선순위: intake_data > company > company_user > title 파싱)
     company_name = intake_data.get('companyName') or \
                    (company.name if company else None) or \
-                   (company_user.name if company_user else None) or \
+                   (company_display_name(company_user, None) if company_user else None) or \
                    (project.title.split(' - ')[0] if project.title and ' - ' in project.title else None)
     
     # issues 파싱
@@ -4311,7 +4422,7 @@ def get_project_detail(project_id):
     return jsonify({
         'id': project.id,
         'title': project.title,
-        'description': project.description,
+        'description': localize_request_description(project.description),
         'status': project.status,
         'created_at': iso_utc(project.created_at) if hasattr(project, 'created_at') and project.created_at else (iso_utc(project.start_date)),
         
@@ -4392,7 +4503,13 @@ def propose_schedule(project_id):
         return jsonify({'message': '일정 데이터가 필요합니다.'}), 400
     if not isinstance(schedule, list) or not all(isinstance(item, dict) for item in schedule):
         return jsonify({'message': '일정 형식이 올바르지 않습니다.'}), 400
-    
+    # 이 프로젝트의 모든 단계에 한 번씩 날짜를 정해야 한다(일부만 정한 제안·같은 단계 중복 방지)
+    project_milestone_ids = {m.id for m in project.milestones}
+    proposed_ids = [item.get('milestone_id') for item in schedule]
+    if project_milestone_ids and (len(proposed_ids) != len(set(map(str, proposed_ids)))
+                                  or {str(i) for i in proposed_ids} != {str(i) for i in project_milestone_ids}):
+        return jsonify({'message': '모든 진행 단계에 날짜를 한 번씩 정해주세요.'}), 400
+
     # 마일스톤 일정 업데이트
     today = datetime.datetime.now(datetime.timezone.utc).date()
     previous_date = None
@@ -4535,7 +4652,10 @@ def reject_schedule(project_id):
     
     project.schedule_status = 'pending'  # 다시 대기 상태로
     project.schedule_data = None
-    
+    # 거절된 일정의 날짜가 진행 단계에 남아 확정된 것처럼 보이지 않게 비운다
+    for milestone in project.milestones:
+        milestone.due_date = None
+
     db.session.commit()
     
     # BUG-022 Fix: 컨설턴트에게 일정 거절 알림 발송
@@ -5218,8 +5338,8 @@ def cancel_consultant_request(project_id):
         consultant = Consultant.query.get(project.consultant_id)
         if consultant and consultant.user_id:
             company_user = User.query.get(project.company_id)
-            company_name = company_user.name if company_user else '기업'
-            
+            company_name = company_display_name(company_user)
+
             notification = Notification(
                 user_id=consultant.user_id,
                 type='request_cancelled',
@@ -5858,7 +5978,8 @@ def _send_consultant_invite_email(invite, invite_url):
     if not invite.email:
         return {'email_sent': False, 'email_skipped': 'no_email'}
 
-    expires_text = invite.expires_at.strftime('%Y-%m-%d %H:%M') if invite.expires_at else ''
+    # 만료 시각은 UTC 로 저장돼 있다. 메일에는 한국 시간으로 적는다(예전엔 9시간 이르게 보였다).
+    expires_text = f"{format_kst(invite.expires_at)} (한국 시간)" if invite.expires_at else ''
     try:
         result = email_service.send_consultant_invite(
             to_email=invite.email,
@@ -6225,15 +6346,20 @@ def request_quotes():
         analysis_context = {}
     
     if not consultant_ids:
-        return jsonify({'message': 'No consultants selected'}), 400
+        return jsonify({'message': '견적을 요청할 컨설턴트를 골라주세요.'}), 400
+
+    if not isinstance(consultant_ids, list) or len(set(map(str, consultant_ids))) > 5:
+        return jsonify({'message': '컨설턴트는 한 번에 5명까지 고를 수 있습니다.'}), 400
     
-    if len(consultant_ids) > 5:
-        return jsonify({'message': 'Maximum 5 consultants can be selected'}), 400
-    
+    # 같은 컨설턴트를 두 번 고른 경우는 한 번으로 친다(예전엔 '찾을 수 없음' 404 로 오해를 샀다)
+    if not isinstance(consultant_ids, list):
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
+    consultant_ids = list(dict.fromkeys(consultant_ids))
+
     # Verify all consultants exist
     consultants = Consultant.query.filter(Consultant.id.in_(consultant_ids)).all()
     if len(consultants) != len(consultant_ids):
-        return jsonify({'message': 'Some consultants not found'}), 404
+        return jsonify({'message': '선택한 컨설턴트 중 찾을 수 없는 분이 있습니다. 화면을 새로고침한 뒤 다시 골라주세요.'}), 404
 
     # 관리자 승인(검증)을 받은 컨설턴트에게만 견적을 보낼 수 있다.
     # id 는 순번이라 추측이 쉬워, 이 검사가 없으면 심사 중·거부·해제된 컨설턴트에게도
@@ -6391,7 +6517,8 @@ def request_quotes():
                 notification = Notification(
                     user_id=consultant.user_id,
                     type='quote_request',
-                    title=f'{company_name}에서 견적을 요청했습니다',
+                    # 설문에 적은 이름이 아니라 계정의 회사명으로 부른다
+                    title=f'{company_display_name(g.current_user)}에서 견적을 요청했습니다',
                     message=f'"{project_title}" 프로젝트에 대한 견적 요청이 도착했습니다. 대시보드에서 확인해주세요.',
                     link='/dashboard.html'
                 )
@@ -6599,6 +6726,13 @@ def sitemap():
 
     sitemap_xml.append('</urlset>')
     return Response('\n'.join(sitemap_xml), mimetype='text/xml')
+
+
+@app.route('/favicon.ico')
+def favicon():
+    """브라우저가 자동으로 찾는 /favicon.ico. 모든 페이지에서 404 가 나던 것을 막는다."""
+    return send_file(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'images', 'favicon.ico'),
+                     mimetype='image/x-icon', max_age=86400)
 
 
 @app.route('/api/robots.txt')
@@ -8674,7 +8808,8 @@ def upload_profile_image():
     supabase_url = get_supabase_url()
     supabase_key = os.environ.get('SUPABASE_ANON_KEY', '').strip() # 사용자가 제공해야 함
     if not supabase_url or not supabase_key:
-        return jsonify({'error': 'Profile image storage is not configured'}), 500
+        return jsonify({'error': 'Profile image storage is not configured',
+                        'message': '지금은 사진을 올릴 수 없습니다. 잠시 후 다시 시도해주세요.'}), 503
     
     # 파일명 생성
     file_ext = file.filename.rsplit('.', 1)[-1].lower()
@@ -8747,7 +8882,8 @@ def upload_proposal_file():
     supabase_url = get_supabase_url()
     supabase_key = os.environ.get('SUPABASE_ANON_KEY', '').strip()
     if not supabase_url or not supabase_key:
-        return jsonify({'error': 'Proposal storage is not configured'}), 500
+        return jsonify({'error': 'Proposal storage is not configured',
+                        'message': '지금은 파일을 올릴 수 없습니다. 파일 없이 제출하거나 잠시 후 다시 시도해주세요.'}), 503
     
     # 업로드 경로: bucket/filename (proposals 버킷 내부)
     upload_url = f"{supabase_url}/storage/v1/object/proposals/{unique_name}"
