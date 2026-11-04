@@ -627,6 +627,17 @@ input::-ms-reveal, input::-ms-clear { display: none; }
 .hm-field input[readonly] { background: var(--surface); color: var(--char); cursor: default; }
 .hm-field input[readonly]:hover { border-color: var(--line); }
 
+/* 칸 안의 라디오 한 줄(대시보드 정산 정보 변경의 사업자/개인).
+   위 .hm-field input 공통 규칙(appearance:none·52px 높이)이 라디오에도 걸려 빈 흰 상자로 보이고
+   선택 여부가 안 보였다(2차 점검 R2-03). 이 줄 안에서는 브라우저 기본 라디오로 되돌린다. */
+.hm-field .hm-radio-row { display: flex; flex-wrap: wrap; gap: 10px 24px; }
+.hm-field .hm-radio-row label { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 500; color: var(--ink); cursor: pointer; }
+.hm-field .hm-radio-row input[type="radio"] {
+  -webkit-appearance: radio; appearance: auto;
+  width: 18px; height: 18px; min-height: 0; padding: 0; margin: 0;
+  border: 0; box-shadow: none; background: none; accent-color: var(--ink); cursor: pointer;
+}
+
 /* 선택 개수 알약 (#region-counter 등) */
 .hm-count {
   display: inline-flex; align-items: center; padding: 3px 12px; border-radius: var(--pill);

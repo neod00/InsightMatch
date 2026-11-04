@@ -33,7 +33,7 @@
 
     <!-- B안 공통 스타일(15절: 앱 셸·대시보드). Tailwind CDN·style.css 는 로드하지 않는다.
          예전에 로드하던 Supabase JS 는 이 페이지에서 쓰는 곳이 없어 뺐다(업로드는 서버 API 경유). -->
-    <link rel="stylesheet" href="brand.css?v=4">
+    <link rel="stylesheet" href="brand.css?v=5">
 </head>
 
 <body class="hm-body hm-app">
@@ -295,7 +295,7 @@
                 <form id="settlement-form" class="hidden" onsubmit="saveSettlement(event)">
                     <div class="form-group hm-field">
                         <label>사업자 구분</label>
-                        <div style="display: flex; gap: 16px;">
+                        <div class="hm-radio-row" role="radiogroup" aria-label="사업자 구분">
                             <label><input type="radio" name="settle-business-type" value="business" onchange="toggleSettlementBizFields()"> 사업자</label>
                             <label><input type="radio" name="settle-business-type" value="individual" onchange="toggleSettlementBizFields()"> 개인</label>
                         </div>
@@ -1779,15 +1779,17 @@
                 card.className = 'quote-request-card fade-in-up';
                 card.style.animationDelay = `${index * 0.1}s`;
 
-                // 첫 번째 프로젝트의 상태를 기준으로 전체 상태 결정
-                const firstProject = group.projects[0];
-                const overallStatus = firstProject.status || 'proposal_pending';
-                const statusInfo = STATUS_CONFIG[overallStatus] || STATUS_CONFIG['proposal_pending'];
-
                 // 응답 현황 계산 (취소된 요청 및 미선정 요청 제외)
                 const visibleProjects = group.projects.filter(p =>
                     p.status !== 'cancelled_by_company' && p.status !== 'not_selected'
                 );
+
+                // 그룹 상태는 가장 많이 진행된 요청으로 정한다(관리자 API 와 같은 기준).
+                // 예전에는 첫 번째 요청의 상태를 썼는데, 다른 컨설턴트와 계약하면 첫 요청이
+                // '미선정'이 되어 그룹 전체가 미선정으로 보이고 '완료 확인'·'평가하기' 버튼이
+                // 사라졌다(2차 점검 R2-02).
+                const overallStatus = pickGroupStatus(visibleProjects.length ? visibleProjects : group.projects);
+                const statusInfo = STATUS_CONFIG[overallStatus] || STATUS_CONFIG['proposal_pending'];
                 const totalConsultants = visibleProjects.length;
                 const respondedConsultants = visibleProjects.filter(p =>
                     // 제안서를 낸 뒤의 모든 단계(협의·계약·완료 포함)를 '응답'으로 센다.
@@ -2450,6 +2452,22 @@
         }
         // 제안서를 낸 뒤의 단계 = 전문가가 '응답'한 요청
         const RESPONDED_STATUSES = ['proposal_submitted', 'negotiating', 'pending_contract', 'awaiting_signature', 'contracted', 'in_progress', 'completed'];
+
+        // 한 견적 요청 묶음의 대표 상태. 숫자가 클수록 많이 진행된 상태다(api/index.py 관리자 목록의 status_priority 와 같다).
+        const GROUP_STATUS_PRIORITY = {
+            completed: 9, in_progress: 8, contracted: 7, awaiting_signature: 6, pending_contract: 5,
+            negotiating: 4, proposal_submitted: 3, reviewing: 3, proposal_pending: 2, planning: 1,
+            declined_by_consultant: 0, not_selected: 0, cancelled_by_company: 0
+        };
+        function pickGroupStatus(projects) {
+            let best = null;
+            (projects || []).forEach(p => {
+                const s = p && p.status;
+                if (!s) return;
+                if (best === null || (GROUP_STATUS_PRIORITY[s] ?? 0) > (GROUP_STATUS_PRIORITY[best] ?? 0)) best = s;
+            });
+            return best || 'proposal_pending';
+        }
 
         // 금액 표시: 숫자면 "7,500,000원", 아니면 원문 그대로
         function formatWon(value) {
