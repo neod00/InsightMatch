@@ -2895,6 +2895,52 @@
                 const ratingText = consultant.rating ? escapeHtml(String(consultant.rating)) : '—';
                 const reviewsText = typeof consultant.reviews === 'number' ? `${consultant.reviews}개` : '—';
 
+                // 정산 정보(관리자 전용). API 는 예전부터 내려줬지만 화면에 그리는 곳이 없어,
+                // 지급·세금계산서 처리 때 DB 를 직접 봐야 했다(2차 점검 R2-04). 계좌는 뒤 4자리만 온다.
+                const settlement = consultant.settlement || {};
+                const settleText = (v) => v ? escapeHtml(String(v)) : '<span class="hm-kv-empty">미등록</span>';
+                const businessTypeText = settlement.businessType === 'business' ? '사업자 (세금계산서 발행)'
+                    : settlement.businessType === 'individual' ? '개인 (원천징수 3.3%)' : '';
+                const agreedAtText = settlement.partnerAgreedAt
+                    ? new Date(settlement.partnerAgreedAt).toLocaleDateString('ko-KR') : '';
+                const agreementText = settlement.partnerAgreementVersion
+                    ? `버전 ${escapeHtml(settlement.partnerAgreementVersion)}${agreedAtText ? ` · ${escapeHtml(agreedAtText)} 동의` : ''}`
+                    : '<span class="hm-kv-empty">동의 기록 없음</span>';
+                const settlementHtml = `
+                <div class="detail-section">
+                    <h4 class="detail-section-title">
+                        <i data-lucide="landmark"></i>
+                        정산 정보
+                    </h4>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-item-label">사업자 구분</div>
+                            <div class="detail-item-value">${settleText(businessTypeText)}</div>
+                        </div>
+                        ${settlement.businessType === 'business' ? `
+                        <div class="detail-item">
+                            <div class="detail-item-label">사업자등록번호</div>
+                            <div class="detail-item-value">${settleText(settlement.bizRegNo)}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">상호 / 대표자</div>
+                            <div class="detail-item-value">${settleText([settlement.bizName, settlement.bizCeoName].filter(Boolean).join(' / '))}</div>
+                        </div>` : ''}
+                        <div class="detail-item">
+                            <div class="detail-item-label">입금 계좌</div>
+                            <div class="detail-item-value">${settleText([settlement.bankName, settlement.accountMasked].filter(Boolean).join(' '))}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">예금주</div>
+                            <div class="detail-item-value">${settleText(settlement.accountHolder)}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-item-label">기본 협력계약</div>
+                            <div class="detail-item-value">${agreementText}</div>
+                        </div>
+                    </div>
+                </div>`;
+
                 const contentHtml = `
                 <div class="hm-panel-profile">
                     <div class="consultant-approval-avatar is-lg">${avatarContent}</div>
@@ -2925,6 +2971,9 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 정산 정보 (관리자 전용) -->
+                ${settlementHtml}
 
                 <!-- 전문 분야 (ISO) -->
                 <div class="detail-section">

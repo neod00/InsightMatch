@@ -6406,7 +6406,11 @@ def request_quotes():
     
     # Get session_id from frontend (for grouping projects from same matching session)
     # 다른 기업이 쓰는 세션·이상한 값은 버리고 새 세션으로 묶는다.
-    session_id = normalize_request_session_id(data.get('session_id'), g.current_user.id)
+    # 로그인하고 돌아온 화면은 session_id 를 비워 보낼 수 있다(예전 script.js 캐시 포함).
+    # 그때는 함께 온 매칭 결과(analysis_context)의 session_id 를 쓴다. 없으면 새 세션이 만들어져
+    # 프로젝트 상세·관리자 화면에서 설문(업종·직원 수·지역)이 빈 칸이 된다(2차 점검 R2-01).
+    session_id = normalize_request_session_id(
+        data.get('session_id') or analysis_context.get('session_id'), g.current_user.id)
     
     # === NEW: Ensure AnalysisJob exists for this session (for Admin Visibility) ===
     if session_id:

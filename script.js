@@ -1470,13 +1470,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
+            // 로그인하고 돌아오면 페이지가 새로 떠서 currentSessionId 가 비어 있다. 그때는 저장해 둔
+            // 매칭 결과의 session_id 를 쓴다. 예전에는 null 로 보내 서버가 새 세션을 만들었고,
+            // 컨설턴트 상세·관리자 화면에서 업종·직원 수·지역이 빈 칸이 됐다(2차 점검 R2-01).
+            const requestSessionId = currentSessionId
+                || (savedMatchResult && analysisContext && typeof analysisContext.session_id === 'string'
+                    ? analysisContext.session_id : null);
             const sendQuoteRequest = () => authFetch('/api/quotes/request', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     consultant_ids: selectedIds,
                     analysis_context: analysisContext,
-                    session_id: currentSessionId  // Include session ID for grouping
+                    session_id: requestSessionId  // Include session ID for grouping
                 })
             });
             let response = await sendQuoteRequest();
