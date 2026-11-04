@@ -996,19 +996,19 @@ def _coverage_sse_chunk(manual, phase, markdown):
 def require_admin_request():
     auth_header = request.headers.get('Authorization', '')
     if not auth_header.startswith('Bearer '):
-        return jsonify({'message': 'Admin authentication required'}), 401
+        return jsonify({'message': '관리자 로그인이 필요합니다.'}), 401
 
     token = auth_header.split(' ', 1)[1]
     try:
         payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
         current_user = User.query.get(payload['user_id'])
     except jwt.ExpiredSignatureError:
-        return jsonify({'message': 'Session expired'}), 401
+        return jsonify({'message': '로그인이 만료되었습니다. 다시 로그인해주세요.'}), 401
     except jwt.InvalidTokenError:
-        return jsonify({'message': 'Invalid token'}), 401
+        return jsonify({'message': '로그인 정보가 올바르지 않습니다. 다시 로그인해주세요.'}), 401
 
     if not current_user:
-        return jsonify({'message': 'Invalid user'}), 401
+        return jsonify({'message': '계정을 찾을 수 없습니다. 다시 로그인해주세요.'}), 401
     # 탈퇴 검사 (token_required 와 동일한 이유). 관리자 경로는 별도 데코레이터라
     # 여기에 넣지 않으면 관리자 API 만 탈퇴 후에도 열려 있게 된다.
     if getattr(current_user, 'deleted_at', None) is not None:
@@ -1019,7 +1019,7 @@ def require_admin_request():
     if payload.get('tv', 0) != (current_user.token_version or 0):
         return jsonify({'message': '세션이 만료되었습니다. 다시 로그인해주세요.'}), 401
     if current_user.role != 'admin':
-        return jsonify({'message': 'Admin role required'}), 403
+        return jsonify({'message': '관리자 권한이 필요합니다.'}), 403
 
     g.current_user = current_user
     return None
@@ -1770,7 +1770,7 @@ def is_placeholder_consultant_profile(consultant):
 
 def register_consultant_validated():
     if g.current_user.role != 'consultant':
-        return jsonify({'message': 'Only consultant accounts can register a consultant profile.'}), 403
+        return jsonify({'message': '컨설턴트 계정만 전문가 프로필을 등록할 수 있습니다.'}), 403
 
     user_id = g.current_user.id
     existing = Consultant.query.filter_by(user_id=user_id).first()
@@ -1781,7 +1781,7 @@ def register_consultant_validated():
     # revoked(관리자의 의도적 자격 해제)는 계속 막는다.
     is_resubmission = bool(existing) and existing.status == 'rejected'
     if existing and not is_resubmission and not is_placeholder_consultant_profile(existing):
-        return jsonify({'message': 'Consultant profile already exists.', 'consultant_id': existing.id}), 409
+        return jsonify({'message': '이미 등록된 전문가 프로필이 있습니다.', 'consultant_id': existing.id}), 409
 
     data = request_json_object(required=False)
     if data is None:
@@ -1797,39 +1797,39 @@ def register_consultant_validated():
     experience_years = parse_positive_int(data.get('experience'))
 
     if not name:
-        return jsonify({'message': 'Name is required.'}), 400
+        return jsonify({'message': '이름을 입력해주세요.'}), 400
     if len(name) > 100:
-        return jsonify({'message': 'Name is too long.'}), 400
+        return jsonify({'message': '이름이 너무 깁니다.'}), 400
     if not email or not is_valid_email(email):
-        return jsonify({'message': 'Valid email is required.'}), 400
+        return jsonify({'message': '올바른 이메일을 입력해주세요.'}), 400
     if len(email) > 120:
-        return jsonify({'message': 'Email is too long.'}), 400
+        return jsonify({'message': '이메일이 너무 깁니다.'}), 400
     if not phone or len(phone) > 30:
-        return jsonify({'message': 'Valid phone number is required.'}), 400
+        return jsonify({'message': '올바른 휴대폰 번호를 입력해주세요.'}), 400
     if experience_years is None or experience_years > 50:
-        return jsonify({'message': 'Experience must be between 1 and 50 years.'}), 400
+        return jsonify({'message': '경력은 1~50년 사이로 입력해주세요.'}), 400
     if len(company_name) > 100:
-        return jsonify({'message': 'Company name is too long.'}), 400
+        return jsonify({'message': '소속 회사/기관 이름이 너무 깁니다.'}), 400
     if len(specialty) > 100:
-        return jsonify({'message': 'Specialty is too long.'}), 400
+        return jsonify({'message': '전문 분야 설명이 너무 깁니다.'}), 400
     if not match_reason or len(match_reason) > 500:
-        return jsonify({'message': 'Introduction is required and must be 500 characters or fewer.'}), 400
+        return jsonify({'message': '한줄 소개를 500자 이내로 입력해주세요.'}), 400
     if not regions or len(regions) > 200:
-        return jsonify({'message': 'At least one service region is required.'}), 400
+        return jsonify({'message': '활동 가능 지역을 하나 이상 선택해주세요.'}), 400
     if not is_allowed_profile_image_url(profile_image_url):
-        return jsonify({'message': 'Invalid profile image URL'}), 400
+        return jsonify({'message': '프로필 사진 주소가 올바르지 않습니다.'}), 400
 
     iso_exp = data.get('iso_experience', {})
     if not isinstance(iso_exp, dict) or not iso_exp:
-        return jsonify({'message': 'At least one ISO standard is required.'}), 400
+        return jsonify({'message': '전문 분야(ISO 규격)를 하나 이상 선택해주세요.'}), 400
     if len(iso_exp) > 50:
-        return jsonify({'message': 'Too many ISO standards selected.'}), 400
+        return jsonify({'message': '선택한 ISO 규격이 너무 많습니다.'}), 400
 
     industry_exp = data.get('industry_experience', [])
     if not isinstance(industry_exp, list) or not industry_exp:
-        return jsonify({'message': 'At least one industry experience is required.'}), 400
+        return jsonify({'message': '경험 산업군을 하나 이상 선택해주세요.'}), 400
     if len(industry_exp) > 30:
-        return jsonify({'message': 'Too many industry experiences selected.'}), 400
+        return jsonify({'message': '선택한 산업군이 너무 많습니다.'}), 400
 
     detailed_certs = data.get('detailed_certifications', '')
     if isinstance(detailed_certs, (list, dict)):
@@ -1839,11 +1839,11 @@ def register_consultant_validated():
     else:
         detailed_certs = str(detailed_certs).strip()
     if len(detailed_certs) > 2000:
-        return jsonify({'message': 'Certification details are too long.'}), 400
+        return jsonify({'message': '보유 자격 내용이 너무 깁니다.'}), 400
 
     recent_projects = (data.get('recent_projects') or '').strip()
     if not recent_projects or len(recent_projects) > 3000:
-        return jsonify({'message': 'Recent project history is required and must be 3000 characters or fewer.'}), 400
+        return jsonify({'message': '주요 프로젝트 이력을 3,000자 이내로 입력해주세요.'}), 400
 
     # 정산·세금계산서 정보 (등록 시점에 받아두지 않으면 정산 때 사람이 개입해야 함)
     settlement, settlement_error = validate_settlement_fields(data)
@@ -1993,7 +1993,7 @@ def register_consultant_validated():
         }), 201
 
     return jsonify({
-        'message': 'Consultant registration submitted for admin review.',
+        'message': '전문가 프로필 등록을 신청했습니다. 관리자 검토 후 결과를 알려 드립니다.',
         'consultant_id': new_consultant.id,
     }), 201
 
@@ -2035,7 +2035,7 @@ def signup():
     # 여기에 걸리지 않는다 = 탈퇴 후 같은 이메일로 재가입이 가능하다(의도된 정책).
     # 근거는 withdraw_account() 의 주석 참조.
     if User.query.filter_by(email=email).first():
-        return jsonify({'message': 'Email already exists'}), 400
+        return jsonify({'message': '이미 가입된 이메일입니다.'}), 400
     
     phone = body_str(data, 'phone').strip()
 
@@ -2079,7 +2079,7 @@ def signup():
         db.session.add(new_consultant)
         db.session.commit()
         
-    return jsonify({'message': 'User created successfully'}), 201
+    return jsonify({'message': '회원가입이 완료되었습니다.'}), 201
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
@@ -2104,14 +2104,14 @@ def login():
     user = User.query.filter_by(email=email).first()
 
     if not user or not check_password_hash(user.password_hash, password):
-        return jsonify({'message': 'Invalid credentials'}), 401
+        return jsonify({'message': '이메일 또는 비밀번호가 올바르지 않습니다.'}), 401
 
     # 탈퇴 계정 차단.
     # 탈퇴 시 이메일을 deleted_<id>@deleted.invalid 로 치환하므로 원래 이메일로는
     # 애초에 조회되지 않지만, 익명화가 부분 실패한 경우까지 대비한 방어선이다.
     # 계정 존재 여부를 흘리지 않도록 자격증명 오류와 같은 응답을 준다.
     if getattr(user, 'deleted_at', None) is not None:
-        return jsonify({'message': 'Invalid credentials'}), 401
+        return jsonify({'message': '이메일 또는 비밀번호가 올바르지 않습니다.'}), 401
 
 
     token = jwt.encode({
@@ -3350,7 +3350,7 @@ def handle_projects():
     user_id = str(g.current_user.id)
     if request.method == 'GET':
         if not user_id:
-            return jsonify({'message': 'User ID required'}), 400
+            return jsonify({'message': '로그인이 필요합니다.'}), 400
         
         # 컨설턴트인 경우: user_id로 Consultant 테이블에서 consultant_id 조회
         consultant = Consultant.query.filter_by(user_id=user_id).first()
@@ -3474,7 +3474,7 @@ def delete_project(project_id):
     """Delete a project (only if not contracted)"""
     project = get_active_project_or_404(project_id)
     if not is_project_company(project):
-        return jsonify({'message': 'Only the project company can delete this project.'}), 403
+        return jsonify({'message': '프로젝트를 요청한 기업만 삭제할 수 있습니다.'}), 403
     
     # Cannot delete contracted projects
     if project.status in ['contracted', 'in_progress', 'completed']:
@@ -3717,13 +3717,13 @@ def respond_negotiation(project_id):
         counter_duration = (data.get('counter_duration') or '').strip()
         counter_message = (data.get('message') or '').strip()
         if counter_price is not None and (counter_price < NEGOTIATION_PRICE_MIN or counter_price > NEGOTIATION_PRICE_MAX):
-            return jsonify({'message': 'Counter price must be between 100,000 and 1,000,000,000.'}), 400
+            return jsonify({'message': '역제안 금액은 10만 원 이상 10억 원 이하로 입력해주세요.'}), 400
         if not counter_price and not counter_duration:
-            return jsonify({'message': 'Counter price or duration is required.'}), 400
+            return jsonify({'message': '역제안 금액이나 기간을 입력해주세요.'}), 400
         if len(counter_duration) > 50:
-            return jsonify({'message': 'Counter duration is too long.'}), 400
+            return jsonify({'message': '역제안 기간이 너무 깁니다.'}), 400
         if len(counter_message) > 1000:
-            return jsonify({'message': 'Counter message is too long.'}), 400
+            return jsonify({'message': '역제안 메시지가 너무 깁니다.'}), 400
         
         negotiation_data['counter_price'] = counter_price
         negotiation_data['counter_duration'] = counter_duration
@@ -3736,7 +3736,7 @@ def respond_negotiation(project_id):
     else:  # reject
         reject_message = (data.get('message') or '').strip()
         if len(reject_message) > 1000:
-            return jsonify({'message': 'Reject message is too long.'}), 400
+            return jsonify({'message': '거절 메시지가 너무 깁니다.'}), 400
         negotiation_data['consultant_message'] = reject_message
         project.negotiation_data = json.dumps(negotiation_data)
         project.negotiation_status = 'rejected'
@@ -3969,10 +3969,11 @@ def sign_contract_step(project_id):
         project.status = 'awaiting_signature'
         other_party = '컨설턴트' if signer == 'company' else '기업'
         message = f'서명이 완료되었습니다. {other_party}의 서명을 기다리고 있습니다.'
-        signer_label = '기업' if signer == 'company' else '전문가'
+        # '기업가' 처럼 조사가 틀리지 않게 주격 조사까지 붙여 둔다(2차 점검 R2-08)
+        signer_subject = '기업이' if signer == 'company' else '전문가가'
         notify_project_counterpart(
             project, signer == 'company', 'signature_requested',
-            f'{signer_label}가 계약서에 서명했습니다',
+            f'{signer_subject} 계약서에 서명했습니다',
             f'"{project.title}" 계약서에 서명해주시면 계약이 체결됩니다.',
         )
     
@@ -4208,21 +4209,21 @@ def submit_proposal(project_id):
     
     # 제안 정보 저장
     if proposal_price < NEGOTIATION_PRICE_MIN or proposal_price > NEGOTIATION_PRICE_MAX:
-        return jsonify({'message': 'Proposal price must be between 100,000 and 1,000,000,000.'}), 400
+        return jsonify({'message': '제안 금액은 10만 원 이상 10억 원 이하로 입력해주세요.'}), 400
 
     proposal_file_url = data.get('proposal_file_url', '')
     if not is_allowed_proposal_file_url(proposal_file_url):
-        return jsonify({'message': 'Invalid proposal file URL'}), 400
+        return jsonify({'message': '제안서 파일 주소가 올바르지 않습니다.'}), 400
     # 서명 URL 은 서비스 키로 발급하므로, 이 프로젝트에 올린 파일만 연결할 수 있다.
     if proposal_file_url and not proposal_object_name(proposal_file_url, project.id):
-        return jsonify({'message': 'Invalid proposal file URL'}), 400
+        return jsonify({'message': '제안서 파일 주소가 올바르지 않습니다.'}), 400
 
     proposal_duration = (data.get('proposal_duration') or '').strip()
     proposal_message = (data.get('proposal_message') or '').strip()
     if proposal_duration and len(proposal_duration) > 50:
-        return jsonify({'message': 'Proposal duration is too long.'}), 400
+        return jsonify({'message': '제안 기간이 너무 깁니다.'}), 400
     if len(proposal_message) > 2000:
-        return jsonify({'message': 'Proposal message is too long.'}), 400
+        return jsonify({'message': '제안 메시지가 너무 깁니다.'}), 400
 
     project.proposal_price = proposal_price
     project.proposal_duration = proposal_duration
@@ -5305,7 +5306,7 @@ def cancel_consultant_request(project_id):
     """특정 컨설턴트에 대한 요청 취소 (Soft Delete + 알림)"""
     project = get_active_project_or_404(project_id)
     if not is_project_company(project):
-        return jsonify({'message': 'Only the project company can cancel this request.'}), 403
+        return jsonify({'message': '요청한 기업만 취소할 수 있습니다.'}), 403
     
     # 이미 계약된 경우 취소 불가
     if project.status in ['contracted', 'in_progress', 'completed']:
@@ -5409,7 +5410,7 @@ def decline_project_request(project_id):
 def cancel_project_group():
     """Cancel all non-contracted projects in a company quote-request group."""
     if g.current_user.role != 'company':
-        return jsonify({'message': 'Only company users can cancel quote request groups.'}), 403
+        return jsonify({'message': '기업 회원만 견적 요청을 취소할 수 있습니다.'}), 403
 
     data = request_json_object(required=False)
     if data is None:
@@ -5717,15 +5718,29 @@ def get_admin_jobs():
             # Get earliest project creation date for this company
             earliest_project = min(project_list, key=lambda x: x.created_at if x.created_at else datetime.datetime.max)
             
-            # Extract ISO standard from project title (e.g., "ISO 9001:2015 인증 프로젝트" -> "ISO 9001:2015")
-            standards = set()
+            # 제목("ISO 9001:2026, ISO 14001:2026 인증 프로젝트")에서 규격을 모두 모은다(R2-11)
+            standards = []
             for p in project_list:
-                if p.title:
-                    # Extract ISO standard pattern
-                    import re
-                    iso_match = re.search(r'(ISO[/\s]?\w+[:\s]?\d*)', p.title, re.IGNORECASE)
-                    if iso_match:
-                        standards.add(iso_match.group(1).strip())
+                for code in standards_from_title(p.title):
+                    if code not in standards:
+                        standards.append(code)
+
+            # 업종·직원 수·지역은 가장 최근 요청의 매칭 설문에서 가져온다.
+            # 예전에는 항상 None 이라 관리자 화면에 '미지정'만 보였다(R2-11).
+            latest_intake = {}
+            for p in sorted(project_list, key=lambda x: x.created_at or datetime.datetime.min, reverse=True):
+                if not p.session_id:
+                    continue
+                job = AnalysisJob.query.filter(
+                    AnalysisJob.id == p.session_id, AnalysisJob.deleted_at.is_(None)
+                ).first()
+                if job and job.intake_data:
+                    try:
+                        latest_intake = job.get_intake_data() or {}
+                    except Exception:
+                        latest_intake = {}
+                    if latest_intake:
+                        break
             
             # Build related projects list with consultant info
             # Deduplicate by (consultant_id, ISO standard) - keep most advanced status
@@ -5747,14 +5762,9 @@ def get_admin_jobs():
             dedup_map = {}  # key: (consultant_id, iso_standard) -> project with highest priority
             
             for p in project_list:
-                # Extract ISO standard from title
-                iso_standard = ''
-                if p.title:
-                    iso_match = re.search(r'(ISO[/\s]?\w+[:\s]?\d*)', p.title, re.IGNORECASE)
-                    if iso_match:
-                        iso_standard = iso_match.group(1).strip()
+                # 같은 컨설턴트·같은 규격 묶음의 요청은 가장 많이 진행된 것만 남긴다
                 
-                key = (p.consultant_id, iso_standard)
+                key = (p.consultant_id, tuple(standards_from_title(p.title)))
                 current_priority = status_priority.get(p.status, 0)
                 
                 if key not in dedup_map:
@@ -5766,11 +5776,13 @@ def get_admin_jobs():
             
             # Build deduplicated related projects list
             related_projects = []
-            for (consultant_id, iso_standard), p in dedup_map.items():
+            for (consultant_id, _standards_key), p in dedup_map.items():
                 consultant = Consultant.query.get(p.consultant_id) if p.consultant_id else None
                 related_projects.append({
                     'project_id': p.id,
                     'title': p.title,
+                    # 화면이 '규격별 매칭 현황'을 이 목록으로 묶는다(예전엔 제목에서 첫 규격만 뽑음)
+                    'standards': standards_from_title(p.title),
                     'status': p.status,
                     'consultant_id': p.consultant_id,
                     'consultant_name': consultant.name if consultant else 'Unknown',
@@ -5804,12 +5816,13 @@ def get_admin_jobs():
                 'created_at': iso_utc(earliest_project.created_at),
                 'deleted_at': None,
                 'intake_data': {
-                    'industry': None,
-                    'employees': None,
-                    'region': None,
-                    'standards': list(standards),
+                    # 화면에 그대로 보이는 값이라 코드 대신 한국어 이름으로 보낸다
+                    'industry': intake_label('industry', latest_intake.get('industry')),
+                    'employees': intake_label('employees', latest_intake.get('employees')),
+                    'region': latest_intake.get('region') or None,
+                    'standards': standards,
                     'issues': [],
-                    'timeline': None,
+                    'timeline': intake_label('timeline', latest_intake.get('timeline')),
                     'budget': None,
                     'contact_email': contact_email
                 },
@@ -5844,7 +5857,7 @@ def delete_admin_job(job_id):
         ).count()
         if protected_count > 0:
             return jsonify({
-                'message': 'Contracted or active projects cannot be archived.',
+                'message': '계약했거나 진행 중인 프로젝트는 보관할 수 없습니다.',
                 'contracted_count': protected_count
             }), 400
 
@@ -5864,7 +5877,7 @@ def delete_admin_job(job_id):
         log_admin_action('archive_unassigned_projects', 'company', 'unassigned', {'archived_count': archived_count})
         db.session.commit()
         return jsonify({
-            'message': 'Unassigned project group archived',
+            'message': '요청 묶음을 보관했습니다.',
             'id': job_id,
             'archived_count': archived_count,
             'deleted_at': iso_utc(now)
@@ -5874,7 +5887,7 @@ def delete_admin_job(job_id):
         try:
             company_id = int(job_id.split('_', 1)[1])
         except (IndexError, ValueError):
-            return jsonify({'message': 'Invalid company job id'}), 400
+            return jsonify({'message': '요청 묶음 번호가 올바르지 않습니다.'}), 400
 
         protected_count = Project.query.filter(
             Project.company_id == company_id,
@@ -5882,7 +5895,7 @@ def delete_admin_job(job_id):
         ).count()
         if protected_count > 0:
             return jsonify({
-                'message': 'Contracted or active projects cannot be archived.',
+                'message': '계약했거나 진행 중인 프로젝트는 보관할 수 없습니다.',
                 'contracted_count': protected_count
             }), 400
 
@@ -5901,7 +5914,7 @@ def delete_admin_job(job_id):
         log_admin_action('archive_company_projects', 'company', company_id, {'archived_count': archived_count})
         db.session.commit()
         return jsonify({
-            'message': 'Company project group archived',
+            'message': '요청 묶음을 보관했습니다.',
             'id': job_id,
             'archived_count': archived_count,
             'deleted_at': iso_utc(now)
@@ -6103,7 +6116,7 @@ def approve_consultant(consultant_id):
         '제출하신 전문가 프로필 검토가 완료되어 등록이 승인되었습니다. 이제 기업의 견적 요청 매칭 대상에 포함됩니다.'
     )
     db.session.commit()
-    return jsonify({'message': 'Consultant approved successfully', 'verified': True})
+    return jsonify({'message': '컨설턴트를 승인했습니다.', 'verified': True})
 
 @app.route('/api/admin/consultants/<int:consultant_id>/reject', methods=['POST'])
 @admin_required
@@ -6129,7 +6142,7 @@ def reject_consultant(consultant_id):
         reason=reason
     )
     db.session.commit()
-    return jsonify({'message': f'Consultant rejected: {reason}'})
+    return jsonify({'message': f'컨설턴트를 거부했습니다: {reason}'})
 
 @app.route('/api/admin/consultants/<int:consultant_id>/revoke', methods=['POST'])
 @admin_required
@@ -6155,7 +6168,7 @@ def revoke_consultant_verification(consultant_id):
         reason=reason
     )
     db.session.commit()
-    return jsonify({'message': 'Consultant verification revoked', 'verified': False, 'status': consultant.status})
+    return jsonify({'message': '컨설턴트 검증을 취소했습니다.', 'verified': False, 'status': consultant.status})
 
 @app.route('/api/admin/users/<int:user_id>/business-number', methods=['POST'])
 @admin_required
@@ -6243,9 +6256,30 @@ def restore_consultant(consultant_id):
         '전문가 프로필이 재검토 대기 상태로 전환되었습니다. 관리자 검토가 끝나면 결과를 다시 안내드립니다.'
     )
     db.session.commit()
-    return jsonify({'message': 'Consultant restored to pending', 'status': consultant.status})
+    return jsonify({'message': '컨설턴트를 승인 대기로 되돌렸습니다.', 'status': consultant.status})
 
 # --- Consultant Detail Endpoint ---
+# 프로필 수정 오류 문구에 쓰는 칸 이름 (admin.html 의 PROFILE_FIELD_LABELS 와 같다)
+PROFILE_FIELD_LABELS = {
+    'bio': '자기소개', 'phone': '연락처', 'email': '이메일', 'companyName': '소속 회사/기관',
+    'profileImageUrl': '프로필 사진', 'introductionVideoUrl': '소개 영상 링크',
+    'specialty': '전문 분야', 'regions': '활동 지역',
+}
+
+# 프로젝트 제목("ISO 9001:2026, ISO 14001:2026 인증 프로젝트")에서 규격을 모두 뽑는다.
+# 예전에는 정규식으로 첫 규격 하나만 뽑아, 2규격 요청도 관리자 화면에 1규격만 보였다(2차 점검 R2-11).
+_TITLE_STANDARD_RE = re.compile(r'(?:ISO/IEC|ISO|IATF)\s?\d+(?:-\d+)?(?::\d{4})?', re.IGNORECASE)
+
+
+def standards_from_title(title):
+    found = []
+    for m in _TITLE_STANDARD_RE.finditer(title or ''):
+        code = re.sub(r'\s+', ' ', m.group(0).strip())
+        if code not in found:
+            found.append(code)
+    return found
+
+
 def normalize_request_session_id(raw_session_id, company_user_id):
     """견적 요청에 딸려 온 session_id(매칭 세션)를 이 기업이 써도 되는지 확인한다.
 
@@ -6301,7 +6335,7 @@ def can_view_unlisted_consultant(consultant):
 def get_consultant_detail(consultant_id):
     consultant = Consultant.query.get_or_404(consultant_id)
     if not (consultant.verified or consultant.status == 'verified') and not can_view_unlisted_consultant(consultant):
-        return jsonify({'message': 'Consultant not found'}), 404
+        return jsonify({'message': '컨설턴트를 찾을 수 없습니다.'}), 404
     
     return jsonify({
         'id': consultant.id,
@@ -6374,7 +6408,7 @@ def request_quotes():
     user_id = str(g.current_user.id)
     
     if not user_id:
-        return jsonify({'message': 'User ID required. Please log in first.'}), 401
+        return jsonify({'message': '로그인이 필요합니다.'}), 401
     
     # Generate project title from analysis context
     company_name = analysis_context.get('company_name', '기업')
@@ -6500,14 +6534,17 @@ def request_quotes():
             })
         except Exception as e:
             db.session.rollback()
-            return jsonify({'message': f'Failed to create project: {str(e)}'}), 500
+            # 예외 내용(DB 오류 문구)은 화면에 내보내지 않고 서버 로그에만 남긴다
+            print(f"[Request Quotes] project create failed: {e}")
+            return jsonify({'message': '견적 요청을 저장하지 못했습니다. 잠시 후 다시 시도해주세요.'}), 500
     
     # Commit all projects
     try:
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        return jsonify({'message': f'Failed to save projects: {str(e)}'}), 500
+        print(f"[Request Quotes] project save failed: {e}")
+        return jsonify({'message': '견적 요청을 저장하지 못했습니다. 잠시 후 다시 시도해주세요.'}), 500
     
     # --- BUG-010 Fix: 인앱 알림 생성 ---
     for consultant in consultants:
@@ -6598,7 +6635,7 @@ def request_quotes():
             print(f"[Email] Error sending confirmation to company: {e}")
     
     return jsonify({
-        'message': f'Quote requested from {len(consultants)} consultants',
+        'message': f'전문가 {len(consultants)}명에게 견적을 요청했습니다.',
         'quote_request_id': quote_request_id,
         'requests': created_requests,
         'projects': created_projects,
@@ -6635,7 +6672,7 @@ def handle_posts():
         db.session.flush()
         log_admin_action('create_post', 'post', new_post.id, {'title': new_post.title})
         db.session.commit()
-        return jsonify({'message': 'Post created', 'id': new_post.id}), 201
+        return jsonify({'message': '글을 등록했습니다.', 'id': new_post.id}), 201
 
 @app.route('/api/posts/<int:post_id>', methods=['GET', 'PUT', 'DELETE'])
 def get_post(post_id):
@@ -6667,7 +6704,7 @@ def get_post(post_id):
             post.image_url = data['image_url']
         log_admin_action('update_post', 'post', post_id, {'title': post.title})
         db.session.commit()
-        return jsonify({'message': 'Post updated', 'post': post.to_dict()})
+        return jsonify({'message': '글을 수정했습니다.', 'post': post.to_dict()})
     
     elif request.method == 'DELETE':
         forbidden = require_admin_request()
@@ -6677,7 +6714,7 @@ def get_post(post_id):
         log_admin_action('delete_post', 'post', post_id, {'title': post.title})
         post.deleted_at = datetime.datetime.now(datetime.timezone.utc)
         db.session.commit()
-        return jsonify({'message': 'Post deleted', 'id': post_id})
+        return jsonify({'message': '글을 삭제했습니다.', 'id': post_id})
 
 # --- SEO Endpoints ---
 # 검색엔진은 루트의 /sitemap.xml · /robots.txt 를 찾는다. vercel.json 이 이 두 경로를 이 함수로 보내고,
@@ -7028,7 +7065,7 @@ def get_notifications():
     """사용자 알림 목록 조회"""
     user_id = str(g.current_user.id)
     if not user_id:
-        return jsonify({'message': 'User ID required'}), 400
+        return jsonify({'message': '로그인이 필요합니다.'}), 400
     
     notifications = Notification.query.filter_by(user_id=user_id).order_by(Notification.created_at.desc()).limit(50).all()
     unread_count = Notification.query.filter_by(user_id=user_id, is_read=False).count()
@@ -7044,10 +7081,10 @@ def mark_notification_read(notification_id):
     """알림 읽음 처리"""
     notification = Notification.query.get_or_404(notification_id)
     if not _same_id(notification.user_id, g.current_user.id):
-        return jsonify({'message': 'Notification access denied'}), 403
+        return jsonify({'message': '이 알림을 볼 권한이 없습니다.'}), 403
     notification.is_read = True
     db.session.commit()
-    return jsonify({'message': 'Marked as read'})
+    return jsonify({'message': '읽음으로 표시했습니다.'})
 
 @app.route('/api/notifications/read-all', methods=['POST'])
 @token_required
@@ -7055,11 +7092,11 @@ def mark_all_notifications_read():
     """모든 알림 읽음 처리"""
     user_id = str(g.current_user.id)
     if not user_id:
-        return jsonify({'message': 'User ID required'}), 400
+        return jsonify({'message': '로그인이 필요합니다.'}), 400
     
     Notification.query.filter_by(user_id=user_id, is_read=False).update({'is_read': True})
     db.session.commit()
-    return jsonify({'message': 'All notifications marked as read'})
+    return jsonify({'message': '모든 알림을 읽음으로 표시했습니다.'})
 
 def create_notification(user_id, type, title, message=None, link=None):
     """알림 생성 헬퍼 함수"""
@@ -7090,11 +7127,11 @@ def my_consultant_profile():
     user = g.current_user
     consultant = Consultant.query.filter_by(user_id=user.id).first() if user.role == 'consultant' else None
     if consultant is None:
-        return jsonify({'message': 'Consultant profile not found.'}), 404
+        return jsonify({'message': '전문가 프로필을 찾을 수 없습니다.'}), 404
     # 승인된 행은 필드가 비어 있어도(이전 데이터) 그대로 보여준다.
     approved = consultant.verified or consultant.status == 'verified'
     if not approved and is_placeholder_consultant_profile(consultant):
-        return jsonify({'message': 'Consultant profile not submitted yet.', 'registered': False}), 404
+        return jsonify({'message': '아직 전문가 프로필을 제출하지 않았습니다.', 'registered': False}), 404
     data = consultant.to_dict()
     data['settlement'] = consultant_settlement_dict(consultant)
     return jsonify(data)
@@ -7153,7 +7190,7 @@ def consultant_profile(consultant_id):
     """컨설턴트 프로필 조회/수정"""
     consultant = Consultant.query.get_or_404(consultant_id)
     if not is_consultant_owner_or_admin(consultant):
-        return jsonify({'message': 'Only the consultant owner can manage this profile.'}), 403
+        return jsonify({'message': '본인 프로필만 수정할 수 있습니다.'}), 403
     
     if request.method == 'GET':
         return jsonify(consultant.to_dict())
@@ -7192,11 +7229,11 @@ def consultant_profile(consultant_id):
                 if json_key == 'introductionVideoUrl' and new_value and not is_http_url(new_value):
                     return jsonify({'message': '소개 영상 링크는 http:// 또는 https:// 주소여야 합니다.'}), 400
                 if json_key == 'profileImageUrl' and not is_allowed_profile_image_url(new_value):
-                    return jsonify({'message': 'Invalid profile image URL'}), 400
+                    return jsonify({'message': '프로필 사진 주소가 올바르지 않습니다.'}), 400
                 if json_key in ['bio', 'introductionVideoUrl'] and len(str(new_value or '')) > 1000:
-                    return jsonify({'message': f'{json_key} is too long.'}), 400
+                    return jsonify({'message': f'{PROFILE_FIELD_LABELS.get(json_key, json_key)} 내용이 너무 깁니다.'}), 400
                 if json_key in ['phone', 'email', 'companyName', 'specialty', 'regions'] and len(str(new_value or '')) > 200:
-                    return jsonify({'message': f'{json_key} is too long.'}), 400
+                    return jsonify({'message': f'{PROFILE_FIELD_LABELS.get(json_key, json_key)} 내용이 너무 깁니다.'}), 400
                 
                 # 값이 실제로 변경되었는지 확인
                 if str(old_value or '') != str(new_value or ''):
@@ -7214,7 +7251,7 @@ def consultant_profile(consultant_id):
                 setattr(consultant, db_field, new_value)
         
         db.session.commit()
-        return jsonify({'message': 'Profile updated', 'consultant': consultant.to_dict()})
+        return jsonify({'message': '프로필을 저장했습니다.', 'consultant': consultant.to_dict()})
 
 @app.route('/api/consultants/<int:consultant_id>/portfolio', methods=['POST', 'DELETE'])
 @token_required
@@ -7222,7 +7259,7 @@ def manage_portfolio(consultant_id):
     """포트폴리오 파일 관리"""
     consultant = Consultant.query.get_or_404(consultant_id)
     if not is_consultant_owner_or_admin(consultant):
-        return jsonify({'message': 'Only the consultant owner can manage portfolio files.'}), 403
+        return jsonify({'message': '본인 포트폴리오만 관리할 수 있습니다.'}), 403
     
     current_files = json.loads(consultant.portfolio_files) if consultant.portfolio_files else []
     
@@ -7240,7 +7277,7 @@ def manage_portfolio(consultant_id):
         current_files.append(new_file)
         consultant.portfolio_files = json.dumps(current_files)
         db.session.commit()
-        return jsonify({'message': 'Portfolio file added', 'files': current_files})
+        return jsonify({'message': '포트폴리오 파일을 추가했습니다.', 'files': current_files})
     
     elif request.method == 'DELETE':
         data = request_json_object()
@@ -7250,7 +7287,7 @@ def manage_portfolio(consultant_id):
         current_files = [f for f in current_files if f.get('url') != file_url]
         consultant.portfolio_files = json.dumps(current_files)
         db.session.commit()
-        return jsonify({'message': 'Portfolio file removed', 'files': current_files})
+        return jsonify({'message': '포트폴리오 파일을 삭제했습니다.', 'files': current_files})
 
 # ========================================
 # ③ File Upload API (Supabase Storage)
@@ -9032,7 +9069,7 @@ def mark_messages_read(project_id):
     user_id = str(g.current_user.id)
     
     if not user_id:
-        return jsonify({'message': 'User ID required'}), 400
+        return jsonify({'message': '로그인이 필요합니다.'}), 400
     
     # 본인이 보낸 메시지가 아닌 것들만 읽음 처리
     Message.query.filter(
@@ -9042,7 +9079,7 @@ def mark_messages_read(project_id):
     ).update({'is_read': True})
     db.session.commit()
     
-    return jsonify({'message': 'Messages marked as read'})
+    return jsonify({'message': '메시지를 읽음으로 표시했습니다.'})
 
 @app.route('/api/messages/unread-count', methods=['GET'])
 @token_required
@@ -9050,7 +9087,7 @@ def get_unread_message_count():
     """읽지 않은 메시지 수 조회"""
     user_id = str(g.current_user.id)
     if not user_id:
-        return jsonify({'message': 'User ID required'}), 400
+        return jsonify({'message': '로그인이 필요합니다.'}), 400
     
     user = User.query.get(user_id)
     if not user:
