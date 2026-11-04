@@ -24,7 +24,7 @@ from sqlalchemy import and_, case, func, text
 from sqlalchemy.exc import IntegrityError
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, CronRun, ErrorLog, Inquiry, Review, User, Project, Milestone, Post, Company, Notification, ContractSignature, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry, parse_text_or_json_list
+from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, CronRun, ErrorLog, Inquiry, Review, User, Project, Milestone, Post, Company, Notification, ContractSignature, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry, parse_text_or_json_list, iso_utc
 from services import MatchingService, ProposalService, EmailService
 from services.iso_manual_service import generate_iso_manual_stream
 from services import standards_loader as manual_standards
@@ -545,7 +545,7 @@ def _iso_or_none(value):
         return None
     if isinstance(value, str):
         return value
-    return value.isoformat()
+    return iso_utc(value)
 
 
 def _as_naive_utc(value):
@@ -1290,6 +1290,11 @@ def is_allowed_profile_image_url(file_url):
         and parsed_file_url.path.startswith('/storage/v1/object/public/profiles/')
     )
 
+# 제안 금액·협의 희망 금액·역제안 금액이 공통으로 따르는 범위 (원, 부가세 별도)
+NEGOTIATION_PRICE_MIN = 100000
+NEGOTIATION_PRICE_MAX = 1000000000
+
+
 def parse_positive_int(value):
     try:
         parsed = int(value)
@@ -1410,7 +1415,7 @@ def company_business_info(user):
     return {
         'biz_reg_no': user.biz_reg_no or '',
         'biz_status': user.biz_status or '',
-        'biz_checked_at': user.biz_checked_at.isoformat() if user.biz_checked_at else None,
+        'biz_checked_at': iso_utc(user.biz_checked_at),
     }
 
 
@@ -3093,8 +3098,8 @@ def handle_projects():
                 'company_name': company_user.name if company_user else 'Unknown Company',
                 # 컨설턴트 카드의 '사업자 확인됨' 표시용. 번호 자체는 내려주지 않는다.
                 'company_business_verified': bool(company_user and company_user.biz_status in ('verified', 'manual')),
-                'start_date': p.start_date.isoformat() if p.start_date else None,
-                'created_at': p.created_at.isoformat() if p.created_at else None,
+                'start_date': iso_utc(p.start_date),
+                'created_at': iso_utc(p.created_at),
                 # BUG-029 Fix: 불필요한 getattr 제거
                 # 컨설턴트 카드의 '요청 사항'·'조건 협의' 상자가 읽는 값. 빠져 있어서 늘 기본 문구만 보였다.
                 'description': p.description,
@@ -3104,11 +3109,11 @@ def handle_projects():
                 'proposal_duration': p.proposal_duration,
                 'proposal_message': p.proposal_message,
                 'proposal_file_url': p.proposal_file_url,
-                'proposal_submitted_at': p.proposal_submitted_at.isoformat() if p.proposal_submitted_at else None,
+                'proposal_submitted_at': iso_utc(p.proposal_submitted_at),
                 'schedule_status': p.schedule_status,
-                'cancelled_at': p.cancelled_at.isoformat() if p.cancelled_at else None,
+                'cancelled_at': iso_utc(p.cancelled_at),
                 'cancelled_reason': p.cancelled_reason,
-                'completed_at': p.completed_at.isoformat() if p.completed_at else None,
+                'completed_at': iso_utc(p.completed_at),
                 # 완료된 프로젝트에만 의미가 있다. 미완료 건에 리뷰 버튼이
                 # 뜨는 것을 막기 위해 상태와 함께 판정한다.
                 'has_review': p.id in reviewed_ids,
@@ -3278,14 +3283,34 @@ def request_negotiation(project_id):
     elif project.status != 'proposal_submitted':
         return jsonify({'message': '제안서가 제출된 프로젝트만 조건 협의가 가능합니다.'}), 400
     
-    data = request.json
-    requested_price = data.get('requested_price')
-    requested_duration = data.get('requested_duration')
-    message = data.get('message', '')
-    
+    data = request.json or {}
+    if not isinstance(data, dict):
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
+    raw_price = data.get('requested_price')
+    raw_duration = data.get('requested_duration')
+    message = data.get('message') or ''
+
+    # 희망 금액은 제안서·역제안과 같은 범위로 검증한다. 검증이 없을 때는 "abc" 가 저장돼
+    # 컨설턴트가 수락하면 500 이 났고, 음수가 그대로 제안 금액(=계약 금액)이 되었다.
+    requested_price = None
+    if raw_price not in (None, ''):
+        requested_price = parse_positive_int(raw_price)
+        if requested_price is None or not (NEGOTIATION_PRICE_MIN <= requested_price <= NEGOTIATION_PRICE_MAX):
+            return jsonify({'message': '희망 금액은 100,000원 이상 1,000,000,000원 이하의 숫자로 입력해주세요.'}), 400
+    if raw_duration is not None and not isinstance(raw_duration, str):
+        return jsonify({'message': '희망 기간 형식이 올바르지 않습니다.'}), 400
+    requested_duration = (raw_duration or '').strip()
+    if not isinstance(message, str):
+        return jsonify({'message': '요청 메시지 형식이 올바르지 않습니다.'}), 400
+    message = message.strip()
+    if len(requested_duration) > 50:
+        return jsonify({'message': '희망 기간은 50자 이내로 입력해주세요.'}), 400
+    if len(message) > 1000:
+        return jsonify({'message': '요청 메시지는 1,000자 이내로 입력해주세요.'}), 400
+
     if not requested_price and not requested_duration:
         return jsonify({'message': '희망 금액 또는 희망 기간을 입력해주세요.'}), 400
-    
+
     # 협의 데이터 저장
     negotiation_data = {
         'original_price': project.proposal_price,
@@ -3339,19 +3364,29 @@ def respond_negotiation(project_id):
     
     if project.status != 'negotiating':
         return jsonify({'message': '협의 중인 프로젝트가 아닙니다.'}), 400
-    
-    data = request.json
+
+    # 이미 역제안을 보냈다면 기업이 답할 차례다(역제안 수락 또는 재협의 요청).
+    if project.negotiation_status == 'counter':
+        return jsonify({'message': '역제안에 대한 기업의 응답을 기다리고 있습니다.'}), 400
+
+    data = request.json or {}
+    if not isinstance(data, dict):
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     action = data.get('action')  # accept, counter, reject
-    
+
     if action not in ['accept', 'counter', 'reject']:
         return jsonify({'message': '유효한 응답을 선택해주세요.'}), 400
-    
+
     negotiation_data = json.loads(project.negotiation_data) if project.negotiation_data else {}
-    
+
     if action == 'accept':
         # 요청된 조건으로 제안서 업데이트
         if negotiation_data.get('requested_price'):
-            project.proposal_price = int(negotiation_data['requested_price'])
+            # 검증 도입 전에 저장된 값(문자열·음수)이 남아 있을 수 있으니 다시 확인한다.
+            accepted_price = parse_positive_int(negotiation_data['requested_price'])
+            if accepted_price is None or not (NEGOTIATION_PRICE_MIN <= accepted_price <= NEGOTIATION_PRICE_MAX):
+                return jsonify({'message': '희망 금액이 올바르지 않아 수락할 수 없습니다. 거절 후 기업에 다시 요청해 달라고 알려주세요.'}), 400
+            project.proposal_price = accepted_price
         if negotiation_data.get('requested_duration'):
             project.proposal_duration = negotiation_data['requested_duration']
         
@@ -3364,7 +3399,7 @@ def respond_negotiation(project_id):
         counter_price = parse_positive_int(data.get('counter_price')) if data.get('counter_price') else None
         counter_duration = (data.get('counter_duration') or '').strip()
         counter_message = (data.get('message') or '').strip()
-        if counter_price is not None and (counter_price < 100000 or counter_price > 1000000000):
+        if counter_price is not None and (counter_price < NEGOTIATION_PRICE_MIN or counter_price > NEGOTIATION_PRICE_MAX):
             return jsonify({'message': 'Counter price must be between 100,000 and 1,000,000,000.'}), 400
         if not counter_price and not counter_duration:
             return jsonify({'message': 'Counter price or duration is required.'}), 400
@@ -3418,6 +3453,63 @@ def respond_negotiation(project_id):
         'negotiation_status': project.negotiation_status
     })
 
+
+@app.route('/api/projects/<int:project_id>/negotiate/accept-counter', methods=['POST'])
+@token_required
+def accept_counter_offer(project_id):
+    """기업이 컨설턴트의 역제안을 수락한다.
+
+    역제안 금액·기간을 제안서에 반영하고 '제안 완료' 상태로 돌려, 기업이 이 조건으로
+    계약서를 만들 수 있게 한다. (이 API 가 없을 때는 역제안을 받을 방법이 없었고,
+    협의 중 상태에서 계약서를 만들면 역제안 전 원래 금액으로 계약되었다.)
+    역제안이 마음에 들지 않으면 기존 /negotiate 로 다시 협의를 요청하면 된다.
+    """
+    project = get_active_project_or_404(project_id)
+    if not is_project_company(project):
+        return jsonify({'message': '해당 프로젝트의 기업만 역제안을 수락할 수 있습니다.'}), 403
+    if project.status != 'negotiating' or project.negotiation_status != 'counter':
+        return jsonify({'message': '수락할 역제안이 없습니다.'}), 400
+
+    negotiation_data = json.loads(project.negotiation_data) if project.negotiation_data else {}
+    counter_price = negotiation_data.get('counter_price')
+    counter_duration = negotiation_data.get('counter_duration')
+    if counter_price:
+        parsed = parse_positive_int(counter_price)
+        if parsed is None or not (NEGOTIATION_PRICE_MIN <= parsed <= NEGOTIATION_PRICE_MAX):
+            return jsonify({'message': '역제안 금액이 올바르지 않아 수락할 수 없습니다.'}), 400
+        project.proposal_price = parsed
+    if counter_duration:
+        project.proposal_duration = counter_duration
+
+    project.negotiation_status = 'counter_accepted'
+    project.status = 'proposal_submitted'
+    project.negotiation_responded_at = datetime.datetime.now(datetime.timezone.utc)
+    db.session.commit()
+
+    try:
+        consultant = Consultant.query.get(project.consultant_id)
+        if consultant and consultant.user_id:
+            company_user = User.query.get(project.company_id)
+            company_label = (company_user.company_name or company_user.name) if company_user else '기업'
+            db.session.add(Notification(
+                user_id=consultant.user_id,
+                type='negotiation_response',
+                title=f'{company_label}에서 역제안을 수락했습니다',
+                message=f'"{project.title}" 프로젝트가 역제안 조건으로 확정되었습니다. 기업의 최종 선택을 기다려주세요.',
+                link='/dashboard.html'
+            ))
+            db.session.commit()
+    except Exception as e:
+        print(f"[Notification] Failed: {e}")
+
+    return jsonify({
+        'message': '역제안을 수락했습니다. 이 조건으로 전문가를 선택해 계약을 진행할 수 있습니다.',
+        'status': project.status,
+        'negotiation_status': project.negotiation_status,
+        'proposal_price': project.proposal_price,
+        'proposal_duration': project.proposal_duration,
+    })
+
 # ========================================
 # ⑥ 표준 계약서 (Contract) API
 # ========================================
@@ -3430,7 +3522,11 @@ def create_contract_draft(project_id):
     if not is_project_company(project):
         return jsonify({'message': '해당 프로젝트의 기업 담당자만 계약 초안을 생성할 수 있습니다.'}), 403
     
-    if project.status not in ['proposal_submitted', 'negotiating']:
+    # 협의 중(negotiating)에는 금액이 확정되지 않았으므로 계약서를 만들 수 없다.
+    # (예전에는 허용돼, 역제안이 걸린 상태에서 만들면 원래 제안 금액으로 계약되었다.)
+    if project.status != 'proposal_submitted':
+        if project.status == 'negotiating':
+            return jsonify({'message': '조건 협의가 끝난 뒤에 계약서를 만들 수 있습니다. 협의 결과(수락·역제안 수락·거절)를 먼저 확정해주세요.'}), 400
         return jsonify({'message': '제안서가 확정된 프로젝트만 계약서를 생성할 수 있습니다.'}), 400
     
     data = request.json or {}
@@ -3701,8 +3797,8 @@ def get_contract_preview(project_id):
         'proposal_price': project.proposal_price,
         'proposal_duration': project.proposal_duration,
         'special_terms': project.contract_special_terms,
-        'company_signed_at': project.company_signed_at.isoformat() if project.company_signed_at else None,
-        'consultant_signed_at': project.consultant_signed_at.isoformat() if project.consultant_signed_at else None,
+        'company_signed_at': iso_utc(project.company_signed_at),
+        'consultant_signed_at': iso_utc(project.consultant_signed_at),
         'status': project.status,
         # 화면은 이 원문을 그대로 보여 주고, 서명할 때 contract_hash 를 돌려보낸다.
         'contract_text': text,
@@ -3741,7 +3837,7 @@ def submit_proposal(project_id):
         return jsonify({'message': '제안 금액을 입력해주세요.'}), 400
     
     # 제안 정보 저장
-    if proposal_price < 100000 or proposal_price > 1000000000:
+    if proposal_price < NEGOTIATION_PRICE_MIN or proposal_price > NEGOTIATION_PRICE_MAX:
         return jsonify({'message': 'Proposal price must be between 100,000 and 1,000,000,000.'}), 400
 
     proposal_file_url = data.get('proposal_file_url', '')
@@ -3841,7 +3937,7 @@ def get_proposal(project_id):
         'proposal_duration': project.proposal_duration,
         'proposal_message': project.proposal_message,
         'proposal_file_url': project.proposal_file_url,
-        'proposal_submitted_at': project.proposal_submitted_at.isoformat() if project.proposal_submitted_at else None,
+        'proposal_submitted_at': iso_utc(project.proposal_submitted_at),
         'status': project.status
     })
 
@@ -3865,33 +3961,17 @@ def get_project_detail(project_id):
     analysis_job = None
     intake_data = {}
     
-    # 1차: session_id로 직접 조회
-    if hasattr(project, 'session_id') and project.session_id:
-        analysis_job = AnalysisJob.query.filter_by(id=project.session_id).first()
-        if not analysis_job:
-            # session_id 부분 매칭 시도
-            try:
-                analysis_job = AnalysisJob.query.filter(AnalysisJob.id.like(f'%{project.session_id[:8]}%')).first()
-            except:
-                pass
-    
-    # 2차: session_id로 못 찾으면, company_user의 이메일로 AnalysisJob 검색 (BUG-027 Fix: 성능 개선)
-    if not analysis_job and company_user:
-        # 이메일로 직접 검색 (LIKE 쿼리로 제한 — 전체 순회 제거)
-        if company_user.email:
-            # intake_data는 JSON이므로 LIKE로 이메일 검색
-            analysis_job = AnalysisJob.query.filter(
-                AnalysisJob.deleted_at.is_(None),
-                AnalysisJob.intake_data.like(f'%{company_user.email.lower()}%')
-            ).order_by(AnalysisJob.created_at.desc()).first()
-        
-        # 이메일로 못 찾으면 회사명으로 검색
-        if not analysis_job and company_user.name:
-            analysis_job = AnalysisJob.query.filter(
-                AnalysisJob.deleted_at.is_(None),
-                AnalysisJob.intake_data.like(f'%{company_user.name}%')
-            ).order_by(AnalysisJob.created_at.desc()).first()
-    
+    # 이 프로젝트를 만든 매칭 세션(session_id 정확히 일치)의 설문만 쓴다.
+    # 예전에는 못 찾으면 session_id 앞 8자리 LIKE → 기업 이메일 LIKE → 담당자 이름 LIKE 로
+    # 다른 설문을 끌어왔다. 공개 매칭 설문의 회사명·이메일은 누구나 자유롭게 입력하므로,
+    # 다른 요청(다른 기업일 수도 있음)의 규격·지역·연락처가 이 프로젝트에 섞여 보였다.
+    # 세션 설문이 없으면 project.description(견적 요청 때 저장한 요약)만 보여 준다.
+    if getattr(project, 'session_id', None):
+        analysis_job = AnalysisJob.query.filter(
+            AnalysisJob.id == project.session_id,
+            AnalysisJob.deleted_at.is_(None),
+        ).first()
+
     # intake_data에서 정보 파싱
     if analysis_job:
         intake_data = analysis_job.get_intake_data() if analysis_job.intake_data else {}
@@ -3974,7 +4054,7 @@ def get_project_detail(project_id):
         'title': project.title,
         'description': project.description,
         'status': project.status,
-        'created_at': project.created_at.isoformat() if hasattr(project, 'created_at') and project.created_at else (project.start_date.isoformat() if project.start_date else None),
+        'created_at': iso_utc(project.created_at) if hasattr(project, 'created_at') and project.created_at else (iso_utc(project.start_date)),
         
         # 기업 정보
         'company_id': project.company_id,
@@ -4011,13 +4091,13 @@ def get_project_detail(project_id):
         'proposal_duration': project.proposal_duration,
         'proposal_message': project.proposal_message,
         'proposal_file_url': project.proposal_file_url,
-        'proposal_submitted_at': project.proposal_submitted_at.isoformat() if project.proposal_submitted_at else None,
+        'proposal_submitted_at': iso_utc(project.proposal_submitted_at),
         
         # 일정 정보
         'schedule_status': project.schedule_status,
         
         # 취소 정보
-        'cancelled_at': project.cancelled_at.isoformat() if hasattr(project, 'cancelled_at') and project.cancelled_at else None,
+        'cancelled_at': iso_utc(getattr(project, 'cancelled_at', None)),
         'cancelled_reason': getattr(project, 'cancelled_reason', None)
     })
 
@@ -4128,13 +4208,18 @@ def confirm_schedule(project_id):
     # BUG-021 Fix: 기업(프로젝트 소유자)만 일정 확정 가능
     if not is_project_company(project):
         return jsonify({'message': '해당 프로젝트의 기업만 일정을 확정할 수 있습니다.'}), 403
-    
+
+    # 완료·취소된 프로젝트에 남아 있던 '제안된 일정'을 확정하면 상태가 in_progress 로
+    # 되돌아가 두 번 완료되는 일이 있었다. 진행 중인 계약에서만 확정할 수 있다.
+    if project.status not in SCHEDULE_ACTIVE_STATUSES:
+        return jsonify({'message': '진행 중인 계약에서만 일정을 확정할 수 있습니다.'}), 400
+
     if project.schedule_status != 'proposed':
         return jsonify({'message': '제안된 일정이 없습니다.'}), 400
-    
+
     project.schedule_status = 'confirmed'
     project.schedule_confirmed_at = datetime.datetime.now(datetime.timezone.utc)
-    project.status = 'in_progress'  # 일정 확정 시 프로젝트 시작
+    project.status = 'in_progress'  # 일정 확정 시 프로젝트 시작 (contracted → in_progress)
     
     db.session.commit()
     
@@ -4169,7 +4254,10 @@ def reject_schedule(project_id):
     # BUG-021 Fix: 기업(프로젝트 소유자)만 일정 거절 가능
     if not is_project_company(project):
         return jsonify({'message': '해당 프로젝트의 기업만 일정을 거절할 수 있습니다.'}), 403
-    
+
+    if project.status not in SCHEDULE_ACTIVE_STATUSES:
+        return jsonify({'message': '진행 중인 계약에서만 일정을 조율할 수 있습니다.'}), 400
+
     if project.schedule_status != 'proposed':
         return jsonify({'message': '제안된 일정이 없습니다.'}), 400
     
@@ -4214,6 +4302,9 @@ def reject_schedule(project_id):
 # contracted 도 포함한다 — 일정 확정(confirm-schedule)은 선택적 단계라
 # 짧은 용역은 in_progress 를 거치지 않고 끝나는 경우가 있다.
 PROJECT_COMPLETABLE_STATUSES = ('contracted', 'in_progress')
+
+# 일정 확정·거절, 마일스톤 갱신이 가능한 상태 (계약 체결 후 ~ 완료 전)
+SCHEDULE_ACTIVE_STATUSES = ('contracted', 'in_progress')
 
 # 마일스톤에 허용되는 상태 (models.Milestone.status 주석과 동일)
 MILESTONE_STATUSES = ('pending', 'in_progress', 'completed')
@@ -4321,7 +4412,7 @@ def complete_project(project_id):
     return jsonify({
         'message': '프로젝트를 완료 처리했습니다.',
         'status': project.status,
-        'completed_at': project.completed_at.isoformat(),
+        'completed_at': iso_utc(project.completed_at),
     })
 
 
@@ -4350,7 +4441,11 @@ def update_milestone_status(project_id, milestone_id):
     if not _same_id(milestone.project_id, project.id):
         abort(404)
 
-    if project.status not in ('contracted', 'in_progress', 'completed'):
+    # 완료된 프로젝트는 완료 시점에 마일스톤을 모두 '완료'로 닫는다. 이후 되돌리면
+    # 완료 기록과 진행 현황이 어긋나므로 진행 중인 계약에서만 바꿀 수 있다.
+    if project.status not in SCHEDULE_ACTIVE_STATUSES:
+        if project.status == 'completed':
+            return jsonify({'message': '완료된 프로젝트의 진행 단계는 바꿀 수 없습니다.'}), 400
         return jsonify({'message': '계약이 체결된 프로젝트만 마일스톤을 갱신할 수 있습니다.'}), 400
 
     data = request.json or {}
@@ -4533,7 +4628,7 @@ def _review_editable_until(review):
 def _review_owner_dict(review):
     """작성자 본인에게 돌려주는 형태 (수정 가능 여부 포함)."""
     data = review.to_dict(author_label='나')
-    data['editableUntil'] = _review_editable_until(review).isoformat()
+    data['editableUntil'] = iso_utc(_review_editable_until(review))
     data['editable'] = (
         review.hidden_at is None and _naive_utc_now() <= _review_editable_until(review)
     )
@@ -4837,7 +4932,7 @@ def cancel_consultant_request(project_id):
         'message': '요청이 취소되었습니다.',
         'project_id': project_id,
         'status': project.status,
-        'cancelled_at': project.cancelled_at.isoformat() if project.cancelled_at else None
+        'cancelled_at': iso_utc(project.cancelled_at)
     })
 
 @app.route('/api/projects/<int:project_id>/decline', methods=['POST'])
@@ -4879,7 +4974,7 @@ def decline_project_request(project_id):
         'message': 'Request declined.',
         'project_id': project.id,
         'status': project.status,
-        'declined_at': project.cancelled_at.isoformat() if project.cancelled_at else None
+        'declined_at': iso_utc(project.cancelled_at)
     })
 
 @app.route('/api/projects/groups/cancel', methods=['POST'])
@@ -4940,7 +5035,7 @@ def cancel_project_group():
     return jsonify({
         'message': 'Quote request group cancelled.',
         'cancelled_count': cancelled_count,
-        'cancelled_at': now.isoformat()
+        'cancelled_at': iso_utc(now)
     })
 
 # --- Add Consultant to Existing Quote Request ---
@@ -4948,7 +5043,9 @@ def cancel_project_group():
 @token_required
 def add_consultant_to_request():
     """기존 견적 요청 그룹에 컨설턴트 추가"""
-    data = request.json
+    data = request.json or {}
+    if not isinstance(data, dict):
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     if g.current_user.role != 'company':
         return jsonify({'message': '기업 담당자만 컨설턴트를 추가할 수 있습니다.'}), 403
     biz_error = require_company_business_number('견적 요청')
@@ -4967,7 +5064,26 @@ def add_consultant_to_request():
     consultant = Consultant.query.get(consultant_id)
     if not consultant:
         return jsonify({'message': '컨설턴트를 찾을 수 없습니다.'}), 404
-    
+    if not is_consultant_listed(consultant):
+        return jsonify({
+            'code': 'CONSULTANT_NOT_AVAILABLE',
+            'message': '승인된 컨설턴트에게만 견적을 요청할 수 있습니다.',
+        }), 400
+
+    # '기존 요청 그룹에 추가' 이므로 이 기업의 그 그룹(같은 제목, 세션이 있으면 같은 세션)이
+    # 실제로 있어야 한다. 없을 때는 임의 제목·남의 session_id 로 새 요청을 만들 수 있었다.
+    if not isinstance(title, str) or (session_id is not None and not isinstance(session_id, str)):
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
+    group_query = Project.query.filter(
+        Project.company_id == g.current_user.id,
+        Project.title == title,
+        Project.deleted_at.is_(None),
+    )
+    if session_id:
+        group_query = group_query.filter(Project.session_id == session_id)
+    if not group_query.first():
+        return jsonify({'message': '컨설턴트를 추가할 기존 견적 요청을 찾을 수 없습니다.'}), 400
+
     # BUG-030 Fix: 취소된 프로젝트는 중복으로 간주하지 않음
     existing = Project.query.filter(
         Project.company_id == user_id, 
@@ -5220,9 +5336,9 @@ def get_admin_jobs():
                     'status': p.status,
                     'consultant_id': p.consultant_id,
                     'consultant_name': consultant.name if consultant else 'Unknown',
-                    'created_at': p.created_at.isoformat() if p.created_at else None,
+                    'created_at': iso_utc(p.created_at),
                     'proposal_price': p.proposal_price,
-                    'proposal_submitted_at': p.proposal_submitted_at.isoformat() if p.proposal_submitted_at else None,
+                    'proposal_submitted_at': iso_utc(p.proposal_submitted_at),
                     # 관리자 화면의 "제안서 보기" 버튼 표시용. 파일 주소는 내려주지 않는다.
                     'has_proposal': bool(p.proposal_submitted_at),
                     # 관리자 '지급 일정' 편집용. 서명이 시작되면 잠긴다.
@@ -5247,7 +5363,7 @@ def get_admin_jobs():
                 'company_name': company_name,
                 'url': '',  # No URL in direct matching
                 'status': overall_status,
-                'created_at': earliest_project.created_at.isoformat() if earliest_project.created_at else None,
+                'created_at': iso_utc(earliest_project.created_at),
                 'deleted_at': None,
                 'intake_data': {
                     'industry': None,
@@ -5313,7 +5429,7 @@ def delete_admin_job(job_id):
             'message': 'Unassigned project group archived',
             'id': job_id,
             'archived_count': archived_count,
-            'deleted_at': now.isoformat()
+            'deleted_at': iso_utc(now)
         })
 
     if job_id.startswith('company_'):
@@ -5350,7 +5466,7 @@ def delete_admin_job(job_id):
             'message': 'Company project group archived',
             'id': job_id,
             'archived_count': archived_count,
-            'deleted_at': now.isoformat()
+            'deleted_at': iso_utc(now)
         })
 
     job = AnalysisJob.query.get_or_404(job_id)
@@ -5382,7 +5498,7 @@ def delete_admin_job(job_id):
     return jsonify({
         'message': '매칭 요청이 삭제되었습니다.',
         'id': job_id,
-        'deleted_at': job.deleted_at.isoformat()
+        'deleted_at': iso_utc(job.deleted_at)
     })
 
 # --- Consultant Invite Endpoints ---
@@ -5401,10 +5517,10 @@ def _invite_to_dict(inv, include_url=False):
         'name': inv.name,
         'email': inv.email,
         'memo': inv.memo,
-        'created_at': inv.created_at.isoformat() if inv.created_at else None,
-        'expires_at': inv.expires_at.isoformat() if inv.expires_at else None,
-        'used_at': inv.used_at.isoformat() if inv.used_at else None,
-        'revoked_at': inv.revoked_at.isoformat() if inv.revoked_at else None,
+        'created_at': iso_utc(inv.created_at),
+        'expires_at': iso_utc(inv.expires_at),
+        'used_at': iso_utc(inv.used_at),
+        'revoked_at': iso_utc(inv.revoked_at),
         'status': 'used' if inv.used_at else ('revoked' if inv.revoked_at else ('usable' if usable else 'expired')),
     }
     if include_url:
@@ -5511,7 +5627,7 @@ def verify_consultant_invite(token):
         'valid': True,
         'name': invite.name,
         'email': invite.email,
-        'expires_at': invite.expires_at.isoformat() if invite.expires_at else None,
+        'expires_at': iso_utc(invite.expires_at),
     })
 
 
@@ -5672,6 +5788,39 @@ def restore_consultant(consultant_id):
     return jsonify({'message': 'Consultant restored to pending', 'status': consultant.status})
 
 # --- Consultant Detail Endpoint ---
+def normalize_request_session_id(raw_session_id, company_user_id):
+    """견적 요청에 딸려 온 session_id(매칭 세션)를 이 기업이 써도 되는지 확인한다.
+
+    session_id 는 브라우저가 보내는 값이라 그대로 믿으면, 다른 기업의 매칭 세션 id 를
+    넣어 그 기업의 설문(규격·지역·연락처)을 내 프로젝트에 붙일 수 있다(상세 화면이
+    session_id 로 설문을 찾기 때문). 형식이 이상하거나 이미 다른 기업 프로젝트가 쓰는
+    세션이면 버리고 None 을 돌려준다(호출부가 새 세션을 만든다).
+    """
+    if not isinstance(raw_session_id, str):
+        return None
+    session_id = raw_session_id.strip()
+    if not session_id or len(session_id) > 36:
+        return None
+    used_by_other = db.session.query(Project.id).filter(
+        Project.session_id == session_id,
+        Project.company_id != company_user_id,
+    ).first()
+    return None if used_by_other else session_id
+
+
+def is_consultant_listed(consultant):
+    """공개 목록·매칭·견적 대상이 되는 컨설턴트인지 (관리자 승인 완료).
+
+    공개 목록 질의(verified == True OR status == 'verified')와 같은 기준이다.
+    거부·해제·탈퇴는 verified 를 False 로 내리지만, 상태 값으로도 한 번 더 막는다.
+    """
+    if not consultant:
+        return False
+    if consultant.status in ('rejected', 'revoked', 'withdrawn'):
+        return False
+    return bool(consultant.verified) or consultant.status == 'verified'
+
+
 def can_view_unlisted_consultant(consultant):
     """공개 목록에 없는(검증 전·취소 등) 컨설턴트를 볼 수 있는 사람: 관리자, 본인,
     그 컨설턴트와 프로젝트를 진행한(삭제되지 않은) 기업. 견적을 받은 기업이 상대 프로필을 못 보던 문제를 막는다."""
@@ -5746,7 +5895,16 @@ def request_quotes():
     consultants = Consultant.query.filter(Consultant.id.in_(consultant_ids)).all()
     if len(consultants) != len(consultant_ids):
         return jsonify({'message': 'Some consultants not found'}), 404
-    
+
+    # 관리자 승인(검증)을 받은 컨설턴트에게만 견적을 보낼 수 있다.
+    # id 는 순번이라 추측이 쉬워, 이 검사가 없으면 심사 중·거부·해제된 컨설턴트에게도
+    # 요청이 가고 공개되지 않은 프로필까지 열람되었다.
+    if any(not is_consultant_listed(c) for c in consultants):
+        return jsonify({
+            'code': 'CONSULTANT_NOT_AVAILABLE',
+            'message': '승인된 컨설턴트에게만 견적을 요청할 수 있습니다.',
+        }), 400
+
     # Get user from JWT token (BUG-001 Fix)
     user_id = str(g.current_user.id)
     
@@ -5782,7 +5940,8 @@ def request_quotes():
         project_title = "ISO 인증 프로젝트"
     
     # Get session_id from frontend (for grouping projects from same matching session)
-    session_id = data.get('session_id')
+    # 다른 기업이 쓰는 세션·이상한 값은 버리고 새 세션으로 묶는다.
+    session_id = normalize_request_session_id(data.get('session_id'), g.current_user.id)
     
     # === NEW: Ensure AnalysisJob exists for this session (for Admin Visibility) ===
     if session_id:
@@ -7842,8 +8001,8 @@ def run_daily_cron():
         'runId': run_id,
         'triggeredBy': triggered_by,
         'success': not failures,
-        'startedAt': started_at.isoformat(),
-        'finishedAt': finished_at.isoformat(),
+        'startedAt': iso_utc(started_at),
+        'finishedAt': iso_utc(finished_at),
         'durationMs': int((finished_at - started_at).total_seconds() * 1000),
         'failedJobs': failures,
         'results': results,
@@ -8073,7 +8232,7 @@ def get_funnel_stats():
 
     return jsonify({
         'days': days,
-        'since': since.isoformat(),
+        'since': iso_utc(since),
         'surveyFunnel': survey_funnel,
         'projectFunnel': project_funnel,
         'manualFunnel': manual_funnel,

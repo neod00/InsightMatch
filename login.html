@@ -201,6 +201,13 @@
         if (roleHint === 'consultant'
             || (!roleHint && redirectTo && redirectTo.startsWith('/consultant_register.html'))) {
             document.addEventListener('DOMContentLoaded', () => switchLoginTab('consultant'));
+        } else if (redirectTo) {
+            // 기업 탭은 처음 열릴 때 switchLoginTab 을 거치지 않으므로, 복귀 주소가 있으면
+            // 회원가입 링크(본문·상단)에 직접 이어 붙인다. 처음 온 기업도 가입 후 원래 화면으로 돌아간다.
+            document.addEventListener('DOMContentLoaded', () => {
+                const href = `signup.html?redirect=${encodeURIComponent(redirectTo)}`;
+                document.querySelectorAll('a[href="signup.html"]').forEach(a => { a.href = href; });
+            });
         }
 
         // 탭 전환 함수
@@ -227,7 +234,11 @@
                 case 'company':
                     description.innerHTML = '<p><strong>기업 회원</strong>으로 로그인하고 추천받은 ISO 전문가를 확인하세요.</p>';
                     subtitle.textContent = '서비스 이용을 위해 로그인해주세요.';
-                    signupLink.href = 'signup.html';
+                    // 진단 결과에서 견적 요청하려다 온 경우처럼 복귀 주소가 있으면, 처음 가입하는 기업도
+                    // 가입 → 로그인 → 원래 화면으로 돌아가게 복귀 주소를 이어 준다.
+                    signupLink.href = redirectTo
+                        ? `signup.html?redirect=${encodeURIComponent(redirectTo)}`
+                        : 'signup.html';
                     loginTabs.style.display = 'flex';
                     description.style.display = 'block';
                     if (emailLabel) emailLabel.textContent = '이메일';
