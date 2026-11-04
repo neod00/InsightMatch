@@ -141,6 +141,22 @@ function showSessionExpiredModal(role) {
     }
 }
 
+// 로그인하러 갔다가 진단 결과 화면으로 돌아오게 한다.
+// 예전에는 login.html 로만 보내, 로그인하면 대시보드로 떨어져 진단 결과와 선택한 컨설턴트가 사라졌다
+// (첫 방문 기업은 진단을 처음부터 다시 해야 했다). 결과는 localStorage(lastMatchResult)에 이미 있으므로,
+// 선택만 sessionStorage 에 적어 두고 index.html?action=resume-quote 로 돌아와 복원한다.
+const PENDING_QUOTE_KEY = 'pendingQuoteSelection';
+function goToLoginAndReturn(selectedIds) {
+    try {
+        if (Array.isArray(selectedIds) && selectedIds.length) {
+            sessionStorage.setItem(PENDING_QUOTE_KEY, JSON.stringify(selectedIds));
+        }
+    } catch (e) { /* 저장 실패해도 결과 복원은 된다 */ }
+    const back = 'index.html?action=resume-quote';
+    window.location.href = `login.html?role=company&redirect=${encodeURIComponent(back)}`;
+}
+window.goToLoginAndReturn = goToLoginAndReturn;
+
 // Login Required Modal - for accessing protected features
 function showLoginRequiredModal() {
     // Check if modal already exists
@@ -161,7 +177,7 @@ function showLoginRequiredModal() {
             <p>컨설턴트의 상세 프로필은<br>로그인 후 확인하실 수 있습니다.</p>
             <div class="session-modal-actions">
                 <button type="button" class="session-modal-secondary" onclick="document.getElementById('login-required-overlay').remove()">닫기</button>
-                <button type="button" onclick="window.location.href='login.html'">로그인</button>
+                <button type="button" onclick="goToLoginAndReturn(window.getSelectedConsultantIds ? window.getSelectedConsultantIds() : [])">로그인</button>
             </div>
         </div>
     `;
@@ -212,7 +228,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
         const action = urlParams.get('action');
 
-        if (action === 'find-others') {
+        const isResumeQuote = action === 'resume-quote';
+        if (action === 'find-others' || isResumeQuote) {
             // User clicked "다른 전문가 찾기" from consultant profile
             // 지금의 진단은 displayMatchResults() 가 lastMatchResult 에 저장한다. 예전에는 여기서
             // 리스크 분석 시절 키(lastAnalysisResult)만 읽어, 진단을 마친 직후에도 항상
@@ -241,6 +258,16 @@ document.addEventListener('DOMContentLoaded', () => {
                                 displayMatchResults(result, true);
                             } else {
                                 displayResults(result, true);
+                            }
+
+                            // 로그인 후 돌아온 경우: 고르던 컨설턴트를 다시 선택해 두고 바로 요청할 수 있게 한다
+                            if (isResumeQuote) {
+                                setTimeout(() => {
+                                    restorePendingQuoteSelection();
+                                    resultsSection.scrollIntoView({ behavior: 'smooth' });
+                                }, 300);
+                                window.history.replaceState({}, document.title, window.location.pathname);
+                                return true;
                             }
 
                             // Show next batch of consultants (cycle through)
@@ -1253,6 +1280,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Consultant Selection Functions ---
+    window.getSelectedConsultantIds = function () {
+        return Array.from(selectedConsultants.keys());
+    };
+
+    function restorePendingQuoteSelection() {
+        let ids = [];
+        try {
+            ids = JSON.parse(sessionStorage.getItem(PENDING_QUOTE_KEY) || '[]');
+            sessionStorage.removeItem(PENDING_QUOTE_KEY);
+        } catch (e) { ids = []; }
+        let restored = 0;
+        (Array.isArray(ids) ? ids : []).forEach(id => {
+            const consultant = allConsultants.find(c => c.id === id);
+            if (consultant && !selectedConsultants.has(id) && selectedConsultants.size < MAX_SELECTIONS) {
+                selectedConsultants.set(id, consultant);
+                updateConsultantCardSelection(id);
+                restored += 1;
+            }
+        });
+        updateSelectionBar();
+        showNotification(restored
+            ? `진단 결과를 불러왔습니다. 고르신 전문가 ${restored}명이 선택되어 있으니 "견적 요청하기"를 눌러 주세요.`
+            : '진단 결과를 불러왔습니다. 견적을 요청할 전문가를 골라 주세요.', 'info');
+    }
+
     window.toggleConsultantSelection = function (consultantId, event) {
         if (event) {
             event.stopPropagation();
@@ -1393,9 +1445,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Get user ID from localStorage
         const user = JSON.parse(localStorage.getItem('user'));
         if (!user || !user.id) {
-            showNotification('로그인이 필요합니다. 먼저 로그인해주세요.', 'error');
+            showNotification('로그인이 필요합니다. 로그인(또는 무료 가입) 후 이 화면으로 돌아와 바로 요청할 수 있습니다.', 'info');
             setTimeout(() => {
-                window.location.href = 'login.html';
+                goToLoginAndReturn(selectedIds);
             }, 1500);
             return;
         }

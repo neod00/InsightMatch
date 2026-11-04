@@ -4,6 +4,21 @@ import json
 
 db = SQLAlchemy()
 
+def iso_utc(value):
+    """DB 시각을 응답용 문자열로 바꾼다. 시간대가 없는(naive) 값은 UTC 로 표시한다.
+
+    DateTime 컬럼은 시간대 없이 UTC 를 저장한다(SQLite·Postgres 모두). 예전처럼
+    isoformat() 만 쓰면 "2026-11-03T23:47:32" 처럼 표시가 빠져, 브라우저가 이를
+    한국 시간으로 읽어 모든 시각이 9시간 어긋났다("방금 보낸 알림이 9시간 전").
+    날짜(date)만 있는 값은 그대로 YYYY-MM-DD 로 둔다.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime) and value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.isoformat()
+
+
 def utc_now():
     """Timezone-aware UTC now (BUG-003 Fix)"""
     return datetime.now(timezone.utc)
@@ -200,11 +215,11 @@ class Consultant(db.Model):
             'companyName': self.company_name,
             # Pending changes
             'pendingChanges': json.loads(self.pending_changes) if self.pending_changes else None,
-            'pendingChangesAt': self.pending_changes_at.isoformat() if self.pending_changes_at else None,
+            'pendingChangesAt': iso_utc(self.pending_changes_at),
             # Status & Rejection
             'status': self.status or ('verified' if self.verified else 'pending'),
             'rejectionReason': self.rejection_reason,
-            'rejectedAt': self.rejected_at.isoformat() if self.rejected_at else None
+            'rejectedAt': iso_utc(self.rejected_at)
         }
 
 class ConsultantInvite(db.Model):
@@ -258,7 +273,7 @@ class ProfileChangeLog(db.Model):
             'fieldName': self.field_name,
             'oldValue': self.old_value,
             'newValue': self.new_value,
-            'changedAt': self.changed_at.isoformat() if self.changed_at else None,
+            'changedAt': iso_utc(self.changed_at),
             'changedBy': self.changed_by
         }
 
@@ -280,7 +295,7 @@ class AdminActionLog(db.Model):
             'targetType': self.target_type,
             'targetId': self.target_id,
             'details': json.loads(self.details) if self.details else {},
-            'createdAt': self.created_at.isoformat() if self.created_at else None
+            'createdAt': iso_utc(self.created_at)
         }
 
 class ContractSignature(db.Model):
@@ -308,7 +323,7 @@ class ContractSignature(db.Model):
             'signer_name': self.signer_name,
             'contract_version': self.contract_version,
             'contract_hash': self.contract_hash,
-            'signed_at': self.signed_at.isoformat() if self.signed_at else None,
+            'signed_at': iso_utc(self.signed_at),
         }
 
 class Notification(db.Model):
@@ -339,7 +354,7 @@ class Notification(db.Model):
             'message': self.message,
             'link': self.link,
             'isRead': self.is_read,
-            'createdAt': self.created_at.isoformat() if self.created_at else None
+            'createdAt': iso_utc(self.created_at)
         }
 
 # B. 인앱 메시지 모델
@@ -358,7 +373,7 @@ class Message(db.Model):
             'senderId': self.sender_id,
             'content': self.content,
             'isRead': self.is_read,
-            'createdAt': self.created_at.isoformat() if self.created_at else None
+            'createdAt': iso_utc(self.created_at)
         }
 
 class Project(db.Model):
@@ -426,25 +441,25 @@ class Project(db.Model):
             'description': self.description,
             'session_id': self.session_id,
             'status': self.status,
-            'start_date': self.start_date.isoformat() if self.start_date else None,
-            'end_date': self.end_date.isoformat() if self.end_date else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'start_date': iso_utc(self.start_date),
+            'end_date': iso_utc(self.end_date),
+            'created_at': iso_utc(self.created_at),
             'proposal_price': self.proposal_price,
             'proposal_duration': self.proposal_duration,
             'proposal_message': self.proposal_message,
             'proposal_file_url': self.proposal_file_url,
-            'proposal_submitted_at': self.proposal_submitted_at.isoformat() if self.proposal_submitted_at else None,
+            'proposal_submitted_at': iso_utc(self.proposal_submitted_at),
             'schedule_status': self.schedule_status,
             # Negotiation fields
             'negotiation_status': self.negotiation_status,
             'negotiation_data': json.loads(self.negotiation_data) if self.negotiation_data else None,
-            'negotiation_requested_at': self.negotiation_requested_at.isoformat() if self.negotiation_requested_at else None,
+            'negotiation_requested_at': iso_utc(self.negotiation_requested_at),
             # Contract fields
             'contract_pdf_url': self.contract_pdf_url,
             'contract_special_terms': self.contract_special_terms,
-            'company_signed_at': self.company_signed_at.isoformat() if self.company_signed_at else None,
-            'consultant_signed_at': self.consultant_signed_at.isoformat() if self.consultant_signed_at else None,
-            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            'company_signed_at': iso_utc(self.company_signed_at),
+            'consultant_signed_at': iso_utc(self.consultant_signed_at),
+            'completed_at': iso_utc(self.completed_at),
             'milestones': [m.to_dict() for m in self.milestones]
         }
 
@@ -584,8 +599,8 @@ class CronRun(db.Model):
         return {
             'id': self.id,
             'job': self.job,
-            'startedAt': self.started_at.isoformat() if self.started_at else None,
-            'finishedAt': self.finished_at.isoformat() if self.finished_at else None,
+            'startedAt': iso_utc(self.started_at),
+            'finishedAt': iso_utc(self.finished_at),
             'success': bool(self.success),
             'summary': json.loads(self.summary) if self.summary else {},
             'errorMessage': self.error_message,
@@ -646,8 +661,8 @@ class Inquiry(db.Model):
             'content': self.content,
             'status': self.status,
             'adminMemo': self.admin_memo,
-            'createdAt': self.created_at.isoformat() if self.created_at else None,
-            'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
+            'createdAt': iso_utc(self.created_at),
+            'updatedAt': iso_utc(self.updated_at),
         }
 
 
@@ -725,8 +740,8 @@ class Review(db.Model):
             'rating': self.rating,
             'comment': self.comment,
             'authorLabel': author_label,
-            'createdAt': self.created_at.isoformat() if self.created_at else None,
-            'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
+            'createdAt': iso_utc(self.created_at),
+            'updatedAt': iso_utc(self.updated_at),
             # 수정된 리뷰는 그 사실이 보여야 한다. 조용히 바뀌면 읽는 쪽이
             # 지금 보는 문장이 최초 평가인지 알 수 없다.
             #
@@ -742,7 +757,7 @@ class Review(db.Model):
         }
         if include_admin_fields:
             data['companyId'] = self.company_id
-            data['hiddenAt'] = self.hidden_at.isoformat() if self.hidden_at else None
+            data['hiddenAt'] = iso_utc(self.hidden_at)
             data['hiddenReason'] = self.hidden_reason
             data['hiddenBy'] = self.hidden_by
         return data
@@ -786,7 +801,7 @@ class ErrorLog(db.Model):
         """스택 트레이스는 기본 제외 — 목록 응답을 가볍게 유지한다."""
         data = {
             'id': self.id,
-            'createdAt': self.created_at.isoformat() if self.created_at else None,
+            'createdAt': iso_utc(self.created_at),
             'level': self.level,
             'path': self.path,
             'method': self.method,
