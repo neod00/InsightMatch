@@ -81,6 +81,8 @@ class TestWorkflowSecurity(unittest.TestCase):
             verified=True,
             status='verified',
             trust_score=80,
+            # 실제 제출 프로필처럼 규격을 채워 둔다(빈 '가입 자리표' 프로필은 승인 대상이 아니다).
+            iso_experience='{"9001": true}',
         )
         db.session.add(self.consultant)
         db.session.flush()
@@ -193,20 +195,16 @@ class TestWorkflowSecurity(unittest.TestCase):
         ).first()
         self.assertIsNotNone(consultant_notice)
 
-        company_message = self.client.post(
-            f'/api/projects/{project_id}/messages',
-            json={'content': 'Please include ISO 9001 audit preparation and document review.'},
-            headers=auth_headers(self.company),
-        )
-        self.assertEqual(company_message.status_code, 200)
-
-        consultant_message = self.client.post(
-            f'/api/projects/{project_id}/messages',
-            json={'content': 'I can provide a 10-week ISO 9001 implementation plan.'},
-            headers=auth_headers(second_consultant_user),
-        )
-        self.assertEqual(consultant_message.status_code, 200)
-        self.assertEqual(Message.query.filter_by(project_id=project_id).count(), 2)
+        # 계약 전에는 메시지를 주고받을 수 없다(연락처 교환·직거래 방지). 제안서·조건 협의를 쓴다.
+        for sender in (self.company, second_consultant_user):
+            blocked = self.client.post(
+                f'/api/projects/{project_id}/messages',
+                json={'content': '010-1234-5678 로 직접 연락주세요'},
+                headers=auth_headers(sender),
+            )
+            self.assertEqual(blocked.status_code, 403)
+            self.assertEqual(blocked.get_json()['code'], 'MESSAGE_NOT_ALLOWED')
+        self.assertEqual(Message.query.filter_by(project_id=project_id).count(), 0)
 
         proposal_response = self.client.post(
             f'/api/projects/{project_id}/submit-proposal',
@@ -991,6 +989,8 @@ class TestWorkflowSecurity(unittest.TestCase):
         self.assertIs(response.get_json()['registered'], False)
 
     def test_messages_require_project_participant_and_use_authenticated_sender(self):
+        self.project.status = 'contracted'  # 메시지는 계약 후에만 주고받는다
+        db.session.commit()
         response = self.client.get(
             f'/api/projects/{self.project.id}/messages',
             headers=auth_headers(self.other_company),

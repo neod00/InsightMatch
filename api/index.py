@@ -1290,6 +1290,149 @@ def is_allowed_profile_image_url(file_url):
         and parsed_file_url.path.startswith('/storage/v1/object/public/profiles/')
     )
 
+# 매칭 설문(index.html) 값 → 화면에 보일 한국어. 견적 요청 설명·프로젝트 상세·메일이 같이 쓴다.
+# 예전에는 곳곳에 서로 다른 표가 있었고 실제 폼 값(customer_demand, Expired, 2000+ 등)과 맞지 않아
+# "업종: Manufacturing", "예산: unknown", "인증 사유: customer_demand" 처럼 코드가 그대로 보였다.
+INTAKE_LABELS = {
+    'industry': {
+        'IT/Software': 'IT/소프트웨어', 'Manufacturing': '제조업', 'Automotive': '자동차/부품',
+        'Electronics': '전자/반도체', 'Chemical': '화학/소재', 'Medical': '의료/바이오',
+        'Food': '식품/음료', 'Construction': '건설/토목', 'Energy': '에너지/발전',
+        'Nuclear': '원자력', 'Logistics': '물류/유통', 'Finance': '금융/보험',
+        'Service': '서비스업', 'Public': '공공기관', 'Other': '기타',
+    },
+    'employees': {
+        '1-10': '1~10명', '11-50': '11~50명', '51-200': '51~200명',
+        '201-500': '201~500명', '500+': '500명 이상',
+    },
+    'cert_status': {
+        'None': '없음 (신규 인증)', 'Expired': '만료됨 (갱신 필요)', 'Active': '보유 중 (추가 인증)',
+        # 예전 값
+        'none': '미보유', 'expired': '만료됨', 'expiring': '갱신 예정', 'valid': '유효', 'initial': '신규 인증',
+    },
+    'timeline': {
+        'flexible': '일정 여유 있음', '6months': '6개월 이내', '3months': '3개월 이내',
+        '1month': '1개월 이내 (긴급)', 'urgent': '긴급 (1개월 이내)',
+    },
+    'budget': {
+        'unknown': '미정', 'under500': '500만 원 미만', '500-1000': '500만~1,000만 원',
+        '1000-2000': '1,000만~2,000만 원', '2000+': '2,000만 원 이상',
+        # 예전 값
+        '2000-3000': '2,000만~3,000만 원', 'over3000': '3,000만 원 이상', 'negotiable': '협의 가능',
+    },
+    'reasons': {
+        'customer_demand': '고객사·거래처 요구', 'public_bid': '공공입찰·조달 대응',
+        'export': '해외 수출·바이어 요구', 'investment': '투자 유치·상장 준비',
+        'internal': '사내 경영 시스템 체계화', 'regulation': '법·규제 대응',
+        'competition': '경쟁사 대비 차별화',
+        # 예전 값
+        'customer': '거래처 요구', 'improve': '프로세스 개선', 'competitive': '경쟁력 강화',
+        'esg': 'ESG 대응', 'other': '기타',
+    },
+}
+
+
+def intake_label(kind, value):
+    """설문 코드값을 한국어로. 표에 없으면 원래 값(사람이 쓴 값일 수 있음)."""
+    if value in (None, '', []):
+        return None
+    if isinstance(value, list):
+        return [INTAKE_LABELS.get(kind, {}).get(v, v) for v in value if isinstance(v, str) and v]
+    if not isinstance(value, str):
+        return str(value)
+    return INTAKE_LABELS.get(kind, {}).get(value, value)
+
+
+def merged_request_context(analysis_context, session_id):
+    """견적 요청에 쓸 설문 값을 모은다.
+
+    브라우저가 보내는 analysis_context 는 /api/match 응답이라 region·employees·추가 요청이 없고
+    인증 상태는 cert_status 로 들어 있다(서버는 certStatus 를 읽어 늘 빠졌다). 같은 세션의
+    원래 설문(AnalysisJob.intake_data)이 있으면 그 값으로 빈칸을 채우고, 키 이름을 통일한다.
+    """
+    ctx = dict(analysis_context or {})
+    intake = {}
+    if session_id:
+        job = AnalysisJob.query.filter(AnalysisJob.id == session_id, AnalysisJob.deleted_at.is_(None)).first()
+        if job and job.intake_data:
+            try:
+                intake = job.get_intake_data() or {}
+            except Exception:
+                intake = {}
+    def pick(*keys):
+        for source in (ctx, intake):
+            for key in keys:
+                value = source.get(key)
+                if value not in (None, '', []):
+                    return value
+        return None
+    return {
+        'industry': pick('industry'),
+        'employees': pick('employees'),
+        'region': pick('region'),
+        'cert_status': pick('cert_status', 'certStatus'),
+        'timeline': pick('timeline'),
+        'budget': pick('budget'),
+        'issues_summary': pick('issues_summary'),
+        'reasons': pick('reasons') or [],
+        'additional_notes': pick('additional_notes', 'additionalNotes'),
+    }
+
+
+def build_request_description(info):
+    """견적 요청 설명(컨설턴트가 '요청 사항'으로 보는 글)을 한국어로 만든다."""
+    parts = []
+    rows = (
+        ('업종', intake_label('industry', info.get('industry'))),
+        ('직원 수', intake_label('employees', info.get('employees'))),
+        ('지역', info.get('region') if isinstance(info.get('region'), str) else None),
+        ('인증 상태', intake_label('cert_status', info.get('cert_status'))),
+        ('희망 일정', intake_label('timeline', info.get('timeline'))),
+        ('예산', intake_label('budget', info.get('budget'))),
+        ('주요 이슈', info.get('issues_summary') if isinstance(info.get('issues_summary'), str) else None),
+    )
+    for label, value in rows:
+        if value:
+            parts.append(f"{label}: {value}")
+    reasons = intake_label('reasons', info.get('reasons')) or []
+    if reasons:
+        parts.append(f"인증 사유: {', '.join(reasons[:5])}")
+    notes = info.get('additional_notes')
+    if isinstance(notes, str) and notes.strip():
+        parts.append(f"추가 요청: {notes.strip()[:1000]}")
+    return '\n'.join(parts) if parts else None
+
+
+def request_json_object(required=True):
+    """요청 본문을 JSON 객체(dict)로 읽는다. 쓸 수 없으면 None.
+
+    예전에는 `data = request.json` 다음에 바로 data.get(...) 을 불러, 본문이 null 이거나
+    배열·숫자면 500 이 났다(비로그인 /api/match·/signup 포함, error_log 가 쌓였다).
+    required=False 면 본문이 아예 없을 때 빈 dict 를 돌려준다(본문이 선택인 API).
+    """
+    data = request.get_json(silent=True)
+    if data is None:
+        return None if required else {}
+    return data if isinstance(data, dict) else None
+
+
+def is_http_url(value):
+    """http(s) 주소인지. javascript:·data: 같은 스킴을 링크로 저장하지 않기 위해 쓴다."""
+    if not isinstance(value, str) or len(value) > 2000:
+        return False
+    try:
+        parsed = urlparse(value.strip())
+    except ValueError:
+        return False
+    return parsed.scheme in ('http', 'https') and bool(parsed.netloc)
+
+
+def body_str(data, key, default=''):
+    """본문 값을 문자열로 꺼낸다. 문자열이 아니면(숫자·배열 등) default."""
+    value = data.get(key, default)
+    return value if isinstance(value, str) else default
+
+
 # 제안 금액·협의 희망 금액·역제안 금액이 공통으로 따르는 범위 (원, 부가세 별도)
 NEGOTIATION_PRICE_MIN = 100000
 NEGOTIATION_PRICE_MAX = 1000000000
@@ -1331,6 +1474,24 @@ def consultant_public_dict(consultant):
         'status': 'verified',
     }
 
+def project_party_user_ids(project):
+    """(기업 user_id, 컨설턴트 user_id). 없으면 None."""
+    consultant = Consultant.query.get(project.consultant_id) if project.consultant_id else None
+    return project.company_id, (consultant.user_id if consultant and consultant.user_id else None)
+
+
+def notify_project_counterpart(project, actor_is_company, notif_type, title, message):
+    """행동한 쪽의 상대방에게 알림을 남긴다. 알림 실패가 본 작업을 막지 않게 예외를 삼킨다."""
+    try:
+        company_uid, consultant_uid = project_party_user_ids(project)
+        target = consultant_uid if actor_is_company else company_uid
+        if target:
+            db.session.add(Notification(user_id=target, type=notif_type, title=title,
+                                        message=message, link='/dashboard.html'))
+    except Exception as e:
+        print(f"[Notification] {notif_type} failed: {e}")
+
+
 def mark_other_session_projects_not_selected(project):
     """Mark non-selected candidates only after the chosen project is contracted."""
     if not project.session_id:
@@ -1340,7 +1501,7 @@ def mark_other_session_projects_not_selected(project):
         Project.session_id == project.session_id,
         Project.id != project.id,
         Project.deleted_at.is_(None),
-        Project.status.notin_(['not_selected', 'cancelled_by_company', 'contracted', 'in_progress', 'completed'])
+        Project.status.notin_(['not_selected', 'cancelled_by_company', 'declined_by_consultant', 'deleted', 'contracted', 'in_progress', 'completed'])
     ).all()
 
     for other in other_projects:
@@ -1428,6 +1589,25 @@ def require_company_business_number(action_label):
         'code': 'BUSINESS_NUMBER_REQUIRED',
         'message': f'{action_label} 전에 회사 사업자등록번호를 한 번 입력해 주세요.',
     }), 400
+
+
+def consultant_settlement_dict(consultant):
+    """본인·관리자용 정산 정보와 협력계약 동의 기록. 계좌번호는 뒤 4자리만 보인다.
+
+    예전에는 이 값들을 읽는 API 가 없어, 컨설턴트는 자기가 무엇에 동의했는지·어느 계좌로
+    받는지 확인할 수 없었고 관리자도 DB 를 직접 봐야 했다.
+    """
+    return {
+        'businessType': consultant.business_type or '',
+        'bizRegNo': consultant.biz_reg_no or '',
+        'bizName': consultant.biz_name or '',
+        'bizCeoName': consultant.biz_ceo_name or '',
+        'bankName': consultant.bank_name or '',
+        'accountMasked': consultant.masked_account(),
+        'accountHolder': consultant.account_holder or '',
+        'partnerAgreementVersion': consultant.partner_agreement_version or '',
+        'partnerAgreedAt': iso_utc(consultant.partner_agreed_at),
+    }
 
 
 def validate_settlement_fields(data):
@@ -1520,7 +1700,9 @@ def register_consultant_validated():
     if existing and not is_resubmission and not is_placeholder_consultant_profile(existing):
         return jsonify({'message': 'Consultant profile already exists.', 'consultant_id': existing.id}), 409
 
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     name = (data.get('name') or '').strip()
     email = (data.get('email') or '').strip().lower()
     phone = (data.get('phone') or '').strip()
@@ -1735,12 +1917,15 @@ def register_consultant_validated():
 # --- Auth Endpoints ---
 @app.route('/api/auth/signup', methods=['POST'])
 def signup():
-    data = request.json
-    email = data.get('email', '').strip().lower()  # BUG-004 Fix: 이메일 정규화
-    password = data.get('password')
-    name = data.get('name')  # 이름 (담당자명/컨설턴트명)
-    company_name = data.get('company_name', '').strip()  # 회사명
-    role = data.get('role', 'company')
+    data = request_json_object()
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
+    # 값이 문자열이 아니면(숫자·배열 등) 빈 값으로 보고 아래 검증에서 400 으로 거른다.
+    email = body_str(data, 'email').strip().lower()  # BUG-004 Fix: 이메일 정규화
+    password = body_str(data, 'password')
+    name = body_str(data, 'name')  # 이름 (담당자명/컨설턴트명)
+    company_name = body_str(data, 'company_name').strip()  # 회사명
+    role = body_str(data, 'role', 'company')
 
     # 권한 상승 방지: 가입 시 지정 가능한 역할을 화이트리스트로 제한.
     # (이전에는 role을 그대로 신뢰해 role='admin'으로 관리자 계정 생성이 가능했음)
@@ -1769,8 +1954,8 @@ def signup():
     if User.query.filter_by(email=email).first():
         return jsonify({'message': 'Email already exists'}), 400
     
-    phone = data.get('phone', '').strip()
-        
+    phone = body_str(data, 'phone').strip()
+
     new_user = User(
         email=email,
         password_hash=generate_password_hash(password),
@@ -1815,7 +2000,9 @@ def signup():
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     email = data.get('email', '').strip().lower()  # BUG-004 Fix: 이메일 정규화
     password = data.get('password')
 
@@ -1903,7 +2090,9 @@ def my_business_number():
 def request_password_reset():
     """Request a password reset link via email"""
     try:
-        data = request.json or {}
+        data = request_json_object(required=False)
+        if data is None:
+            return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
         email = data.get('email', '').strip().lower()
 
         if not email:
@@ -1981,7 +2170,9 @@ def request_password_reset():
 @app.route('/api/auth/reset-password', methods=['POST'])
 def reset_password():
     """Reset password using token from email"""
-    data = request.json
+    data = request_json_object()
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     token = data.get('token', '').strip()
     new_password = data.get('new_password', '')
     
@@ -2024,7 +2215,9 @@ def reset_password():
 @app.route('/api/auth/find-email', methods=['POST'])
 def find_email():
     """Find email (ID) by name and phone number"""
-    data = request.json
+    data = request_json_object()
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     name = data.get('name', '').strip()
     phone = data.get('phone', '').strip()
     
@@ -2207,7 +2400,9 @@ def withdraw_account():
     if user.role == 'admin':
         return jsonify({'message': '관리자 계정은 화면에서 탈퇴할 수 없습니다.'}), 403
 
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     password = data.get('password') or ''
     reason = str(data.get('reason') or '').strip()[:500]
 
@@ -2852,27 +3047,36 @@ def direct_match():
             'code': 'RATE_LIMITED',
         }), 429
 
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
 
-    company_name = data.get('companyName', '기업')
-    contact_email = data.get('contactEmail', '')
-    industry = data.get('industry', '')
-    employees = data.get('employees', '')
-    region = data.get('region', '')
-    selected_standards = data.get('standards', [])
-    issues = data.get('issues', [])  # [{id: 'safety_incident', relatedISO: ['ISO 45001:2018']}]
-    reasons = data.get('reasons', [])
-    cert_status = data.get('certStatus', 'None')
-    timeline = data.get('timeline', 'flexible')
-    budget = data.get('budget', 'unknown')
-    additional_notes = data.get('additionalNotes', '')
-    
+    company_name = body_str(data, 'companyName', '기업') or '기업'
+    contact_email = body_str(data, 'contactEmail')
+    industry = body_str(data, 'industry')
+    employees = body_str(data, 'employees')
+    region = body_str(data, 'region')
+    cert_status = body_str(data, 'certStatus', 'None') or 'None'
+    timeline = body_str(data, 'timeline', 'flexible') or 'flexible'
+    budget = body_str(data, 'budget', 'unknown') or 'unknown'
+    additional_notes = body_str(data, 'additionalNotes')
+
+    # 목록 값은 형식이 다르면(문자열 하나, 숫자 등) 500 이 나던 곳이다. 문자열 목록만 받는다.
+    def _str_list(value):
+        return [v for v in value if isinstance(v, str) and v] if isinstance(value, list) else []
+
+    selected_standards = _str_list(data.get('standards'))
+    reasons = _str_list(data.get('reasons'))
+    # issues 는 {id, relatedISO:[...]} 객체 또는 id 문자열 목록
+    raw_issues = data.get('issues') if isinstance(data.get('issues'), list) else []
+    issues = [i for i in raw_issues if isinstance(i, (dict, str))]
+
     # Extract recommended ISO from issues
     recommended_iso_set = set()
     for issue in issues:
-        related = issue.get('relatedISO', [])
-        for iso in related:
-            if iso and iso not in selected_standards:
+        related = issue.get('relatedISO', []) if isinstance(issue, dict) else []
+        for iso in _str_list(related):
+            if iso not in selected_standards:
                 recommended_iso_set.add(iso)
     
     recommended_standards = list(recommended_iso_set)
@@ -2919,13 +3123,17 @@ def direct_match():
         'knowledge_loss': '지식 유실'
     }
     
-    issues_summary = ', '.join([issue_names.get(issue.get('id'), issue.get('id', '')) for issue in issues[:5]])
+    issue_ids = [(issue.get('id') if isinstance(issue, dict) else issue) for issue in issues[:5]]
+    issues_summary = ', '.join(issue_names.get(i, i) for i in issue_ids if isinstance(i, str) and i)
     
     # Build result
     result = {
         'company_name': company_name,
         'contact_email': contact_email,
         'industry': industry,
+        'employees': employees,
+        'region': region,
+        'additional_notes': additional_notes,
         'selected_standards': selected_standards,
         'recommended_standards': recommended_standards,
         'all_standards': all_standards,
@@ -3020,7 +3228,14 @@ def get_consultants():
             
     if getattr(g, 'current_user', None) and g.current_user.role == 'admin':
         consultants = Consultant.query.all()
-        return jsonify([c.to_dict() for c in consultants])
+        rows = []
+        for c in consultants:
+            row = c.to_dict()
+            row['settlement'] = consultant_settlement_dict(c)
+            # 가입만 하고 프로필을 내지 않은 빈 행은 승인 대상이 아니다(UI-08)
+            row['profileSubmitted'] = not is_placeholder_consultant_profile(c)
+            rows.append(row)
+        return jsonify(rows)
     consultants = Consultant.query.filter(
         (Consultant.verified == True) | (Consultant.status == 'verified')
     ).all()
@@ -3122,7 +3337,9 @@ def handle_projects():
         return jsonify(results)
         
     elif request.method == 'POST':
-        data = request.json
+        data = request_json_object()
+        if data is None:
+            return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
         if g.current_user.role != 'company':
             return jsonify({'message': '기업 담당자만 프로젝트를 생성할 수 있습니다.'}), 403
         
@@ -3177,8 +3394,15 @@ def delete_project(project_id):
     # Soft delete: 프로젝트는 목록에서 사라지지만 마일스톤·대화(Message)는 보존한다.
     # 하드 삭제 시 컨설턴트와 주고받은 협상 이력이 상대 동의 없이 영구 소실되어
     # 분쟁 시 증거가 사라지는 문제가 있었다.
+    was_open = project.status not in REQUEST_CLOSED_STATUSES
     project.deleted_at = datetime.datetime.now(datetime.timezone.utc)
     project.status = 'deleted'
+    if was_open:
+        notify_project_counterpart(
+            project, True, 'request_cancelled',
+            '기업이 견적 요청을 삭제했습니다',
+            f'"{project.title}" 요청이 기업에 의해 삭제되어 더 이상 진행되지 않습니다.',
+        )
     db.session.commit()
 
     return jsonify({'message': '프로젝트가 삭제되었습니다.'})
@@ -3283,7 +3507,9 @@ def request_negotiation(project_id):
     elif project.status != 'proposal_submitted':
         return jsonify({'message': '제안서가 제출된 프로젝트만 조건 협의가 가능합니다.'}), 400
     
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     if not isinstance(data, dict):
         return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     raw_price = data.get('requested_price')
@@ -3369,7 +3595,9 @@ def respond_negotiation(project_id):
     if project.negotiation_status == 'counter':
         return jsonify({'message': '역제안에 대한 기업의 응답을 기다리고 있습니다.'}), 400
 
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     if not isinstance(data, dict):
         return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     action = data.get('action')  # accept, counter, reject
@@ -3528,15 +3756,38 @@ def create_contract_draft(project_id):
         if project.status == 'negotiating':
             return jsonify({'message': '조건 협의가 끝난 뒤에 계약서를 만들 수 있습니다. 협의 결과(수락·역제안 수락·거절)를 먼저 확정해주세요.'}), 400
         return jsonify({'message': '제안서가 확정된 프로젝트만 계약서를 생성할 수 있습니다.'}), 400
+
+    # 같은 매칭 세션에서 계약서는 한 건만 진행한다. 예전에는 두 건을 동시에 만들 수 있었고,
+    # 한쪽이 체결되면 다른 쪽(상대가 이미 서명했을 수도 있는 계약)이 조용히 '미선정'으로 바뀌었다.
+    if project.session_id:
+        other_contract = Project.query.filter(
+            Project.session_id == project.session_id,
+            Project.company_id == project.company_id,
+            Project.id != project.id,
+            Project.deleted_at.is_(None),
+            Project.status.in_(CONTRACT_OPEN_OR_DONE_STATUSES),
+        ).first()
+        if other_contract:
+            return jsonify({
+                'code': 'CONTRACT_ALREADY_IN_PROGRESS',
+                'message': '이 견적 요청에서 이미 다른 전문가와 계약을 진행 중입니다. 그 계약을 먼저 마무리하거나 취소해주세요.',
+            }), 409
     
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     special_terms = data.get('special_terms', '')
     
     project.contract_special_terms = special_terms
     project.status = 'pending_contract'
     
+    notify_project_counterpart(
+        project, True, 'signature_requested',
+        '계약서 서명을 요청받았습니다',
+        f'"{project.title}" 프로젝트에 최종 선정되었습니다. 계약서를 확인하고 서명해주세요.',
+    )
     db.session.commit()
-    
+
     return jsonify({
         'message': '계약서 초안이 생성되었습니다. 내용을 확인하고 서명해주세요.',
         'status': project.status
@@ -3629,6 +3880,12 @@ def sign_contract_step(project_id):
         project.status = 'awaiting_signature'
         other_party = '컨설턴트' if signer == 'company' else '기업'
         message = f'서명이 완료되었습니다. {other_party}의 서명을 기다리고 있습니다.'
+        signer_label = '기업' if signer == 'company' else '전문가'
+        notify_project_counterpart(
+            project, signer == 'company', 'signature_requested',
+            f'{signer_label}가 계약서에 서명했습니다',
+            f'"{project.title}" 계약서에 서명해주시면 계약이 체결됩니다.',
+        )
     
     db.session.commit()
     
@@ -3829,7 +4086,9 @@ def submit_proposal(project_id):
     if project.status in ['contracted', 'in_progress', 'completed', 'pending_contract', 'awaiting_signature']:
         return jsonify({'message': '이미 계약된 프로젝트입니다.'}), 400
     
-    data = request.json
+    data = request_json_object()
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     
     # 필수 필드 검증
     proposal_price = parse_positive_int(data.get('proposal_price'))
@@ -4042,12 +4301,12 @@ def get_project_detail(project_id):
         'regulation': '법/규제 요구', 'customer': '거래처 요구', 'improve': '프로세스 개선',
         'competitive': '경쟁력 강화', 'export': '수출 요건', 'esg': 'ESG 대응', 'other': '기타'
     }
-    parsed_reasons = [reason_names.get(r, r) for r in reasons] if isinstance(reasons, list) else []
+    parsed_reasons = intake_label('reasons', reasons) if isinstance(reasons, list) else []
     
     # timeline 파싱
     timeline = intake_data.get('timeline')
     timeline_map = {'urgent': '긴급 (1개월 이내)', '3months': '3개월 이내', '6months': '6개월 이내', 'flexible': '유연함'}
-    timeline_text = timeline_map.get(timeline, timeline) if timeline else None
+    timeline_text = intake_label('timeline', timeline)
     
     return jsonify({
         'id': project.id,
@@ -4060,16 +4319,20 @@ def get_project_detail(project_id):
         'company_id': project.company_id,
         'company_name': company_name,
         'industry': intake_data.get('industry'),
+        'industry_label': intake_label('industry', intake_data.get('industry')),
         'employees': intake_data.get('employees'),
+        'employees_label': intake_label('employees', intake_data.get('employees')),
         'region': intake_data.get('region'),
         'contact_email': intake_data.get('contactEmail'),
         
         # 인증 요구사항
         'standards': standards,
         'cert_status': intake_data.get('certStatus'),
+        'cert_status_label': intake_label('cert_status', intake_data.get('certStatus')),
         'readiness': intake_data.get('readiness'),
         'target_date': intake_data.get('targetDate'),
         'budget': intake_data.get('budget'),
+        'budget_label': intake_label('budget', intake_data.get('budget')),
         'timeline': timeline,
         'timeline_text': timeline_text,
         
@@ -4120,11 +4383,15 @@ def propose_schedule(project_id):
     if project.status not in ['contracted', 'in_progress']:
         return jsonify({'message': '계약 완료된 프로젝트만 일정을 제안할 수 있습니다.'}), 400
     
-    data = request.json
+    data = request_json_object()
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     schedule = data.get('schedule', [])  # [{milestone_id, proposed_date}, ...]
     
     if not schedule:
         return jsonify({'message': '일정 데이터가 필요합니다.'}), 400
+    if not isinstance(schedule, list) or not all(isinstance(item, dict) for item in schedule):
+        return jsonify({'message': '일정 형식이 올바르지 않습니다.'}), 400
     
     # 마일스톤 일정 업데이트
     today = datetime.datetime.now(datetime.timezone.utc).date()
@@ -4133,19 +4400,19 @@ def propose_schedule(project_id):
     for item in schedule:
         milestone = Milestone.query.get(item.get('milestone_id'))
         if not milestone or milestone.project_id != project_id:
-            return jsonify({'message': 'Invalid milestone in schedule.'}), 400
+            return jsonify({'message': '이 프로젝트의 진행 단계가 아닙니다.'}), 400
         if not item.get('proposed_date'):
-            return jsonify({'message': 'All milestones need a proposed date.'}), 400
+            return jsonify({'message': '모든 단계에 날짜를 입력해주세요.'}), 400
         try:
             proposed_date = datetime.datetime.fromisoformat(item['proposed_date'].replace('Z', '+00:00'))
-        except (TypeError, ValueError):
-            return jsonify({'message': 'Invalid schedule date.'}), 400
+        except (TypeError, ValueError, AttributeError):
+            return jsonify({'message': '날짜 형식이 올바르지 않습니다.'}), 400
         if proposed_date.tzinfo is None:
             proposed_date = proposed_date.replace(tzinfo=datetime.timezone.utc)
         if proposed_date.date() < today:
-            return jsonify({'message': 'Schedule dates cannot be in the past.'}), 400
+            return jsonify({'message': '지난 날짜는 일정으로 정할 수 없습니다.'}), 400
         if previous_date and proposed_date < previous_date:
-            return jsonify({'message': 'Milestone dates must be in chronological order.'}), 400
+            return jsonify({'message': '단계 순서대로 날짜를 정해주세요.'}), 400
         previous_date = proposed_date
         milestone.due_date = proposed_date
         normalized_schedule.append({
@@ -4261,7 +4528,9 @@ def reject_schedule(project_id):
     if project.schedule_status != 'proposed':
         return jsonify({'message': '제안된 일정이 없습니다.'}), 400
     
-    data = request.json
+    data = request_json_object()
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     rejection_reason = data.get('reason', '')
     
     project.schedule_status = 'pending'  # 다시 대기 상태로
@@ -4302,6 +4571,19 @@ def reject_schedule(project_id):
 # contracted 도 포함한다 — 일정 확정(confirm-schedule)은 선택적 단계라
 # 짧은 용역은 in_progress 를 거치지 않고 끝나는 경우가 있다.
 PROJECT_COMPLETABLE_STATUSES = ('contracted', 'in_progress')
+
+# 한쪽이라도 서명을 시작한 계약. 기업이 혼자 취소할 수 없다(상대가 이미 서명했을 수 있음).
+CONTRACT_SIGNING_STATUSES = ('awaiting_signature',)
+
+# 계약서가 만들어졌거나 체결된 상태. 같은 매칭 세션에서 두 번째 계약서를 동시에 만들 수 없다.
+CONTRACT_OPEN_OR_DONE_STATUSES = ('pending_contract', 'awaiting_signature', 'contracted', 'in_progress', 'completed')
+
+# 메시지를 보낼 수 있는 상태(계약 체결 후). 계약 전 연락처 교환·직거래를 막고,
+# 연락처는 계약 후 공개한다는 규칙(contact-info)과 맞춘다. 화면도 계약 후에만 메시지 버튼을 보인다.
+MESSAGE_ALLOWED_STATUSES = ('contracted', 'in_progress', 'completed')
+
+# 이미 끝난 요청 상태. 취소로 덮어쓰지 않는다(거절 기록 보존).
+REQUEST_CLOSED_STATUSES = ('cancelled_by_company', 'declined_by_consultant', 'not_selected', 'deleted')
 
 # 일정 확정·거절, 마일스톤 갱신이 가능한 상태 (계약 체결 후 ~ 완료 전)
 SCHEDULE_ACTIVE_STATUSES = ('contracted', 'in_progress')
@@ -4448,14 +4730,24 @@ def update_milestone_status(project_id, milestone_id):
             return jsonify({'message': '완료된 프로젝트의 진행 단계는 바꿀 수 없습니다.'}), 400
         return jsonify({'message': '계약이 체결된 프로젝트만 마일스톤을 갱신할 수 있습니다.'}), 400
 
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     new_status = (data.get('status') or '').strip()
     if new_status not in MILESTONE_STATUSES:
         return jsonify({
             'message': f"status 는 {', '.join(MILESTONE_STATUSES)} 중 하나여야 합니다."
         }), 400
 
+    previous_status = milestone.status
     milestone.status = new_status
+    if previous_status != new_status:
+        status_text = {'pending': '대기', 'in_progress': '진행 중', 'completed': '완료'}.get(new_status, new_status)
+        notify_project_counterpart(
+            project, is_project_company(project), 'milestone_updated',
+            f'진행 단계가 "{status_text}"(으)로 바뀌었습니다',
+            f'"{project.title}" · {milestone.title}',
+        )
 
     # 계약 직후 첫 마일스톤이 움직이면 프로젝트도 진행 중으로 올린다.
     # (일정 확정 없이 바로 작업을 시작하는 경우를 상태에 반영한다)
@@ -4683,7 +4975,9 @@ def handle_project_review(project_id):
         # 컨설턴트가 배정되지 않은 프로젝트에는 평가 대상이 없다.
         return jsonify({'message': '평가할 전문가가 지정되지 않은 프로젝트입니다.'}), 400
 
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     rating, comment, error = _validate_review_payload(data)
     if error:
         return error
@@ -4846,7 +5140,9 @@ def hide_review(review_id):
     "화면에 없는 리뷰가 평점을 끌어내리는" 상태가 되어 아무도 설명하지 못한다.
     """
     review = Review.query.get_or_404(review_id)
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     hidden = data.get('hidden', True)
 
     if hidden:
@@ -4894,13 +5190,22 @@ def cancel_consultant_request(project_id):
     # 이미 계약된 경우 취소 불가
     if project.status in ['contracted', 'in_progress', 'completed']:
         return jsonify({'message': '계약된 요청은 취소할 수 없습니다.'}), 400
-    
-    # 이미 취소된 경우
-    if project.status == 'cancelled_by_company':
-        return jsonify({'message': '이미 취소된 요청입니다.'}), 400
-    
+
+    # 서명이 시작된 계약은 기업이 혼자 끊을 수 없다(탈퇴도 같은 상태에서 막는다).
+    if project.status in CONTRACT_SIGNING_STATUSES:
+        return jsonify({
+            'code': 'CONTRACT_SIGNING_IN_PROGRESS',
+            'message': '서명이 시작된 계약은 혼자 취소할 수 없습니다. 문의하기로 운영팀에 취소를 요청해주세요.',
+        }), 409
+
+    # 이미 끝난 요청(취소·컨설턴트 거절·미선정)은 덮어쓰지 않는다
+    if project.status in REQUEST_CLOSED_STATUSES:
+        return jsonify({'message': '이미 종료된 요청입니다.'}), 400
+
     # 취소 사유 받기
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     cancelled_reason = data.get('reason', '사유 없음')
     
     # Soft Delete: 상태를 cancelled_by_company로 변경
@@ -4942,18 +5247,20 @@ def decline_project_request(project_id):
     project = get_active_project_or_404(project_id)
     consultant = Consultant.query.get(project.consultant_id) if project.consultant_id else None
     if not consultant or not _same_id(consultant.user_id, g.current_user.id):
-        return jsonify({'message': 'Only the assigned consultant can decline this request.'}), 403
+        return jsonify({'message': '이 요청을 받은 컨설턴트만 거절할 수 있습니다.'}), 403
 
     if project.status in ['contracted', 'in_progress', 'completed', 'pending_contract', 'awaiting_signature']:
-        return jsonify({'message': 'Contracted or selected requests cannot be declined.'}), 400
+        return jsonify({'message': '계약이 진행 중인 요청은 거절할 수 없습니다.'}), 400
 
     if project.status in ['cancelled_by_company', 'not_selected', 'declined_by_consultant']:
-        return jsonify({'message': 'This request is already closed.'}), 400
+        return jsonify({'message': '이미 종료된 요청입니다.'}), 400
 
-    data = request.json or {}
-    declined_reason = (data.get('reason') or 'Declined by consultant').strip()
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
+    declined_reason = (data.get('reason') or '컨설턴트 사정으로 거절').strip()
     if len(declined_reason) > 500:
-        return jsonify({'message': 'Decline reason is too long.'}), 400
+        return jsonify({'message': '거절 사유는 500자 이내로 입력해주세요.'}), 400
 
     project.status = 'declined_by_consultant'
     project.cancelled_at = datetime.datetime.now(datetime.timezone.utc)
@@ -4964,14 +5271,14 @@ def decline_project_request(project_id):
         db.session.add(Notification(
             user_id=company_user.id,
             type='request_declined',
-            title=f'{consultant.name} declined your quote request',
-            message=f'Decline reason: {declined_reason}',
+            title=f'{consultant.name}님이 견적 요청을 거절했습니다',
+            message=f'"{project.title}" · 거절 사유: {declined_reason}',
             link='/dashboard.html'
         ))
 
     db.session.commit()
     return jsonify({
-        'message': 'Request declined.',
+        'message': '요청을 거절했습니다.',
         'project_id': project.id,
         'status': project.status,
         'declined_at': iso_utc(project.cancelled_at)
@@ -4984,13 +5291,15 @@ def cancel_project_group():
     if g.current_user.role != 'company':
         return jsonify({'message': 'Only company users can cancel quote request groups.'}), 403
 
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     session_id = data.get('session_id')
     title = data.get('title')
-    cancelled_reason = data.get('reason') or 'Cancelled by company'
+    cancelled_reason = data.get('reason') or '기업 요청으로 취소'
 
     if not session_id and not title:
-        return jsonify({'message': 'session_id or title is required.'}), 400
+        return jsonify({'message': '취소할 견적 요청을 찾을 수 없습니다.'}), 400
 
     query = Project.query.filter(
         Project.company_id == g.current_user.id,
@@ -5003,19 +5312,26 @@ def cancel_project_group():
 
     projects = query.all()
     if not projects:
-        return jsonify({'message': 'No matching quote request group found.'}), 404
+        return jsonify({'message': '취소할 견적 요청을 찾을 수 없습니다.'}), 404
 
     protected_count = sum(1 for project in projects if project.status in ['contracted', 'in_progress', 'completed'])
     if protected_count:
         return jsonify({
-            'message': 'Contracted or active projects cannot be cancelled as a group.',
+            'message': '계약이 체결된 요청이 있어 한꺼번에 취소할 수 없습니다.',
             'contracted_count': protected_count
         }), 400
+    signing_count = sum(1 for project in projects if project.status in CONTRACT_SIGNING_STATUSES)
+    if signing_count:
+        return jsonify({
+            'code': 'CONTRACT_SIGNING_IN_PROGRESS',
+            'message': '서명이 시작된 계약이 있어 한꺼번에 취소할 수 없습니다. 문의하기로 운영팀에 요청해주세요.',
+            'signing_count': signing_count
+        }), 409
 
     now = datetime.datetime.now(datetime.timezone.utc)
     cancelled_count = 0
     for project in projects:
-        if project.status not in ['cancelled_by_company', 'not_selected']:
+        if project.status not in REQUEST_CLOSED_STATUSES:
             project.status = 'cancelled_by_company'
             project.cancelled_at = now
             project.cancelled_reason = cancelled_reason
@@ -5026,14 +5342,14 @@ def cancel_project_group():
                 db.session.add(Notification(
                     user_id=consultant.user_id,
                     type='request_cancelled',
-                    title=f'{g.current_user.name} cancelled a quote request',
-                    message=f'Cancel reason: {cancelled_reason}',
+                    title=f'{g.current_user.company_name or g.current_user.name}에서 견적 요청을 취소했습니다',
+                    message=f'"{project.title}" · 취소 사유: {cancelled_reason}',
                     link='/dashboard.html'
                 ))
 
     db.session.commit()
     return jsonify({
-        'message': 'Quote request group cancelled.',
+        'message': '견적 요청을 모두 취소했습니다.',
         'cancelled_count': cancelled_count,
         'cancelled_at': iso_utc(now)
     })
@@ -5043,7 +5359,9 @@ def cancel_project_group():
 @token_required
 def add_consultant_to_request():
     """기존 견적 요청 그룹에 컨설턴트 추가"""
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     if not isinstance(data, dict):
         return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     if g.current_user.role != 'company':
@@ -5568,7 +5886,9 @@ def _send_consultant_invite_email(invite, invite_url):
 def handle_consultant_invites():
     """컨설턴트 초대 링크 발급·조회 (관리자 전용)."""
     if request.method == 'POST':
-        data = request.json or {}
+        data = request_json_object(required=False)
+        if data is None:
+            return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
         name = (data.get('name') or '').strip()[:100]
         email = (data.get('email') or '').strip().lower()[:120]
         memo = (data.get('memo') or '').strip()[:200]
@@ -5635,11 +5955,20 @@ def verify_consultant_invite(token):
 @app.route('/api/admin/consultants/<int:consultant_id>/approve', methods=['POST'])
 @admin_required
 def approve_consultant(consultant_id):
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     checklist, checklist_error = validate_approval_checklist(data)
     if checklist_error:
         return jsonify({'message': checklist_error}), 400
     consultant = Consultant.query.get_or_404(consultant_id)
+    # 가입만 하고 프로필(규격·지역·이력)을 내지 않은 빈 행은 승인하지 않는다(UI-08).
+    # 승인하면 정보가 비어 있는 컨설턴트가 공개 목록·매칭에 올라간다.
+    if is_placeholder_consultant_profile(consultant):
+        return jsonify({
+            'code': 'PROFILE_NOT_SUBMITTED',
+            'message': '아직 프로필을 제출하지 않은 컨설턴트는 승인할 수 없습니다.',
+        }), 400
     consultant.verified = True
     consultant.status = 'verified'
     consultant.rejection_reason = None
@@ -5658,7 +5987,9 @@ def approve_consultant(consultant_id):
 @app.route('/api/admin/consultants/<int:consultant_id>/reject', methods=['POST'])
 @admin_required
 def reject_consultant(consultant_id):
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     reason, reason_error = get_required_reason(data)
     if reason_error:
         return jsonify({'message': reason_error}), 400
@@ -5682,7 +6013,9 @@ def reject_consultant(consultant_id):
 @app.route('/api/admin/consultants/<int:consultant_id>/revoke', methods=['POST'])
 @admin_required
 def revoke_consultant_verification(consultant_id):
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     reason, reason_error = get_required_reason(data)
     if reason_error:
         return jsonify({'message': reason_error}), 400
@@ -5715,7 +6048,9 @@ def admin_set_company_business_number(user_id):
     user = User.query.get_or_404(user_id)
     if user.role != 'company':
         return jsonify({'message': '기업 회원만 사업자등록번호를 가질 수 있습니다.'}), 400
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     mode = data.get('mode')
     raw = data.get('biz_reg_no') or user.biz_reg_no
 
@@ -5752,7 +6087,9 @@ def admin_project_payment_schedule(project_id):
     if contract_is_locked(project):
         return jsonify({'code': 'PAYMENT_SCHEDULE_LOCKED',
                         'message': '서명이 시작된 계약은 지급 일정을 바꿀 수 없습니다. 변경계약으로 진행해 주세요.'}), 409
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     if data.get('reset'):
         project.payment_schedule = None
     else:
@@ -5871,7 +6208,9 @@ def get_consultant_detail(consultant_id):
 @app.route('/api/quotes/request', methods=['POST'])
 @token_required
 def request_quotes():
-    data = request.json
+    data = request_json_object()
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     if g.current_user.role != 'company':
         return jsonify({'message': '기업 담당자만 견적 요청을 생성할 수 있습니다.'}), 403
     biz_error = require_company_business_number('견적 요청')
@@ -5964,6 +6303,9 @@ def request_quotes():
     else:
         session_id = str(uuid.uuid4())
 
+    # 설문 값(지역·직원 수·인증 상태·추가 요청 포함)을 한 번 모은다
+    request_info = merged_request_context(analysis_context, session_id)
+
     # Create quote requests and projects for each consultant
     quote_request_id = str(uuid.uuid4())
     created_requests = []
@@ -5993,39 +6335,7 @@ def request_quotes():
         
         # Create a project for each consultant
         try:
-            # Build description from analysis_context
-            description_parts = []
-            if analysis_context.get('industry'):
-                description_parts.append(f"업종: {analysis_context['industry']}")
-            if analysis_context.get('employees'):
-                description_parts.append(f"직원 수: {analysis_context['employees']}")
-            if analysis_context.get('region'):
-                description_parts.append(f"지역: {analysis_context['region']}")
-            if analysis_context.get('certStatus'):
-                cert_map = {'none': '미보유', 'expired': '만료됨', 'expiring': '갱신 예정', 'valid': '유효', 'initial': '신규 인증'}
-                description_parts.append(f"인증 상태: {cert_map.get(analysis_context['certStatus'], analysis_context['certStatus'])}")
-            if analysis_context.get('timeline'):
-                timeline_map = {'urgent': '긴급 (1개월 이내)', '3months': '3개월 이내', '6months': '6개월 이내', 'flexible': '유연함'}
-                description_parts.append(f"희망 일정: {timeline_map.get(analysis_context['timeline'], analysis_context['timeline'])}")
-            if analysis_context.get('budget'):
-                budget_map = {'under500': '500만원 미만', '500-1000': '500~1,000만원', '1000-2000': '1,000~2,000만원', '2000-3000': '2,000~3,000만원', 'over3000': '3,000만원 이상', 'negotiable': '협의 가능'}
-                description_parts.append(f"예산: {budget_map.get(analysis_context['budget'], analysis_context['budget'])}")
-            if analysis_context.get('issues_summary'):
-                description_parts.append(f"주요 이슈: {analysis_context['issues_summary']}")
-            if analysis_context.get('additionalNotes'):
-                description_parts.append(f"추가 요청: {analysis_context['additionalNotes']}")
-            
-            # Also extract from reasons
-            reasons = analysis_context.get('reasons', [])
-            if reasons:
-                reason_names = {
-                    'regulation': '법/규제 요구', 'customer': '거래처 요구', 'improve': '프로세스 개선',
-                    'competitive': '경쟁력 강화', 'export': '수출 요건', 'esg': 'ESG 대응', 'other': '기타'
-                }
-                reason_text = ', '.join([reason_names.get(r, r) for r in reasons[:5]])
-                description_parts.append(f"인증 사유: {reason_text}")
-            
-            project_description = '\n'.join(description_parts) if description_parts else None
+            project_description = build_request_description(request_info)
             
             new_project = Project(
                 company_id=user_id,
@@ -6120,7 +6430,7 @@ def request_quotes():
                     issues_summary=analysis_context.get('issues_summary'),
                     timeline=analysis_context.get('timeline', 'flexible'),
                     budget=analysis_context.get('budget', 'unknown'),
-                    additional_notes=analysis_context.get('additional_notes'),
+                    additional_notes=request_info.get('additional_notes'),
                     project_id=project_id,
                     # 기본값(www.insightmatch.com)은 보유하지 않은 도메인이라 링크가 죽는다.
                     dashboard_url=f'{frontend_base_url()}/dashboard.html'
@@ -6180,7 +6490,9 @@ def handle_posts():
         forbidden = require_admin_request()
         if forbidden:
             return forbidden
-        data = request.json
+        data = request_json_object()
+        if data is None:
+            return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
         new_post = Post(
             title=data.get('title'),
             content=data.get('content'),
@@ -6209,7 +6521,9 @@ def get_post(post_id):
         forbidden = require_admin_request()
         if forbidden:
             return forbidden
-        data = request.json
+        data = request_json_object()
+        if data is None:
+            return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
         if data.get('title'):
             post.title = data['title']
         if 'content' in data:
@@ -6643,7 +6957,57 @@ def my_consultant_profile():
     approved = consultant.verified or consultant.status == 'verified'
     if not approved and is_placeholder_consultant_profile(consultant):
         return jsonify({'message': 'Consultant profile not submitted yet.', 'registered': False}), 404
-    return jsonify(consultant.to_dict())
+    data = consultant.to_dict()
+    data['settlement'] = consultant_settlement_dict(consultant)
+    return jsonify(data)
+
+
+@app.route('/api/consultants/me/settlement', methods=['PUT'])
+@token_required
+def update_my_settlement():
+    """컨설턴트 본인이 정산 정보(사업자 구분·계좌)를 바꾼다.
+
+    계좌 변경은 대금이 엉뚱한 곳으로 가는 사고(계정 탈취 포함)로 이어질 수 있어,
+    변경 이력을 남기고 관리자에게 알려 지급 전에 확인하게 한다. 이력에는 계좌 전체를 남기지 않는다.
+    """
+    user = g.current_user
+    consultant = Consultant.query.filter_by(user_id=user.id).first() if user.role == 'consultant' else None
+    if consultant is None:
+        return jsonify({'message': '컨설턴트 프로필이 없습니다.'}), 404
+    data = request_json_object()
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
+    if any(v is not None and not isinstance(v, str) for k, v in data.items()
+           if k in ('business_type', 'biz_reg_no', 'biz_name', 'biz_ceo_name', 'bank_name', 'account_number', 'account_holder')):
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
+
+    values, error = validate_settlement_fields(data)
+    if error:
+        return jsonify({'message': error}), 400
+
+    before = consultant_settlement_dict(consultant)
+    for field, value in values.items():
+        setattr(consultant, field, value)
+    after = consultant_settlement_dict(consultant)
+
+    changed = [k for k in ('businessType', 'bizRegNo', 'bizName', 'bizCeoName', 'bankName', 'accountMasked', 'accountHolder')
+               if before.get(k) != after.get(k)]
+    if changed:
+        db.session.add(ProfileChangeLog(
+            consultant_id=consultant.id,
+            field_name='settlement',
+            old_value=f"{before['bankName']} {before['accountMasked']} ({before['accountHolder']})",
+            new_value=f"{after['bankName']} {after['accountMasked']} ({after['accountHolder']})",
+            changed_by=user.id,
+        ))
+        notify_admins(
+            'settlement_changed',
+            '컨설턴트 정산 정보가 변경되었습니다',
+            f'{consultant.name} — {after["bankName"]} {after["accountMasked"]}. 다음 지급 전에 본인 확인을 해 주세요.',
+        )
+    db.session.commit()
+    return jsonify({'message': '정산 정보를 저장했습니다.' if changed else '바뀐 내용이 없습니다.',
+                    'settlement': after})
 
 @app.route('/api/consultants/<int:consultant_id>/profile', methods=['GET', 'PUT'])
 @token_required
@@ -6657,7 +7021,9 @@ def consultant_profile(consultant_id):
         return jsonify(consultant.to_dict())
     
     elif request.method == 'PUT':
-        data = request.json
+        data = request_json_object()
+        if data is None:
+            return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
         user_id = g.current_user.id
         
         # 변경 이력 기록을 위한 필드 매핑
@@ -6677,8 +7043,16 @@ def consultant_profile(consultant_id):
             if json_key in data:
                 old_value = getattr(consultant, db_field)
                 new_value = data[json_key]
+                if new_value is not None and not isinstance(new_value, str):
+                    return jsonify({'message': f'{json_key} 형식이 올바르지 않습니다.'}), 400
                 if isinstance(new_value, str):
                     new_value = new_value.strip()
+                # 이메일은 계약 후 기업에게 그대로 보이는 연락처라 형식을 확인한다.
+                if json_key == 'email' and new_value and not is_valid_email(new_value):
+                    return jsonify({'message': '올바른 이메일 주소를 입력해주세요.'}), 400
+                # 링크는 http(s) 만 받는다(javascript: 같은 주소가 링크로 저장되지 않게).
+                if json_key == 'introductionVideoUrl' and new_value and not is_http_url(new_value):
+                    return jsonify({'message': '소개 영상 링크는 http:// 또는 https:// 주소여야 합니다.'}), 400
                 if json_key == 'profileImageUrl' and not is_allowed_profile_image_url(new_value):
                     return jsonify({'message': 'Invalid profile image URL'}), 400
                 if json_key in ['bio', 'introductionVideoUrl'] and len(str(new_value or '')) > 1000:
@@ -6715,7 +7089,11 @@ def manage_portfolio(consultant_id):
     current_files = json.loads(consultant.portfolio_files) if consultant.portfolio_files else []
     
     if request.method == 'POST':
-        data = request.json
+        data = request_json_object()
+        if data is None:
+            return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
+        if not is_http_url(data.get('url')):
+            return jsonify({'message': '포트폴리오 링크는 http:// 또는 https:// 주소여야 합니다.'}), 400
         new_file = {
             'name': data.get('name'),
             'url': data.get('url'),
@@ -6727,7 +7105,9 @@ def manage_portfolio(consultant_id):
         return jsonify({'message': 'Portfolio file added', 'files': current_files})
     
     elif request.method == 'DELETE':
-        data = request.json
+        data = request_json_object()
+        if data is None:
+            return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
         file_url = data.get('url')
         current_files = [f for f in current_files if f.get('url') != file_url]
         consultant.portfolio_files = json.dumps(current_files)
@@ -6744,7 +7124,9 @@ def get_upload_signed_url():
     """Supabase Storage 업로드용 Signed URL 생성"""
     # NOTE: 실제 Supabase Storage 연동 시 supabase-py 사용
     # 현재는 클라이언트에서 직접 Supabase에 업로드하도록 URL만 반환
-    data = request.json
+    data = request_json_object()
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     file_name = data.get('fileName')
     file_type = data.get('fileType')
     bucket = data.get('bucket', 'proposals')  # proposals, portfolios, profiles
@@ -6894,7 +7276,9 @@ def create_inquiry():
             'code': 'RATE_LIMITED',
         }), 429
 
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
     current_user = getattr(g, 'current_user', None)
 
     name = str(data.get('name') or '').strip()[:INQUIRY_MAX_NAME]
@@ -7013,7 +7397,9 @@ def get_admin_inquiries():
 def update_admin_inquiry(inquiry_id):
     """문의 처리 상태·관리자 메모 갱신 (관리자 전용)."""
     inquiry = Inquiry.query.get_or_404(inquiry_id)
-    data = request.json or {}
+    data = request_json_object(required=False)
+    if data is None:
+        return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
 
     changed = {}
 
@@ -8430,12 +8816,26 @@ def handle_messages(project_id):
         return jsonify(result)
     
     elif request.method == 'POST':
-        data = request.json
+        if project.status not in MESSAGE_ALLOWED_STATUSES:
+            return jsonify({
+                'code': 'MESSAGE_NOT_ALLOWED',
+                'message': '메시지는 계약이 체결된 뒤에 주고받을 수 있습니다. 그 전에는 제안서와 조건 협의를 이용해주세요.',
+            }), 403
+        data = request_json_object(required=False)
+        if data is None:
+            return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
+        if not isinstance(data, dict):
+            return jsonify({'message': '요청 형식이 올바르지 않습니다.'}), 400
+        raw_content = data.get('content')
+        if raw_content is not None and not isinstance(raw_content, str):
+            return jsonify({'message': '메시지 형식이 올바르지 않습니다.'}), 400
         sender_id = g.current_user.id
-        content = data.get('content', '').strip()
-        
+        content = (raw_content or '').strip()
+
         if not content:
             return jsonify({'message': '메시지 내용을 입력해주세요.'}), 400
+        if len(content) > 2000:
+            return jsonify({'message': '메시지는 2,000자 이내로 입력해주세요.'}), 400
         
         # 메시지 생성
         message = Message(
@@ -8556,15 +8956,29 @@ def get_contact_info(project_id):
     if project.status not in ['contracted', 'in_progress', 'completed']:
         return jsonify({'message': '계약이 완료된 후에만 연락처를 확인할 수 있습니다.'}), 403
     
-    consultant = Consultant.query.get(project.consultant_id)
-    if not consultant:
-        return jsonify({'message': '컨설턴트 정보를 찾을 수 없습니다.'}), 404
-    
+    # 호출한 쪽의 '상대방' 연락처를 돌려준다. 예전에는 누가 부르든 컨설턴트 연락처를 줘서,
+    # 컨설턴트가 부르면 기업이 아니라 자기 연락처가 나왔다.
+    if is_project_company(project) or g.current_user.role == 'admin':
+        consultant = Consultant.query.get(project.consultant_id)
+        if not consultant:
+            return jsonify({'message': '컨설턴트 정보를 찾을 수 없습니다.'}), 404
+        return jsonify({
+            'role': 'consultant',
+            'name': consultant.name,
+            'phone': consultant.phone,
+            'email': consultant.email,
+            'companyName': consultant.company_name
+        })
+
+    company_user = User.query.get(project.company_id) if project.company_id else None
+    if not company_user:
+        return jsonify({'message': '기업 정보를 찾을 수 없습니다.'}), 404
     return jsonify({
-        'name': consultant.name,
-        'phone': consultant.phone,
-        'email': consultant.email,
-        'companyName': consultant.company_name
+        'role': 'company',
+        'name': company_user.name,
+        'phone': company_user.phone,
+        'email': company_user.email,
+        'companyName': company_user.company_name
     })
 
 

@@ -280,6 +280,58 @@
                     </div>
                 </form>
             </div>
+
+            <!-- 정산 정보 (본인만 보임, 계좌는 뒤 4자리만) -->
+            <div class="hm-dash-card" id="settlement-card">
+                <h2>
+                    <i data-lucide="landmark"></i>
+                    정산 정보
+                </h2>
+                <div id="settlement-view" class="hm-kv-grid"></div>
+                <p class="hm-help" style="margin-top: 8px;">계좌를 바꾸면 관리자가 다음 지급 전에 본인 확인을 합니다.</p>
+                <div class="hm-form-actions">
+                    <button type="button" class="btn btn-outline" id="settlement-edit-btn" onclick="toggleSettlementForm(true)">정산 정보 변경</button>
+                </div>
+                <form id="settlement-form" class="hidden" onsubmit="saveSettlement(event)">
+                    <div class="form-group hm-field">
+                        <label>사업자 구분</label>
+                        <div style="display: flex; gap: 16px;">
+                            <label><input type="radio" name="settle-business-type" value="business" onchange="toggleSettlementBizFields()"> 사업자</label>
+                            <label><input type="radio" name="settle-business-type" value="individual" onchange="toggleSettlementBizFields()"> 개인</label>
+                        </div>
+                    </div>
+                    <div id="settle-biz-fields">
+                        <div class="form-group hm-field">
+                            <label for="settle-biz-reg-no">사업자등록번호</label>
+                            <input type="text" id="settle-biz-reg-no" placeholder="000-00-00000">
+                        </div>
+                        <div class="form-group hm-field">
+                            <label for="settle-biz-name">상호 (사업자등록증상)</label>
+                            <input type="text" id="settle-biz-name">
+                        </div>
+                        <div class="form-group hm-field">
+                            <label for="settle-biz-ceo">대표자명</label>
+                            <input type="text" id="settle-biz-ceo">
+                        </div>
+                    </div>
+                    <div class="form-group hm-field">
+                        <label for="settle-bank">은행</label>
+                        <input type="text" id="settle-bank" placeholder="예: 국민은행">
+                    </div>
+                    <div class="form-group hm-field">
+                        <label for="settle-account">계좌번호 (전체 다시 입력)</label>
+                        <input type="text" id="settle-account" inputmode="numeric" autocomplete="off" placeholder="숫자만 입력">
+                    </div>
+                    <div class="form-group hm-field">
+                        <label for="settle-holder">예금주</label>
+                        <input type="text" id="settle-holder">
+                    </div>
+                    <div class="hm-form-actions">
+                        <button type="button" class="btn btn-outline" onclick="toggleSettlementForm(false)">취소</button>
+                        <button type="submit" class="btn btn-primary">정산 정보 저장</button>
+                    </div>
+                </form>
+            </div>
         </div>
 
         <!-- ===========================================================
@@ -1096,6 +1148,23 @@
                 const res = await authFetch(`${API_BASE_URL}/api/consultants/me`);
                 if (!res.ok) return;  // 404 = 아직 프로필 제출 전
                 const status = await res.json();
+                // 제출했지만 아직 승인 전: 심사 중임을 알린다. 예전에는 아무 표시가 없어 승인된 것처럼 보였다.
+                if (status.status === 'pending') {
+                    banner.innerHTML = `
+                        <div class="hm-note is-info">
+                            <div class="hm-note-title">
+                                <i data-lucide="hourglass"></i>
+                                전문가 프로필을 검토하고 있습니다
+                            </div>
+                            <p>관리자가 신원·자격·수행 이력·연락처를 확인하는 중입니다. 승인되면 알림으로 알려 드리고, 그때부터 기업 추천 목록에 보입니다.</p>
+                        </div>
+                    `;
+                    // 거부 안내용 빨간 테두리 대신 안내 상자 모양만 쓴다
+                    banner.style.cssText = 'margin-bottom: 24px;';
+                    banner.classList.remove('hidden');
+                    lucide.createIcons();
+                    return;
+                }
                 if (status.status !== 'rejected') {
                     banner.classList.add('hidden');
                     return;
@@ -1153,6 +1222,79 @@
         };
 
         // 컨설턴트 프로필 로드
+        // ----- 정산 정보 (QA-10) -----
+        let currentSettlement = null;
+        function renderSettlement(settlement) {
+            const view = document.getElementById('settlement-view');
+            if (!view) return;
+            currentSettlement = settlement || null;
+            if (!settlement) { view.innerHTML = '<span class="hm-kv-empty">정산 정보가 없습니다</span>'; return; }
+            const kv = (label, value) => `
+                <div class="hm-kv">
+                    <span class="hm-kv-label">${escapeHtml(label)}</span>
+                    <p class="hm-kv-value">${escapeHtml(value || '-')}</p>
+                </div>`;
+            const agreedAt = settlement.partnerAgreedAt ? new Date(settlement.partnerAgreedAt).toLocaleDateString('ko-KR') : '';
+            view.innerHTML = [
+                kv('사업자 구분', settlement.businessType === 'business' ? '사업자 (세금계산서 발행)' : settlement.businessType === 'individual' ? '개인 (원천징수 3.3%)' : ''),
+                settlement.businessType === 'business' ? kv('상호 / 대표자', `${settlement.bizName || '-'} / ${settlement.bizCeoName || '-'}`) : '',
+                kv('입금 계좌', `${settlement.bankName || ''} ${settlement.accountMasked || ''}`.trim()),
+                kv('예금주', settlement.accountHolder),
+                kv('동의한 협력계약', settlement.partnerAgreementVersion ? `버전 ${settlement.partnerAgreementVersion}${agreedAt ? ` · ${agreedAt} 동의` : ''}` : '기록 없음'),
+            ].join('');
+        }
+        function toggleSettlementBizFields() {
+            const type = document.querySelector('input[name="settle-business-type"]:checked')?.value;
+            document.getElementById('settle-biz-fields').style.display = type === 'business' ? '' : 'none';
+        }
+        window.toggleSettlementBizFields = toggleSettlementBizFields;
+        window.toggleSettlementForm = function (open) {
+            const form = document.getElementById('settlement-form');
+            const btn = document.getElementById('settlement-edit-btn');
+            form.classList.toggle('hidden', !open);
+            btn.classList.toggle('hidden', open);
+            if (open) {
+                const s = currentSettlement || {};
+                document.querySelectorAll('input[name="settle-business-type"]').forEach(r => { r.checked = r.value === (s.businessType || 'business'); });
+                document.getElementById('settle-biz-reg-no').value = s.bizRegNo || '';
+                document.getElementById('settle-biz-name').value = s.bizName || '';
+                document.getElementById('settle-biz-ceo').value = s.bizCeoName || '';
+                document.getElementById('settle-bank').value = s.bankName || '';
+                document.getElementById('settle-account').value = '';
+                document.getElementById('settle-holder').value = s.accountHolder || '';
+                toggleSettlementBizFields();
+            }
+        };
+        window.saveSettlement = async function (event) {
+            event.preventDefault();
+            const body = {
+                business_type: document.querySelector('input[name="settle-business-type"]:checked')?.value || '',
+                biz_reg_no: document.getElementById('settle-biz-reg-no').value,
+                biz_name: document.getElementById('settle-biz-name').value,
+                biz_ceo_name: document.getElementById('settle-biz-ceo').value,
+                bank_name: document.getElementById('settle-bank').value,
+                account_number: document.getElementById('settle-account').value,
+                account_holder: document.getElementById('settle-holder').value,
+            };
+            try {
+                const res = await authFetch(`${API_BASE_URL}/api/consultants/me/settlement`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const result = await res.json().catch(() => ({}));
+                if (res.ok) {
+                    renderSettlement(result.settlement);
+                    window.toggleSettlementForm(false);
+                    showNotification(result.message || '정산 정보를 저장했습니다.', 'success');
+                } else {
+                    showNotification(result.message || '정산 정보 저장에 실패했습니다.', 'error');
+                }
+            } catch (e) {
+                showNotification('서버 연결에 실패했습니다.', 'error');
+            }
+        };
+
         async function loadProfile() {
             if (user.role !== 'consultant') return;
 
@@ -1175,7 +1317,15 @@
 
                 consultantId = profile.id;
 
-                // 🔒 검증된 정보 채우기
+                // 🔒 검증된 정보 채우기 (승인 전이면 '검토 중'으로 표시)
+                const verifiedHead = document.querySelector('#profile-tab-content .hm-verified-head');
+                if (verifiedHead) {
+                    const approved = profile.status === 'verified' || profile.verified;
+                    verifiedHead.innerHTML = approved
+                        ? '<i data-lucide="shield-check"></i> 검증된 정보'
+                        : '<i data-lucide="hourglass"></i> 제출한 정보 (관리자 검토 중)';
+                }
+                renderSettlement(profile.settlement);
                 document.getElementById('verified-name').textContent = profile.name || '-';
                 document.getElementById('verified-trust-score').textContent = profile.trustScore ? `${profile.trustScore}점` : '—';
 
@@ -1199,7 +1349,7 @@
                 if (industries.length > 0) {
                     industriesContainer.innerHTML = industries.map(ind => `
                         <span class="hm-chip-tag">
-                            ${ind}
+                            ${escapeHtml(INDUSTRY_LABELS[ind] || ind)}
                         </span>
                     `).join('');
                 } else {
@@ -1599,7 +1749,8 @@
                     groups[key] = {
                         title: p.title || 'Unknown',
                         session_id: p.session_id,
-                        created_at: p.start_date,
+                        // start_date 는 계약 때 채워져 견적 단계에서는 비어 있다(요청일 "-"). 생성 시각을 쓴다.
+                        created_at: p.created_at || p.start_date,
                         projects: []
                     };
                 }
@@ -1633,7 +1784,9 @@
                 );
                 const totalConsultants = visibleProjects.length;
                 const respondedConsultants = visibleProjects.filter(p =>
-                    p.proposal_status === 'submitted' || p.status === 'contracted' || p.status === 'in_progress'
+                    // 제안서를 낸 뒤의 모든 단계(협의·계약·완료 포함)를 '응답'으로 센다.
+                    // 예전에는 API 에 없는 proposal_status 를 보고 있어 제안서가 와도 0명이었다.
+                    RESPONDED_STATUSES.includes(p.status)
                 ).length;
 
                 // 모든 전문가를 취소한 경우 그룹을 렌더링하지 않음
@@ -1764,6 +1917,7 @@
             // 새로운 상태 체계 사용
             const isSubmitted = project.status === 'proposal_submitted';
             const isContracted = project.status === 'contracted' || project.status === 'in_progress';
+            const isCompletedProject = project.status === 'completed';
             const isPending = project.status === 'proposal_pending' || project.status === 'planning';
             const isNegotiating = project.status === 'negotiating';
             const negoData = project.negotiation_data || {};
@@ -1771,7 +1925,12 @@
 
             const cardClass = isContracted ? 'selected' : (isPending ? 'pending' : '');
             const statusClass = isSubmitted ? 'submitted' : (isContracted ? 'contracted' : 'pending');
-            const statusText = isContracted ? '계약 완료' : (isSubmitted ? '제안서 도착' : '응답 대기');
+            const statusText = isCompletedProject ? '완료'
+                : isContracted ? '계약 완료'
+                : isSubmitted ? '제안서 도착'
+                : (project.status === 'pending_contract' || project.status === 'awaiting_signature') ? '계약 진행 중'
+                : isNegotiating ? '조건 협의 중'
+                : '응답 대기';
 
             // 새로운 제안서 필드 사용
             const proposalPrice = project.proposal_price;
@@ -1796,7 +1955,7 @@
                                 <h4>${escapeHtml(project.consultant_name || '컨설턴트')}</h4>
                                 <i data-lucide="badge-check" class="verified-badge-small"></i>
                             </div>
-                            <div class="consultant-specialty">${escapeHtml(project.consultant_specialty || 'ISO 인증 전문가')}</div>
+                            <div class="consultant-specialty">${escapeHtml(industryText(project.consultant_specialty) || 'ISO 인증 전문가')}</div>
                             <div class="consultant-stats">
                                 <span>
                                     <i data-lucide="star"></i>
@@ -1811,7 +1970,7 @@
                         <span class="response-status ${statusClass}">${statusText}</span>
                     </div>
                     
-                    ${isSubmitted || isContracted || isNegotiating ? `
+                    ${isSubmitted || isContracted || isNegotiating || isCompletedProject ? `
                     <!-- ① 견적 비교: 제안 금액/기간 표시 -->
                     <div class="proposal-preview">
                         <div class="proposal-preview-row">
@@ -2268,6 +2427,23 @@
         // ========================================
         // 전문가용 협의 응답 함수
         // ========================================
+
+        // 설문·프로필 코드값 → 한국어 (서버 INTAKE_LABELS 와 같은 값)
+        const INDUSTRY_LABELS = {
+            'IT/Software': 'IT/소프트웨어', 'Manufacturing': '제조업', 'Automotive': '자동차/부품',
+            'Electronics': '전자/반도체', 'Chemical': '화학/소재', 'Medical': '의료/바이오',
+            'Food': '식품/음료', 'Construction': '건설/토목', 'Energy': '에너지/발전',
+            'Nuclear': '원자력', 'Logistics': '물류/유통', 'Finance': '금융/보험',
+            'Service': '서비스업', 'Public': '공공기관', 'Other': '기타', 'General': '일반'
+        };
+        // "Manufacturing, Construction" 같은 목록 문자열도 한 번에 바꾼다
+        function industryText(value) {
+            if (!value) return '';
+            return String(value).split(',').map(v => v.trim()).filter(Boolean)
+                .map(v => INDUSTRY_LABELS[v] || v).join(', ');
+        }
+        // 제안서를 낸 뒤의 단계 = 전문가가 '응답'한 요청
+        const RESPONDED_STATUSES = ['proposal_submitted', 'negotiating', 'pending_contract', 'awaiting_signature', 'contracted', 'in_progress', 'completed'];
 
         // 금액 표시: 숫자면 "7,500,000원", 아니면 원문 그대로
         function formatWon(value) {
@@ -3387,7 +3563,7 @@
                 'over3000': '3,000만원 이상',
                 'negotiable': '협의 가능'
             };
-            const budgetText = budgetMap[project.budget] || project.budget || '협의 필요';
+            const budgetText = project.budget_label || budgetMap[project.budget] || project.budget || '협의 필요';
 
             // 인증 상태 포맷
             const certStatusMap = {
@@ -3397,7 +3573,7 @@
                 'valid': '유효',
                 'initial': '신규 인증'
             };
-            const certStatusText = certStatusMap[project.cert_status] || project.cert_status || '-';
+            const certStatusText = project.cert_status_label || certStatusMap[project.cert_status] || project.cert_status || '-';
 
             // 준비 상태 포맷
             const readinessMap = {
@@ -3448,11 +3624,11 @@
                         </div>
                         <div class="detail-item">
                             <div class="detail-item-label">업종</div>
-                            <div class="detail-item-value">${escapeHtml(project.industry || '-')}</div>
+                            <div class="detail-item-value">${escapeHtml(project.industry_label || industryText(project.industry) || '-')}</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-item-label">직원 수</div>
-                            <div class="detail-item-value">${escapeHtml(project.employees || '-')}</div>
+                            <div class="detail-item-value">${escapeHtml(project.employees_label || project.employees || '-')}</div>
                         </div>
                         <div class="detail-item">
                             <div class="detail-item-label">지역</div>
