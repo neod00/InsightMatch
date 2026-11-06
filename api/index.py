@@ -27,6 +27,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, AnalysisJob, AdminActionLog, Consultant, ConsultantInvite, CronRun, ErrorLog, Inquiry, Review, User, Project, Milestone, Post, Company, Notification, ContractSignature, Message, ProfileChangeLog, PasswordResetToken, ManualGeneration, RateLimitEntry, parse_text_or_json_list, iso_utc
 from services import MatchingService, ProposalService, EmailService
 from services.iso_manual_service import generate_iso_manual_stream
+from services.email_layout import DEFAULT_SITE_URL
 from services import standards_loader as manual_standards
 from services import manual_outline as manual_outline_engine
 from services import manual_coverage
@@ -503,7 +504,9 @@ def frontend_base_url():
         try:
             base = request.host_url
         except Exception:
-            base = 'https://www.insightmatch.com'
+            # 요청 밖(배치 등)에서 불릴 때의 예비값. 예전 값(insightmatch 닷컴)은
+            # 남이 가진 도메인이라 링크가 죽었다. 정식 도메인이 생기면 BASE_URL 만 바꾼다.
+            base = DEFAULT_SITE_URL
     return (base or '').rstrip('/')
 
 
@@ -6675,7 +6678,7 @@ def request_quotes():
                     budget=analysis_context.get('budget', 'unknown'),
                     additional_notes=request_info.get('additional_notes'),
                     project_id=project_id,
-                    # 기본값(www.insightmatch.com)은 보유하지 않은 도메인이라 링크가 죽는다.
+                    # 메일 서비스 기본 링크 대신 사이트 주소를 넘긴다.
                     dashboard_url=f'{frontend_base_url()}/dashboard.html'
                 )
                 email_results.append({
@@ -6814,7 +6817,8 @@ ROBOTS_DISALLOW = (
 
 
 def _site_base_url():
-    return (os.environ.get('BASE_URL') or 'https://insight-match.vercel.app').rstrip('/')
+    # 예전 예비값(-ashen 이 빠진 vercel 주소)은 없는 주소였다
+    return (os.environ.get('BASE_URL') or DEFAULT_SITE_URL).rstrip('/')
 
 
 @app.route('/api/sitemap.xml')

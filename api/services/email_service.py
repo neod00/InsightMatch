@@ -48,7 +48,9 @@ class EmailService:
         self.smtp_port = int(os.environ.get('SMTP_PORT', 587))
         self.smtp_user = os.environ.get('SMTP_USER', '')
         self.smtp_password = os.environ.get('SMTP_PASSWORD', '')
-        self.from_email = os.environ.get('FROM_EMAIL', 'noreply@insightmatch.com')
+        # 발신 주소가 없으면 SMTP 로그인 계정으로 보낸다. 예전 기본값(insightmatch 닷컴의 noreply)은
+        # 남이 가진 도메인이라, Gmail SMTP 에서는 바뀌어 보이고 다른 서버에서는 스팸 처리될 수 있었다.
+        self.from_email = (os.environ.get('FROM_EMAIL') or self.smtp_user or '').strip()
         self.from_name = os.environ.get('FROM_NAME', 'InsightMatch')
         
         # 이메일 사용 가능 여부 확인
