@@ -1199,7 +1199,7 @@ def notify_admins(notif_type, title, message, link='/admin.html', email_spec=Non
                 summary=email_spec.get('summary') or message,
                 rows=email_spec.get('rows'),
                 action_url=admin_url,
-                cta_label=email_spec.get('cta_label') or '관리자 화면에서 보기 →',
+                cta_label=email_spec.get('cta_label') or '관리자 화면에서 보기',
             )
         except Exception as e:
             record_email_failure(f'admin_alert:{notif_type}', e)
@@ -1334,57 +1334,9 @@ def is_allowed_profile_image_url(file_url):
         and parsed_file_url.path.startswith('/storage/v1/object/public/profiles/')
     )
 
-# 매칭 설문(index.html) 값 → 화면에 보일 한국어. 견적 요청 설명·프로젝트 상세·메일이 같이 쓴다.
-# 예전에는 곳곳에 서로 다른 표가 있었고 실제 폼 값(customer_demand, Expired, 2000+ 등)과 맞지 않아
-# "업종: Manufacturing", "예산: unknown", "인증 사유: customer_demand" 처럼 코드가 그대로 보였다.
-INTAKE_LABELS = {
-    'industry': {
-        'IT/Software': 'IT/소프트웨어', 'Manufacturing': '제조업', 'Automotive': '자동차/부품',
-        'Electronics': '전자/반도체', 'Chemical': '화학/소재', 'Medical': '의료/바이오',
-        'Food': '식품/음료', 'Construction': '건설/토목', 'Energy': '에너지/발전',
-        'Nuclear': '원자력', 'Logistics': '물류/유통', 'Finance': '금융/보험',
-        'Service': '서비스업', 'Public': '공공기관', 'Other': '기타',
-    },
-    'employees': {
-        '1-10': '1~10명', '11-50': '11~50명', '51-200': '51~200명',
-        '201-500': '201~500명', '500+': '500명 이상',
-    },
-    'cert_status': {
-        'None': '없음 (신규 인증)', 'Expired': '만료됨 (갱신 필요)', 'Active': '보유 중 (추가 인증)',
-        # 예전 값
-        'none': '미보유', 'expired': '만료됨', 'expiring': '갱신 예정', 'valid': '유효', 'initial': '신규 인증',
-    },
-    'timeline': {
-        'flexible': '일정 여유 있음', '6months': '6개월 이내', '3months': '3개월 이내',
-        '1month': '1개월 이내 (긴급)', 'urgent': '긴급 (1개월 이내)',
-    },
-    'budget': {
-        'unknown': '미정', 'under500': '500만 원 미만', '500-1000': '500만~1,000만 원',
-        '1000-2000': '1,000만~2,000만 원', '2000+': '2,000만 원 이상',
-        # 예전 값
-        '2000-3000': '2,000만~3,000만 원', 'over3000': '3,000만 원 이상', 'negotiable': '협의 가능',
-    },
-    'reasons': {
-        'customer_demand': '고객사·거래처 요구', 'public_bid': '공공입찰·조달 대응',
-        'export': '해외 수출·바이어 요구', 'investment': '투자 유치·상장 준비',
-        'internal': '사내 경영 시스템 체계화', 'regulation': '법·규제 대응',
-        'competition': '경쟁사 대비 차별화',
-        # 예전 값
-        'customer': '거래처 요구', 'improve': '프로세스 개선', 'competitive': '경쟁력 강화',
-        'esg': 'ESG 대응', 'other': '기타',
-    },
-}
-
-
-def intake_label(kind, value):
-    """설문 코드값을 한국어로. 표에 없으면 원래 값(사람이 쓴 값일 수 있음)."""
-    if value in (None, '', []):
-        return None
-    if isinstance(value, list):
-        return [INTAKE_LABELS.get(kind, {}).get(v, v) for v in value if isinstance(v, str) and v]
-    if not isinstance(value, str):
-        return str(value)
-    return INTAKE_LABELS.get(kind, {}).get(value, value)
+# 매칭 설문 코드값 → 한국어 표(INTAKE_LABELS)와 intake_label 은 메일 서비스도 같이 쓰도록
+# services/intake_labels.py 로 옮겼다. 견적 요청 설명·프로젝트 상세·메일이 같은 표를 쓴다.
+from services.intake_labels import INTAKE_LABELS, intake_label  # noqa: E402
 
 
 def company_display_name(company_user, default='기업'):
@@ -1977,7 +1929,7 @@ def register_consultant_validated():
                     ('이메일', email),
                     ('등록 경로', route_label),
                 ],
-                'cta_label': '관리자 화면에서 심사하기 →',
+                'cta_label': '관리자 화면에서 심사하기',
             },
         )
         db.session.commit()
@@ -6629,7 +6581,8 @@ def request_quotes():
                 company_email=company_email,
                 company_name=company_name,
                 consultant_names=consultant_names,
-                standards=recommended_standards if isinstance(recommended_standards, list) else []
+                standards=recommended_standards if isinstance(recommended_standards, list) else [],
+                dashboard_url=f'{frontend_base_url()}/dashboard.html'
             )
         except Exception as e:
             print(f"[Email] Error sending confirmation to company: {e}")
@@ -7513,7 +7466,7 @@ def create_inquiry():
                     ('회원 여부', f'회원 (user #{inquiry.user_id})' if inquiry.user_id else '비회원'),
                     ('제목', subject),
                 ],
-                'cta_label': '관리자 화면에서 확인하기 →',
+                'cta_label': '관리자 화면에서 확인하기',
             },
         )
         db.session.commit()

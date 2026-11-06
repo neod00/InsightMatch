@@ -1,6 +1,7 @@
 """
 InsightMatch Email Service
 이메일 발송 모듈 - 견적 요청 알림, 제안서 발송 등
+모든 메일 HTML 은 email_layout.render_email 공용 레이아웃으로 만든다.
 
 지원 채널:
 1. 이메일 (현재 구현) - SendGrid / SMTP
@@ -9,13 +10,15 @@ InsightMatch Email Service
 """
 
 import os
-import html
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 from datetime import datetime
 from typing import List, Dict, Optional
+
+from . import email_layout as layout
+from .intake_labels import intake_label
 
 
 # SMTP 연결·응답 대기 상한(초). Vercel maxDuration 이 60초이고 일일 배치가
@@ -31,6 +34,11 @@ def _mask_email(email):
     local, _, domain = str(email).partition('@')
     head = local[:2] if len(local) > 2 else local[:1]
     return f"{head}***@{domain}"
+
+
+def _nowrap_codes(codes):
+    """'ISO 14001:2026' 이 좁은 화면에서 'ISO / 14001' 로 갈라지지 않게 공백을 줄바꿈 없는 공백으로."""
+    return [str(c).replace('ISO ', 'ISO ') for c in (codes or []) if c]
 
 
 class EmailService:
@@ -132,6 +140,16 @@ class EmailService:
             print(f"[EmailService] Failed to send email: {str(e)}")
             return {'success': False, 'message': str(e)}
     
+    # ------------------------------------------------------------------
+    # 모든 메일은 email_layout.render_email 하나로 만든다.
+    # 사용자 입력은 layout 의 부품들이 이스케이프하므로 여기서는 원래 값을 넘긴다.
+    # ------------------------------------------------------------------
+    TRANSACTIONAL_NOTICE = layout.TRANSACTIONAL_NOTICE
+
+    def _send_rendered(self, to_email: str, subject: str, rendered) -> Dict:
+        html_content, text_content = rendered
+        return self.send_email(to_email, subject, html_content, text_content=text_content)
+
     def send_quote_request_to_consultant(
         self,
         consultant_email: str,
@@ -144,195 +162,91 @@ class EmailService:
         budget: str,
         additional_notes: Optional[str],
         project_id: int,
-        dashboard_url: str = "https://www.insightmatch.com/dashboard.html"
+        dashboard_url: Optional[str] = None
     ) -> Dict:
+        """컨설턴트에게 견적 요청 알림 메일.
+
+        업종·일정·예산은 설문 코드값(Nuclear, 6months, 500-1000)으로 들어올 수 있어
+        intake_label 로 한국어 이름을 붙인다. 이미 한국어면 그대로 둔다.
         """
-        컨설턴트에게 견적 요청 알림 이메일 발송
-        """
-        # 타임라인 한글 변환
-        timeline_map = {
-            'flexible': '여유 있음',
-            '6months': '6개월 이내',
-            '3months': '3개월 이내',
-            '1month': '1개월 이내 (긴급)'
-        }
-        timeline_kr = timeline_map.get(timeline, timeline)
-        
-        # 예산 한글 변환
-        budget_map = {
-            'unknown': '미정',
-            'under500': '500만원 미만',
-            '500-1000': '500만원 ~ 1,000만원',
-            '1000-2000': '1,000만원 ~ 2,000만원',
-            '2000+': '2,000만원 이상'
-        }
-        budget_kr = budget_map.get(budget, budget)
-        
-        # ISO 규격 포맷
-        standards_text = ', '.join(standards) if standards else '미정'
-        
-        subject = f"[InsightMatch] {company_name}에서 견적을 요청했습니다"
-        
-        html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {{ font-family: 'Pretendard', -apple-system, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 30px; border-radius: 12px 12px 0 0; }}
-        .content {{ background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; }}
-        .info-box {{ background: white; padding: 20px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #10b981; }}
-        .label {{ color: #64748b; font-size: 0.85rem; margin-bottom: 4px; }}
-        .value {{ font-weight: 600; color: #1e293b; }}
-        .cta-button {{ display: inline-block; background: #10b981; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 20px; }}
-        .footer {{ text-align: center; color: #94a3b8; font-size: 0.85rem; padding: 20px; }}
-        .urgent {{ background: #fef3c7; border-left-color: #f59e0b; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1 style="margin: 0; font-size: 1.5rem;">🎉 새로운 견적 요청</h1>
-            <p style="margin: 10px 0 0; opacity: 0.9;">{consultant_name}님, 새로운 프로젝트 기회입니다!</p>
-        </div>
-        
-        <div class="content">
-            <p>안녕하세요, {consultant_name}님.</p>
-            <p><strong>{company_name}</strong>에서 귀하의 전문성을 필요로 하는 프로젝트에 견적 요청을 보냈습니다.</p>
-            
-            <div class="info-box {'urgent' if timeline == '1month' else ''}">
-                <div class="label">요청 기업</div>
-                <div class="value">{company_name}</div>
-            </div>
-            
-            <div class="info-box">
-                <div class="label">업종</div>
-                <div class="value">{industry}</div>
-            </div>
-            
-            <div class="info-box">
-                <div class="label">관심 인증</div>
-                <div class="value">{standards_text}</div>
-            </div>
-            
-            {f'''<div class="info-box">
-                <div class="label">주요 경영 이슈</div>
-                <div class="value">{issues_summary}</div>
-            </div>''' if issues_summary else ''}
-            
-            <div class="info-box">
-                <div class="label">희망 일정</div>
-                <div class="value">{timeline_kr}</div>
-            </div>
-            
-            <div class="info-box">
-                <div class="label">예산 범위</div>
-                <div class="value">{budget_kr}</div>
-            </div>
-            
-            {f'''<div class="info-box">
-                <div class="label">추가 요청사항</div>
-                <div class="value">{additional_notes}</div>
-            </div>''' if additional_notes else ''}
-            
-            <p style="margin-top: 25px;">대시보드에서 상세 내용을 확인하고 제안서를 작성해주세요.</p>
-            
-            <a href="{dashboard_url}" class="cta-button">대시보드에서 확인하기 →</a>
-        </div>
-        
-        <div class="footer">
-            <p>이 이메일은 InsightMatch 플랫폼에서 발송되었습니다.</p>
-            <p>© 2025 OpenBrain Limited. All rights reserved.</p>
-        </div>
-    </div>
-</body>
-</html>
-"""
-        
-        return self.send_email(consultant_email, subject, html_content)
-    
+        dashboard_url = dashboard_url or f'{layout.site_url()}/dashboard.html'
+        standards = _nowrap_codes(standards)
+        name = consultant_name or '전문가'
+        company = company_name or '기업'
+        urgent = timeline in ('1month', 'urgent')
+
+        subject = f"[InsightMatch] {company}에서 견적을 요청했습니다"
+        rows = [
+            ('요청 기업', company),
+            ('업종', intake_label('industry', industry) or '미정'),
+            ('관심 인증', ', '.join(standards) if standards else '미정'),
+        ]
+        if issues_summary:
+            rows.append(('주요 경영 이슈', issues_summary))
+        rows += [
+            ('희망 일정', intake_label('timeline', timeline) or '미정'),
+            ('예산 범위', intake_label('budget', budget) or '미정'),
+        ]
+        if additional_notes:
+            rows.append(('추가 요청사항', additional_notes))
+        body = [
+            layout.paragraph(f'{name}님, 안녕하세요.'),
+            layout.paragraph(f'{company}에서 견적 요청을 보냈습니다. 요청 내용을 확인하시고 제안서를 보내 주세요.'),
+            layout.info_table(rows),
+        ]
+        if urgent:
+            body.append(layout.notice('일정이 급한 요청입니다', [
+                '1개월 안에 진행을 원하는 요청입니다. 가능하면 빨리 답변해 주세요.',
+            ], tone='warn'))
+
+        return self._send_rendered(consultant_email, subject, layout.render_email(
+            subject=subject,
+            eyebrow='새 견적 요청',
+            tone='warn' if urgent else 'default',
+            heading=f'{company}에서 견적을 요청했습니다',
+            preheader=f'{company} · {", ".join(standards) if standards else "ISO 인증"} 견적 요청이 도착했습니다.',
+            body=body,
+            cta=('요청 내용 보기', dashboard_url),
+        ))
+
     def send_quote_confirmation_to_company(
         self,
         company_email: str,
         company_name: str,
         consultant_names: List[str],
-        standards: List[str]
+        standards: List[str],
+        dashboard_url: Optional[str] = None
     ) -> Dict:
+        """기업에게 견적 요청 접수 확인 메일.
+
+        ⚠️ 기업에게 가는 메일이다. 수수료·협력계약 이야기는 절대 넣지 않는다.
         """
-        기업에게 견적 요청 완료 확인 이메일 발송
-        """
-        consultant_list = ', '.join(consultant_names)
-        standards_text = ', '.join([s.split(':')[0] for s in standards]) if standards else '미정'
-        
-        subject = f"[InsightMatch] {len(consultant_names)}명의 전문가에게 견적 요청이 전달되었습니다"
-        
-        html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {{ font-family: 'Pretendard', -apple-system, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 30px; border-radius: 12px 12px 0 0; text-align: center; }}
-        .content {{ background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; }}
-        .check-icon {{ font-size: 3rem; margin-bottom: 15px; }}
-        .consultant-badge {{ display: inline-block; background: rgba(16, 185, 129, 0.1); color: #059669; padding: 6px 12px; border-radius: 100px; margin: 4px; font-size: 0.9rem; }}
-        .next-steps {{ background: white; padding: 20px; border-radius: 8px; margin-top: 20px; }}
-        .step {{ display: flex; align-items: flex-start; gap: 12px; margin: 12px 0; }}
-        .step-number {{ background: #10b981; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; flex-shrink: 0; }}
-        .footer {{ text-align: center; color: #94a3b8; font-size: 0.85rem; padding: 20px; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="check-icon">✅</div>
-            <h1 style="margin: 0; font-size: 1.5rem;">견적 요청 완료!</h1>
-        </div>
-        
-        <div class="content">
-            <p>안녕하세요, {company_name}님.</p>
-            <p>귀사의 <strong>{standards_text}</strong> 인증 프로젝트에 대한 견적 요청이 {len(consultant_names)}명의 전문가에게 전달되었습니다.</p>
-            
-            <p style="margin-top: 20px;"><strong>견적 요청된 전문가:</strong></p>
-            <div>
-                {''.join([f'<span class="consultant-badge">{name}</span>' for name in consultant_names])}
-            </div>
-            
-            <div class="next-steps">
-                <h3 style="margin-top: 0; color: #1e293b;">다음 단계</h3>
-                <div class="step">
-                    <span class="step-number">1</span>
-                    <span>전문가들이 귀사의 요청을 검토합니다 (평균 24시간 이내)</span>
-                </div>
-                <div class="step">
-                    <span class="step-number">2</span>
-                    <span>각 전문가로부터 맞춤 제안서를 받게 됩니다</span>
-                </div>
-                <div class="step">
-                    <span class="step-number">3</span>
-                    <span>제안을 비교하고 가장 적합한 전문가를 선택하세요</span>
-                </div>
-            </div>
-            
-            <p style="margin-top: 25px; color: #64748b; font-size: 0.9rem;">
-                💡 문의사항이 있으시면 <a href="mailto:openbrain.main@gmail.com">openbrain.main@gmail.com</a>으로 연락주세요.
-            </p>
-        </div>
-        
-        <div class="footer">
-            <p>이 이메일은 InsightMatch 플랫폼에서 발송되었습니다.</p>
-            <p>© 2025 OpenBrain Limited. All rights reserved.</p>
-        </div>
-    </div>
-</body>
-</html>
-"""
-        
-        return self.send_email(company_email, subject, html_content)
+        dashboard_url = dashboard_url or f'{layout.site_url()}/dashboard.html'
+        count = len(consultant_names)
+        standards_text = ', '.join(_nowrap_codes([s.split(':')[0] for s in standards])) if standards else '미정'
+        company = company_name or '고객'
+
+        subject = f"[InsightMatch] {count}명의 전문가에게 견적 요청이 전달되었습니다"
+        return self._send_rendered(company_email, subject, layout.render_email(
+            subject=subject,
+            eyebrow='견적 요청 완료',
+            heading=f'전문가 {count}명에게 견적 요청을 보냈습니다',
+            preheader='제안서가 도착하면 메일로 알려 드립니다.',
+            body=[
+                layout.paragraph(f'{company}님, 안녕하세요.'),
+                layout.paragraph('요청하신 인증 견적이 아래 전문가에게 전달되었습니다.'),
+                layout.info_table([
+                    ('요청 인증', standards_text),
+                    ('받은 전문가', ', '.join(consultant_names) if consultant_names else '-'),
+                ]),
+                layout.steps('앞으로 이렇게 진행됩니다', [
+                    '전문가가 요청 내용을 검토하고 제안서를 보냅니다.',
+                    '제안서가 도착하면 메일로 알려 드립니다.',
+                    '제안을 비교해 보시고 함께할 전문가를 고르시면 됩니다.',
+                ]),
+            ],
+            cta=('대시보드에서 진행 상황 보기', dashboard_url),
+        ))
 
     def send_proposal_notification(
         self,
@@ -342,157 +256,85 @@ class EmailService:
         project_title: str,
         proposal_price: Optional[int] = None,
         proposal_duration: Optional[str] = None,
-        dashboard_url: str = "https://www.insightmatch.com/dashboard.html"
+        dashboard_url: Optional[str] = None
     ) -> Dict:
-        """
-        기업에게 제안서 제출 알림 이메일 발송
+        """기업에게 제안서 도착 알림 메일.
 
         인앱 알림만 만들면 기업은 대시보드에 접속해야만 제안서 도착을 안다.
-        견적 요청 확인 메일(send_quote_confirmation_to_company)의 바로 다음
-        단계이므로 같은 구조·톤을 유지한다.
+        견적 요청 확인 메일의 바로 다음 단계라 같은 구성을 쓴다.
+        ⚠️ 기업에게 가는 메일이다. 수수료·협력계약 이야기는 넣지 않는다.
         """
-        # 컨설턴트가 입력한 값(기간)이 그대로 HTML 본문에 들어가므로 이스케이프한다.
-        safe_company = html.escape(str(company_name or '고객'))
-        safe_consultant = html.escape(str(consultant_name or '전문가'))
-        safe_title = html.escape(str(project_title or 'ISO 인증 프로젝트'))
-
+        dashboard_url = dashboard_url or f'{layout.site_url()}/dashboard.html'
+        company = company_name or '고객'
+        consultant = consultant_name or '전문가'
+        title = project_title or 'ISO 인증 프로젝트'
         try:
             price_text = f"{int(proposal_price):,}원" if proposal_price else '제안서 참조'
         except (TypeError, ValueError):
             price_text = '제안서 참조'
-        duration_text = html.escape(str(proposal_duration)) if proposal_duration else '제안서 참조'
+        duration_text = str(proposal_duration) if proposal_duration else '제안서 참조'
 
-        subject = f"[InsightMatch] {consultant_name}님이 제안서를 보냈습니다"
-
-        html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {{ font-family: 'Pretendard', -apple-system, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 30px; border-radius: 12px 12px 0 0; text-align: center; }}
-        .content {{ background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; }}
-        .info-box {{ background: white; padding: 20px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #10b981; }}
-        .label {{ color: #64748b; font-size: 0.85rem; margin-bottom: 4px; }}
-        .value {{ font-weight: 600; color: #1e293b; }}
-        .cta-button {{ display: inline-block; background: #10b981; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 20px; }}
-        .next-steps {{ background: white; padding: 20px; border-radius: 8px; margin-top: 20px; }}
-        .step {{ display: flex; align-items: flex-start; gap: 12px; margin: 12px 0; }}
-        .step-number {{ background: #10b981; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; flex-shrink: 0; }}
-        .footer {{ text-align: center; color: #94a3b8; font-size: 0.85rem; padding: 20px; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div style="font-size: 3rem; margin-bottom: 15px;">📄</div>
-            <h1 style="margin: 0; font-size: 1.5rem;">제안서가 도착했습니다</h1>
-        </div>
-
-        <div class="content">
-            <p>안녕하세요, {safe_company}님.</p>
-            <p><strong>{safe_consultant}</strong>님이 요청하신 프로젝트에 대한 제안서를 보냈습니다.</p>
-
-            <div class="info-box">
-                <div class="label">프로젝트</div>
-                <div class="value">{safe_title}</div>
-            </div>
-
-            <div class="info-box">
-                <div class="label">제안 전문가</div>
-                <div class="value">{safe_consultant}</div>
-            </div>
-
-            <div class="info-box">
-                <div class="label">제안 금액</div>
-                <div class="value">{price_text}</div>
-            </div>
-
-            <div class="info-box">
-                <div class="label">예상 기간</div>
-                <div class="value">{duration_text}</div>
-            </div>
-
-            <div class="next-steps">
-                <h3 style="margin-top: 0; color: #1e293b;">다음 단계</h3>
-                <div class="step">
-                    <span class="step-number">1</span>
-                    <span>대시보드에서 제안서 상세 내용과 첨부 파일을 확인하세요</span>
-                </div>
-                <div class="step">
-                    <span class="step-number">2</span>
-                    <span>다른 전문가의 제안과 비교해보세요</span>
-                </div>
-                <div class="step">
-                    <span class="step-number">3</span>
-                    <span>가장 적합한 전문가를 선택하고 계약을 진행하세요</span>
-                </div>
-            </div>
-
-            <p style="text-align: center;">
-                <a href="{dashboard_url}" class="cta-button">제안서 확인하기 →</a>
-            </p>
-
-            <p style="margin-top: 25px; color: #64748b; font-size: 0.9rem;">
-                💡 문의사항이 있으시면 <a href="mailto:openbrain.main@gmail.com">openbrain.main@gmail.com</a>으로 연락주세요.
-            </p>
-        </div>
-
-        <div class="footer">
-            <p>이 이메일은 InsightMatch 플랫폼에서 발송되었습니다.</p>
-            <p>© 2025 OpenBrain Limited. All rights reserved.</p>
-        </div>
-    </div>
-</body>
-</html>
-"""
-
-        return self.send_email(company_email, subject, html_content)
+        subject = f"[InsightMatch] {consultant}님이 제안서를 보냈습니다"
+        return self._send_rendered(company_email, subject, layout.render_email(
+            subject=subject,
+            eyebrow='제안서 도착',
+            heading=f'{consultant}님이 제안서를 보냈습니다',
+            preheader=f'{title} · 제안 금액 {price_text}',
+            body=[
+                layout.paragraph(f'{company}님, 안녕하세요.'),
+                layout.paragraph('요청하신 프로젝트에 제안서가 도착했습니다.'),
+                layout.info_table([
+                    ('프로젝트', title),
+                    ('제안 전문가', consultant),
+                    ('제안 금액', price_text),
+                    ('예상 기간', duration_text),
+                ]),
+                layout.steps('다음 순서', [
+                    '대시보드에서 제안서 내용과 첨부 파일을 확인하세요.',
+                    '다른 전문가의 제안이 있다면 함께 비교해 보세요.',
+                    '마음에 드는 제안을 고르면 계약 단계로 넘어갑니다.',
+                ]),
+            ],
+            cta=('제안서 보기', dashboard_url),
+        ))
 
     # 컨설턴트 심사 결과 4개 이벤트의 메일 문안.
     # 인앱 알림 type 값(consultant_approved 등)을 그대로 키로 쓴다.
     REVIEW_RESULT_TEMPLATES = {
         'consultant_approved': {
             'subject': '[InsightMatch] 전문가 등록이 승인되었습니다',
-            'icon': '🎉',
-            'heading': '등록 승인 완료',
-            'gradient': 'linear-gradient(135deg, #10b981, #059669)',
-            'accent': '#10b981',
-            'body': '제출해주신 전문가 프로필 검토가 완료되어 <strong>등록이 승인</strong>되었습니다. '
-                    '이제 기업의 견적 요청 매칭 대상에 포함됩니다.',
-            'cta': '대시보드로 이동 →',
+            'eyebrow': '등록 승인',
+            'tone': 'default',
+            'heading': '전문가 등록이 승인되었습니다',
+            'body': '보내 주신 프로필 검토를 마쳤습니다. 이제 기업이 견적을 요청하면 '
+                    '조건이 맞는 경우 매칭 후보로 추천됩니다.',
+            'cta': '대시보드 열기',
         },
         'consultant_rejected': {
             'subject': '[InsightMatch] 전문가 등록 검토 결과 안내',
-            'icon': '📝',
-            'heading': '등록 검토 결과 안내',
-            'gradient': 'linear-gradient(135deg, #f59e0b, #d97706)',
-            'accent': '#f59e0b',
-            'body': '제출해주신 전문가 프로필을 검토했으나 아래 사유로 이번에는 승인해드리지 못했습니다. '
-                    '보완 후 다시 등록해주시면 재검토해드립니다.',
-            'cta': '프로필 보완하고 재등록하기 →',
+            'eyebrow': '검토 결과',
+            'tone': 'warn',
+            'heading': '이번에는 등록을 승인하지 못했습니다',
+            'body': '보내 주신 프로필을 검토했지만 아래 사유로 이번에는 승인하지 못했습니다. '
+                    '내용을 보완해 다시 등록해 주시면 다시 검토하겠습니다.',
+            'cta': '프로필 보완하기',
         },
         'consultant_verification_revoked': {
             'subject': '[InsightMatch] 전문가 인증 자격이 해제되었습니다',
-            'icon': '⚠️',
-            'heading': '인증 자격 해제 안내',
-            'gradient': 'linear-gradient(135deg, #f59e0b, #d97706)',
-            'accent': '#f59e0b',
-            'body': '아래 사유로 전문가 인증 자격이 해제되었습니다. '
-                    '해제 기간에는 신규 매칭 대상에서 제외되며, 사유가 해소되면 재심사를 요청하실 수 있습니다.',
-            'cta': '대시보드에서 확인하기 →',
+            'eyebrow': '인증 해제',
+            'tone': 'alert',
+            'heading': '전문가 인증이 해제되었습니다',
+            'body': '아래 사유로 전문가 인증이 해제되었습니다. 해제된 동안에는 새 매칭 후보에서 빠지며, '
+                    '사유가 해결되면 재심사를 요청하실 수 있습니다.',
+            'cta': '대시보드에서 확인하기',
         },
         'consultant_restored': {
             'subject': '[InsightMatch] 전문가 프로필이 재검토 대기 상태가 되었습니다',
-            'icon': '🔄',
-            'heading': '재검토 대기 상태로 전환',
-            'gradient': 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-            'accent': '#6366f1',
-            'body': '전문가 프로필이 <strong>재검토 대기</strong> 상태로 전환되었습니다. '
-                    '관리자 검토가 끝나면 결과를 다시 이메일로 안내드립니다.',
-            'cta': '대시보드에서 확인하기 →',
+            'eyebrow': '재검토 대기',
+            'tone': 'neutral',
+            'heading': '프로필이 재검토 대기 상태가 되었습니다',
+            'body': '전문가 프로필을 다시 검토하기로 했습니다. 검토가 끝나면 결과를 메일로 알려 드리겠습니다.',
+            'cta': '대시보드에서 확인하기',
         },
     }
 
@@ -502,11 +344,10 @@ class EmailService:
         consultant_name: str,
         notification_type: str,
         reason: Optional[str] = None,
-        dashboard_url: str = "https://www.insightmatch.com/dashboard.html",
+        dashboard_url: Optional[str] = None,
         register_url: Optional[str] = None
     ) -> Dict:
-        """
-        컨설턴트 심사 결과(승인·거절·자격해제·복원) 이메일 발송
+        """컨설턴트 심사 결과(승인·거절·자격해제·복원) 메일.
 
         consultant_register.html 과 admin.html 이 이미 사용자에게
         "승인 완료 시 이메일로 안내드립니다" / "거부 사유는 이메일로 전달됩니다"
@@ -514,7 +355,7 @@ class EmailService:
 
         Args:
             notification_type: REVIEW_RESULT_TEMPLATES 의 키
-            reason: 거절·자격해제 사유 (본문에 포함)
+            reason: 거절·자격해제 사유 (관리자 입력 — 본문에 이스케이프해 넣는다)
         """
         template = self.REVIEW_RESULT_TEMPLATES.get(notification_type)
         if not template:
@@ -522,67 +363,27 @@ class EmailService:
             print(f"[EmailService] 알 수 없는 심사 결과 유형: {notification_type}")
             return {'success': False, 'message': f'Unknown review result type: {notification_type}'}
 
-        safe_name = html.escape(str(consultant_name or '전문가'))
-        # 관리자가 입력한 사유가 그대로 HTML 본문에 들어가므로 이스케이프한다.
-        safe_reason = html.escape(str(reason)).replace('\n', '<br>') if reason else ''
-
-        reason_block = f"""
-            <div class="reason-box">
-                <div class="label">사유</div>
-                <div class="value">{safe_reason}</div>
-            </div>
-""" if safe_reason else ''
+        dashboard_url = dashboard_url or f'{layout.site_url()}/dashboard.html'
+        name = consultant_name or '전문가'
+        body = [
+            layout.paragraph(f'{name}님, 안녕하세요.'),
+            layout.paragraph(template['body']),
+        ]
+        if reason:
+            body.append(layout.notice('사유', [reason], tone=template['tone']))
 
         # 거절은 '재등록' 이 다음 행동이므로 등록 페이지로 보낸다.
         action_url = register_url if (notification_type == 'consultant_rejected' and register_url) else dashboard_url
 
-        html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {{ font-family: 'Pretendard', -apple-system, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: {template['gradient']}; color: white; padding: 30px; border-radius: 12px 12px 0 0; text-align: center; }}
-        .content {{ background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; }}
-        .reason-box {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid {template['accent']}; }}
-        .label {{ color: #64748b; font-size: 0.85rem; margin-bottom: 4px; }}
-        .value {{ font-weight: 600; color: #1e293b; }}
-        .cta-button {{ display: inline-block; background: {template['accent']}; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 20px; }}
-        .footer {{ text-align: center; color: #94a3b8; font-size: 0.85rem; padding: 20px; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div style="font-size: 3rem; margin-bottom: 15px;">{template['icon']}</div>
-            <h1 style="margin: 0; font-size: 1.5rem;">{template['heading']}</h1>
-        </div>
-
-        <div class="content">
-            <p>안녕하세요, {safe_name}님.</p>
-            <p>{template['body']}</p>
-{reason_block}
-            <p style="text-align: center;">
-                <a href="{action_url}" class="cta-button">{template['cta']}</a>
-            </p>
-
-            <p style="margin-top: 25px; color: #64748b; font-size: 0.9rem;">
-                💡 문의사항이 있으시면 <a href="mailto:openbrain.main@gmail.com">openbrain.main@gmail.com</a>으로 연락주세요.
-            </p>
-        </div>
-
-        <div class="footer">
-            <p>이 이메일은 InsightMatch 플랫폼에서 발송되었습니다.</p>
-            <p>© 2025 OpenBrain Limited. All rights reserved.</p>
-        </div>
-    </div>
-</body>
-</html>
-"""
-
-        return self.send_email(consultant_email, template['subject'], html_content)
+        return self._send_rendered(consultant_email, template['subject'], layout.render_email(
+            subject=template['subject'],
+            eyebrow=template['eyebrow'],
+            tone=template['tone'],
+            heading=template['heading'],
+            preheader=template['body'][:80],
+            body=body,
+            cta=(template['cta'], action_url),
+        ))
 
     def send_password_reset_email(
         self,
@@ -590,94 +391,28 @@ class EmailService:
         user_name: str,
         reset_link: str
     ) -> Dict:
-        """
-        비밀번호 재설정 이메일 발송
-        """
+        """비밀번호 재설정 메일."""
         subject = "[InsightMatch] 비밀번호 재설정 요청"
-        
-        html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {{ font-family: 'Pretendard', -apple-system, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 30px; border-radius: 12px 12px 0 0; text-align: center; }}
-        .content {{ background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; }}
-        .cta-button {{ display: inline-block; background: #10b981; color: white; padding: 16px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 20px 0; }}
-        .warning {{ background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }}
-        .footer {{ text-align: center; color: #94a3b8; font-size: 0.85rem; padding: 20px; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1 style="margin: 0; font-size: 1.5rem;">🔐 비밀번호 재설정</h1>
-        </div>
-        
-        <div class="content">
-            <p>안녕하세요, {user_name}님.</p>
-            <p>InsightMatch 계정의 비밀번호 재설정 요청이 접수되었습니다.</p>
-            
-            <p style="text-align: center;">
-                <a href="{reset_link}" class="cta-button">새 비밀번호 설정하기</a>
-            </p>
-            
-            <div class="warning">
-                <strong>⚠️ 주의사항</strong>
-                <ul style="margin: 10px 0 0; padding-left: 20px;">
-                    <li>이 링크는 <strong>30분간</strong> 유효합니다.</li>
-                    <li>본인이 요청하지 않았다면 이 이메일을 무시하세요.</li>
-                </ul>
-            </div>
-            
-            <p style="color: #64748b; font-size: 0.9rem; margin-top: 25px;">
-                문의사항이 있으시면 <a href="mailto:openbrain.main@gmail.com">openbrain.main@gmail.com</a>으로 연락주세요.
-            </p>
-        </div>
-        
-        <div class="footer">
-            <p>이 이메일은 InsightMatch 플랫폼에서 발송되었습니다.</p>
-            <p>© 2025 OpenBrain Limited. All rights reserved.</p>
-        </div>
-    </div>
-</body>
-</html>
-"""
-        
-        return self.send_email(to_email, subject, html_content)
-
-    @staticmethod
-    def _digest_rows(groups: List[Dict], accent: str) -> str:
-        """다이제스트 표의 행 HTML.
-
-        메시지·경로에는 사용자 입력이 그대로 섞여 들어온다(예: 잘못된 입력값이
-        예외 메시지에 포함된 경우). 관리자 메일함에서 렌더링되므로 반드시
-        이스케이프한다.
-        """
-        if not groups:
-            return (
-                '<tr><td colspan="3" style="padding:12px 8px; color:#94a3b8; '
-                'font-size:0.85rem;">없음</td></tr>'
-            )
-
-        rows = []
-        for group in groups:
-            exc_type = html.escape(str(group.get('excType') or '-'))
-            message = html.escape(str(group.get('message') or '')[:200])
-            path = html.escape(str(group.get('path') or '-'))
-            count = html.escape(str(group.get('count') or 0))
-            rows.append(f"""
-                <tr style="border-bottom:1px solid #e2e8f0;">
-                    <td style="padding:10px 8px; vertical-align:top;">
-                        <div style="font-weight:600; color:{accent};">{exc_type}</div>
-                        <div style="font-size:0.8rem; color:#64748b;">{path}</div>
-                    </td>
-                    <td style="padding:10px 8px; font-size:0.85rem; color:#334155; word-break:break-word;">{message}</td>
-                    <td style="padding:10px 8px; text-align:right; font-weight:700;">{count}</td>
-                </tr>""")
-        return ''.join(rows)
+        return self._send_rendered(to_email, subject, layout.render_email(
+            subject=subject,
+            eyebrow='계정 보안',
+            tone='neutral',
+            heading='비밀번호를 다시 설정해 주세요',
+            preheader='링크는 30분 동안 쓸 수 있습니다.',
+            body=[
+                layout.paragraph(f'{user_name or "회원"}님, 안녕하세요.'),
+                layout.paragraph('InsightMatch 계정의 비밀번호 재설정 요청을 받았습니다. '
+                                 '아래 버튼을 눌러 새 비밀번호를 정해 주세요.'),
+            ],
+            cta=('새 비밀번호 설정하기', reset_link),
+            after_cta=[
+                layout.notice('확인해 주세요', [
+                    '이 링크는 30분 동안만 쓸 수 있습니다.',
+                    '직접 요청하지 않으셨다면 이 메일은 무시하셔도 됩니다. 비밀번호는 바뀌지 않습니다.',
+                ]),
+                layout.fallback_link(reset_link),
+            ],
+        ))
 
     def send_error_digest(
         self,
@@ -688,91 +423,51 @@ class EmailService:
         warning_count: int,
         error_groups: List[Dict],
         warning_groups: List[Dict],
-        admin_url: str = "https://www.insightmatch.com/admin.html"
+        admin_url: Optional[str] = None
     ) -> Dict:
         """관리자에게 보내는 오류 일일 다이제스트.
 
-        ErrorLog 는 관리자가 화면을 열어봐야만 보인다. 즉 "보러 가지 않으면
-        아무 일도 없는 것처럼 보인다". 하루 한 번 요약을 밀어넣어야 관측성이
-        실제로 작동한다. 단, 0건일 때는 호출부에서 발송을 건너뛴다 —
-        매일 오는 '이상 없음' 메일은 곧 읽히지 않고, 그러면 문제가 생긴 날의
-        메일까지 함께 묻힌다.
+        ErrorLog 는 관리자가 화면을 열어봐야만 보인다. 하루 한 번 요약을 밀어넣어야
+        관측성이 실제로 작동한다. 0건일 때는 호출부에서 발송을 건너뛴다 —
+        매일 오는 '이상 없음' 메일은 곧 읽히지 않고, 문제가 생긴 날의 메일까지 묻힌다.
 
         미처리 예외(error)와 부분 실패(warning)를 나눠 보여준다.
-        한 칸에 섞으면 500 이 늘었는지 메일만 막혔는지 구분할 수 없다.
+        메시지·경로에는 사용자 입력이 섞여 들어오므로 표 부품이 이스케이프한다.
         """
-        safe_name = html.escape(str(admin_name or '관리자'))
+        admin_url = admin_url or f'{layout.site_url()}/admin.html'
         subject = f"[InsightMatch] 오류 요약 — 예외 {error_count}건 / 부분 실패 {warning_count}건"
 
-        html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {{ font-family: 'Pretendard', -apple-system, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 640px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: linear-gradient(135deg, #ef4444, #f97316); color: white; padding: 26px; border-radius: 12px 12px 0 0; text-align: center; }}
-        .content {{ background: #f8fafc; padding: 26px; border: 1px solid #e2e8f0; }}
-        .stat-row {{ display: flex; gap: 12px; margin: 0 0 22px; }}
-        .stat {{ flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; text-align: center; }}
-        .stat .num {{ font-size: 1.8rem; font-weight: 800; }}
-        .stat .label {{ font-size: 0.8rem; color: #64748b; }}
-        table {{ width: 100%; border-collapse: collapse; background: white; border: 1px solid #e2e8f0; border-radius: 8px; }}
-        th {{ text-align: left; font-size: 0.78rem; color: #64748b; padding: 8px; border-bottom: 1px solid #e2e8f0; }}
-        h3 {{ font-size: 0.95rem; margin: 22px 0 8px; }}
-        .cta-button {{ display: inline-block; background: #ef4444; color: white; padding: 13px 26px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 22px; }}
-        .footer {{ text-align: center; color: #94a3b8; font-size: 0.85rem; padding: 20px; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div style="font-size: 2.4rem; margin-bottom: 8px;">🚨</div>
-            <h1 style="margin: 0; font-size: 1.35rem;">지난 {hours}시간 오류 요약</h1>
-        </div>
+        def _rows(groups):
+            rows = []
+            for g in groups or []:
+                kind = layout.Safe(
+                    f'<strong>{layout.esc(g.get("excType") or "-")}</strong><br>'
+                    f'<span style="font-size:12px; color:{layout.MUTED};">{layout.esc(g.get("path") or "-")}</span>'
+                )
+                rows.append([kind, str(g.get('message') or '')[:200], g.get('count') or 0])
+            return rows
 
-        <div class="content">
-            <p>{safe_name}님, 지난 {hours}시간 동안 기록된 오류입니다.</p>
-
-            <div class="stat-row">
-                <div class="stat">
-                    <div class="num" style="color:#ef4444;">{error_count}</div>
-                    <div class="label">미처리 예외 (500)</div>
-                </div>
-                <div class="stat">
-                    <div class="num" style="color:#f59e0b;">{warning_count}</div>
-                    <div class="label">부분 실패 (메일 등)</div>
-                </div>
-            </div>
-
-            <h3 style="color:#ef4444;">미처리 예외 — 요청이 실패했습니다</h3>
-            <table>
-                <thead><tr><th>예외 / 경로</th><th>메시지</th><th style="text-align:right;">횟수</th></tr></thead>
-                <tbody>{self._digest_rows(error_groups, '#ef4444')}</tbody>
-            </table>
-
-            <h3 style="color:#f59e0b;">부분 실패 — 요청은 성공했지만 후속 작업이 실패했습니다</h3>
-            <table>
-                <thead><tr><th>종류 / 경로</th><th>메시지</th><th style="text-align:right;">횟수</th></tr></thead>
-                <tbody>{self._digest_rows(warning_groups, '#f59e0b')}</tbody>
-            </table>
-
-            <p style="text-align: center;">
-                <a href="{admin_url}" class="cta-button">관리자 화면에서 스택 트레이스 보기 →</a>
-            </p>
-        </div>
-
-        <div class="footer">
-            <p>이 이메일은 InsightMatch 일일 배치에서 자동 발송되었습니다.</p>
-            <p>© 2025 OpenBrain Limited. All rights reserved.</p>
-        </div>
-    </div>
-</body>
-</html>
-"""
-
-        return self.send_email(to_email, subject, html_content)
+        return self._send_rendered(to_email, subject, layout.render_email(
+            subject=subject,
+            eyebrow='일일 오류 요약',
+            tone='alert' if error_count else 'warn',
+            heading=f'지난 {hours}시간 오류 요약',
+            preheader=f'미처리 예외 {error_count}건, 부분 실패 {warning_count}건',
+            body=[
+                layout.paragraph(f'{admin_name or "관리자"}님, 지난 {hours}시간 동안 기록된 오류입니다.'),
+                layout.stat_row([
+                    ('미처리 예외 (500)', error_count, 'alert'),
+                    ('부분 실패 (메일 등)', warning_count, 'warn'),
+                ]),
+                layout.data_table('미처리 예외 — 요청이 실패했습니다',
+                                  ['예외 / 경로', '메시지', '횟수'], _rows(error_groups), tone='alert'),
+                layout.data_table('부분 실패 — 요청은 성공했지만 후속 작업이 실패했습니다',
+                                  ['종류 / 경로', '메시지', '횟수'], _rows(warning_groups), tone='warn'),
+            ],
+            cta=('관리자 화면에서 스택 트레이스 보기', admin_url),
+            footer_note='일일 배치가 자동으로 보낸 메일입니다.',
+            audience='admin',
+        ))
 
     # ------------------------------------------------------------------
     # 통지·리마인더 (L1-B)
@@ -780,41 +475,7 @@ class EmailService:
     # 아래 메일은 전부 **거래적(transactional)** 통지다. 회원 본인의 계정·
     # 프로젝트 진행 상황에 대한 안내이며 광고·홍보 문구를 넣지 않는다.
     # 정보통신망법상 광고성 정보는 별도 수신동의가 필요하므로, 성격이
-    # 오해되지 않도록 본문 하단에 안내 문구를 명시한다.
-    TRANSACTIONAL_NOTICE = (
-        '이 메일은 회원님의 InsightMatch 활동(계정·프로젝트 진행 상황)에 대한 안내입니다. '
-        '광고성 정보가 아닙니다.'
-    )
-
-    def _footer(self, extra: Optional[str] = None) -> str:
-        """모든 통지 메일 공통 푸터 (거래적 메일임을 명시)."""
-        extra_line = f'<p>{extra}</p>' if extra else ''
-        return f"""
-        <div class="footer">
-            <p>{self.TRANSACTIONAL_NOTICE}</p>
-            {extra_line}
-            <p>© 2025 OpenBrain Limited. All rights reserved.</p>
-        </div>"""
-
-    @staticmethod
-    def _base_style(accent: str, gradient: str) -> str:
-        """통지 메일 공통 스타일. 기존 템플릿들과 같은 톤을 유지한다."""
-        return f"""
-        body {{ font-family: 'Pretendard', -apple-system, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 620px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: {gradient}; color: white; padding: 26px; border-radius: 12px 12px 0 0; text-align: center; }}
-        .content {{ background: #f8fafc; padding: 26px; border: 1px solid #e2e8f0; }}
-        .item {{ background: white; border: 1px solid #e2e8f0; border-left: 4px solid {accent}; border-radius: 8px; padding: 14px 16px; margin: 0 0 12px; }}
-        .item .t {{ font-weight: 700; color: #1e293b; margin-bottom: 4px; }}
-        .item .m {{ font-size: 0.9rem; color: #475569; }}
-        .item .go {{ display: inline-block; margin-top: 8px; font-size: 0.85rem; color: {accent}; text-decoration: none; font-weight: 600; }}
-        .kv {{ background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px 16px; margin: 16px 0; }}
-        .kv div {{ padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }}
-        .kv div:last-child {{ border-bottom: none; }}
-        .kv .label {{ color: #64748b; display: inline-block; min-width: 92px; }}
-        .cta-button {{ display: inline-block; background: {accent}; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 20px; }}
-        .note {{ background: #fef3c7; border-left: 4px solid #f59e0b; padding: 14px; margin: 20px 0; border-radius: 4px; font-size: 0.9rem; }}
-        .footer {{ text-align: center; color: #94a3b8; font-size: 0.8rem; padding: 20px; line-height: 1.5; }}"""
+    # 오해되지 않도록 푸터에 안내 문구(layout.TRANSACTIONAL_NOTICE)를 넣는다.
 
     def send_notification_digest(
         self,
@@ -822,81 +483,46 @@ class EmailService:
         user_name: Optional[str],
         items: List[Dict],
         total_count: int,
-        dashboard_url: str = "https://www.insightmatch.com/dashboard.html"
+        dashboard_url: Optional[str] = None
     ) -> Dict:
         """읽지 않은 인앱 알림을 **사용자당 1통**으로 묶어 보낸다.
 
-        알림은 지금까지 인앱 전용이라 사용자가 사이트에 접속하지 않으면 아무것도
-        모르는 상태였다. 이벤트마다 메일 코드를 붙이는 대신, 이미 잘 쌓이고 있는
-        Notification 행을 하루 한 번 메일로 승격시킨다.
-
-        묶는 것이 핵심이다. 미열람이 5건일 때 메일 5통을 보내면 알림 자체가
-        소음이 되어 정작 중요한 메일까지 무시된다.
+        이벤트마다 메일 코드를 붙이는 대신, 이미 잘 쌓이고 있는 Notification 행을
+        하루 한 번 메일로 승격시킨다. 계약 서명·프로젝트 완료·역제안 같은 이벤트도
+        이 메일로 나간다. 묶는 것이 핵심이다 — 5건에 5통을 보내면 알림 자체가 소음이 된다.
 
         Args:
             items: [{'title', 'message', 'link'}] — 본문에 나열할 알림 (이미 잘려 있음)
             total_count: 실제 미열람 총건수 (items 보다 많으면 '외 N건' 으로 표기)
         """
-        safe_name = html.escape(str(user_name or '회원'))
+        dashboard_url = dashboard_url or f'{layout.site_url()}/dashboard.html'
         subject = (
             f"[InsightMatch] 확인하지 않은 알림 {total_count}건이 있습니다"
             if total_count > 1 else
             "[InsightMatch] 확인하지 않은 알림이 있습니다"
         )
-
-        blocks = []
+        body = [layout.paragraph(f'{user_name or "회원"}님, 아직 확인하지 않으신 알림이 있어 모아서 보내 드립니다.')]
         for item in items:
-            # 알림 제목·본문에는 프로젝트명·상대방 이름 등 사용자 입력이 그대로
-            # 들어간다. 메일 클라이언트에서 렌더링되므로 반드시 이스케이프한다.
-            title = html.escape(str(item.get('title') or '알림'))
-            message = html.escape(str(item.get('message') or '')[:300])
-            link = item.get('link') or ''
-            go = (
-                f'<a class="go" href="{html.escape(str(link), quote=True)}">바로 확인하기 →</a>'
-                if link else ''
-            )
-            blocks.append(f"""
-            <div class="item">
-                <div class="t">{title}</div>
-                <div class="m">{message}</div>
-                {go}
-            </div>""")
-
+            body.append(layout.item_card(
+                item.get('title') or '알림',
+                str(item.get('message') or '')[:300],
+                item.get('link') or None,
+            ))
         remaining = max(total_count - len(items), 0)
-        more_block = (
-            f'<p style="color:#64748b; font-size:0.9rem;">외 {remaining}건이 더 있습니다.</p>'
-            if remaining else ''
-        )
+        if remaining:
+            body.append(layout.paragraph(f'외 {remaining}건이 더 있습니다.', muted=True, size=14))
 
-        html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>{self._base_style('#6366f1', 'linear-gradient(135deg, #6366f1, #8b5cf6)')}</style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div style="font-size: 2.2rem; margin-bottom: 8px;">🔔</div>
-            <h1 style="margin: 0; font-size: 1.3rem;">확인하지 않은 알림 {total_count}건</h1>
-        </div>
-
-        <div class="content">
-            <p>{safe_name}님, 아직 확인하지 않으신 알림이 있어 안내드립니다.</p>
-            {''.join(blocks)}
-            {more_block}
-            <p style="text-align: center;">
-                <a href="{dashboard_url}" class="cta-button">대시보드에서 전체 보기 →</a>
-            </p>
-        </div>
-{self._footer('알림을 대시보드에서 확인하시면 같은 내용을 다시 보내드리지 않습니다.')}
-    </div>
-</body>
-</html>
-"""
-
-        return self.send_email(to_email, subject, html_content)
+        first_title = (items[0].get('title') if items else None) or '새 알림'
+        return self._send_rendered(to_email, subject, layout.render_email(
+            subject=subject,
+            eyebrow='알림 모아보기',
+            tone='neutral',
+            heading=f'확인하지 않은 알림 {total_count}건',
+            preheader=str(first_title)[:80],
+            body=body,
+            cta=('대시보드에서 전체 보기', dashboard_url),
+            footer_note='대시보드에서 알림을 확인하시면 같은 내용을 다시 보내 드리지 않습니다.',
+        ))
 
     def send_reminder_notice(
         self,
@@ -907,46 +533,26 @@ class EmailService:
         action_url: str,
         cta_label: str = "대시보드에서 처리하기"
     ) -> Dict:
-        """"당신이 늦고 있다" 는 리마인더 메일 (미서명 계약 / 무응답 견적 요청).
+        """처리를 기다리는 건이 있다는 리마인더 메일 (미서명 계약 / 무응답 견적 요청 / 리뷰 요청).
 
-        이 두 건은 성격상 하루라도 빨리 닿아야 하므로, 미열람 승격을 기다리지 않고
-        인앱 알림을 만드는 그 시점에 바로 보낸다. 호출부가 Notification.emailed_at
-        을 채우므로 승격 배치가 같은 건을 다시 보내지 않는다.
+        하루라도 빨리 닿아야 하므로 미열람 승격을 기다리지 않고 인앱 알림을 만드는
+        시점에 바로 보낸다. 호출부가 Notification.emailed_at 을 채우므로 승격 배치가
+        같은 건을 다시 보내지 않는다.
         """
-        safe_name = html.escape(str(user_name or '회원'))
-        safe_title = html.escape(str(title or '처리가 필요한 항목이 있습니다'))
-        safe_message = html.escape(str(message or '')).replace('\n', '<br>')
-
-        html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>{self._base_style('#f59e0b', 'linear-gradient(135deg, #f59e0b, #f97316)')}</style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div style="font-size: 2.2rem; margin-bottom: 8px;">⏰</div>
-            <h1 style="margin: 0; font-size: 1.3rem;">{safe_title}</h1>
-        </div>
-
-        <div class="content">
-            <p>{safe_name}님, 아래 건이 처리를 기다리고 있습니다.</p>
-            <div class="item">
-                <div class="m">{safe_message}</div>
-            </div>
-            <p style="text-align: center;">
-                <a href="{action_url}" class="cta-button">{html.escape(str(cta_label))}</a>
-            </p>
-        </div>
-{self._footer()}
-    </div>
-</body>
-</html>
-"""
-
-        return self.send_email(to_email, f"[InsightMatch] {safe_title}", html_content)
+        safe_title = str(title or '처리가 필요한 항목이 있습니다')
+        subject = f"[InsightMatch] {safe_title}"
+        return self._send_rendered(to_email, subject, layout.render_email(
+            subject=subject,
+            eyebrow='처리 대기',
+            tone='warn',
+            heading=safe_title,
+            preheader=str(message or '')[:80],
+            body=[
+                layout.paragraph(f'{user_name or "회원"}님, 아래 건이 처리를 기다리고 있습니다.'),
+                layout.notice(None, [message or ''], tone='warn'),
+            ],
+            cta=(cta_label, action_url),
+        ))
 
     def send_admin_alert(
         self,
@@ -956,59 +562,27 @@ class EmailService:
         heading: str,
         summary: str,
         rows: Optional[List] = None,
-        action_url: str = "https://www.insightmatch.com/admin.html",
-        cta_label: str = "관리자 화면에서 보기 →"
+        action_url: Optional[str] = None,
+        cta_label: str = "관리자 화면에서 보기"
     ) -> Dict:
-        """관리자에게 즉시 알려야 하는 운영 이벤트 (예: 신규 컨설턴트 심사 대기).
-
-        관리자가 화면을 직접 새로고침해야만 알 수 있으면 승인이 늦어지고,
-        컨설턴트는 방치됐다고 느낀다.
+        """관리자에게 바로 알려야 하는 운영 이벤트 (신규 컨설턴트 심사 대기, 새 문의 등).
 
         Args:
-            rows: [(라벨, 값)] — 표 형태로 붙일 상세. 값은 전부 이스케이프한다.
+            rows: [(라벨, 값)] — 표로 붙일 상세. 값은 표 부품이 이스케이프한다.
         """
-        safe_admin = html.escape(str(admin_name or '관리자'))
-        safe_heading = html.escape(str(heading or '운영 알림'))
-        safe_summary = html.escape(str(summary or '')).replace('\n', '<br>')
-
-        row_html = ''
-        if rows:
-            cells = []
-            for label, value in rows:
-                cells.append(
-                    f'<div><span class="label">{html.escape(str(label))}</span>'
-                    f'<strong>{html.escape(str(value if value not in (None, "") else "-"))}</strong></div>'
-                )
-            row_html = f'<div class="kv">{"".join(cells)}</div>'
-
-        html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>{self._base_style('#0ea5e9', 'linear-gradient(135deg, #0ea5e9, #6366f1)')}</style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div style="font-size: 2.2rem; margin-bottom: 8px;">🛎️</div>
-            <h1 style="margin: 0; font-size: 1.3rem;">{safe_heading}</h1>
-        </div>
-
-        <div class="content">
-            <p>{safe_admin}님, {safe_summary}</p>
-            {row_html}
-            <p style="text-align: center;">
-                <a href="{action_url}" class="cta-button">{html.escape(str(cta_label))}</a>
-            </p>
-        </div>
-{self._footer('이 메일은 InsightMatch 운영자에게 발송되는 관리용 통지입니다.')}
-    </div>
-</body>
-</html>
-"""
-
-        return self.send_email(to_email, f"[InsightMatch] {subject_label}", html_content)
+        action_url = action_url or f'{layout.site_url()}/admin.html'
+        return self._send_rendered(to_email, f"[InsightMatch] {subject_label}", layout.render_email(
+            subject=f"[InsightMatch] {subject_label}",
+            eyebrow='운영 알림',
+            tone='neutral',
+            heading=heading or '운영 알림',
+            preheader=str(summary or '')[:80],
+            body=[
+                layout.paragraph(f'{admin_name or "관리자"}님, {summary or ""}'),
+            ] + ([layout.info_table(rows)] if rows else []),
+            cta=(cta_label, action_url),
+            audience='admin',
+        ))
 
     def send_consultant_invite(
         self,
@@ -1021,66 +595,33 @@ class EmailService:
     ) -> Dict:
         """컨설턴트 초대 링크 메일.
 
-        지금까지는 관리자가 발급된 URL 을 복사해 카톡 등으로 직접 전달해야 했다.
-        발급 시점에 메일로 함께 보낸다. 단, 이 메일 실패가 초대 생성 자체를
-        실패시키면 안 된다 — 복사·직접 전달 경로는 그대로 살아 있어야 한다.
+        발급 시점에 메일로 함께 보낸다. 이 메일 실패가 초대 생성 자체를 실패시키면
+        안 된다 — 복사·직접 전달 경로는 그대로 살아 있어야 한다.
         """
-        safe_name = html.escape(str(invite_name or '전문가'))
-        safe_expires = html.escape(str(expires_at_text or ''))
-        safe_url = html.escape(str(invite_url or ''), quote=True)
-        # 관리자가 입력한 메모가 본문에 들어간다.
-        safe_memo = html.escape(str(memo)).replace('\n', '<br>') if memo else ''
-        memo_block = (
-            f'<div class="item"><div class="t">전달 사항</div><div class="m">{safe_memo}</div></div>'
-            if safe_memo else ''
-        )
+        body = [
+            layout.paragraph(f'{invite_name or "전문가"}님, 안녕하세요.'),
+            layout.paragraph('InsightMatch 운영팀에서 ISO 인증 전문가 등록을 부탁드리려고 초대 링크를 보내 드립니다. '
+                             '아래 버튼을 눌러 프로필을 등록해 주세요.'),
+        ]
+        if memo:
+            body.append(layout.notice('운영팀 전달 사항', [memo]))
 
-        html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>{self._base_style('#10b981', 'linear-gradient(135deg, #10b981, #059669)')}</style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div style="font-size: 2.2rem; margin-bottom: 8px;">✉️</div>
-            <h1 style="margin: 0; font-size: 1.3rem;">InsightMatch 전문가 등록 초대</h1>
-        </div>
-
-        <div class="content">
-            <p>안녕하세요, {safe_name}님.</p>
-            <p>InsightMatch 운영팀이 ISO 인증 전문가 등록을 위해 초대 링크를 보내드립니다.
-               아래 버튼을 눌러 프로필을 등록해주세요.</p>
-            {memo_block}
-            <p style="text-align: center;">
-                <a href="{safe_url}" class="cta-button">전문가 등록 시작하기</a>
-            </p>
-
-            <div class="note">
-                <strong>⚠️ 유효기간 안내</strong>
-                <ul style="margin: 8px 0 0; padding-left: 20px;">
-                    <li>이 링크는 발급일로부터 <strong>{ttl_days}일간</strong>({safe_expires} UTC까지) 유효합니다.</li>
-                    <li>1회만 사용할 수 있으며, 만료 후에는 운영팀에 재발급을 요청해주세요.</li>
-                </ul>
-            </div>
-
-            <p style="color: #64748b; font-size: 0.85rem; word-break: break-all;">
-                버튼이 동작하지 않으면 아래 주소를 브라우저에 붙여넣어 주세요.<br>{safe_url}
-            </p>
-
-            <p style="color: #64748b; font-size: 0.9rem; margin-top: 20px;">
-                문의사항이 있으시면 <a href="mailto:openbrain.main@gmail.com">openbrain.main@gmail.com</a>으로 연락주세요.
-            </p>
-        </div>
-{self._footer('본인이 요청하지 않은 초대라면 이 메일을 무시하셔도 됩니다.')}
-    </div>
-</body>
-</html>
-"""
-
-        return self.send_email(to_email, "[InsightMatch] 전문가 등록 초대 링크 안내", html_content)
+        return self._send_rendered(to_email, "[InsightMatch] 전문가 등록 초대 링크 안내", layout.render_email(
+            subject="[InsightMatch] 전문가 등록 초대 링크 안내",
+            eyebrow='전문가 초대',
+            heading='InsightMatch 전문가 등록에 초대합니다',
+            preheader=f'초대 링크는 {ttl_days}일 동안 쓸 수 있습니다.',
+            body=body,
+            cta=('전문가 등록 시작하기', invite_url),
+            after_cta=[
+                layout.notice('유효기간', [
+                    f'이 링크는 발급일로부터 {ttl_days}일간({expires_at_text} UTC까지) 쓸 수 있습니다.',
+                    '한 번만 쓸 수 있으며, 기간이 지나면 운영팀에 다시 요청해 주세요.',
+                ]),
+                layout.fallback_link(invite_url),
+            ],
+            footer_note='본인이 요청하지 않은 초대라면 이 메일은 무시하셔도 됩니다.',
+        ))
 
 
 # 카카오톡 알림톡 준비용 클래스 (향후 구현)
