@@ -1120,8 +1120,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // 받은 목록에 리뷰가 있는 컨설턴트가 한 명도 없으면 '평가가 있는 컨설턴트만' 칸을 숨긴다.
+    // 리뷰가 0건일 때 이 칸을 켜면 추천이 전부 사라져 '등록된 전문가가 없다'로 읽혔다.
+    // 첫 리뷰가 달리면 칸이 저절로 다시 보인다. 숨기면서 켜져 있던 체크는 끈다.
+    // 반환값: 체크를 꺼서 필터를 다시 적용해야 하면 true
+    function syncRatedFilterVisibility() {
+        const chip = document.getElementById('filter-rated-chip');
+        const ratedFilter = document.getElementById('filter-rated');
+        if (!chip || !ratedFilter) return false;
+        const hasRated = (allConsultants || []).some(c => Number(c && c.reviews) > 0);
+        chip.classList.toggle('hidden', !hasRated);
+        if (!hasRated && ratedFilter.checked) {
+            ratedFilter.checked = false;
+            return true;
+        }
+        return false;
+    }
+
     function renderConsultants() {
         if (!consultantList) return;
+
+        if (syncRatedFilterVisibility()) {
+            // 체크를 끈 상태로 필터를 다시 계산한다(그 안에서 renderConsultants 를 다시 부른다)
+            window.applyConsultantFilter();
+            return;
+        }
 
         consultantList.innerHTML = '';
 
