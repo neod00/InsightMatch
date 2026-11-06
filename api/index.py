@@ -1527,6 +1527,40 @@ def notify_project_counterpart(project, actor_is_company, notif_type, title, mes
         print(f"[Notification] {notif_type} failed: {e}")
 
 
+def _won(value):
+    """금액을 '9,000,000원' 으로. 비어 있거나 숫자가 아니면 None."""
+    parsed = parse_positive_int(value) if value not in (None, '') else None
+    return f'{parsed:,}원' if parsed else None
+
+
+def email_project_event(notification, to_email, user_name, purpose, **mail):
+    """인앱 알림을 만든 직후 같은 내용을 메일로 바로 보낸다 (조건 협의 요청·응답 등).
+
+    하루 한 번 도는 미열람 알림 묶음을 기다리면 상대가 다음 날에야 안다. 답이 필요한
+    이벤트는 바로 보낸다. 성공하면 notification.emailed_at 을 채워 묶음 메일이 같은 건을
+    다시 보내지 않게 한다. 실패해도 본 작업은 이미 커밋돼 있으므로 기록만 남긴다.
+
+    호출 전에 본 작업과 알림이 커밋돼 있어야 한다(여기서 커밋한다).
+    """
+    to_email = (to_email or '').strip()
+    # 탈퇴 계정은 이메일이 deleted_<id>@deleted.invalid 로 바뀌어 있다.
+    if not to_email or to_email.endswith('@deleted.invalid'):
+        return False
+    try:
+        result = email_service.send_project_update(to_email=to_email, user_name=user_name, **mail)
+    except Exception as e:
+        record_email_failure(purpose, e, commit=True)
+        return False
+    if not (result or {}).get('success'):
+        # send_email 은 SMTP 실패를 예외가 아니라 {'success': False} 로 돌려준다.
+        record_email_failure(purpose, RuntimeError((result or {}).get('message', 'unknown')), commit=True)
+        return False
+    if notification is not None:
+        notification.emailed_at = _naive_utc_now()
+        db.session.commit()
+    return True
+
+
 def mark_other_session_projects_not_selected(project):
     """Mark non-selected candidates only after the chosen project is contracted."""
     if not project.session_id:
@@ -3609,6 +3643,30 @@ def request_negotiation(project_id):
             )
             db.session.add(notification)
             db.session.commit()
+
+            # 컨설턴트가 답해야 협의가 진행된다. 묶음 메일(다음 날 아침)을 기다리지 않고 바로 보낸다.
+            rows = [('프로젝트', project.title)]
+            if requested_price:
+                rows += [('기존 제안 금액', _won(negotiation_data.get('original_price')) or '-'),
+                         ('희망 금액', _won(requested_price))]
+            if requested_duration:
+                rows += [('기존 제안 기간', negotiation_data.get('original_duration') or '-'),
+                         ('희망 기간', requested_duration)]
+            email_project_event(
+                notification, get_consultant_contact_email(consultant), consultant.name,
+                'negotiation_requested',
+                subject=f'{company_name}에서 조건 협의를 요청했습니다',
+                eyebrow='조건 협의 요청',
+                tone='warn',
+                heading=f'{company_name}에서 조건 협의를 요청했습니다',
+                intro='보내 주신 제안에 대해 기업이 조건 조정을 요청했습니다. '
+                      '대시보드에서 수락, 역제안, 거절 중 하나로 답해 주세요.',
+                rows=rows,
+                other_message=message or None,
+                other_message_label='기업이 남긴 메시지',
+                action_url=f'{frontend_base_url()}/dashboard.html',
+                cta_label='협의 요청에 답하기',
+            )
     except Exception as e:
         print(f"[Notification] Failed: {e}")
     
@@ -3703,16 +3761,66 @@ def respond_negotiation(project_id):
         company_user = User.query.get(project.company_id)
         consultant = Consultant.query.get(project.consultant_id)
         if company_user and consultant:
-            action_text = {'accept': '수락', 'counter': '역제안', 'reject': '거절'}
+            action_title = {
+                'accept': f'{consultant.name}님이 조건 협의를 수락했습니다',
+                'counter': f'{consultant.name}님이 역제안을 보냈습니다',
+                'reject': f'{consultant.name}님이 조건 협의를 거절했습니다',
+            }
             notification = Notification(
                 user_id=company_user.id,
                 type='negotiation_response',
-                title=f'{consultant.name}님이 조건 협의에 {action_text[action]}했습니다',
+                title=action_title[action],
                 message=message,
                 link='/dashboard.html'
             )
             db.session.add(notification)
             db.session.commit()
+
+            # 기업에게 가는 메일이다. 수수료·협력계약 이야기는 넣지 않는다.
+            if action == 'accept':
+                mail = dict(
+                    eyebrow='협의 수락', tone='default',
+                    intro='요청하신 조건이 제안서에 반영되었습니다. 이 조건으로 전문가를 선택해 계약을 진행하실 수 있습니다.',
+                    rows=[('프로젝트', project.title),
+                          ('확정 금액', _won(project.proposal_price) or '-'),
+                          ('예상 기간', project.proposal_duration or '-')],
+                    cta_label='전문가 선택하러 가기',
+                )
+            elif action == 'counter':
+                rows = [('프로젝트', project.title)]
+                if negotiation_data.get('requested_price'):
+                    rows.append(('요청하신 금액', _won(negotiation_data.get('requested_price')) or '-'))
+                if negotiation_data.get('counter_price'):
+                    rows.append(('역제안 금액', _won(negotiation_data.get('counter_price'))))
+                if negotiation_data.get('counter_duration'):
+                    rows.append(('역제안 기간', negotiation_data.get('counter_duration')))
+                mail = dict(
+                    eyebrow='역제안 도착', tone='warn',
+                    intro='요청하신 조건 대신 전문가가 아래 조건을 제안했습니다. '
+                          '대시보드에서 역제안을 수락하거나 다시 협의를 요청하실 수 있습니다.',
+                    rows=rows,
+                    cta_label='역제안 확인하기',
+                )
+            else:
+                mail = dict(
+                    eyebrow='협의 거절', tone='neutral',
+                    intro='전문가가 조건 조정을 거절했습니다. 기존 제안 조건은 그대로 유지됩니다. '
+                          '기존 조건으로 진행하시거나 다른 전문가의 제안과 비교해 보세요.',
+                    rows=[('프로젝트', project.title),
+                          ('기존 제안 금액', _won(project.proposal_price) or '-'),
+                          ('예상 기간', project.proposal_duration or '-')],
+                    cta_label='대시보드에서 확인하기',
+                )
+            email_project_event(
+                notification, company_user.email, company_display_name(company_user, '고객'),
+                f'negotiation_response:{action}',
+                subject=action_title[action],
+                heading=action_title[action],
+                other_message=negotiation_data.get('consultant_message') if action != 'accept' else None,
+                other_message_label='전문가가 남긴 메시지',
+                action_url=f'{frontend_base_url()}/dashboard.html',
+                **mail,
+            )
     except Exception as e:
         print(f"[Notification] Failed: {e}")
     
@@ -3760,14 +3868,29 @@ def accept_counter_offer(project_id):
         if consultant and consultant.user_id:
             company_user = User.query.get(project.company_id)
             company_label = (company_user.company_name or company_user.name) if company_user else '기업'
-            db.session.add(Notification(
+            notification = Notification(
                 user_id=consultant.user_id,
                 type='negotiation_response',
                 title=f'{company_label}에서 역제안을 수락했습니다',
                 message=f'"{project.title}" 프로젝트가 역제안 조건으로 확정되었습니다. 기업의 최종 선택을 기다려주세요.',
                 link='/dashboard.html'
-            ))
+            )
+            db.session.add(notification)
             db.session.commit()
+
+            email_project_event(
+                notification, get_consultant_contact_email(consultant), consultant.name,
+                'negotiation_counter_accepted',
+                subject=f'{company_label}에서 역제안을 수락했습니다',
+                eyebrow='역제안 수락',
+                heading=f'{company_label}에서 역제안을 수락했습니다',
+                intro='역제안 조건이 제안서에 반영되었습니다. 기업이 최종 선택하면 계약 단계로 넘어갑니다.',
+                rows=[('프로젝트', project.title),
+                      ('확정 금액', _won(project.proposal_price) or '-'),
+                      ('예상 기간', project.proposal_duration or '-')],
+                action_url=f'{frontend_base_url()}/dashboard.html',
+                cta_label='대시보드에서 확인하기',
+            )
     except Exception as e:
         print(f"[Notification] Failed: {e}")
 
@@ -8837,6 +8960,12 @@ def upload_profile_image():
     except Exception as e:
         return jsonify({'error': f'업로드 중 오류: {str(e)}'}), 500
 
+# 제안서 파일 상한. 업로드가 Vercel 함수를 거치는데, Vercel 은 요청 본문 4.5MB 를 넘으면
+# 함수까지 오기 전에 413 을 돌려준다(본문이 JSON 이 아니라 화면이 원인을 못 보여줬다).
+# 화면(dashboard.html PROPOSAL_FILE_MAX_BYTES)과 같은 값으로 맞춘다.
+PROPOSAL_FILE_MAX_BYTES = 4 * 1024 * 1024
+
+
 @app.route('/api/upload/proposal-file', methods=['POST'])
 @token_required
 def upload_proposal_file():
@@ -8892,6 +9021,9 @@ def upload_proposal_file():
     try:
         file.seek(0)
         file_data = file.read()
+        if len(file_data) > PROPOSAL_FILE_MAX_BYTES:
+            return jsonify({'error': 'File too large',
+                            'message': '제안서 파일은 4MB 이하만 올릴 수 있습니다. 용량을 줄여 다시 올려주세요.'}), 413
         
         # Supabase API 호출 (POST)
         response = requests.post(upload_url, headers=headers, data=file_data)

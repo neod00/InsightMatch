@@ -428,7 +428,7 @@
 
                 <!-- ③ 제안서 파일 업로드 -->
                 <div class="form-group hm-field">
-                    <label for="proposal-file">제안서 파일 (PDF)</label>
+                    <label for="proposal-file">제안서 파일 (PDF·Word, 4MB 이하)</label>
                     <input type="file" id="proposal-file" class="hm-file-input" accept=".pdf,.doc,.docx"
                         onchange="handleProposalFileChange(event)">
                     <div id="proposal-file-info"></div>
@@ -436,7 +436,7 @@
 
                 <div class="hm-modal-foot is-end">
                     <button type="button" class="btn btn-outline" onclick="closeProposalModal()">취소</button>
-                    <button type="submit" class="btn btn-primary">제안서 제출</button>
+                    <button type="submit" id="proposal-submit-btn" class="btn btn-primary">제안서 제출</button>
                 </div>
             </form>
         </div>
@@ -2024,7 +2024,7 @@
                             <i data-lucide="user" style="width: 14px; height: 14px;"></i>
                             프로필 보기
                         </button>
-                        ${isSubmitted || isContracted ? `
+                        ${isSubmitted || isContracted || isNegotiating ? `
                         <button class="btn btn-secondary btn-sm" onclick="downloadProposal(${project.id})">
                             <i data-lucide="file-down" style="width: 14px; height: 14px;"></i>
                             제안서 다운로드
@@ -3274,6 +3274,8 @@
             document.getElementById('proposal-price').value = '';
             document.getElementById('proposal-duration').value = '3개월';
             document.getElementById('proposal-message').value = '';
+            // 다른 프로젝트에서 고른 파일·업로드 결과가 남아 엉뚱한 상태로 제출되지 않게 비운다.
+            resetProposalFile();
             document.getElementById('proposal-modal').classList.remove('hidden');
             lucide.createIcons();
         };
@@ -3281,27 +3283,67 @@
         window.closeProposalModal = function () {
             document.getElementById('proposal-modal').classList.add('hidden');
             currentProposalProjectId = null;
-            proposalFileUrl = null;
-            document.getElementById('proposal-file-info').textContent = '';
+            resetProposalFile();
         };
 
         // ③ 제안서 파일 업로드 관련
+        // 업로드는 Vercel 함수를 거치고, Vercel 은 요청 본문 4.5MB 를 넘으면 함수에 닿기 전에 막는다.
+        // 서버(api/index.py PROPOSAL_FILE_MAX_BYTES)와 같은 값.
+        const PROPOSAL_FILE_MAX_BYTES = 4 * 1024 * 1024;
         let proposalFileUrl = null;
+        // idle: 파일 없음 / uploading: 올리는 중 / done: 업로드 완료 / failed: 골랐지만 못 올림
+        // 예전에는 업로드 중이거나 실패해도 그대로 제출돼, 기업 화면에는 첨부 없이 기본 제안서만 보였다.
+        let proposalUploadState = 'idle';
+
+        function setProposalSubmitEnabled(enabled) {
+            const btn = document.getElementById('proposal-submit-btn');
+            if (btn) btn.disabled = !enabled;
+        }
+
+        function resetProposalFile() {
+            proposalFileUrl = null;
+            proposalUploadState = 'idle';
+            const input = document.getElementById('proposal-file');
+            if (input) input.value = '';
+            document.getElementById('proposal-file-info').textContent = '';
+            setProposalSubmitEnabled(true);
+        }
+        window.clearProposalFile = function () {
+            resetProposalFile();
+            showNotification('첨부 파일을 뺐습니다. 파일 없이 제출하거나 다른 파일을 골라 주세요.', 'info');
+        };
+
+        function showProposalUploadFailed(fileName, reason) {
+            proposalFileUrl = null;
+            proposalUploadState = 'failed';
+            setProposalSubmitEnabled(true);
+            document.getElementById('proposal-file-info').innerHTML = `
+                <i data-lucide="alert-circle" style="width: 14px; height: 14px; display: inline; color: var(--error);"></i>
+                ${escapeHtml(fileName)} 파일을 올리지 못했습니다. ${escapeHtml(reason)}
+                <button type="button" class="btn btn-outline btn-sm" style="margin-left: 6px;" onclick="clearProposalFile()">첨부 빼기</button>
+            `;
+            lucide.createIcons();
+        }
 
         window.handleProposalFileChange = async function (event) {
             const file = event.target.files[0];
-            if (!file) return;
-
-            const maxSize = 10 * 1024 * 1024; // 10MB
-            if (file.size > maxSize) {
-                showNotification('파일 크기는 10MB 이하여야 합니다.', 'error');
-                event.target.value = '';
+            if (!file) {
+                resetProposalFile();
                 return;
             }
 
+            if (file.size > PROPOSAL_FILE_MAX_BYTES) {
+                showNotification('제안서 파일은 4MB 이하만 올릴 수 있습니다. 용량을 줄여 다시 골라 주세요.', 'error');
+                resetProposalFile();
+                return;
+            }
+
+            proposalFileUrl = null;
+            proposalUploadState = 'uploading';
+            setProposalSubmitEnabled(false);
             document.getElementById('proposal-file-info').innerHTML = `
-                <i data-lucide="loader" class="spin" style="width: 14px; height: 14px; display: inline;"></i> 
-                업로드 중: ${escapeHtml(file.name)}...
+                <i data-lucide="loader" class="spin" style="width: 14px; height: 14px; display: inline;"></i>
+                업로드 중: ${escapeHtml(file.name)}... 끝나면 제출할 수 있습니다.
             `;
             lucide.createIcons();
 
@@ -3320,28 +3362,32 @@
 
                 if (response.ok) {
                     const uploadResult = await response.json();
-                    proposalFileUrl = safeProposalFileUrl(uploadResult.url);
-                    if (!proposalFileUrl) {
-                        throw new Error('서버가 허용되지 않은 파일 URL을 반환했습니다.');
+                    const url = safeProposalFileUrl(uploadResult.url);
+                    if (!url) {
+                        throw new Error('파일 주소를 확인하지 못했습니다.');
                     }
+                    proposalFileUrl = url;
+                    proposalUploadState = 'done';
+                    setProposalSubmitEnabled(true);
                     document.getElementById('proposal-file-info').innerHTML = `
-                        <i data-lucide="check-circle" style="width: 14px; height: 14px; display: inline; color: var(--primary);"></i> 
+                        <i data-lucide="check-circle" style="width: 14px; height: 14px; display: inline; color: var(--primary);"></i>
                         업로드 완료: ${escapeHtml(file.name)}
                     `;
                     showNotification('제안서 파일이 업로드되었습니다.', 'success');
                 } else {
-                    const error = await response.json();
-                    throw new Error(error.error || error.message || '업로드 실패');
+                    // Vercel 이 크기 초과로 막으면 본문이 JSON 이 아니다. 그때도 이유를 보여준다.
+                    let error = {};
+                    try { error = await response.json(); } catch (e) { /* JSON 아님 */ }
+                    if (response.status === 413) {
+                        throw new Error('파일이 너무 큽니다. 4MB 이하로 줄여 다시 올려 주세요.');
+                    }
+                    throw new Error(error.message || '잠시 후 다시 시도해 주세요.');
                 }
                 lucide.createIcons();
             } catch (error) {
-                console.error('Direct Upload error:', error);
-                document.getElementById('proposal-file-info').innerHTML = `
-                    <i data-lucide="alert-circle" style="width: 14px; height: 14px; display: inline; color: var(--error);"></i> 
-                    업로드 실패
-                `;
-                showNotification(`업로드 실패: ${error.message}`, 'error');
-                lucide.createIcons();
+                console.error('Proposal upload error:', error);
+                showProposalUploadFailed(file.name, error.message || '');
+                showNotification(`제안서 파일 업로드 실패: ${error.message}`, 'error');
             }
         };
 
@@ -3355,6 +3401,15 @@
 
             if (!price || parseInt(price) < 100000) {
                 showNotification('올바른 금액을 입력해주세요. (최소 100,000원)', 'error');
+                return;
+            }
+            // 첨부를 골랐는데 아직 안 올라갔거나 실패했으면 파일 없이 나가지 않게 막는다.
+            if (proposalUploadState === 'uploading') {
+                showNotification('제안서 파일을 올리는 중입니다. 업로드가 끝난 뒤 제출해 주세요.', 'error');
+                return;
+            }
+            if (proposalUploadState === 'failed') {
+                showNotification('첨부한 제안서 파일이 올라가지 않았습니다. 파일을 다시 고르거나 "첨부 빼기"를 누른 뒤 제출해 주세요.', 'error');
                 return;
             }
 

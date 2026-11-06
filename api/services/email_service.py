@@ -298,6 +298,51 @@ class EmailService:
             cta=('제안서 보기', dashboard_url),
         ))
 
+    def send_project_update(
+        self,
+        to_email: str,
+        user_name: Optional[str],
+        subject: str,
+        eyebrow: str,
+        heading: str,
+        intro: str,
+        rows: Optional[List] = None,
+        other_message: Optional[str] = None,
+        other_message_label: str = '전달 메시지',
+        action_url: Optional[str] = None,
+        cta_label: str = '대시보드에서 확인하기',
+        tone: str = 'default',
+    ) -> Dict:
+        """프로젝트 진행 중 상대방이 답해야 하는 이벤트 메일 (조건 협의 요청·응답·역제안 수락 등).
+
+        이런 이벤트는 하루 한 번 도는 미열람 알림 묶음(send_notification_digest)을 기다리면
+        상대가 다음 날에야 알게 된다. 호출부가 인앱 알림을 만든 직후 바로 보낸다.
+        ⚠️ 기업에게도 가는 메일이다. 수수료·협력계약 이야기는 넣지 않는다.
+
+        Args:
+            rows: [(항목, 값)] — 정보 표. 값은 레이아웃이 이스케이프한다.
+            other_message: 상대방이 적은 메시지(사용자 입력). 안내 상자로 붙인다.
+        """
+        action_url = action_url or f'{layout.site_url()}/dashboard.html'
+        body = [
+            layout.paragraph(f'{user_name or "회원"}님, 안녕하세요.'),
+            layout.paragraph(intro),
+        ]
+        if rows:
+            body.append(layout.info_table(rows))
+        if other_message:
+            body.append(layout.notice(other_message_label, [other_message]))
+        full_subject = f'[InsightMatch] {subject}'
+        return self._send_rendered(to_email, full_subject, layout.render_email(
+            subject=full_subject,
+            eyebrow=eyebrow,
+            tone=tone,
+            heading=heading,
+            preheader=intro[:80],
+            body=body,
+            cta=(cta_label, action_url),
+        ))
+
     # 컨설턴트 심사 결과 4개 이벤트의 메일 문안.
     # 인앱 알림 type 값(consultant_approved 등)을 그대로 키로 쓴다.
     REVIEW_RESULT_TEMPLATES = {
