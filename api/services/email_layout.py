@@ -55,6 +55,10 @@ TRANSACTIONAL_NOTICE = (
 )
 ADMIN_NOTICE = '이 메일은 InsightMatch 운영자에게 보내는 관리용 통지입니다.'
 
+# BASE_URL 환경 변수가 없을 때 쓰는 운영 주소. 정식 도메인이 생기면 BASE_URL 만 바꾸면 되고,
+# 이 값은 환경 변수가 빠졌을 때 링크가 죽지 않게 하는 예비값이다.
+DEFAULT_SITE_URL = 'https://insight-match-ashen.vercel.app'
+
 
 def support_email() -> str:
     """메일 하단 문의 주소. 사이트(약관·문의 페이지)와 같은 주소를 기본값으로 쓰고,
@@ -64,7 +68,7 @@ def support_email() -> str:
 
 def site_url() -> str:
     """요청 맥락 없이 메일을 만들 때 쓰는 사이트 주소 (기본 인자용)."""
-    return (os.environ.get('BASE_URL') or 'https://insight-match-ashen.vercel.app').rstrip('/')
+    return (os.environ.get('BASE_URL') or DEFAULT_SITE_URL).rstrip('/')
 
 
 class Safe(str):
