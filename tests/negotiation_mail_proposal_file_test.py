@@ -214,6 +214,27 @@ class ProposalFileUploadTest(unittest.TestCase):
         self.assertEqual(headers['Authorization'], 'Bearer test-service')
         self.assertEqual(headers['apikey'], 'test-service')
 
+    def test_profile_image_upload_uses_service_role_key(self):
+        """프로필 사진도 서버 전용 키로 올린다. anon 키의 profiles 업로드·수정 권한을 지우기 위함."""
+        class Ok:
+            status_code = 200
+            text = '{}'
+
+            def json(self):
+                return {}
+
+        png = io.BytesIO(b'\x89PNG\r\n\x1a\n' + b'0' * 64)
+        env = {'SUPABASE_URL': 'https://example.supabase.co', 'SUPABASE_ANON_KEY': 'test-anon',
+               'SUPABASE_SERVICE_ROLE_KEY': 'test-service'}
+        with patch.dict(os.environ, env), patch('requests.post', return_value=Ok()) as storage_post:
+            res = self.client.post('/api/upload/profile-image', headers=auth_headers(self.consultant_user),
+                                   data={'file': (png, 'me.png', 'image/png')},
+                                   content_type='multipart/form-data')
+        self.assertEqual(res.status_code, 200, res.get_json())
+        headers = storage_post.call_args.kwargs['headers']
+        self.assertEqual(headers['Authorization'], 'Bearer test-service')
+        self.assertIn('/storage/v1/object/profiles/', storage_post.call_args.args[0])
+
     def test_upload_falls_back_to_anon_key_without_service_key(self):
         """서비스 키가 없는 로컬 개발 환경에서는 예전처럼 anon 키로 올린다."""
         headers = self._upload_small({'SUPABASE_URL': 'https://example.supabase.co',

@@ -8971,8 +8971,13 @@ def upload_profile_image():
         return jsonify({'error': 'JPG, PNG, GIF 파일만 업로드 가능합니다.'}), 400
     
     # Supabase 설정
+    # 프로필 사진은 공개 버킷(profiles)이라 보기는 누구나 되지만, 올리기·덮어쓰기는 서버만 하도록
+    # 서버 전용 키(service role, RLS 우회)로 올린다. 그래야 anon 키에 열려 있던 profiles 의
+    # 업로드·수정 권한 규칙을 지울 수 있다(제안서 업로드와 같은 방식, 2026-11-11).
+    # 서비스 키가 없는 로컬 개발 환경에서만 anon 키로 올린다.
     supabase_url = get_supabase_url()
-    supabase_key = os.environ.get('SUPABASE_ANON_KEY', '').strip() # 사용자가 제공해야 함
+    supabase_key = (os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '').strip()
+                    or os.environ.get('SUPABASE_ANON_KEY', '').strip())
     if not supabase_url or not supabase_key:
         return jsonify({'error': 'Profile image storage is not configured',
                         'message': '지금은 사진을 올릴 수 없습니다. 잠시 후 다시 시도해주세요.'}), 503
