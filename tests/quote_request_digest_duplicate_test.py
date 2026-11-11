@@ -17,7 +17,7 @@ os.environ['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
 
 import index  # noqa: E402
 from index import app, db, email_service  # noqa: E402
-from models import Consultant, Notification, User  # noqa: E402
+from models import Consultant, ErrorLog, Notification, Project, User  # noqa: E402
 
 
 def auth_headers(user):
@@ -82,6 +82,41 @@ class QuoteRequestDigestDuplicateTest(unittest.TestCase):
         self.assertIsNone(note.emailed_at)
         digest = self._run_digest_seven_hours_later(note)
         digest.assert_called_once()   # 바로 못 보냈으면 묶음 메일이 대신 보낸다
+
+    # ---------- '새로운 전문가 추천받기' 로 나중에 추가한 컨설턴트 ----------
+    def _add_consultant(self, mail_result):
+        """기존 견적 요청 그룹(다른 컨설턴트에게 보낸 요청)에 self.consultant 를 추가한다."""
+        first_user = User(email='first-q@example.com', password_hash='x', role='consultant', name='김먼저')
+        db.session.add(first_user)
+        db.session.flush()
+        first = Consultant(user_id=first_user.id, name='김먼저', verified=True, status='verified')
+        db.session.add(first)
+        db.session.flush()
+        db.session.add(Project(company_id=self.company.id, consultant_id=first.id,
+                               title='ISO 9001 인증 견적 요청', status='proposal_pending'))
+        db.session.commit()
+        with patch.object(email_service, 'send_quote_request_to_consultant', autospec=True,
+                          return_value=mail_result) as send:
+            res = self.client.post('/api/projects/add-consultant',
+                                   json={'consultant_id': self.consultant.id, 'title': 'ISO 9001 인증 견적 요청'},
+                                   headers=auth_headers(self.company))
+        self.assertEqual(res.status_code, 201, res.get_json())
+        send.assert_called_once()
+        return Notification.query.filter_by(user_id=self.consultant_user.id, type='quote_request').one_or_none()
+
+    def test_added_consultant_gets_site_notification(self):
+        note = self._add_consultant({'success': True})
+        self.assertIsNotNone(note)                       # 예전에는 알림이 아예 없었다
+        self.assertEqual(note.title, '바이어제조에서 견적을 요청했습니다')
+        self.assertIn('ISO 9001 인증 견적 요청', note.message)
+        self.assertIsNotNone(note.emailed_at)            # 메일이 나갔으니 묶음 메일 대상이 아니다
+        self._run_digest_seven_hours_later(note).assert_not_called()
+
+    def test_added_consultant_mail_failure_falls_back_to_digest(self):
+        note = self._add_consultant({'success': False, 'message': 'smtp down'})
+        self.assertIsNone(note.emailed_at)
+        self.assertEqual(ErrorLog.query.filter_by(level='warning').count(), 1)
+        self._run_digest_seven_hours_later(note).assert_called_once()
 
 
 if __name__ == '__main__':
