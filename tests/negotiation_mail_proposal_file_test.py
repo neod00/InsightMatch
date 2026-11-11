@@ -189,6 +189,38 @@ class ProposalFileUploadTest(unittest.TestCase):
     def test_limit_is_below_vercel_request_body_limit(self):
         self.assertLess(index.PROPOSAL_FILE_MAX_BYTES, int(4.5 * 1024 * 1024))
 
+    def _upload_small(self, env):
+        class Ok:
+            status_code = 200
+            text = '{}'
+
+            def json(self):
+                return {}
+
+        small = io.BytesIO(b'%PDF-1.4 small')
+        with patch.dict(os.environ, env), patch('requests.post', return_value=Ok()) as storage_post:
+            res = self.client.post('/api/upload/proposal-file', headers=auth_headers(self.consultant_user),
+                                   data={'project_id': str(self.project.id), 'file': (small, 'proposal.pdf')},
+                                   content_type='multipart/form-data')
+        self.assertEqual(res.status_code, 200, res.get_json())
+        storage_post.assert_called_once()
+        return storage_post.call_args.kwargs['headers']
+
+    def test_upload_uses_service_role_key_when_available(self):
+        """비공개 버킷의 anon 권한 규칙을 지울 수 있도록 서버 전용 키로 올린다 (2026-11-11)."""
+        headers = self._upload_small({'SUPABASE_URL': 'https://example.supabase.co',
+                                      'SUPABASE_ANON_KEY': 'test-anon',
+                                      'SUPABASE_SERVICE_ROLE_KEY': 'test-service'})
+        self.assertEqual(headers['Authorization'], 'Bearer test-service')
+        self.assertEqual(headers['apikey'], 'test-service')
+
+    def test_upload_falls_back_to_anon_key_without_service_key(self):
+        """서비스 키가 없는 로컬 개발 환경에서는 예전처럼 anon 키로 올린다."""
+        headers = self._upload_small({'SUPABASE_URL': 'https://example.supabase.co',
+                                      'SUPABASE_ANON_KEY': 'test-anon',
+                                      'SUPABASE_SERVICE_ROLE_KEY': ''})
+        self.assertEqual(headers['Authorization'], 'Bearer test-anon')
+
 
 class ProposalFileFrontendContractTest(unittest.TestCase):
     @classmethod

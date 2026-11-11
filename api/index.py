@@ -9051,12 +9051,17 @@ def upload_proposal_file():
     unique_name = f"{project.id}_{user_id}_{int(time_module.time())}.{file_ext}"
     
     # Supabase 설정
+    # 제안서는 비공개 버킷(proposals)에 서버 전용 키(service role)로 올린다. 이 키는 저장소
+    # 권한 규칙(RLS)을 거치지 않으므로, anon 키에 열려 있던 proposals 의 조회·업로드·수정·삭제
+    # 규칙을 지울 수 있다(지우기 전에는 anon 키만 있으면 누구나 남의 제안서를 읽고 지울 수 있었다).
+    # 서비스 키가 없는 로컬 개발 환경에서만 예전처럼 anon 키로 올린다.
     supabase_url = get_supabase_url()
-    supabase_key = os.environ.get('SUPABASE_ANON_KEY', '').strip()
+    supabase_key = (os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '').strip()
+                    or os.environ.get('SUPABASE_ANON_KEY', '').strip())
     if not supabase_url or not supabase_key:
         return jsonify({'error': 'Proposal storage is not configured',
                         'message': '지금은 파일을 올릴 수 없습니다. 파일 없이 제출하거나 잠시 후 다시 시도해주세요.'}), 503
-    
+
     # 업로드 경로: bucket/filename (proposals 버킷 내부)
     upload_url = f"{supabase_url}/storage/v1/object/proposals/{unique_name}"
     
