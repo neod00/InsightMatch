@@ -6625,6 +6625,9 @@ def request_quotes():
         return jsonify({'message': '견적 요청을 저장하지 못했습니다. 잠시 후 다시 시도해주세요.'}), 500
     
     # --- BUG-010 Fix: 인앱 알림 생성 ---
+    # 아래에서 견적 요청 메일이 바로 나가므로, 성공하면 알림에 emailed_at 을 채운다.
+    # 채우지 않으면 다음 날 아침 미열람 알림 묶음 메일이 같은 견적 요청을 한 번 더 보낸다.
+    quote_notifications = {}
     for consultant in consultants:
         # 이 컨설턴트에 대한 프로젝트가 실제로 생성된 경우에만 알림 발송
         project_info = next(
@@ -6642,6 +6645,7 @@ def request_quotes():
                     link='/dashboard.html'
                 )
                 db.session.add(notification)
+                quote_notifications[consultant.id] = notification
             except Exception as e:
                 print(f"[Notification] Failed to create quote request notification: {e}")
     
@@ -6687,6 +6691,9 @@ def request_quotes():
                     'email_sent': result.get('success', False),
                     'simulated': result.get('simulated', False)
                 })
+                sent_note = quote_notifications.get(consultant.id)
+                if result.get('success') and sent_note is not None:
+                    sent_note.emailed_at = _naive_utc_now()
             except Exception as e:
                 print(f"[Email] Error sending to {consultant.name}: {e}")
                 email_results.append({
@@ -6695,7 +6702,16 @@ def request_quotes():
                     'email_sent': False,
                     'error': str(e)
                 })
-    
+
+    # 위에서 채운 emailed_at 저장. 실패해도 견적 요청 자체는 이미 커밋돼 있다
+    # (최악의 경우 다음 날 묶음 메일에 한 번 더 실릴 뿐이다).
+    if quote_notifications:
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"[Notification] emailed_at commit failed: {e}")
+
     # 기업 사용자에게 확인 이메일 발송
     company_user = User.query.get(user_id)
     company_email = company_user.email if company_user else analysis_context.get('contact_email')
