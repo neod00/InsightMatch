@@ -5626,7 +5626,27 @@ def add_consultant_to_request():
     
     db.session.add(new_project)
     db.session.commit()
-    
+
+    # 인앱 알림. 최초 견적 요청(/api/quotes/request)과 같은 알림을 만든다.
+    # 예전에는 이 경로만 알림이 없어, 나중에 추가된 컨설턴트는 메일만 받았고
+    # 메일이 실패하면 다음 날 묶음 메일로도 연락이 가지 않았다.
+    notification = None
+    if consultant.user_id:
+        try:
+            notification = Notification(
+                user_id=consultant.user_id,
+                type='quote_request',
+                title=f'{company_display_name(g.current_user)}에서 견적을 요청했습니다',
+                message=f'"{title}" 프로젝트에 대한 견적 요청이 도착했습니다. 대시보드에서 확인해주세요.',
+                link='/dashboard.html'
+            )
+            db.session.add(notification)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            notification = None
+            print(f"[Notification] add-consultant quote request notification failed: {e}")
+
     # 이메일 발송
     # 기존 견적 요청 그룹에 컨설턴트를 '추가' 한 것이므로 최초 요청과 같은
     # 견적 요청 알림 메일을 보낸다.
@@ -5645,7 +5665,7 @@ def add_consultant_to_request():
                 if job:
                     intake = job.get_intake_data() or {}
 
-            email_service.send_quote_request_to_consultant(
+            result = email_service.send_quote_request_to_consultant(
                 consultant_email=consultant_email,
                 consultant_name=consultant.name,
                 company_name=company.company_name or company.name or '기업',
@@ -5662,6 +5682,15 @@ def add_consultant_to_request():
                 project_id=new_project.id,
                 dashboard_url=f'{frontend_base_url()}/dashboard.html'
             )
+            if (result or {}).get('success') and notification is not None:
+                # 이미 메일로 나갔다. 표시가 없으면 다음 날 묶음 메일이 같은 요청을 다시 보낸다.
+                notification.emailed_at = _naive_utc_now()
+                db.session.commit()
+            elif not (result or {}).get('success'):
+                # send_email 은 SMTP 실패를 예외가 아니라 {'success': False} 로 돌려준다.
+                # 알림은 emailed_at 이 비어 있으니 다음 날 묶음 메일이 대신 보낸다.
+                record_email_failure('quote_request_added',
+                                     RuntimeError((result or {}).get('message', 'unknown')), commit=True)
     except Exception as e:
         # 위에서 프로젝트 커밋이 끝났으므로 여기서 커밋해도 안전하다.
         record_email_failure('quote_request_added', e, commit=True)
